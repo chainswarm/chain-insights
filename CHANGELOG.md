@@ -3,6 +3,58 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.38.0] - 2026-10-05 — feat: anchored topology recipes and the list of queries the graph must refuse
+
+This release changes recipes, text and tests only. The CLI and the MCP proxy
+behave as in 0.37.5, apart from the hint text the proxy serves. The graph
+server will refuse a topology read that has no address in its pattern, and a
+route search that asks for more than one path. This release stops showing those
+reads as reads that work, and adds the list that the server and the skills are
+both tested against.
+
+### Changed
+
+- The whole-graph recipes are gone from `tests/fixtures/documented-recipes.json`.
+  `recipe_topology_06`, the 25 largest links of the whole graph, reads the 25
+  largest inflows of one address; `recipe_topology_05` already reads the
+  outflows. Both return `first_seen_timestamp` and `last_seen_timestamp` of
+  each link, so a caller can name the day of a link. `recipe_topology_07` (the
+  out degree of every source) and `recipe_topology_09` (a prefix scan) are
+  removed: the out degree of one address is the node property `degree_out`, and
+  a prefix is not an anchor on any layer.
+- `ALL SHORTEST` is no longer taught. A route search asks for one path:
+  `SHORTEST 1` or `ANY SHORTEST`. The recipe that asked for every shortest
+  path is removed, and the dialect skill, `docs/graph-tools.md`,
+  `docs/graph-query-compatibility.md` and the served graph hints say so.
+- The route example ends in `LIMIT 5` in `docs/graph-tools.md`, in the dialect
+  skill and in the served graph hint. A topology read without a literal `LIMIT`
+  is refused, so the example as it stood was a query the server would refuse.
+- The dialect skill states the anchor rule: an address in every pattern, the
+  probe as the one read without one, a `LIMIT` of at most 5,000, at most 5 hops
+  in a path and 8 in a query, one path for a route search, and a refusal that
+  carries `error_detail` with a fix and an example.
+- The generated corpus holds 46 entries, from 49. The entry
+  `addressFeatureQuery` has the scope `topology`: its text starts with
+  `USE topology`, and it was filed as `facts`.
+
+### Added
+
+- `tests/fixtures/topology-shape-cases.json`, written by
+  `npm run corpus:generate`: the topology queries the graph must admit (every
+  `USE topology` query of the corpus, of the documented recipes and of the
+  examples of the two skills) and the queries it must refuse. Each refusal names
+  the code and the rule word it must get, from `aggregate_unanchored`,
+  `anchor_missing`, `cartesian_product`, `hop_budget`, `limit_missing`,
+  `query_too_large`, `route_search_refused`, `unsupported_expression_shape`
+  and `unsupported_topology_dialect`. The texts of the removed recipes are
+  refuse cases.
+- `tests/topology-shape-cases.test.ts` keeps that file equal to a fresh run,
+  keeps every `USE topology` example of the two skills in the admit list and
+  every refuse case out of them, fails when a skill, a guide or a served
+  hint teaches `ALL SHORTEST`, and fails when a shortest-path search that
+  `docs/graph-tools.md`, the dialect skill or a served hint shows has no
+  literal `LIMIT` of 5,000 or less.
+
 ## [0.37.5] - 2026-10-05 — fix: the facts recipes and examples name an address pair with one day, or a transaction hash
 
 This release changes recipes, text and tests only. The CLI and the MCP proxy

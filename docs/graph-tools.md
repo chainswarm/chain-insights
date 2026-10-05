@@ -121,13 +121,13 @@ of truth.
 Route between two addresses under the rule. It walks `FLOWS_TO` and
 `SWAPPED`. The guards sit inside the path pattern, on the start and on every
 address in the middle, so the search finds the shortest route that avoids
-pools. `ANY SHORTEST` and `ALL SHORTEST` take the same pattern in place of
-`SHORTEST 1`:
+pools. `ANY SHORTEST` takes the same pattern in place of `SHORTEST 1`. Ask for
+one path only:
 
 ```bash
 cia mcp call graph_query \
   network=robinhood \
-  'query=USE topology MATCH p = SHORTEST 1 (a:Address {address: "0x..."} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "0x..."}) RETURN [n IN nodes(p) | n.address] AS route'
+  'query=USE topology MATCH p = SHORTEST 1 (a:Address {address: "0x..."} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "0x..."}) RETURN [n IN nodes(p) | n.address] AS route LIMIT 5'
 ```
 
 Every property is listed in the `chain-insights-schema-evm` skill.

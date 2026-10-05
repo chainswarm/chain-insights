@@ -1,0 +1,661 @@
+{
+ "rules_version": "1",
+ "cases": [
+  {
+   "id": "builder-addressFeatureQuery-1",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"}) RETURN a.degree_in AS degree_in, a.degree_out AS degree_out, a.degree_total AS degree_total, a.tx_in_count AS tx_in_count, a.tx_out_count AS tx_out_count, a.tx_total_count AS tx_total_count, a.total_volume_usd AS total_volume_usd, a.total_in_usd AS total_in_usd, a.total_out_usd AS total_out_usd, a.net_flow_usd AS net_flow_usd, a.first_activity_timestamp AS first_activity_timestamp, a.last_activity_timestamp AS last_activity_timestamp, a.activity_span_days AS activity_span_days LIMIT 1",
+   "source": "builder:addressFeatureQuery"
+  },
+  {
+   "id": "builder-addressProfileQuery-1",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"}) RETURN a.address AS address, a.network AS network, a.labels AS display_labels, a.labels AS system_labels, a.is_exchange AS is_exchange, a.risk_score AS live_risk_score, a.risk_level AS live_risk_level, a.label_risk_labels AS label_risk_labels, a.label_risk_levels AS label_risk_levels, a.label_risk_updated_timestamps AS label_risk_updated_timestamps LIMIT 1",
+   "source": "builder:addressProfileQuery"
+  },
+  {
+   "id": "builder-addressProfileQuery-2",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"corpus\\\"quote\"}) RETURN a.address AS address, a.network AS network, a.labels AS display_labels, a.labels AS system_labels, a.is_exchange AS is_exchange, a.risk_score AS live_risk_score, a.risk_level AS live_risk_level, a.label_risk_labels AS label_risk_labels, a.label_risk_levels AS label_risk_levels, a.label_risk_updated_timestamps AS label_risk_updated_timestamps LIMIT 1",
+   "source": "builder:addressProfileQuery"
+  },
+  {
+   "id": "builder-compareAddressExistsQuery-1",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"}) RETURN a.address AS address LIMIT 1",
+   "source": "builder:compareAddressExistsQuery"
+  },
+  {
+   "id": "builder-connectionProbeQuery-1",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[r:FLOWS_TO]-(b:Address {address: \"corpus-address-b\"}) RETURN [a.address, b.address] AS addresses, 1 AS hops LIMIT 5",
+   "source": "builder:connectionProbeQuery"
+  },
+  {
+   "id": "builder-connectionRouteQueries-1",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"corpus-address-a\"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: \"corpus-address-b\"}) RETURN p LIMIT 1",
+   "source": "builder:connectionRouteQueries"
+  },
+  {
+   "id": "builder-connectionRouteQueries-2",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"corpus-address-b\"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: \"corpus-address-a\"}) RETURN p LIMIT 1",
+   "source": "builder:connectionRouteQueries"
+  },
+  {
+   "id": "builder-connectionRouteQueries-3",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"corpus-address-b\"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: \"corpus\\\"quote\"}) RETURN p LIMIT 1",
+   "source": "builder:connectionRouteQueries"
+  },
+  {
+   "id": "builder-connectionRouteQueries-4",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"corpus\\\"quote\"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: \"corpus-address-b\"}) RETURN p LIMIT 1",
+   "source": "builder:connectionRouteQueries"
+  },
+  {
+   "id": "builder-crossSpaceLinkedQuery-1",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[l:LINKED]-(b:Address) WHERE a.network <> b.network RETURN a.address AS address, a.network AS network, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence, l.source_event AS source_event, l.declared_owner AS declared_owner LIMIT 50",
+   "source": "builder:crossSpaceLinkedQuery"
+  },
+  {
+   "id": "recipe-topology-01",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address) RETURN a.address AS address, a.labels AS labels, a.risk_score AS risk_score, a.risk_level AS risk_level, a.is_exchange AS is_exchange LIMIT 10",
+   "source": "recipe:recipe_topology_01"
+  },
+  {
+   "id": "recipe-topology-02",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp LIMIT 10",
+   "source": "recipe:recipe_topology_02"
+  },
+  {
+   "id": "recipe-topology-05",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[flow:FLOWS_TO]->(dst:Address) WHERE NOT src:Pool RETURN dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.amount_usd_sum DESC LIMIT 50",
+   "source": "recipe:recipe_topology_05"
+  },
+  {
+   "id": "recipe-topology-06",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"}) WHERE NOT dst:Pool RETURN src.address AS from_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.amount_usd_sum DESC LIMIT 25",
+   "source": "recipe:recipe_topology_06"
+  },
+  {
+   "id": "recipe-topology-08",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, CASE WHEN flow.amount_usd_sum IS NULL THEN \"unknown\" WHEN flow.amount_usd_sum >= 100000 THEN \"large\" WHEN flow.amount_usd_sum >= 10000 THEN \"medium\" ELSE \"small\" END AS amount_bucket, flow.amount_usd_sum AS amount_usd_sum LIMIT 25",
+   "source": "recipe:recipe_topology_08"
+  },
+  {
+   "id": "recipe-topology-11",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[r1:FLOWS_TO]->(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) WHERE NOT src:Pool RETURN src.address AS from_address, dst.address AS to_address, 1 AS hops, r1.amount_usd_sum AS amount_usd_sum, r1.tx_count AS tx_count LIMIT 25",
+   "source": "recipe:recipe_topology_11"
+  },
+  {
+   "id": "recipe-topology-12",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[r1:FLOWS_TO|SWAPPED]->(mid:Address)-[r2:FLOWS_TO|SWAPPED]->(dst:Address) WHERE NOT src:Pool AND NOT mid:Pool AND mid.is_exchange IS NULL RETURN src.address AS from_address, mid.address AS mid_address, dst.address AS to_address, 2 AS hops, type(r1) AS first_edge, type(r2) AS second_edge, coalesce(r1.amount_usd_sum, r1.bought_usd) AS first_amount_usd, coalesce(r2.amount_usd_sum, r2.bought_usd) AS second_amount_usd LIMIT 25",
+   "source": "recipe:recipe_topology_12"
+  },
+  {
+   "id": "recipe-topology-14",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1",
+   "source": "recipe:recipe_topology_14"
+  },
+  {
+   "id": "recipe-topology-15",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH SHORTEST 1 (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address) RETURN b.address LIMIT 50",
+   "source": "recipe:recipe_topology_15"
+  },
+  {
+   "id": "recipe-topology-16",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN p LIMIT 5",
+   "source": "recipe:recipe_topology_16"
+  },
+  {
+   "id": "recipe-topology-17",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH p = ANY SHORTEST (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN p LIMIT 5",
+   "source": "recipe:recipe_topology_17"
+  },
+  {
+   "id": "recipe-topology-19",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[l:LINKED]-(b:Address) RETURN b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence, l.source_event AS source_event, l.declared_owner AS declared_owner LIMIT 25",
+   "source": "recipe:recipe_topology_19"
+  },
+  {
+   "id": "recipe-topology-20",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[l:LINKED]-(owned:Address)-[r:FLOWS_TO|SWAPPED]-(b:Address) WHERE NOT a:Pool AND NOT owned:Pool AND owned.address <> b.address AND a.address <> b.address RETURN a.address AS subject_address, owned.address AS linked_via_address, b.address AS counterparty_address, type(r) AS edge, coalesce(r.amount_usd_sum, r.bought_usd) AS amount_usd_sum, coalesce(r.tx_count, r.swap_count) AS tx_count LIMIT 25",
+   "source": "recipe:recipe_topology_20"
+  },
+  {
+   "id": "recipe-topology-21",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[l:LINKED]-(b:Address) WHERE a.network <> b.network RETURN a.address AS address, a.network AS network, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 25",
+   "source": "recipe:recipe_topology_21"
+  },
+  {
+   "id": "recipe-topology-operated-by-01",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: \"0xdd509c9f91f66a18802ef5b3d54c73b62ea1ca08\"}) RETURN owner.address AS owner_address, operation.tx_count AS tx_count, operation.amount_usd_sum AS amount_usd_sum, coalesce(operation.token_standard, \"mixed\") AS token_standard, operation.last_seen_timestamp AS last_seen_timestamp ORDER BY operation.tx_count DESC LIMIT 10",
+   "source": "recipe:recipe_topology_operated_by_01"
+  },
+  {
+   "id": "recipe-topology-pool-no-fan-out-01",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (src:Address {address: \"0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24\"})-[r1:FLOWS_TO|SWAPPED]->(mid:Address)-[r2:FLOWS_TO|SWAPPED]->(dst:Address) WHERE NOT src:Pool AND NOT mid:Pool AND mid.is_exchange IS NULL AND dst.address <> src.address RETURN mid.address AS via_address, type(r2) AS exit_edge, dst.address AS to_address, coalesce(r2.amount_usd_sum, r2.bought_usd) AS exit_usd LIMIT 25 UNION MATCH (src:Address {address: \"0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24\"})-[r1:FLOWS_TO|ADDED_LIQUIDITY]->(mid:Pool)-[r2:REMOVED_LIQUIDITY]->(dst:Address) WHERE NOT src:Pool AND dst.address <> src.address RETURN mid.address AS via_address, type(r2) AS exit_edge, dst.address AS to_address, r2.usd AS exit_usd LIMIT 25",
+   "source": "recipe:recipe_topology_pool_no_fan_out_01"
+  },
+  {
+   "id": "recipe-topology-pool-rug-pull-01",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (victim:Address {address: \"0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24\"})-[paid:FLOWS_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE NOT victim:Pool AND receiver.address <> victim.address RETURN pool.address AS pool_address, receiver.address AS receiver_address, paid.amount_usd_sum AS paid_in_usd, removal.usd AS removed_usd, removal.receiver_added_usd AS receiver_added_usd, removal.usd - removal.receiver_added_usd AS receiver_profit_usd, removal.receiver_provided AS receiver_provided ORDER BY removed_usd DESC LIMIT 25",
+   "source": "recipe:recipe_topology_pool_rug_pull_01"
+  },
+  {
+   "id": "builder-exchangeInflowQueries-1",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (exchange:Address)-[r1:FLOWS_TO]->(a:Address) WHERE a.address = \"corpus-address-a\" AND a.address <> exchange.address AND exchange.is_exchange IS NOT NULL AND NOT a:Pool RETURN \"inflow\" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, a.address AS withdrawal_address, 1 AS hops, r1.amount_usd_sum AS amount_usd_sum, r1.tx_count AS tx_count, r1.first_seen_timestamp AS first_seen_timestamp, r1.last_seen_timestamp AS last_seen_timestamp, [exchange.address, a.address] AS addresses, [{address: exchange.address, network: exchange.network, labels: exchange.labels, system_labels: exchange.labels, is_exchange: exchange.is_exchange, risk_score: exchange.risk_score, risk_level: exchange.risk_level}, {address: a.address, network: a.network, labels: a.labels, system_labels: a.labels, is_exchange: a.is_exchange, risk_score: a.risk_score, risk_level: a.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp}] AS edge_props ORDER BY hops ASC LIMIT 200",
+   "source": "builder:exchangeInflowQueries"
+  },
+  {
+   "id": "builder-exchangeInflowQueries-2",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (exchange:Address)-[r1:FLOWS_TO]->(n1:Address)-[r2:FLOWS_TO]->(a:Address) WHERE a.address = \"corpus-address-a\" AND a.address <> exchange.address AND exchange.is_exchange IS NOT NULL AND n1.is_exchange IS NULL AND NOT a:Pool AND NOT n1:Pool RETURN \"inflow\" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, n1.address AS withdrawal_address, 2 AS hops, r2.amount_usd_sum AS amount_usd_sum, r2.tx_count AS tx_count, r2.first_seen_timestamp AS first_seen_timestamp, r2.last_seen_timestamp AS last_seen_timestamp, [exchange.address, n1.address, a.address] AS addresses, [{address: exchange.address, network: exchange.network, labels: exchange.labels, system_labels: exchange.labels, is_exchange: exchange.is_exchange, risk_score: exchange.risk_score, risk_level: exchange.risk_level}, {address: n1.address, network: n1.network, labels: n1.labels, system_labels: n1.labels, is_exchange: n1.is_exchange, risk_score: n1.risk_score, risk_level: n1.risk_level}, {address: a.address, network: a.network, labels: a.labels, system_labels: a.labels, is_exchange: a.is_exchange, risk_score: a.risk_score, risk_level: a.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp}, {amount_usd_sum: r2.amount_usd_sum, tx_count: r2.tx_count, first_seen_timestamp: r2.first_seen_timestamp, last_seen_timestamp: r2.last_seen_timestamp}] AS edge_props ORDER BY hops ASC LIMIT 200",
+   "source": "builder:exchangeInflowQueries"
+  },
+  {
+   "id": "builder-exchangeInflowQueries-3",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (exchange:Address)-[r1:FLOWS_TO]->(n1:Address)-[r2:FLOWS_TO]->(n2:Address)-[r3:FLOWS_TO]->(a:Address) WHERE a.address = \"corpus-address-a\" AND a.address <> exchange.address AND exchange.is_exchange IS NOT NULL AND n1.is_exchange IS NULL AND n2.is_exchange IS NULL AND NOT a:Pool AND NOT n1:Pool AND NOT n2:Pool RETURN \"inflow\" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, n1.address AS withdrawal_address, 3 AS hops, r3.amount_usd_sum AS amount_usd_sum, r3.tx_count AS tx_count, r3.first_seen_timestamp AS first_seen_timestamp, r3.last_seen_timestamp AS last_seen_timestamp, [exchange.address, n1.address, n2.address, a.address] AS addresses, [{address: exchange.address, network: exchange.network, labels: exchange.labels, system_labels: exchange.labels, is_exchange: exchange.is_exchange, risk_score: exchange.risk_score, risk_level: exchange.risk_level}, {address: n1.address, network: n1.network, labels: n1.labels, system_labels: n1.labels, is_exchange: n1.is_exchange, risk_score: n1.risk_score, risk_level: n1.risk_level}, {address: n2.address, network: n2.network, labels: n2.labels, system_labels: n2.labels, is_exchange: n2.is_exchange, risk_score: n2.risk_score, risk_level: n2.risk_level}, {address: a.address, network: a.network, labels: a.labels, system_labels: a.labels, is_exchange: a.is_exchange, risk_score: a.risk_score, risk_level: a.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp}, {amount_usd_sum: r2.amount_usd_sum, tx_count: r2.tx_count, first_seen_timestamp: r2.first_seen_timestamp, last_seen_timestamp: r2.last_seen_timestamp}, {amount_usd_sum: r3.amount_usd_sum, tx_count: r3.tx_count, first_seen_timestamp: r3.first_seen_timestamp, last_seen_timestamp: r3.last_seen_timestamp}] AS edge_props ORDER BY hops ASC LIMIT 200",
+   "source": "builder:exchangeInflowQueries"
+  },
+  {
+   "id": "builder-exchangeInflowQueries-4",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (exchange:Address)-[r1:FLOWS_TO]->(a:Address) WHERE a.address = \"corpus\\\"quote\" AND a.address <> exchange.address AND exchange.is_exchange IS NOT NULL AND NOT a:Pool RETURN \"inflow\" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, a.address AS withdrawal_address, 1 AS hops, r1.amount_usd_sum AS amount_usd_sum, r1.tx_count AS tx_count, r1.first_seen_timestamp AS first_seen_timestamp, r1.last_seen_timestamp AS last_seen_timestamp, [exchange.address, a.address] AS addresses, [{address: exchange.address, network: exchange.network, labels: exchange.labels, system_labels: exchange.labels, is_exchange: exchange.is_exchange, risk_score: exchange.risk_score, risk_level: exchange.risk_level}, {address: a.address, network: a.network, labels: a.labels, system_labels: a.labels, is_exchange: a.is_exchange, risk_score: a.risk_score, risk_level: a.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp}] AS edge_props ORDER BY hops ASC LIMIT 200",
+   "source": "builder:exchangeInflowQueries"
+  },
+  {
+   "id": "builder-exchangeInflowQueries-5",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (exchange:Address)-[r1:FLOWS_TO]->(n1:Address)-[r2:FLOWS_TO]->(a:Address) WHERE a.address = \"corpus\\\"quote\" AND a.address <> exchange.address AND exchange.is_exchange IS NOT NULL AND n1.is_exchange IS NULL AND NOT a:Pool AND NOT n1:Pool RETURN \"inflow\" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, n1.address AS withdrawal_address, 2 AS hops, r2.amount_usd_sum AS amount_usd_sum, r2.tx_count AS tx_count, r2.first_seen_timestamp AS first_seen_timestamp, r2.last_seen_timestamp AS last_seen_timestamp, [exchange.address, n1.address, a.address] AS addresses, [{address: exchange.address, network: exchange.network, labels: exchange.labels, system_labels: exchange.labels, is_exchange: exchange.is_exchange, risk_score: exchange.risk_score, risk_level: exchange.risk_level}, {address: n1.address, network: n1.network, labels: n1.labels, system_labels: n1.labels, is_exchange: n1.is_exchange, risk_score: n1.risk_score, risk_level: n1.risk_level}, {address: a.address, network: a.network, labels: a.labels, system_labels: a.labels, is_exchange: a.is_exchange, risk_score: a.risk_score, risk_level: a.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp}, {amount_usd_sum: r2.amount_usd_sum, tx_count: r2.tx_count, first_seen_timestamp: r2.first_seen_timestamp, last_seen_timestamp: r2.last_seen_timestamp}] AS edge_props ORDER BY hops ASC LIMIT 200",
+   "source": "builder:exchangeInflowQueries"
+  },
+  {
+   "id": "builder-exchangeInflowQueries-6",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (exchange:Address)-[r1:FLOWS_TO]->(n1:Address)-[r2:FLOWS_TO]->(n2:Address)-[r3:FLOWS_TO]->(a:Address) WHERE a.address = \"corpus\\\"quote\" AND a.address <> exchange.address AND exchange.is_exchange IS NOT NULL AND n1.is_exchange IS NULL AND n2.is_exchange IS NULL AND NOT a:Pool AND NOT n1:Pool AND NOT n2:Pool RETURN \"inflow\" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, n1.address AS withdrawal_address, 3 AS hops, r3.amount_usd_sum AS amount_usd_sum, r3.tx_count AS tx_count, r3.first_seen_timestamp AS first_seen_timestamp, r3.last_seen_timestamp AS last_seen_timestamp, [exchange.address, n1.address, n2.address, a.address] AS addresses, [{address: exchange.address, network: exchange.network, labels: exchange.labels, system_labels: exchange.labels, is_exchange: exchange.is_exchange, risk_score: exchange.risk_score, risk_level: exchange.risk_level}, {address: n1.address, network: n1.network, labels: n1.labels, system_labels: n1.labels, is_exchange: n1.is_exchange, risk_score: n1.risk_score, risk_level: n1.risk_level}, {address: n2.address, network: n2.network, labels: n2.labels, system_labels: n2.labels, is_exchange: n2.is_exchange, risk_score: n2.risk_score, risk_level: n2.risk_level}, {address: a.address, network: a.network, labels: a.labels, system_labels: a.labels, is_exchange: a.is_exchange, risk_score: a.risk_score, risk_level: a.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp}, {amount_usd_sum: r2.amount_usd_sum, tx_count: r2.tx_count, first_seen_timestamp: r2.first_seen_timestamp, last_seen_timestamp: r2.last_seen_timestamp}, {amount_usd_sum: r3.amount_usd_sum, tx_count: r3.tx_count, first_seen_timestamp: r3.first_seen_timestamp, last_seen_timestamp: r3.last_seen_timestamp}] AS edge_props ORDER BY hops ASC LIMIT 200",
+   "source": "builder:exchangeInflowQueries"
+  },
+  {
+   "id": "builder-exchangeOutflowQueries-1",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[r1:FLOWS_TO]->(exchange:Address) WHERE a.address <> exchange.address AND exchange.is_exchange IS NOT NULL AND NOT a:Pool RETURN \"outflow\" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, a.address AS deposit_address, 1 AS hops, r1.amount_usd_sum AS amount_usd_sum, r1.tx_count AS tx_count, r1.first_seen_timestamp AS first_seen_timestamp, r1.last_seen_timestamp AS last_seen_timestamp, [a.address, exchange.address] AS addresses, [{address: a.address, network: a.network, labels: a.labels, system_labels: a.labels, is_exchange: a.is_exchange, risk_score: a.risk_score, risk_level: a.risk_level}, {address: exchange.address, network: exchange.network, labels: exchange.labels, system_labels: exchange.labels, is_exchange: exchange.is_exchange, risk_score: exchange.risk_score, risk_level: exchange.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp}] AS edge_props ORDER BY hops ASC LIMIT 200",
+   "source": "builder:exchangeOutflowQueries"
+  },
+  {
+   "id": "builder-exchangeOutflowQueries-2",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[r1:FLOWS_TO]->(n1:Address)-[r2:FLOWS_TO]->(exchange:Address) WHERE a.address <> exchange.address AND exchange.is_exchange IS NOT NULL AND n1.is_exchange IS NULL AND NOT a:Pool AND NOT n1:Pool RETURN \"outflow\" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, n1.address AS deposit_address, 2 AS hops, r2.amount_usd_sum AS amount_usd_sum, r2.tx_count AS tx_count, r2.first_seen_timestamp AS first_seen_timestamp, r2.last_seen_timestamp AS last_seen_timestamp, [a.address, n1.address, exchange.address] AS addresses, [{address: a.address, network: a.network, labels: a.labels, system_labels: a.labels, is_exchange: a.is_exchange, risk_score: a.risk_score, risk_level: a.risk_level}, {address: n1.address, network: n1.network, labels: n1.labels, system_labels: n1.labels, is_exchange: n1.is_exchange, risk_score: n1.risk_score, risk_level: n1.risk_level}, {address: exchange.address, network: exchange.network, labels: exchange.labels, system_labels: exchange.labels, is_exchange: exchange.is_exchange, risk_score: exchange.risk_score, risk_level: exchange.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp}, {amount_usd_sum: r2.amount_usd_sum, tx_count: r2.tx_count, first_seen_timestamp: r2.first_seen_timestamp, last_seen_timestamp: r2.last_seen_timestamp}] AS edge_props ORDER BY hops ASC LIMIT 200",
+   "source": "builder:exchangeOutflowQueries"
+  },
+  {
+   "id": "builder-exchangeOutflowQueries-3",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[r1:FLOWS_TO]->(n1:Address)-[r2:FLOWS_TO]->(n2:Address)-[r3:FLOWS_TO]->(exchange:Address) WHERE a.address <> exchange.address AND exchange.is_exchange IS NOT NULL AND n1.is_exchange IS NULL AND n2.is_exchange IS NULL AND NOT a:Pool AND NOT n1:Pool AND NOT n2:Pool RETURN \"outflow\" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, n2.address AS deposit_address, 3 AS hops, r3.amount_usd_sum AS amount_usd_sum, r3.tx_count AS tx_count, r3.first_seen_timestamp AS first_seen_timestamp, r3.last_seen_timestamp AS last_seen_timestamp, [a.address, n1.address, n2.address, exchange.address] AS addresses, [{address: a.address, network: a.network, labels: a.labels, system_labels: a.labels, is_exchange: a.is_exchange, risk_score: a.risk_score, risk_level: a.risk_level}, {address: n1.address, network: n1.network, labels: n1.labels, system_labels: n1.labels, is_exchange: n1.is_exchange, risk_score: n1.risk_score, risk_level: n1.risk_level}, {address: n2.address, network: n2.network, labels: n2.labels, system_labels: n2.labels, is_exchange: n2.is_exchange, risk_score: n2.risk_score, risk_level: n2.risk_level}, {address: exchange.address, network: exchange.network, labels: exchange.labels, system_labels: exchange.labels, is_exchange: exchange.is_exchange, risk_score: exchange.risk_score, risk_level: exchange.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp}, {amount_usd_sum: r2.amount_usd_sum, tx_count: r2.tx_count, first_seen_timestamp: r2.first_seen_timestamp, last_seen_timestamp: r2.last_seen_timestamp}, {amount_usd_sum: r3.amount_usd_sum, tx_count: r3.tx_count, first_seen_timestamp: r3.first_seen_timestamp, last_seen_timestamp: r3.last_seen_timestamp}] AS edge_props ORDER BY hops ASC LIMIT 200",
+   "source": "builder:exchangeOutflowQueries"
+  },
+  {
+   "id": "builder-exchangeOutflowQueries-4",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"corpus\\\"quote\"})-[r1:FLOWS_TO]->(exchange:Address) WHERE a.address <> exchange.address AND exchange.is_exchange IS NOT NULL AND NOT a:Pool RETURN \"outflow\" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, a.address AS deposit_address, 1 AS hops, r1.amount_usd_sum AS amount_usd_sum, r1.tx_count AS tx_count, r1.first_seen_timestamp AS first_seen_timestamp, r1.last_seen_timestamp AS last_seen_timestamp, [a.address, exchange.address] AS addresses, [{address: a.address, network: a.network, labels: a.labels, system_labels: a.labels, is_exchange: a.is_exchange, risk_score: a.risk_score, risk_level: a.risk_level}, {address: exchange.address, network: exchange.network, labels: exchange.labels, system_labels: exchange.labels, is_exchange: exchange.is_exchange, risk_score: exchange.risk_score, risk_level: exchange.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp}] AS edge_props ORDER BY hops ASC LIMIT 200",
+   "source": "builder:exchangeOutflowQueries"
+  },
+  {
+   "id": "builder-exchangeOutflowQueries-5",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"corpus\\\"quote\"})-[r1:FLOWS_TO]->(n1:Address)-[r2:FLOWS_TO]->(exchange:Address) WHERE a.address <> exchange.address AND exchange.is_exchange IS NOT NULL AND n1.is_exchange IS NULL AND NOT a:Pool AND NOT n1:Pool RETURN \"outflow\" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, n1.address AS deposit_address, 2 AS hops, r2.amount_usd_sum AS amount_usd_sum, r2.tx_count AS tx_count, r2.first_seen_timestamp AS first_seen_timestamp, r2.last_seen_timestamp AS last_seen_timestamp, [a.address, n1.address, exchange.address] AS addresses, [{address: a.address, network: a.network, labels: a.labels, system_labels: a.labels, is_exchange: a.is_exchange, risk_score: a.risk_score, risk_level: a.risk_level}, {address: n1.address, network: n1.network, labels: n1.labels, system_labels: n1.labels, is_exchange: n1.is_exchange, risk_score: n1.risk_score, risk_level: n1.risk_level}, {address: exchange.address, network: exchange.network, labels: exchange.labels, system_labels: exchange.labels, is_exchange: exchange.is_exchange, risk_score: exchange.risk_score, risk_level: exchange.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp}, {amount_usd_sum: r2.amount_usd_sum, tx_count: r2.tx_count, first_seen_timestamp: r2.first_seen_timestamp, last_seen_timestamp: r2.last_seen_timestamp}] AS edge_props ORDER BY hops ASC LIMIT 200",
+   "source": "builder:exchangeOutflowQueries"
+  },
+  {
+   "id": "builder-exchangeOutflowQueries-6",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"corpus\\\"quote\"})-[r1:FLOWS_TO]->(n1:Address)-[r2:FLOWS_TO]->(n2:Address)-[r3:FLOWS_TO]->(exchange:Address) WHERE a.address <> exchange.address AND exchange.is_exchange IS NOT NULL AND n1.is_exchange IS NULL AND n2.is_exchange IS NULL AND NOT a:Pool AND NOT n1:Pool AND NOT n2:Pool RETURN \"outflow\" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, n2.address AS deposit_address, 3 AS hops, r3.amount_usd_sum AS amount_usd_sum, r3.tx_count AS tx_count, r3.first_seen_timestamp AS first_seen_timestamp, r3.last_seen_timestamp AS last_seen_timestamp, [a.address, n1.address, n2.address, exchange.address] AS addresses, [{address: a.address, network: a.network, labels: a.labels, system_labels: a.labels, is_exchange: a.is_exchange, risk_score: a.risk_score, risk_level: a.risk_level}, {address: n1.address, network: n1.network, labels: n1.labels, system_labels: n1.labels, is_exchange: n1.is_exchange, risk_score: n1.risk_score, risk_level: n1.risk_level}, {address: n2.address, network: n2.network, labels: n2.labels, system_labels: n2.labels, is_exchange: n2.is_exchange, risk_score: n2.risk_score, risk_level: n2.risk_level}, {address: exchange.address, network: exchange.network, labels: exchange.labels, system_labels: exchange.labels, is_exchange: exchange.is_exchange, risk_score: exchange.risk_score, risk_level: exchange.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp}, {amount_usd_sum: r2.amount_usd_sum, tx_count: r2.tx_count, first_seen_timestamp: r2.first_seen_timestamp, last_seen_timestamp: r2.last_seen_timestamp}, {amount_usd_sum: r3.amount_usd_sum, tx_count: r3.tx_count, first_seen_timestamp: r3.first_seen_timestamp, last_seen_timestamp: r3.last_seen_timestamp}] AS edge_props ORDER BY hops ASC LIMIT 200",
+   "source": "builder:exchangeOutflowQueries"
+  },
+  {
+   "id": "builder-inlineAverageFlowQuery-1",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[r:FLOWS_TO]->(b:Address) RETURN b.address AS neighbor, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count,        r.amount_usd_sum / toFloat(r.tx_count) AS avg_tx_size_usd ORDER BY r.amount_usd_sum DESC LIMIT 25",
+   "source": "builder:inlineAverageFlowQuery"
+  },
+  {
+   "id": "builder-linkedExposureQueries-1",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[l:LINKED]-(owned:Address)-[r:FLOWS_TO]-(b:Address) WHERE NOT a:Pool AND NOT owned:Pool AND owned.address <> b.address AND a.address <> b.address RETURN a.address AS subject_address, b.address AS counterparty_address, b.network AS counterparty_network, \"via_linked\" AS exposure_basis, owned.address AS linked_via_address, l.basis AS link_basis, l.confidence AS link_confidence, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count LIMIT 200",
+   "source": "builder:linkedExposureQueries"
+  },
+  {
+   "id": "builder-linkedExposureQueries-2",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[r:FLOWS_TO]-(b:Address) WHERE a.address <> b.address RETURN a.address AS subject_address, b.address AS counterparty_address, b.network AS counterparty_network, \"direct\" AS exposure_basis, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count LIMIT 200",
+   "source": "builder:linkedExposureQueries"
+  },
+  {
+   "id": "skill-cypher-1",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"0x…\"})-[x:SWAPPED]->(b:Address) WHERE x.swap_count >= 2 RETURN b.address AS recipient, x.swap_count AS swap_count ORDER BY x.swap_count DESC LIMIT 25",
+   "source": "skills/chain-insights-cypher/SKILL.md"
+  },
+  {
+   "id": "skill-cypher-2",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[s:SWAPPED]->(b:Address) RETURN b.address AS recipient, s.sold_asset AS sold_asset, s.bought_asset AS bought_asset, s.sold_usd AS sold_usd, s.bought_usd AS bought_usd, s.pools AS pools, s.strength AS strength, s.swap_count AS swap_count LIMIT 50",
+   "source": "skills/chain-insights-cypher/SKILL.md"
+  },
+  {
+   "id": "skill-cypher-3",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[:FLOWS_TO]->(p:Pool)-[r:REMOVED_LIQUIDITY]->(b:Address) WHERE NOT a:Pool AND b.address <> a.address RETURN p.address AS pool, b.address AS receiver, r.usd AS removed_usd, r.receiver_added_usd AS receiver_added_usd, r.receiver_provided AS receiver_provided LIMIT 50",
+   "source": "skills/chain-insights-cypher/SKILL.md"
+  },
+  {
+   "id": "skill-schema-evm-1",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"0x…\"}) RETURN a.labels AS labels, a.is_exchange AS is_exchange, a.is_scam AS is_scam, a.is_victim AS is_victim, a.is_sanctioned AS is_sanctioned LIMIT 1",
+   "source": "skills/chain-insights-schema-evm/SKILL.md"
+  },
+  {
+   "id": "skill-schema-evm-2",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (src:Address {address: \"0x…\"})-[r1:FLOWS_TO|SWAPPED]->(mid:Address)-[r2:FLOWS_TO|SWAPPED]->(dst:Address) WHERE NOT src:Pool AND NOT mid:Pool AND mid.is_exchange IS NULL AND dst.address <> src.address RETURN mid.address AS via_address, type(r2) AS exit_edge, dst.address AS to_address, coalesce(r2.amount_usd_sum, r2.bought_usd) AS exit_usd LIMIT 25 UNION MATCH (src:Address {address: \"0x…\"})-[r1:FLOWS_TO|ADDED_LIQUIDITY]->(mid:Pool)-[r2:REMOVED_LIQUIDITY]->(dst:Address) WHERE NOT src:Pool AND dst.address <> src.address RETURN mid.address AS via_address, type(r2) AS exit_edge, dst.address AS to_address, r2.usd AS exit_usd LIMIT 25",
+   "source": "skills/chain-insights-schema-evm/SKILL.md"
+  },
+  {
+   "id": "skill-schema-evm-3",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (victim:Address {address: \"0x…\"})-[paid:FLOWS_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE NOT victim:Pool AND receiver.address <> victim.address RETURN pool.address AS pool_address, receiver.address AS receiver_address, paid.amount_usd_sum AS paid_in_usd, removal.usd AS removed_usd, removal.receiver_added_usd AS receiver_added_usd, removal.usd - removal.receiver_added_usd AS receiver_profit_usd, removal.receiver_provided AS receiver_provided ORDER BY removed_usd DESC LIMIT 25",
+   "source": "skills/chain-insights-schema-evm/SKILL.md"
+  },
+  {
+   "id": "skill-schema-evm-4",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: \"0x…\"}) RETURN owner.address AS owner_address, operation.tx_count AS tx_count, operation.amount_usd_sum AS amount_usd_sum, coalesce(operation.token_standard, \"mixed\") AS token_standard, operation.last_seen_timestamp AS last_seen_timestamp ORDER BY operation.tx_count DESC LIMIT 10",
+   "source": "skills/chain-insights-schema-evm/SKILL.md"
+  },
+  {
+   "id": "skill-schema-evm-5",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 10",
+   "source": "skills/chain-insights-schema-evm/SKILL.md"
+  },
+  {
+   "id": "removed-recipe-topology-06",
+   "expect": "refuse",
+   "rule": "aggregate",
+   "code": "aggregate_unanchored",
+   "query": "USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.amount_usd_sum DESC LIMIT 25",
+   "source": "removed-recipe:recipe_topology_06"
+  },
+  {
+   "id": "removed-recipe-topology-07",
+   "expect": "refuse",
+   "rule": "aggregate",
+   "code": "aggregate_unanchored",
+   "query": "USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) WITH src, count(dst) AS out_degree, sum(flow.amount_usd_sum) AS total_usd RETURN src.address AS address, out_degree, total_usd ORDER BY out_degree DESC LIMIT 25",
+   "source": "removed-recipe:recipe_topology_07"
+  },
+  {
+   "id": "removed-recipe-topology-09",
+   "expect": "refuse",
+   "rule": "anchor",
+   "code": "anchor_missing",
+   "query": "USE topology MATCH (m:Address) WHERE m.address STARTS WITH \"5Ggf\" RETURN m.address AS address, m.network AS member_network LIMIT 10",
+   "source": "removed-recipe:recipe_topology_09"
+  },
+  {
+   "id": "removed-recipe-topology-18",
+   "expect": "refuse",
+   "rule": "route",
+   "code": "route_search_refused",
+   "query": "USE topology MATCH p = ALL SHORTEST (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN p LIMIT 3",
+   "source": "removed-recipe:recipe_topology_18"
+  },
+  {
+   "id": "swapped-filter-no-anchor",
+   "expect": "refuse",
+   "rule": "anchor",
+   "code": "anchor_missing",
+   "query": "USE topology MATCH (a:Address)-[x:SWAPPED]->(b:Address) WHERE x.strength = 'swap' RETURN a.address LIMIT 5",
+   "source": "refuse-table"
+  },
+  {
+   "id": "link-sample-with-where",
+   "expect": "refuse",
+   "rule": "anchor",
+   "code": "anchor_missing",
+   "query": "USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) WHERE flow.amount_usd_sum > 1000 RETURN src.address AS from_address, dst.address AS to_address LIMIT 10",
+   "source": "refuse-table"
+  },
+  {
+   "id": "probe-over-100-rows",
+   "expect": "refuse",
+   "rule": "anchor",
+   "code": "anchor_missing",
+   "query": "USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 101",
+   "source": "refuse-table"
+  },
+  {
+   "id": "decoy-address-in-return",
+   "expect": "refuse",
+   "rule": "anchor",
+   "code": "anchor_missing",
+   "query": "USE topology MATCH (a:Address)-[x:SWAPPED]->(b:Address) WHERE x.strength = 'swap' RETURN \"0x1111111111111111111111111111111111111111\" AS marker, a.address LIMIT 5",
+   "source": "refuse-table"
+  },
+  {
+   "id": "equality-inside-or",
+   "expect": "refuse",
+   "rule": "anchor",
+   "code": "anchor_missing",
+   "query": "USE topology MATCH (a:Address)-[x:SWAPPED]->(b:Address) WHERE a.address = \"0x1111111111111111111111111111111111111111\" OR x.strength = 'swap' RETURN a.address LIMIT 5",
+   "source": "refuse-table"
+  },
+  {
+   "id": "list-of-26-literals",
+   "expect": "refuse",
+   "rule": "anchor",
+   "code": "anchor_missing",
+   "query": "USE topology MATCH (a:Address)-[:FLOWS_TO]->(b:Address) WHERE a.address IN [\"0x0000000000000000000000000000000000000001\", \"0x0000000000000000000000000000000000000002\", \"0x0000000000000000000000000000000000000003\", \"0x0000000000000000000000000000000000000004\", \"0x0000000000000000000000000000000000000005\", \"0x0000000000000000000000000000000000000006\", \"0x0000000000000000000000000000000000000007\", \"0x0000000000000000000000000000000000000008\", \"0x0000000000000000000000000000000000000009\", \"0x000000000000000000000000000000000000000a\", \"0x000000000000000000000000000000000000000b\", \"0x000000000000000000000000000000000000000c\", \"0x000000000000000000000000000000000000000d\", \"0x000000000000000000000000000000000000000e\", \"0x000000000000000000000000000000000000000f\", \"0x0000000000000000000000000000000000000010\", \"0x0000000000000000000000000000000000000011\", \"0x0000000000000000000000000000000000000012\", \"0x0000000000000000000000000000000000000013\", \"0x0000000000000000000000000000000000000014\", \"0x0000000000000000000000000000000000000015\", \"0x0000000000000000000000000000000000000016\", \"0x0000000000000000000000000000000000000017\", \"0x0000000000000000000000000000000000000018\", \"0x0000000000000000000000000000000000000019\", \"0x000000000000000000000000000000000000001a\"] RETURN b.address LIMIT 10",
+   "source": "refuse-table"
+  },
+  {
+   "id": "parameter-is-no-anchor",
+   "expect": "refuse",
+   "rule": "anchor",
+   "code": "anchor_missing",
+   "query": "USE topology MATCH (a:Address {address: $addr})-[:FLOWS_TO]->(b:Address) RETURN b.address LIMIT 10",
+   "source": "refuse-table"
+  },
+  {
+   "id": "label-search",
+   "expect": "refuse",
+   "rule": "anchor",
+   "code": "anchor_missing",
+   "query": "USE topology MATCH (a:Address) WHERE \"exchange\" IN a.labels RETURN a.address LIMIT 10",
+   "source": "refuse-table"
+  },
+  {
+   "id": "distinct-over-every-link",
+   "expect": "refuse",
+   "rule": "aggregate",
+   "code": "aggregate_unanchored",
+   "query": "USE topology MATCH (a:Address)-[:FLOWS_TO]->(b:Address) RETURN DISTINCT b.address AS address LIMIT 25",
+   "source": "refuse-table"
+  },
+  {
+   "id": "anchored-pattern-beside-an-open-one",
+   "expect": "refuse",
+   "rule": "connected",
+   "code": "cartesian_product",
+   "query": "USE topology MATCH (a:Address {address: \"0x1111111111111111111111111111111111111111\"}), (b:Address) RETURN a.address, b.address LIMIT 5",
+   "source": "refuse-table"
+  },
+  {
+   "id": "quantifier-over-the-cap",
+   "expect": "refuse",
+   "rule": "hops",
+   "code": "hop_budget",
+   "query": "USE topology MATCH (a:Address {address: \"0x1111111111111111111111111111111111111111\"})-[:FLOWS_TO]-{1,9}(b:Address) RETURN b.address LIMIT 10",
+   "source": "refuse-table"
+  },
+  {
+   "id": "unbounded-postfix-quantifier",
+   "expect": "refuse",
+   "rule": "hops",
+   "code": "hop_budget",
+   "query": "USE topology MATCH (a:Address {address: \"0x1111111111111111111111111111111111111111\"})-[:FLOWS_TO]-+(b:Address) RETURN b.address LIMIT 10",
+   "source": "refuse-table"
+  },
+  {
+   "id": "bare-undirected-quantifier",
+   "expect": "refuse",
+   "rule": "hops",
+   "code": "hop_budget",
+   "query": "USE topology MATCH (a:Address {address: \"0x1111111111111111111111111111111111111111\"})--+(b:Address) RETURN b.address LIMIT 10",
+   "source": "refuse-table"
+  },
+  {
+   "id": "three-chained-quantifiers",
+   "expect": "refuse",
+   "rule": "hops",
+   "code": "hop_budget",
+   "query": "USE topology MATCH (a:Address {address: \"0x1111111111111111111111111111111111111111\"})-[:FLOWS_TO]-{1,5}(b:Address)-[:FLOWS_TO]-{1,5}(c:Address)-[:FLOWS_TO]-{1,5}(d:Address) RETURN d.address LIMIT 10",
+   "source": "refuse-table"
+  },
+  {
+   "id": "seven-fixed-hops",
+   "expect": "refuse",
+   "rule": "hops",
+   "code": "hop_budget",
+   "query": "USE topology MATCH (a:Address {address: \"0x1111111111111111111111111111111111111111\"})-[:FLOWS_TO]->(n1:Address)-[:FLOWS_TO]->(n2:Address)-[:FLOWS_TO]->(n3:Address)-[:FLOWS_TO]->(n4:Address)-[:FLOWS_TO]->(n5:Address)-[:FLOWS_TO]->(n6:Address)-[:FLOWS_TO]->(n7:Address) RETURN n7.address LIMIT 10",
+   "source": "refuse-table"
+  },
+  {
+   "id": "no-limit",
+   "expect": "refuse",
+   "rule": "limit",
+   "code": "limit_missing",
+   "query": "USE topology MATCH (a:Address {address: \"0x1111111111111111111111111111111111111111\"})-[:FLOWS_TO]->(b:Address) RETURN b.address",
+   "source": "refuse-table"
+  },
+  {
+   "id": "limit-over-5000",
+   "expect": "refuse",
+   "rule": "limit",
+   "code": "limit_missing",
+   "query": "USE topology MATCH (a:Address {address: \"0x1111111111111111111111111111111111111111\"})-[:FLOWS_TO]->(b:Address) RETURN b.address LIMIT 5001",
+   "source": "refuse-table"
+  },
+  {
+   "id": "text-over-8-kib",
+   "expect": "refuse",
+   "rule": "size",
+   "code": "query_too_large",
+   "query": "USE topology MATCH (a:Address {address: \"0x1111111111111111111111111111111111111111\"}) RETURN                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        a.address AS address LIMIT 1",
+   "source": "refuse-table"
+  },
+  {
+   "id": "nesting-over-64",
+   "expect": "refuse",
+   "rule": "nesting",
+   "code": "query_too_large",
+   "query": "USE topology MATCH (a:Address {address: \"0x1111111111111111111111111111111111111111\"}) RETURN [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[1]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]] AS deep LIMIT 1",
+   "source": "refuse-table"
+  },
+  {
+   "id": "shortest-2",
+   "expect": "refuse",
+   "rule": "route",
+   "code": "route_search_refused",
+   "query": "USE topology MATCH p = SHORTEST 2 (a:Address {address: \"0x1111111111111111111111111111111111111111\"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: \"0x2222222222222222222222222222222222222222\"}) RETURN p LIMIT 5",
+   "source": "refuse-table"
+  },
+  {
+   "id": "shortest-3-groups",
+   "expect": "refuse",
+   "rule": "route",
+   "code": "route_search_refused",
+   "query": "USE topology MATCH p = SHORTEST 3 GROUPS (a:Address {address: \"0x1111111111111111111111111111111111111111\"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: \"0x2222222222222222222222222222222222222222\"}) RETURN p LIMIT 5",
+   "source": "refuse-table"
+  },
+  {
+   "id": "repeated-part-over-4",
+   "expect": "refuse",
+   "rule": "route",
+   "code": "route_search_refused",
+   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"0x1111111111111111111111111111111111111111\"})-[:FLOWS_TO]-{0,5}(b:Address {address: \"0x2222222222222222222222222222222222222222\"}) RETURN p LIMIT 5",
+   "source": "refuse-table"
+  },
+  {
+   "id": "reduce-outside-unwind",
+   "expect": "refuse",
+   "rule": "expression",
+   "code": "unsupported_expression_shape",
+   "query": "USE topology MATCH (a:Address {address: \"0x1111111111111111111111111111111111111111\"}) RETURN reduce(s = 0, x IN range(1, 100000) | s + x) AS total LIMIT 1",
+   "source": "refuse-table"
+  },
+  {
+   "id": "unwind-product-over-1000",
+   "expect": "refuse",
+   "rule": "expression",
+   "code": "unsupported_expression_shape",
+   "query": "USE topology UNWIND range(1, 1000) AS i UNWIND range(1, 1000) AS j MATCH (a:Address {address: \"0x1111111111111111111111111111111111111111\"}) RETURN a.address AS address, i, j LIMIT 10",
+   "source": "refuse-table"
+  },
+  {
+   "id": "three-optional-match",
+   "expect": "refuse",
+   "rule": "expression",
+   "code": "unsupported_expression_shape",
+   "query": "USE topology MATCH (a:Address {address: \"0x1111111111111111111111111111111111111111\"}) OPTIONAL MATCH (a)-[:FLOWS_TO]->(b:Address) OPTIONAL MATCH (a)<-[:FLOWS_TO]-(c:Address) OPTIONAL MATCH (a)-[:SWAPPED]->(d:Address) RETURN a.address AS address, b.address AS paid, c.address AS payer, d.address AS swapped LIMIT 10",
+   "source": "refuse-table"
+  },
+  {
+   "id": "five-union-branches",
+   "expect": "refuse",
+   "rule": "expression",
+   "code": "unsupported_expression_shape",
+   "query": "USE topology MATCH (a:Address {address: \"0x0000000000000000000000000000000000000001\"}) RETURN a.address AS address LIMIT 1 UNION MATCH (a:Address {address: \"0x0000000000000000000000000000000000000002\"}) RETURN a.address AS address LIMIT 1 UNION MATCH (a:Address {address: \"0x0000000000000000000000000000000000000003\"}) RETURN a.address AS address LIMIT 1 UNION MATCH (a:Address {address: \"0x0000000000000000000000000000000000000004\"}) RETURN a.address AS address LIMIT 1 UNION MATCH (a:Address {address: \"0x0000000000000000000000000000000000000005\"}) RETURN a.address AS address LIMIT 1",
+   "source": "refuse-table"
+  },
+  {
+   "id": "profile",
+   "expect": "refuse",
+   "rule": "dialect",
+   "code": "unsupported_topology_dialect",
+   "query": "USE topology PROFILE MATCH (a:Address {address: \"0x1111111111111111111111111111111111111111\"}) RETURN a.address LIMIT 1",
+   "source": "refuse-table"
+  },
+  {
+   "id": "legacy-shortest-path-function",
+   "expect": "refuse",
+   "rule": "dialect",
+   "code": "unsupported_topology_dialect",
+   "query": "USE topology MATCH p = shortestPath((a:Address {address: \"0x1111111111111111111111111111111111111111\"})-[:FLOWS_TO*1..5]-(b:Address {address: \"0x2222222222222222222222222222222222222222\"})) RETURN p LIMIT 1",
+   "source": "refuse-table"
+  }
+ ]
+}
