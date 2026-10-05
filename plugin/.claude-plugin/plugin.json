@@ -1,0 +1,14 @@
+{
+  "name": "chain-insights",
+  "displayName": "Chain Insights",
+  "version": "0.39.0",
+  "description": "AML investigation on the robinhood chain: query the Chain Insights Graph, trace recent money flows, and screen addresses through the hosted Chain Insights connector.",
+  "author": {
+    "name": "Chainswarm Technology",
+    "url": "https://chain-insights.ai"
+  },
+  "homepage": "https://chain-insights.ai",
+  "repository": "https://github.com/chainswarm/chain-insights",
+  "license": "MIT",
+  "keywords": ["aml", "blockchain", "investigation", "graph", "mcp", "chain-insights"]
+}

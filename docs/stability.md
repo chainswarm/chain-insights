@@ -18,7 +18,7 @@ Exit codes are contract. Scripts and agent harnesses may rely on them.
 
 ### MCP tool names
 
-The public MCP surface is these seven tools:
+The public MCP surface is these eight tools:
 
 - `aml_address_risk`
 - `graph_query`
@@ -27,6 +27,7 @@ The public MCP surface is these seven tools:
 - `meta_network_capabilities`
 - `meta_usage_status`
 - `wallet_balance`
+- `wallet_topup`
 
 Tool names are contract. Removing or renaming one is a deprecation event.
 Tool _arguments_ may grow additively at any time; existing argument names and

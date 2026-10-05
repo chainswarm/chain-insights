@@ -22,7 +22,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
-      exclude: ['src/viz/templates/**', 'src/wallet/mcp-proxy/assets/**'],
+      exclude: ['src/wallet/mcp-proxy/assets/**'],
       reporter: ['text', 'json-summary', 'lcov'],
       reportsDirectory: 'coverage',
       // Ratchet: measured 2026-08-14 (lines 73.3, statements 72.9,

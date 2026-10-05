@@ -1,10 +1,11 @@
 import { createServer, type Server } from 'node:http'
 import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { isAddress } from 'viem'
 import type { WalletData } from './types.js'
-import { generateQrSvg } from './qr.js'
+import { generateQrSvg, qrModules } from './qr.js'
 import { getBalanceEth, getBalanceUsdc } from './tools.js'
 
 const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
@@ -672,4 +673,407 @@ setInterval(fetchBalance, 15000);
 </script>
 </body>
 </html>`
+}
+
+// ---------------------------------------------------------------------------
+// The local top-up view: an MCP App drawn by Claude Desktop next to the
+// wallet_topup answer of the local proxy. It shows the wallet address, its QR
+// code, Base Mainnet and USDC. It fetches nothing, signs nothing and sends
+// nothing: the page holds no wallet code, only an address to read.
+// The hosted connector never serves it (ruling 2026-10-05).
+// ---------------------------------------------------------------------------
+
+export const TOPUP_TOOL_NAME = 'wallet_topup'
+export const TOPUP_VIEW_URI = 'ui://chain-insights/topup'
+export const TOPUP_NETWORK_DISPLAY = 'Base Mainnet'
+const TOPUP_CHAIN_ID = 8453
+const EXT_APPS_GLOBAL = '__chainInsightsExtApps'
+const NO_WALLET_TEXT =
+  'No local payment wallet exists yet. Run `cia wallet create` to make one, then ask to top up again.'
+
+export interface TopupViewFacts {
+  wallet_address: string
+  network: 'Base'
+  network_display: typeof TOPUP_NETWORK_DISPLAY
+  chain_id: typeof TOPUP_CHAIN_ID
+  token: 'USDC'
+  token_contract: typeof USDC_ADDRESS
+}
+
+export interface TopupToolResult {
+  [key: string]: unknown
+  content: Array<{ type: 'text'; text: string }>
+  structuredContent: {
+    schema: 'chain-insights.result.v1'
+    tool: typeof TOPUP_TOOL_NAME
+    hint: string | null
+    facts: { wallet_configured: boolean; topup: TopupViewFacts | null }
+  }
+  isError: false
+}
+
+/**
+ * The wallet_topup answer. The text is complete on its own, for hosts that
+ * draw no view. `walletAddress` null means no local wallet exists.
+ */
+export function topupToolResult(walletAddress: string | null): TopupToolResult {
+  if (walletAddress === null) {
+    return {
+      content: [{ type: 'text', text: NO_WALLET_TEXT }],
+      structuredContent: {
+        schema: 'chain-insights.result.v1',
+        tool: TOPUP_TOOL_NAME,
+        hint: 'Run `cia wallet create`.',
+        facts: { wallet_configured: false, topup: null },
+      },
+      isError: false,
+    }
+  }
+  const address = assertWalletAddress(walletAddress)
+  const topup: TopupViewFacts = {
+    wallet_address: address,
+    network: 'Base',
+    network_display: TOPUP_NETWORK_DISPLAY,
+    chain_id: TOPUP_CHAIN_ID,
+    token: 'USDC',
+    token_contract: USDC_ADDRESS,
+  }
+  return {
+    content: [
+      {
+        type: 'text',
+        text: [
+          `Payment wallet: ${address}`,
+          `Network: ${TOPUP_NETWORK_DISPLAY} (chain ID ${TOPUP_CHAIN_ID})`,
+          `Token: USDC (contract ${USDC_ADDRESS})`,
+          `To top up, send USDC on ${TOPUP_NETWORK_DISPLAY} to the wallet address. Chain Insights makes no payment from here.`,
+        ].join('\n'),
+      },
+    ],
+    structuredContent: {
+      schema: 'chain-insights.result.v1',
+      tool: TOPUP_TOOL_NAME,
+      hint: null,
+      facts: { wallet_configured: true, topup },
+    },
+    isError: false,
+  }
+}
+
+let extAppsScript: string | null = null
+
+/**
+ * The browser build of the ext-apps App client (the same 1.x pin as
+ * chain-insights-ui), turned from an ES module into a script that publishes
+ * its exports on globalThis, so the view stays one self-contained file.
+ */
+export function extAppsBrowserScript(): string {
+  if (extAppsScript !== null) return extAppsScript
+  const require = createRequire(import.meta.url)
+  const source = readFileSync(
+    require.resolve('@modelcontextprotocol/ext-apps/app-with-deps'),
+    'utf8'
+  )
+  const match = /export\s*\{([^}]*)\}\s*;?\s*(?:\/\/# sourceMappingURL=\S*\s*)?$/.exec(source)
+  if (!match) throw new Error('The ext-apps app bundle does not end with one export list')
+  const fields = match[1]
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const [local, exported] = part.split(/\s+as\s+/)
+      return `${JSON.stringify(exported ?? local)}:${local}`
+    })
+  extAppsScript = `${source.slice(0, match.index)}\nglobalThis.${EXT_APPS_GLOBAL}={${fields.join(',')}};\n`
+  extAppsScript = extAppsScript.replaceAll('</script', '<\\/script')
+  return extAppsScript
+}
+
+const TOPUP_VIEW_STYLE = `
+:root {
+  color-scheme: light;
+  --ci-text: var(--color-text-primary, #1d1b16);
+  --ci-muted: var(--color-text-secondary, #5c5647);
+  --ci-surface: var(--color-background-secondary, #f7f4ec);
+  --ci-border: var(--color-border-primary, #d9d2c0);
+  --ci-accent: #8a6a12;
+  --ci-on-accent: #ffffff;
+  --ci-qr-dark: #000000;
+  --ci-qr-light: #ffffff;
+  --ci-font: var(--font-sans, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif);
+  --ci-mono: var(--font-mono, ui-monospace, 'SF Mono', Menlo, Consolas, monospace);
+}
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --ci-text: var(--color-text-primary, #f2eee4);
+  --ci-muted: var(--color-text-secondary, #b8b09c);
+  --ci-surface: var(--color-background-secondary, #1f1d19);
+  --ci-border: var(--color-border-primary, #3d392f);
+  --ci-accent: #e3c46a;
+  --ci-on-accent: #1d1b16;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: transparent; }
+body { font-family: var(--ci-font); color: var(--ci-text); font-size: 14px; line-height: 1.45; padding: 4px; }
+.card { max-width: 420px; margin: 0 auto; padding: 20px; border: 1px solid var(--ci-border); border-radius: 12px; background: var(--ci-surface); }
+h1 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+.lead, .note, .muted { color: var(--ci-muted); }
+.lead { margin-bottom: 16px; }
+.qr-tile { display: flex; justify-content: center; margin-bottom: 16px; }
+.qr { width: 200px; height: 200px; border-radius: 8px; }
+.qr-dark { fill: var(--ci-qr-dark); }
+.qr-light { fill: var(--ci-qr-light); }
+dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; margin-bottom: 16px; }
+dt { color: var(--ci-muted); }
+dd { overflow-wrap: anywhere; }
+code { font-family: var(--ci-mono); font-size: 12px; }
+.address { display: block; margin-bottom: 6px; }
+button { font: inherit; font-size: 13px; padding: 4px 12px; border-radius: 6px; border: 0; background: var(--ci-accent); color: var(--ci-on-accent); cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--ci-accent); outline-offset: 2px; }
+.copy-state { margin-left: 8px; font-size: 12px; color: var(--ci-muted); }
+.skeleton { height: 14px; border-radius: 4px; background: var(--ci-border); margin-bottom: 10px; }
+.skeleton.short { width: 60%; }
+`
+
+const TOPUP_VIEW_SCRIPT = `
+(function () {
+  var extApps = globalThis.${EXT_APPS_GLOBAL};
+  var qrModules = __QR_MODULES__;
+  var root = document.getElementById('topup');
+  var ADDRESS = /^0x[0-9a-fA-F]{40}$/;
+
+  function el(tag, attrs, children) {
+    var node = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (key) {
+      if (key === 'text') node.textContent = attrs[key];
+      else node.setAttribute(key, attrs[key]);
+    });
+    (children || []).forEach(function (child) {
+      node.append(typeof child === 'string' ? document.createTextNode(child) : child);
+    });
+    return node;
+  }
+
+  function qrSvg(address) {
+    var modules = qrModules(address);
+    var quiet = 4;
+    var total = modules.length + quiet * 2;
+    var ns = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('class', 'qr');
+    svg.setAttribute('viewBox', '0 0 ' + total + ' ' + total);
+    svg.setAttribute('shape-rendering', 'crispEdges');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', 'QR code of the wallet address ' + address);
+    var light = document.createElementNS(ns, 'rect');
+    light.setAttribute('class', 'qr-light');
+    light.setAttribute('width', String(total));
+    light.setAttribute('height', String(total));
+    svg.appendChild(light);
+    var d = '';
+    for (var row = 0; row < modules.length; row++) {
+      for (var col = 0; col < modules.length; col++) {
+        if (modules[row][col] === 1) d += 'M' + (col + quiet) + ' ' + (row + quiet) + 'h1v1h-1z';
+      }
+    }
+    var dark = document.createElementNS(ns, 'path');
+    dark.setAttribute('class', 'qr-dark');
+    dark.setAttribute('d', d);
+    svg.appendChild(dark);
+    return svg;
+  }
+
+  function show(children) {
+    root.replaceChildren(el('div', { class: 'card' }, children));
+  }
+
+  function resultText(result) {
+    return ((result && result.content) || [])
+      .filter(function (item) { return item && item.type === 'text' && typeof item.text === 'string'; })
+      .map(function (item) { return item.text; })
+      .join('\\n');
+  }
+
+  function copyButton(address, target) {
+    var state = el('span', { class: 'copy-state', 'aria-live': 'polite' });
+    var button = el('button', { type: 'button', text: 'Copy address' });
+    button.addEventListener('click', function () {
+      function selectIt(message) {
+        var range = document.createRange();
+        range.selectNodeContents(target);
+        var selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        state.textContent = message;
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(address).then(
+          function () { state.textContent = 'Copied'; },
+          function () { selectIt('Selected. Press Ctrl+C to copy.'); }
+        );
+      } else {
+        selectIt('Selected. Press Ctrl+C to copy.');
+      }
+    });
+    return el('div', {}, [button, state]);
+  }
+
+  function render(result) {
+    var structured = result && result.structuredContent;
+    var facts = structured && structured.tool === '${TOPUP_TOOL_NAME}' ? structured.facts : null;
+    if (!result || result.isError || !facts) {
+      show([el('h1', { text: 'Wallet top-up' }), el('p', { class: 'muted', text: resultText(result) || 'The wallet details did not arrive.' })]);
+      return;
+    }
+    if (!facts.topup) {
+      show([
+        el('h1', { text: 'No payment wallet yet' }),
+        el('p', { class: 'lead' }, ['Create one with ', el('code', { text: 'cia wallet create' }), ', then ask to top up again.'])
+      ]);
+      return;
+    }
+    var topup = facts.topup;
+    if (!ADDRESS.test(topup.wallet_address)) {
+      show([el('h1', { text: 'Wallet top-up' }), el('p', { class: 'muted', text: 'The wallet address is not a valid 0x address.' })]);
+      return;
+    }
+    var address = el('code', { class: 'address', text: topup.wallet_address });
+    show([
+      el('h1', { text: 'Top up your Chain Insights wallet' }),
+      el('p', { class: 'lead', text: 'Send ' + topup.token + ' on ' + topup.network_display + ' to this address.' }),
+      el('div', { class: 'qr-tile' }, [qrSvg(topup.wallet_address)]),
+      el('dl', {}, [
+        el('dt', { text: 'Network' }), el('dd', { text: topup.network_display + ' (chain ID ' + topup.chain_id + ')' }),
+        el('dt', { text: 'Token' }), el('dd', { text: topup.token }),
+        el('dt', { text: 'Token contract' }), el('dd', {}, [el('code', { text: topup.token_contract })]),
+        el('dt', { text: 'Wallet' }), el('dd', {}, [address, copyButton(topup.wallet_address, address)])
+      ]),
+      el('p', { class: 'note', text: 'This view shows an address only. It signs nothing and sends nothing.' })
+    ]);
+  }
+
+  function applyContext(context) {
+    if (!context) return;
+    if (context.theme === 'light' || context.theme === 'dark') extApps.applyDocumentTheme(context.theme);
+    var styles = context.styles;
+    if (styles && styles.variables) extApps.applyHostStyleVariables(styles.variables);
+    if (styles && styles.css && styles.css.fonts) extApps.applyHostFonts(styles.css.fonts);
+  }
+
+  // Until the host names its theme, follow the system; the host's theme wins.
+  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+
+  var app = new extApps.App({ name: 'chain-insights-topup', version: '1.0.0' }, {});
+  app.ontoolresult = function (result) { render(result); };
+  app.onhostcontextchanged = function (change) { applyContext(change); };
+  app.onteardown = function () { return {}; };
+  app.connect(new extApps.PostMessageTransport(window.parent, window.parent)).then(
+    function () { applyContext(app.getHostContext()); },
+    function () {
+      show([el('h1', { text: 'Wallet top-up' }), el('p', { class: 'muted', text: 'This view opens inside Claude, next to the ${TOPUP_TOOL_NAME} answer.' })]);
+    }
+  );
+})();
+`
+
+/**
+ * The QR encoder as browser source: an expression that evaluates to
+ * `qrModules`. A transform that keeps function names (esbuild keepNames, as
+ * tsx runs it) wraps inner functions in `__name(...)`; the wrapper gives that
+ * helper a do-nothing body so the source runs anywhere.
+ */
+export function qrModulesSource(): string {
+  return `(function () { var __name = function (target) { return target; }; return (${qrModules.toString()}); })()`
+}
+
+/** The one self-contained HTML file of ui://chain-insights/topup. */
+export function topupViewHtml(): string {
+  const script = TOPUP_VIEW_SCRIPT.replace('__QR_MODULES__', () => qrModulesSource())
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wallet top-up</title>
+<style>${TOPUP_VIEW_STYLE}</style>
+</head>
+<body>
+<main id="topup" aria-live="polite"><div class="card"><div class="skeleton"></div><div class="skeleton short"></div><p class="muted">Waiting for the wallet details.</p></div></main>
+<script type="module">${extAppsBrowserScript()}</script>
+<script type="module">${script.replaceAll('</script', '<\\/script')}</script>
+</body>
+</html>`
+}
+
+/** The parts of McpServer the top-up view registers on. */
+export type TopupViewServer = Pick<
+  import('@modelcontextprotocol/sdk/server/mcp.js').McpServer,
+  'registerTool' | 'registerResource'
+>
+
+export interface TopupViewDependencies {
+  /** The local wallet address, or null when no wallet exists. Throws when it cannot be read. */
+  walletAddress: () => Promise<string | null>
+}
+
+/**
+ * Register the wallet_topup tool and its view on the local proxy. The tool
+ * reads the local wallet address and nothing else.
+ */
+export async function registerTopupView(
+  server: TopupViewServer,
+  deps: TopupViewDependencies
+): Promise<void> {
+  const { registerAppResource, registerAppTool, RESOURCE_MIME_TYPE } =
+    await import('@modelcontextprotocol/ext-apps/server')
+  const uiMeta = { prefersBorder: false, csp: { resourceDomains: ['https://assets.claude.ai'] } }
+
+  registerAppTool(
+    server,
+    TOPUP_TOOL_NAME,
+    {
+      title: 'Top Up Wallet',
+      description:
+        'Show the local Chain Insights payment wallet address and its QR code for funding with USDC on Base Mainnet. Read-only: it makes no payment and signs nothing.',
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      _meta: { ui: { resourceUri: TOPUP_VIEW_URI } },
+    },
+    async () => {
+      try {
+        return topupToolResult(await deps.walletAddress())
+      } catch (err) {
+        return {
+          content: [{ type: 'text' as const, text: `Top-up failed: ${(err as Error).message}` }],
+          isError: true,
+        }
+      }
+    }
+  )
+
+  registerAppResource(
+    server,
+    'Chain Insights wallet top-up',
+    TOPUP_VIEW_URI,
+    {
+      description: 'The local wallet address and its QR code, on Base Mainnet with USDC.',
+      _meta: { ui: uiMeta },
+    },
+    async () => ({
+      contents: [
+        {
+          uri: TOPUP_VIEW_URI,
+          mimeType: RESOURCE_MIME_TYPE,
+          text: topupViewHtml(),
+          _meta: { ui: uiMeta },
+        },
+      ],
+    })
+  )
 }

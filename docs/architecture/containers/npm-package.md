@@ -10,7 +10,7 @@ Distributes Chain Insights as a public npm package for global installation (`npm
 ## Components
 
 - **Package Metadata:** package.json (name, version, engines, bin, files, dependencies, scripts)
-- **Build Artifacts:** dist/cli.mjs, dist/index.cjs, dist/index.mjs, dist/templates/, dist/assets/
+- **Build Artifacts:** dist/cli.mjs, dist/index.cjs, dist/index.mjs, dist/mcp-proxy.mjs, dist/assets/
 - **Entry Points:** bin/cli.js (cia CLI), bin/mcp-proxy.cjs (stdio proxy for agents)
 - **Documentation:** README.md, docs/*.md, docs/images/ (product-facing docs, architecture, investigation workflows)
 - **Skills:** skills/ (agent skill-pack definitions for Claude Code, Codex, ChatGPT)

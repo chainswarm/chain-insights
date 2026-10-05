@@ -13,6 +13,7 @@ import {
   HIDDEN_REMOTE_TOOL_NAMES,
   PUBLIC_MCP_TOOL_ALLOWED_ARGS,
   PUBLIC_MCP_TOOL_REQUIRED_ARGS,
+  isAppOnlyTool,
 } from './tool-visibility.js'
 import { PaymentRequiredError } from './client.js'
 import { primitiveBackendUsageStatus } from './usage-status.js'
@@ -26,8 +27,12 @@ const LOCAL_TOOL_NAMES = new Set([
   'meta_subscription_status',
   'meta_help',
   'wallet_balance',
+  'wallet_topup',
 ])
 const GRAPH_ARRAY_KEYS = ['nodes', 'edges', 'flows', 'edge_anchors'] as const
+// The view resources the proxy forwards from the hosted server. Claude reads
+// them with resources/read when a tool's _meta.ui.resourceUri names one.
+const UI_RESOURCE_SCHEME = 'ui://'
 
 export type McpProxyMode = 'workspace' | 'stateless'
 
@@ -65,6 +70,7 @@ type ToolCallInput = { name: string; arguments?: Record<string, unknown> }
 type RemoteToolCaller = {
   callTool: Client['callTool']
 }
+type RemoteResourceReader = Partial<Pick<Client, 'listResources' | 'readResource'>>
 const NETWORK_DESCRIPTION =
   'Network to query. Call meta_network_capabilities first and pass a name GraphRAG advertised. CIA does not pick a default network.'
 const NETWORK_SCHEMA = z.string().min(1).describe(NETWORK_DESCRIPTION)
@@ -182,6 +188,18 @@ function fallbackGraphPrimitiveTools(): McpTool[] {
  * server (subscription_status). Returns null — never throws — when no wallet
  * is configured; callers degrade to an unavailable-shape result.
  */
+/**
+ * Local payment wallet address for the top-up view: null when no wallet file
+ * exists, and an error when the file exists but cannot be read. Reads the
+ * address only; nothing is signed or sent.
+ */
+async function localTopupWalletAddress(): Promise<string | null> {
+  const { isWalletConfigured } = await import('../wallet/index.js')
+  if (!(await isWalletConfigured())) return null
+  const { getWalletAccount } = await import('../wallet/tools.js')
+  return (await getWalletAccount()).address
+}
+
 async function localSubscriptionWalletAddress(): Promise<string | null> {
   try {
     const { getWalletAccount } = await import('../wallet/tools.js')
@@ -387,7 +405,12 @@ function installRemoteCypherLogging(
 }
 
 function remoteToolRequestOptions(toolName: string): Parameters<Client['callTool']>[2] | undefined {
-  if (toolName === 'graph_query' || toolName === 'graph_query_batch') {
+  if (
+    toolName === 'graph_query' ||
+    toolName === 'graph_query_batch' ||
+    toolName === 'money_flows' ||
+    toolName === 'graph_expand'
+  ) {
     return {
       timeout: REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS,
       maxTotalTimeout: REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS,
@@ -461,6 +484,67 @@ type RemoteToolResult = {
   structuredContent?: Record<string, unknown>
   _meta?: Record<string, unknown>
   isError?: boolean
+}
+
+/**
+ * The MCP Apps keys of a remote tool definition: `_meta.ui` (resourceUri and
+ * visibility) and the legacy `_meta["ui/resourceUri"]`. Undefined when the
+ * tool draws no view.
+ */
+function remoteUiToolMeta(tool: McpTool): Record<string, unknown> | undefined {
+  const meta = tool._meta
+  if (!isRecord(meta)) return undefined
+  const picked: Record<string, unknown> = {}
+  if (isRecord(meta.ui)) picked.ui = meta.ui
+  if (typeof meta['ui/resourceUri'] === 'string') picked['ui/resourceUri'] = meta['ui/resourceUri']
+  return Object.keys(picked).length > 0 ? picked : undefined
+}
+
+/**
+ * The remote JSON Schema of a view tool as a Zod schema, so Claude sees the
+ * same arguments the hosted server declares. Null when it cannot be read.
+ */
+function remoteToolInputSchema(tool: McpTool): z.ZodTypeAny | null {
+  if (!isRecord(tool.inputSchema) || tool.inputSchema.type !== 'object') return null
+  try {
+    return z.fromJSONSchema(tool.inputSchema as Parameters<typeof z.fromJSONSchema>[0])
+  } catch {
+    return null
+  }
+}
+
+/**
+ * List the hosted server's ui:// resources and serve each one locally by
+ * forwarding resources/read, so Claude Desktop draws the same views through
+ * the local proxy as through the hosted connector.
+ */
+async function registerRemoteUiResources(
+  server: McpServer,
+  remoteClient: RemoteResourceReader,
+  logger: ReturnType<typeof createMcpLogger>,
+  localUris: ReadonlySet<string>
+): Promise<string[]> {
+  const listResources = remoteClient.listResources?.bind(remoteClient)
+  const readResource = remoteClient.readResource?.bind(remoteClient)
+  if (!listResources || !readResource) return []
+  const registered: string[] = []
+  try {
+    let cursor: string | undefined
+    do {
+      const page = await listResources(cursor ? { cursor } : undefined)
+      for (const resource of page.resources ?? []) {
+        const { uri, name, ...metadata } = resource
+        if (!uri.startsWith(UI_RESOURCE_SCHEME) || localUris.has(uri)) continue
+        if (registered.includes(uri)) continue
+        server.registerResource(name || uri, uri, metadata, async () => readResource({ uri }))
+        registered.push(uri)
+      }
+      cursor = page.nextCursor
+    } while (cursor)
+  } catch (err) {
+    await logger.error('remote.resources_failed', { error: errorForLog(err) })
+  }
+  return registered
 }
 
 function promptResult(text: string, description?: string): GetPromptResult {
@@ -673,12 +757,12 @@ function sanitizeStructuredValue(value: unknown): unknown {
   return sanitized
 }
 
+// The remote result _meta passes through, MCP Apps keys (ui, ui/resourceUri)
+// included. Only the old graph-report envelope (chainInsights.graph) is dropped.
 function sanitizeRemoteMeta(metaValue: RemoteToolResult['_meta']): RemoteToolResult['_meta'] {
   if (!metaValue || typeof metaValue !== 'object' || Array.isArray(metaValue)) return undefined
 
   const meta = { ...metaValue } as Record<string, unknown>
-  delete meta.ui
-  delete meta['ui/resourceUri']
 
   const chainInsights = meta.chainInsights
   if (chainInsights && typeof chainInsights === 'object' && !Array.isArray(chainInsights)) {
@@ -690,10 +774,20 @@ function sanitizeRemoteMeta(metaValue: RemoteToolResult['_meta']): RemoteToolRes
   return Object.keys(meta).length > 0 ? (meta as RemoteToolResult['_meta']) : undefined
 }
 
-function normalizeRemoteToolResult(result: RemoteToolResult) {
+// Raw graph arrays and app_data are stripped from the aml_* answers only, the
+// graph-report tools of the old viewer. Every other answer (graph_query,
+// graph_query_batch, money_flows, graph_expand) keeps its structuredContent
+// exactly as the hosted server returned it: the views read it.
+function stripsGraphPayload(toolName: string): boolean {
+  return toolName.startsWith('aml_')
+}
+
+function normalizeRemoteToolResult(toolName: string, result: RemoteToolResult) {
   return {
     content: result.content ?? [],
-    structuredContent: sanitizeStructuredContentForGraphPayload(result.structuredContent),
+    structuredContent: stripsGraphPayload(toolName)
+      ? sanitizeStructuredContentForGraphPayload(result.structuredContent)
+      : result.structuredContent,
     _meta: sanitizeRemoteMeta(result._meta),
     isError: result.isError,
   }
@@ -1232,7 +1326,7 @@ export async function createProxy(): Promise<void> {
         const result = requestOptions
           ? await remoteClient.callTool(request, undefined, requestOptions)
           : await remoteClient.callTool(request)
-        return normalizeRemoteToolResult(result as RemoteToolResult)
+        return normalizeRemoteToolResult(tool.name, result as RemoteToolResult)
       } catch (err) {
         if (err instanceof PaymentRequiredError) {
           return {
@@ -1263,17 +1357,41 @@ export async function createProxy(): Promise<void> {
         }
       }
     }
+    // A view tool keeps its MCP Apps metadata, so the host draws its view and
+    // keeps an app-only tool (visibility ["app"], such as graph_expand) away
+    // from the model while the view can still call it.
+    const uiMeta = remoteUiToolMeta(tool)
+    const annotations =
+      knownPublicToolAnnotations(tool.name) ??
+      (uiMeta && isRecord(tool.annotations) ? tool.annotations : undefined)
     const toolConfig = {
       title: tool.title,
       description: claudeFacingToolDescription(tool),
-      inputSchema,
-      ...(knownPublicToolAnnotations(tool.name)
-        ? { annotations: knownPublicToolAnnotations(tool.name) }
-        : {}),
+      inputSchema:
+        uiMeta && !knownPublicToolInputSchema(tool.name)
+          ? (remoteToolInputSchema(tool) ?? inputSchema)
+          : inputSchema,
+      ...(annotations ? { annotations } : {}),
+      ...(uiMeta ? { _meta: uiMeta } : {}),
     }
 
     server.registerTool(tool.name, toolConfig, handler)
   }
+
+  // The local top-up view (wallet address and QR code). It stays in the local
+  // proxy: the wallet it funds is a local file, and the hosted connector never
+  // offers it (ruling 2026-10-05).
+  const { registerTopupView, TOPUP_VIEW_URI } = await import('../wallet/mcp-proxy/topup-server.js')
+  await registerTopupView(server, { walletAddress: localTopupWalletAddress })
+
+  const uiResources = remoteConnected
+    ? await registerRemoteUiResources(
+        server,
+        remoteClient as unknown as RemoteResourceReader,
+        logger,
+        new Set([TOPUP_VIEW_URI])
+      )
+    : []
 
   // Connect to stdio transport — after this line, stdout belongs to MCP
   const transport = new StdioServerTransport()
@@ -1282,9 +1400,11 @@ export async function createProxy(): Promise<void> {
     tools: [
       ...LOCAL_TOOL_NAMES,
       ...(tools ?? [])
+        .filter((tool) => !isAppOnlyTool(tool))
         .map((tool) => tool.name)
         .filter((name) => !HIDDEN_REMOTE_TOOL_NAMES.has(name) && !LOCAL_TOOL_NAMES.has(name)),
     ].length,
+    ui_resources: uiResources.length,
   })
 
   // Signal handling — clean shutdown

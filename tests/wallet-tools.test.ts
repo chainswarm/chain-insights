@@ -3,8 +3,35 @@ import { mkdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { privateKeyToAccount } from 'viem/accounts'
+import jsQR from 'jsqr'
 
 const readContractMock = vi.hoisted(() => vi.fn())
+// Every signing method of every local account, spied: the top-up view must
+// never reach one.
+const signSpies = vi.hoisted(() => ({
+  sign: vi.fn(),
+  signAuthorization: vi.fn(),
+  signMessage: vi.fn(),
+  signTransaction: vi.fn(),
+  signTypedData: vi.fn(),
+}))
+
+vi.mock('viem/accounts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('viem/accounts')>()
+  return {
+    ...actual,
+    privateKeyToAccount: vi.fn((key: `0x${string}`) => {
+      const account = actual.privateKeyToAccount(key) as unknown as Record<string, unknown>
+      for (const [name, spy] of Object.entries(signSpies)) {
+        const original = account[name]
+        if (typeof original !== 'function') continue
+        spy.mockImplementation((...args: unknown[]) => (original as Function)(...args))
+        account[name] = spy
+      }
+      return account
+    }),
+  }
+})
 const getBalanceMock = vi.hoisted(() => vi.fn())
 const writeContractMock = vi.hoisted(() => vi.fn())
 const waitForTransactionReceiptMock = vi.hoisted(() => vi.fn())
@@ -329,4 +356,149 @@ describe('wallet tools', () => {
       resolveMaxAutoApprovalUnits({ CHAIN_INSIGHTS_MAX_AUTO_APPROVAL_USDC: '-1' })
     ).toThrow()
   })
+
+  describe('top-up view (ui://chain-insights/topup)', () => {
+    type RegisteredCall = [string, ...unknown[]]
+    function fakeServer() {
+      const tools: RegisteredCall[] = []
+      const resources: RegisteredCall[] = []
+      return {
+        tools,
+        resources,
+        server: {
+          registerTool: vi.fn((...args: RegisteredCall) => tools.push(args)),
+          registerResource: vi.fn((...args: RegisteredCall) => resources.push(args)),
+        },
+      }
+    }
+
+    function decodeQr(modules: number[][]): string | null {
+      const quiet = 4
+      const scale = 6
+      const side = (modules.length + quiet * 2) * scale
+      const pixels = new Uint8ClampedArray(side * side * 4).fill(255)
+      for (let y = 0; y < side; y++) {
+        for (let x = 0; x < side; x++) {
+          const row = Math.floor(y / scale) - quiet
+          const col = Math.floor(x / scale) - quiet
+          if (modules[row]?.[col] !== 1) continue
+          const i = (y * side + x) * 4
+          pixels[i] = pixels[i + 1] = pixels[i + 2] = 0
+        }
+      }
+      return jsQR(pixels, side, side)?.data ?? null
+    }
+
+    it('shows the wallet address, its QR code, Base Mainnet and USDC, and signs or sends nothing', async () => {
+      const { encryptKey } = await import('../src/wallet/index.js')
+      const tools = await import('../src/wallet/tools.js')
+      const { registerTopupView, TOPUP_VIEW_URI, qrModulesSource } =
+        await import('../src/wallet/mcp-proxy/topup-server.js')
+      const viem = await import('viem')
+      const walletSpies = [
+        vi.spyOn(tools, 'approvePaymentAllowance'),
+        vi.spyOn(tools, 'prepareWalletForPaidCalls'),
+      ]
+      const privateKey = '0x0000000000000000000000000000000000000000000000000000000000000001'
+      await encryptKey(privateKey)
+      const address = actualAddress(privateKey)
+
+      const { server, tools: registeredTools, resources } = fakeServer()
+      await registerTopupView(server as never, {
+        walletAddress: async () => (await tools.getWalletAccount()).address,
+      })
+
+      const [name, config, handler] = registeredTools[0] as [
+        string,
+        Record<string, unknown>,
+        Function,
+      ]
+      expect(name).toBe('wallet_topup')
+      expect(config._meta).toMatchObject({
+        ui: { resourceUri: TOPUP_VIEW_URI },
+        'ui/resourceUri': TOPUP_VIEW_URI,
+      })
+      expect(config.annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false })
+
+      const result = await handler({}, {})
+      expect(result.isError).toBe(false)
+      expect(result.content[0].text).toContain(address)
+      expect(result.content[0].text).toContain('Base Mainnet')
+      expect(result.content[0].text).toContain('USDC')
+      expect(result.structuredContent.facts.topup).toMatchObject({
+        wallet_address: address,
+        network_display: 'Base Mainnet',
+        chain_id: 8453,
+        token: 'USDC',
+      })
+
+      const [resourceName, resourceUri, , read] = resources[0] as [
+        string,
+        string,
+        Record<string, unknown>,
+        Function,
+      ]
+      expect(resourceName).toBe('Chain Insights wallet top-up')
+      expect(resourceUri).toBe(TOPUP_VIEW_URI)
+      const resource = await read(new URL(TOPUP_VIEW_URI), {})
+      const content = resource.contents[0]
+      expect(content.mimeType).toBe('text/html;profile=mcp-app')
+      const html = content.text as string
+
+      // Both themes, chosen by Claude's hostContext.theme.
+      expect(html).toContain("html[data-theme='dark']")
+      expect(html).toContain('applyDocumentTheme(context.theme)')
+      expect(html).toContain('onhostcontextchanged')
+      // The view itself holds no wallet, payment or network code.
+      const viewScript = html.slice(html.lastIndexOf('<script type="module">'))
+      expect(viewScript).not.toMatch(
+        /fetch\(|XMLHttpRequest|WebSocket|sign[A-Z]|sendTransaction|writeContract|eth_send|callServerTool/
+      )
+
+      // The QR source the view inlines works on its own and encodes the address.
+      const inlined = new Function(`return ${qrModulesSource()}`)() as (text: string) => number[][]
+      expect(viewScript).toContain(qrModulesSource())
+      expect(decodeQr(inlined(address))).toBe(address)
+
+      for (const spy of walletSpies) expect(spy).not.toHaveBeenCalled()
+      for (const spy of Object.values(signSpies)) expect(spy).not.toHaveBeenCalled()
+      expect(viem.createWalletClient).not.toHaveBeenCalled()
+      expect(writeContractMock).not.toHaveBeenCalled()
+    })
+
+    it('names cia wallet create when no wallet exists', async () => {
+      const { registerTopupView } = await import('../src/wallet/mcp-proxy/topup-server.js')
+      const { server, tools: registeredTools, resources } = fakeServer()
+      await registerTopupView(server as never, { walletAddress: async () => null })
+
+      const handler = registeredTools[0]![2] as Function
+      const result = await handler({}, {})
+      expect(result.isError).toBe(false)
+      expect(result.content[0].text).toContain('cia wallet create')
+      expect(result.structuredContent.facts).toEqual({ wallet_configured: false, topup: null })
+
+      const read = resources[0]![3] as Function
+      const html = (await read(new URL('ui://chain-insights/topup'), {})).contents[0].text
+      expect(html).toContain('No payment wallet yet')
+      expect(html).toContain('cia wallet create')
+      expect(signSpies.signTypedData).not.toHaveBeenCalled()
+    })
+
+    it('reports an unreadable wallet as an error, not as a missing one', async () => {
+      const { registerTopupView } = await import('../src/wallet/mcp-proxy/topup-server.js')
+      const { server, tools: registeredTools } = fakeServer()
+      await registerTopupView(server as never, {
+        walletAddress: async () => {
+          throw new Error('Wallet decryption failed.')
+        },
+      })
+      const result = await (registeredTools[0]![2] as Function)({}, {})
+      expect(result.isError).toBe(true)
+      expect(result.content[0].text).toContain('Wallet decryption failed.')
+    })
+  })
 })
+
+function actualAddress(privateKey: `0x${string}`): string {
+  return privateKeyToAccount(privateKey).address
+}
