@@ -77,13 +77,7 @@ describe('graph query corpus', () => {
       recipes.filter((r) => r.layer === 'topology').flatMap((r) => r.features)
     )
     // GQL path shapes run directly against DozerDB on the topology graph.
-    for (const feature of [
-      'gql-shortest',
-      'any-shortest',
-      'all-shortest',
-      'quantified-path',
-      'shortest-path',
-    ]) {
+    for (const feature of ['gql-shortest', 'any-shortest', 'quantified-path', 'shortest-path']) {
       expect(topologyFeatures.has(feature), `missing native topology feature: ${feature}`).toBe(
         true
       )

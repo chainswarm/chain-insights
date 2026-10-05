@@ -14,8 +14,8 @@ Two consequences drive everything below:
 1. **`topology` is ISO GQL.** It is one disk-backed graph that
    serves ALL topology — both recent and full historical activity — in one place;
    there is no separate "live" vs "archive" split and it never compiles to SQL.
-   Quantified paths and `SHORTEST`, `ANY SHORTEST`, and `ALL SHORTEST`
-   selectors are first-class — subject to bounds enforced before execution.
+   Quantified paths and the `SHORTEST 1` and `ANY SHORTEST` selectors are
+   first-class — subject to bounds enforced before execution.
 2. **`facts` is a compiled Cypher _subset_.** A corpus-scoped translator
    (`internal/cyphersql`) compiles a defined shape of `MATCH` / `WHERE` /
    projection / aggregate / `ORDER BY` / `LIMIT` to StarRocks SQL. Shapes outside
@@ -263,13 +263,12 @@ has no link) and `last_height`, the block height of the newest owner action.
 
 ### Traversal (the expanded surface)
 
-| Form               | Syntax                                                                                                                                                                                    | Supported          |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| Quantified path    | `MATCH p = (a:Address WHERE NOT a:Pool) (()-[:FLOWS_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO\|SWAPPED]-(b:Address)`                                              | ✅ upper bound ≤ 5 |
-| One shortest path  | `MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool) (()-[:FLOWS_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO\|SWAPPED]-(b:Address {address: $to})`   | ✅ upper bound ≤ 5 |
-| Any shortest path  | `MATCH p = ANY SHORTEST (a:Address {address: $from} WHERE NOT a:Pool) (()-[:FLOWS_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO\|SWAPPED]-(b:Address {address: $to})` | ✅ upper bound ≤ 5 |
-| All shortest paths | `MATCH p = ALL SHORTEST (a:Address {address: $from} WHERE NOT a:Pool) (()-[:FLOWS_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO\|SWAPPED]-(b:Address {address: $to})` | ✅ upper bound ≤ 5 |
-| Open target        | `MATCH SHORTEST 1 (a:Address {address: $addr} WHERE NOT a:Pool) (()-[:FLOWS_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO\|SWAPPED]-(b:Address)`                      | ✅ upper bound ≤ 5 |
+| Form              | Syntax                                                                                                                                                                                    | Supported          |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| Quantified path   | `MATCH p = (a:Address WHERE NOT a:Pool) (()-[:FLOWS_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO\|SWAPPED]-(b:Address)`                                              | ✅ upper bound ≤ 5 |
+| One shortest path | `MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool) (()-[:FLOWS_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO\|SWAPPED]-(b:Address {address: $to})`   | ✅ upper bound ≤ 5 |
+| Any shortest path | `MATCH p = ANY SHORTEST (a:Address {address: $from} WHERE NOT a:Pool) (()-[:FLOWS_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO\|SWAPPED]-(b:Address {address: $to})` | ✅ upper bound ≤ 5 |
+| Open target       | `MATCH SHORTEST 1 (a:Address {address: $addr} WHERE NOT a:Pool) (()-[:FLOWS_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO\|SWAPPED]-(b:Address)`                      | ✅ upper bound ≤ 5 |
 
 Every form above carries the pool guard and walks `SWAPPED` beside
 `FLOWS_TO`. `WHERE NOT a:Pool` keeps the walk from starting at a `:Pool`, the

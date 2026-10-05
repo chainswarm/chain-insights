@@ -44,12 +44,13 @@ function servedGraphHints(): string {
 }
 
 // The guarded route contract (ruled 2026-09-28): the only route and
-// open-target shapes served, with $from, $to and $addr the only variables.
+// open-target shapes served, with $from, $to and $addr the only variables. A
+// route search asks for one path, so ALL SHORTEST is not served.
 function routeContractShapes(): string[] {
   const walk =
     '(()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-'
   return [
-    ...['SHORTEST 1', 'ANY SHORTEST', 'ALL SHORTEST'].map(
+    ...['SHORTEST 1', 'ANY SHORTEST'].map(
       (selector) =>
         `MATCH p = ${selector} (a:Address {address: $from} WHERE NOT a:Pool) ${walk}(b:Address {address: $to})`
     ),
@@ -458,10 +459,10 @@ describe('shipped Chain Insights skills contract', () => {
       .map(({ name, walk }) => `${name}: ${walk}`)
     expect(offContract).toEqual([])
     // Every contract shape is served: the cypher skill carries the route and
-    // the open target verbatim, and the documented recipes carry all four.
+    // the open target verbatim, and the documented recipes carry all three.
     const cypherSkill = read('skills/chain-insights-cypher/SKILL.md')
     expect(cypherSkill).toContain(shapes[0])
-    expect(cypherSkill).toContain(shapes[3])
+    expect(cypherSkill).toContain(shapes[2])
     for (const [i, pattern] of shapePatterns.entries()) {
       expect(
         routeWalks.some(
@@ -476,7 +477,7 @@ describe('shipped Chain Insights skills contract', () => {
   it('the pool-guard check recognises every walk shape it must refuse', () => {
     const walk =
       '(()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-'
-    const [route, anyRoute, allRoute, openTarget] = routeContractShapes()
+    const [route, anyRoute, openTarget] = routeContractShapes()
     const A = '"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"'
     const B = '"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"'
     const middle = (node: string) =>
@@ -767,7 +768,6 @@ describe('shipped Chain Insights skills contract', () => {
     const admitted: Record<string, string> = {
       route: `${route} RETURN p`,
       any_shortest_route: `${anyRoute} RETURN p`,
-      all_shortest_route: `${allRoute} RETURN p`,
       open_target: `${openTarget} RETURN b.address LIMIT 50`,
       route_with_literal_addresses: `USE topology MATCH p = SHORTEST 1 (a:Address {address: ${A}} WHERE NOT a:Pool) ${walk}(b:Address {address: ${B}}) RETURN p LIMIT 5`,
       fixed_hop:
@@ -827,7 +827,6 @@ describe('shipped Chain Insights skills contract', () => {
     const contract: Record<string, string> = {
       route: `${route} RETURN [n IN nodes(p) | n.address] AS route`,
       any_shortest_route: `${anyRoute} RETURN p`,
-      all_shortest_route: `${allRoute} RETURN p`,
       open_target: `${openTarget} RETURN b.address LIMIT 50`,
       route_with_literal_addresses: `USE topology MATCH p = SHORTEST 1 (a:Address {address: ${A}} WHERE NOT a:Pool) ${walk}(b:Address {address: ${B}}) RETURN p LIMIT 5`,
     }
@@ -884,7 +883,7 @@ describe('shipped Chain Insights skills contract', () => {
 
     expect(skill).toContain('MATCH SHORTEST 1')
     expect(skill).toContain('MATCH ANY SHORTEST')
-    expect(skill).toContain('MATCH ALL SHORTEST')
+    expect(skill).not.toContain('MATCH ALL SHORTEST')
     expect(skill).toContain('-[:FLOWS_TO]-{1,5}')
     expect(skill).not.toMatch(/\*\s*(BFS|DFS|WSHORTEST|ALLSHORTEST|KSHORTEST)/i)
     expect(skill).not.toContain('USING HOPS LIMIT')

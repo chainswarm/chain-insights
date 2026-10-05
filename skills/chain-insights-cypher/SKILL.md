@@ -58,6 +58,23 @@ ORDER BY x.swap_count DESC
 LIMIT 25
 ```
 
+## Anchor every topology read
+
+Put an address in every connected pattern: `{address: "0x…"}` in the node, or
+an equality in the top-level `WHERE`. A list of at most 25 address literals is
+an anchor too. An address in the `RETURN` list, in an `OR`, in a comment or in
+a `$parameter` is no anchor. The one read without an anchor is the probe: one
+hop or one node, no `WHERE`, no `ORDER BY`, no aggregate, and a `LIMIT` of 100
+or less. A sort, an aggregate, `DISTINCT` or `collect()` needs an anchor on
+every pattern. A read with no anchor is refused with `anchor_missing`, or with
+`aggregate_unanchored` when it sorts or aggregates.
+
+End every read with a literal `LIMIT` of 5,000 or less. A path has at most 5
+hops and a query at most 8. A route search asks for one path. A refusal comes
+back at once, before the query runs. It carries `error_detail` with a `code`,
+a `rule`, a `class`, a `fix` and an `example` that the server itself admits.
+Read the `fix`, and do not send the same query again.
+
 ## Layer choice
 
 | Graph          | Backend             | Dialect           |
@@ -84,8 +101,7 @@ Accepted, with bounds:
 - Bounded quantified paths: `-[:FLOWS_TO]-{1,5}`
 - Quantified path patterns with an inner `WHERE`:
   `(()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4}`
-- Shortest paths: `MATCH SHORTEST 1`, `MATCH ANY SHORTEST`, or
-  `MATCH ALL SHORTEST`
+- One shortest path: `MATCH SHORTEST 1` or `MATCH ANY SHORTEST`
 
 Use an upper hop bound of `5` or less.
 
@@ -98,10 +114,11 @@ A walk may end at a pool. It never starts at one or passes through one.
 These are the shortest-path forms, with the guard:
 
 Route between two known addresses:
-`MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: $to}) RETURN [n IN nodes(p) | n.address] AS route`
+`MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: $to}) RETURN [n IN nodes(p) | n.address] AS route LIMIT 5`
 
-`ANY SHORTEST` and `ALL SHORTEST` take the same pattern in place of
-`SHORTEST 1`.
+`ANY SHORTEST` takes the same pattern in place of `SHORTEST 1`. A count above
+1, `GROUPS`, `PATHS` and a repeated part with an upper bound above 4 are
+refused.
 
 Open target:
 `MATCH SHORTEST 1 (a:Address {address: $addr} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address) RETURN b.address LIMIT 50`
