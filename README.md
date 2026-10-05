@@ -428,3 +428,5 @@ Architecture depth:
 - [Operating rules](docs/architecture/operating-rules.md) — repo
   invariants, findings rules, CI gotchas.
 - [docs/acceptance/](docs/acceptance/) — per-component acceptance evidence.
+
+Pull requests enter `main` through the AP1000 merge queue since 2026-10-05 (`scripts/ci-receipt.sh chain-insights <worktree> --queue` in AP1000).
