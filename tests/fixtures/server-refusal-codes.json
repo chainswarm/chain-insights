@@ -1,6 +1,6 @@
 {
   "source": "graph server refusal codes",
-  "server_commit": "06b5b63426cfb72a1ece1482c65ce9b1520ff38e",
+  "server_commit": "380f5445fa38ad49cac9fa1dcdae5ec6a42b868f",
   "codes": [
     {
       "code": "invalid_scope",

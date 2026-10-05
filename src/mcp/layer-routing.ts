@@ -11,6 +11,14 @@
 // look up one known thing. Nothing here is a limit. A limit that the server
 // publishes is read from `meta_network_capabilities`, and the text names the
 // field, never the number.
+//
+// `USE chain` serves the three labels of the server's chain catalogue and no
+// other: a transaction by its hash, a block by its number or its hash, and the
+// head, which takes no key. There is no address lookup on the chain layer, so a
+// routing line that offered one sent an agent to a refusal.
+// tests/fixtures/chain-catalogue.json pins the labels, and
+// tests/chain-catalogue-pin.test.ts holds every chain recipe and the chain
+// routing line to them.
 
 /** The routing rule, in one sentence. The server states it in the same words. */
 export const ROUTING_RULE =
@@ -20,8 +28,12 @@ export const ROUTING_RULE =
 export const ROUTING_LINES = [
   'I do not know the thing yet: `USE topology`.',
   'I know the pair and the day, or the transaction hash, and want the indexed rows: `USE facts`.',
-  "I know one address, hash or block and want the chain's own record of it: `USE chain`.",
+  "I want the chain's own record of a transaction by its hash, a block by its number or hash, or the head: `USE chain`.",
 ] as const
+
+/** The chain layer has no address lookup, so an address starts on topology. */
+export const ROUTING_NO_ADDRESS_ON_CHAIN =
+  '`USE chain` has no address lookup. Find the address on `USE topology`, then read the pair and one day on `USE facts`.'
 
 /** What to do when two layers fit. */
 export const ROUTING_TWO_FIT =
@@ -62,7 +74,14 @@ export const MOVE_BATCH = 'In a batch, send again only the members that came bac
 
 /** The routing sentences, in the order a reader meets them. */
 export function routingLines(): string[] {
-  return [ROUTING_RULE, ...ROUTING_LINES, ROUTING_TWO_FIT, ROUTING_HANDOFF, ROUTING_NOT_SERVED]
+  return [
+    ROUTING_RULE,
+    ...ROUTING_LINES,
+    ROUTING_NO_ADDRESS_ON_CHAIN,
+    ROUTING_TWO_FIT,
+    ROUTING_HANDOFF,
+    ROUTING_NOT_SERVED,
+  ]
 }
 
 /** The move-by-class sentences, in the order a reader meets them. */
@@ -86,7 +105,7 @@ export function moveLines(): string[] {
  */
 export function routingHintLines(): string[] {
   return [
-    `- Pick the layer first. ${ROUTING_RULE} 1. ${ROUTING_LINES[0]} 2. ${ROUTING_LINES[1]} 3. ${ROUTING_LINES[2]} ${ROUTING_TWO_FIT} ${ROUTING_HANDOFF} ${ROUTING_NOT_SERVED} The lookups that USE chain serves are listed in chain_admission.lookups of meta_network_capabilities. Read every limit that the server publishes from meta_network_capabilities (chain_admission and, when the server sends them, topology_admission and facts_admission). Never write a limit down.`,
+    `- Pick the layer first. ${ROUTING_RULE} 1. ${ROUTING_LINES[0]} 2. ${ROUTING_LINES[1]} 3. ${ROUTING_LINES[2]} ${ROUTING_NO_ADDRESS_ON_CHAIN} ${ROUTING_TWO_FIT} ${ROUTING_HANDOFF} ${ROUTING_NOT_SERVED} The lookups that USE chain serves are listed in chain_admission.lookups of meta_network_capabilities. Read every limit that the server publishes from meta_network_capabilities (chain_admission and, when the server sends them, topology_admission and facts_admission). Never write a limit down.`,
     `- Act on a refusal by its class. ${moveLines().join(' ')}`,
   ]
 }

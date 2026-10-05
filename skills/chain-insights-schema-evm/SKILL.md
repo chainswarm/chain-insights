@@ -616,8 +616,11 @@ sends a question here, and for the shape of a lookup.
 | `Block`       | `height` or `hash`, exactly one | A block and its time: `hash`, `block_timestamp`, `block_date`.          |
 | `Head`        | none                            | The chain tip, and how far the graph and the warehouse are behind it.   |
 
-The labels that the server serves are listed in `chain_admission.lookups` of
-`meta_network_capabilities`. The refusal of an unknown property
+These labels are all the chain layer serves. There is no `:Address` lookup
+here: find an address on `USE topology`, then read the pair and one day on
+`USE facts`. The labels that the server serves are listed in
+`chain_admission.lookups` of `meta_network_capabilities`. The refusal of an
+unknown property
 (`chain_not_served`) lists the properties of that label. A `block_date` is a
 UTC day, the same day that a facts `block_date` names.
 

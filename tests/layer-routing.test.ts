@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
 
 import { moveLines, routingLines } from '../src/mcp/layer-routing.js'
+import { chainCatalogue, chainLookupProblem } from './support/chain-catalogue.js'
 import { factsReadViolations } from './support/facts-contract.js'
 import { flat, read, servedGraphHints } from './support/schema-text.js'
 
@@ -17,8 +18,8 @@ import { flat, read, servedGraphHints } from './support/schema-text.js'
 //   topology  an admit case of tests/fixtures/topology-shape-cases.json
 //   facts     a pair with one day, or a transaction hash, unless it is a refused
 //             recipe that names the code it must get
-//   chain     one node of Transaction, Block or Head, literal keys, a RETURN of
-//             properties, and at most LIMIT 1
+//   chain     one node of a label of tests/fixtures/chain-catalogue.json, with a
+//             key and properties that label serves, and at most LIMIT 1
 //
 // The routing lines and the move by class live in src/mcp/layer-routing.ts. The
 // served hints are built from it, and the cypher skill and the guide hold the
@@ -43,35 +44,10 @@ type RoutingFile = { rules_version: string; entries: RoutingEntry[] }
 
 const routing = JSON.parse(readFileSync(routingPath, 'utf8')) as RoutingFile
 
-// The problem of a chain lookup, or null. A chain lookup is one node of a label
-// the layer serves, with its key in braces as a literal, a RETURN of properties
-// of that node, and no WHERE, no relationship and no range.
-const CHAIN_LOOKUP =
-  /^USE chain MATCH \((\w+):(Transaction|Block|Head)(?: \{([^{}]*)\})?\) RETURN ((?:\w+\.\w+)(?:, \w+\.\w+)*)(?: LIMIT (\d+))?$/
-const LITERAL_KEY = String.raw`(?:"[^"$]*"|\d+)`
-
-function chainProblem(query: string): string | null {
-  const found = CHAIN_LOOKUP.exec(query)
-  if (!found) {
-    return 'is not one node of Transaction, Block or Head with a RETURN of properties'
-  }
-  const [, variable, label, keys, returned, limit] = found
-  if (limit !== undefined && Number(limit) > 1) return `has a LIMIT of ${limit}, at most 1`
-  for (const item of (returned ?? '').split(', ')) {
-    if (!item.startsWith(`${variable}.`))
-      return `returns ${item}, which is not a property of ${variable}`
-  }
-  const key = new RegExp(String.raw`^(\w+): (${LITERAL_KEY})$`).exec(keys ?? '')
-  if (label === 'Head') return keys === undefined ? null : 'names a key, and Head takes none'
-  if (keys === undefined) return `names no key, and ${label} takes one`
-  if (!key) return `names a key that is not a literal: ${keys}`
-  if (label === 'Transaction' && key[1] !== 'hash')
-    return 'names a Transaction by something but its hash'
-  if (label === 'Block' && key[1] !== 'height' && key[1] !== 'hash') {
-    return 'names a Block by something but its height or its hash'
-  }
-  return null
-}
+// The rule of the chain layer is the server's own catalogue, pinned in
+// tests/fixtures/chain-catalogue.json. tests/support/chain-catalogue.ts reads a
+// lookup against it, so no label, key or property is written down here.
+const chainProblem = (query: string): string | null => chainLookupProblem(query)
 
 describe('the committed routing table', () => {
   it('matches a fresh deterministic generation', { timeout: 120_000 }, () => {
@@ -110,9 +86,9 @@ describe('the committed routing table', () => {
     )
   })
 
-  it('holds a chain recipe for each of Transaction, Block and Head', () => {
+  it('holds a chain recipe for each label the catalogue serves', () => {
     const chain = routing.entries.filter((entry) => entry.layer === 'chain')
-    for (const label of ['Transaction', 'Block', 'Head']) {
+    for (const { label } of chainCatalogue().labels) {
       expect(
         chain.some((entry) => entry.query.includes(`:${label}`)),
         `no chain entry for ${label}`

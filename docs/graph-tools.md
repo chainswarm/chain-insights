@@ -44,7 +44,9 @@ Route by what you know: topology searches, while facts and chain look up one kno
 
 1. I do not know the thing yet: `USE topology`.
 2. I know the pair and the day, or the transaction hash, and want the indexed rows: `USE facts`.
-3. I know one address, hash or block and want the chain's own record of it: `USE chain`.
+3. I want the chain's own record of a transaction by its hash, a block by its number or hash, or the head: `USE chain`.
+
+`USE chain` has no address lookup. Find the address on `USE topology`, then read the pair and one day on `USE facts`.
 
 When two fit, as with a hash: ask `USE chain` first for the record and the result, then `USE facts` for the transfers it caused.
 
@@ -97,10 +99,11 @@ lists every code with its layer, its class and the next move.
 
 `USE chain` asks the chain node for one known thing by its key. It serves the
 lookups that `chain_admission.lookups` lists: `Transaction` by `hash`, `Block`
-by `height` or `hash`, and `Head`, which takes no key. A lookup is one node with
-literal keys in braces and a `RETURN` of `var.property` items. It takes no
-`WHERE`, no relationship and no range. The properties of each lookup are named
-in the refusal of an unknown property, and in the
+by `height` or `hash`, and `Head`, which takes no key. No lookup takes an
+address: `:Address` is a topology and a facts label, never a chain one. A lookup
+is one node with literal keys in braces and a `RETURN` of `var.property` items.
+It takes no `WHERE`, no relationship and no range. The properties of each lookup
+are named in the refusal of an unknown property, and in the
 [`chain-insights-schema-evm` skill](../skills/chain-insights-schema-evm/SKILL.md#use-chain).
 
 A transaction, with its result and the day it was mined:
@@ -383,8 +386,13 @@ bounded:
 
 - **Time:** the graph database stops a query when its time budget ends
   (60 seconds by default, or your lower `per_query_timeout_seconds`).
-- **Concurrency:** at most 4 topology queries run at once on the hosted
-  endpoint. A query waits for a free slot inside its own time budget.
+- **Concurrency:** topology queries share the slots of the hosted endpoint, so
+  a query waits for a free slot inside its own time budget, and a busy endpoint
+  answers `topology_busy`. The number of slots is the server's to publish, not
+  this guide's: read `topology_admission` in `meta_network_capabilities`
+  (`cia network robinhood --json` prints the same reply), and when the server
+  sends no `topology_admission` block, the `fix` of the refusal names the
+  limit.
 - **Memory:** a query that grows past the per-query memory limit is stopped.
 - **Batch:** the queries of one batch run one after another and share a
   100-second budget. A query that would start with less than 1 second left

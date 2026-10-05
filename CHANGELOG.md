@@ -23,6 +23,18 @@ shows it as a dead endpoint.
   `USE facts` still work. The bare word `network` no longer marks a message as
   a transport failure. A dropped connection still reads "Could not reach the
   Chain Insights Graph endpoint".
+- The routing rule offered a lookup the chain layer does not have. It read "I
+  know one address, hash or block", so an agent that knew an address sent it to
+  `USE chain` and got a refusal back. The chain layer serves a transaction by
+  its hash, a block by its number or its hash, and the head. An address now
+  goes to `USE topology` to be found, and then to `USE facts` for the rows.
+  `tests/fixtures/chain-catalogue.json` pins the labels the chain layer serves,
+  with the keys and properties of each, and a test holds every `USE chain`
+  recipe and the routing line to that pin.
+- `docs/graph-tools.md` said that at most 4 topology queries run at once. That
+  number belongs to the server, which publishes it, and the 4 was the chain
+  layer's. The guide now names `topology_admission` in
+  `meta_network_capabilities` and writes no number.
 
 ### Added
 
