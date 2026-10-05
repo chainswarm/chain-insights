@@ -969,7 +969,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     })
   })
 
-  it('names the hosted balance view on meta_usage_status and meta_subscription_status', async () => {
+  it('names the proxy view on meta_usage_status and meta_subscription_status', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       { name: 'usage_status', description: 'Usage status' },
@@ -987,6 +987,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     for (const name of ['meta_usage_status', 'meta_subscription_status']) {
       expect(findToolConfig(serverInstance, name)._meta).toEqual({
         ui: { resourceUri: 'ui://chain-insights/view' },
+        'ui/resourceUri': 'ui://chain-insights/view',
       })
     }
   })
@@ -2004,183 +2005,327 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
   // survives that filter and reaches the remote call, not just the local
   // fallback tool exercised by the test above.
 
-  it('passes the hosted views through: tool _meta.ui, ui:// resources, and view answers unchanged', async () => {
-    const viewMeta = {
-      ui: { resourceUri: 'ui://chain-insights/view' },
-      'ui/resourceUri': 'ui://chain-insights/view',
-    }
-    const expandMeta = { ui: { resourceUri: 'ui://chain-insights/view', visibility: ['app'] } }
-    const resourceMeta = {
-      ui: { prefersBorder: false, csp: { resourceDomains: ['https://assets.claude.ai'] } },
-    }
-    const { loadSchema } = await import('../src/mcp/schema-cache.js')
-    vi.mocked(loadSchema).mockResolvedValueOnce([
-      {
-        name: 'aml_address_risk',
-        title: 'Address Risk',
-        description: 'Risk report',
-        outputSchema: { type: 'object', properties: { app_data: { type: 'object' } } },
-      },
-      {
-        name: 'money_flows',
-        title: 'Money flows',
-        description: 'Recent money flows of one address',
-        inputSchema: {
-          type: 'object',
-          properties: { address: { type: 'string' }, network: { type: 'string' } },
-          required: ['address', 'network'],
-        },
-        annotations: { readOnlyHint: true },
-        _meta: viewMeta,
-      },
-      {
-        name: 'graph_expand',
-        title: 'Expand a money-flow node',
-        description: 'Next page of one address',
-        annotations: { readOnlyHint: true },
-        _meta: expandMeta,
-      },
-      { name: 'graph_query', description: 'Federated graph query', _meta: viewMeta },
-    ])
+  // The Claude views are served by this proxy and by nothing else. DESIGN_VIEW_METADATA
+  // is the wire contract of the views (the tool and resource metadata block of the
+  // design), copied as written. The comparison keeps every key in the design's
+  // order, so a renamed key, a reordered object or a changed value fails.
+  const DESIGN_VIEW_METADATA = [
+    `{
+      "name": "money_flows",
+      "title": "Money flows",
+      "annotations": { "readOnlyHint": true },
+      "_meta": { "ui": { "resourceUri": "ui://chain-insights/view" }, "ui/resourceUri": "ui://chain-insights/view" }
+    }`,
+    `{
+      "name": "graph_expand",
+      "title": "Expand a money-flow node",
+      "annotations": { "readOnlyHint": true },
+      "_meta": { "ui": { "resourceUri": "ui://chain-insights/view", "visibility": ["app"] } }
+    }`,
+    `{
+      "uri": "ui://chain-insights/view",
+      "mimeType": "text/html;profile=mcp-app",
+      "_meta": { "ui": { "prefersBorder": false, "csp": { "resourceDomains": ["https://assets.claude.ai"] } } }
+    }`,
+  ].map((text) => JSON.parse(text) as Record<string, unknown>)
 
-    const flowView = {
-      schema: 'chain-insights.flows.v1',
-      network: 'robinhood',
-      center: '0x04911a118f11c75667e4d0dfb8e640af5a353550',
-      nodes: [{ address: '0x04911a118f11c75667e4d0dfb8e640af5a353550', role: 'scam' }],
-      edges: [
-        {
-          from: '0x7e3702e9dfaa847f9829a258f1e26fa431160662',
-          to: '0x04911a118f11c75667e4d0dfb8e640af5a353550',
-          usd: 12.5,
-        },
-      ],
-      cursor: { in_offset: 12, out_offset: 12 },
-      truncated: false,
-    }
-    const queryResult = {
-      schema: 'chain-insights.result.v1',
-      tool: 'graph_query',
-      facts: { rows: [{ nodes: ['0x1', '0x2'], edges: 3 }] },
-    }
-    const viewResource = {
-      uri: 'ui://chain-insights/view',
-      mimeType: 'text/html;profile=mcp-app',
-      text: '<!doctype html><title>view</title>',
-      _meta: resourceMeta,
-    }
-    const readResource = vi.fn().mockResolvedValue({ contents: [viewResource] })
+  /** The wire object's keys of `designed`, in the design's order, as compact JSON. */
+  function pickLikeDesign(wire: Record<string, unknown>, designed: Record<string, unknown>) {
+    return JSON.stringify(Object.fromEntries(Object.keys(designed).map((key) => [key, wire[key]])))
+  }
+
+  /** A graph endpoint double with spies on the resource calls the proxy must never make. */
+  function remoteDouble(callTool: ReturnType<typeof vi.fn>) {
     const listResources = vi.fn().mockResolvedValue({
       resources: [
         {
           uri: 'ui://chain-insights/view',
-          name: 'Chain Insights view',
+          name: 'a lane view',
           mimeType: 'text/html;profile=mcp-app',
-          _meta: resourceMeta,
         },
-        { uri: 'https://example.com/readme', name: 'not a view' },
       ],
     })
-    const callTool = vi.fn().mockImplementation(async (request: { name: string }) =>
-      request.name === 'graph_query'
-        ? {
-            content: [{ type: 'text', text: 'rows' }],
-            structuredContent: queryResult,
-            _meta: viewMeta,
-            isError: false,
-          }
-        : {
-            content: [{ type: 'text', text: 'summary' }],
-            structuredContent: flowView,
-            _meta: viewMeta,
-            isError: false,
-          }
-    )
-    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
-    vi.mocked(Client).mockImplementationOnce(function () {
-      return {
+    const readResource = vi.fn().mockResolvedValue({
+      contents: [{ uri: 'ui://chain-insights/view', text: '<html>lane view</html>' }],
+    })
+    return {
+      listResources,
+      readResource,
+      client: {
         connect: vi.fn().mockResolvedValue(undefined),
         listTools: vi.fn(),
         listPrompts: vi.fn().mockResolvedValue({ prompts: [] }),
         callTool,
         listResources,
         readResource,
-      }
+      },
+    }
+  }
+
+  it('serves the views itself: tools/list and resources/read on the wire match the design, with no remote resource call', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'graph_query', description: 'Federated graph query' },
+      { name: 'graph_query_batch', description: 'Federated graph query batch' },
+      { name: 'usage_status', description: 'Usage status' },
+      { name: 'subscription_status', description: 'Subscription status' },
+    ])
+    const remote = remoteDouble(vi.fn())
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    vi.mocked(Client).mockImplementationOnce(function () {
+      return remote.client
+    } as never)
+    // A real MCP server, so tools/list and resources/read are read as a host
+    // reads them: JSON-RPC over a transport.
+    const actual = await vi.importActual<typeof import('@modelcontextprotocol/sdk/server/mcp.js')>(
+      '@modelcontextprotocol/sdk/server/mcp.js'
+    )
+    let real: InstanceType<typeof actual.McpServer> | undefined
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    vi.mocked(McpServer).mockImplementationOnce(function (
+      ...args: ConstructorParameters<typeof actual.McpServer>
+    ) {
+      real = new actual.McpServer(...args)
+      real.connect = vi.fn().mockResolvedValue(undefined)
+      return real
+    } as never)
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    await createProxy()
+
+    const { InMemoryTransport } = await import('@modelcontextprotocol/sdk/inMemory.js')
+    const { LATEST_PROTOCOL_VERSION } = await import('@modelcontextprotocol/sdk/types.js')
+    const [host, proxy] = InMemoryTransport.createLinkedPair()
+    const answers = new Map<number, Record<string, unknown>>()
+    host.onmessage = (message) => {
+      const reply = message as { id?: number; result?: Record<string, unknown>; error?: unknown }
+      if (typeof reply.id === 'number')
+        answers.set(reply.id, reply.result ?? { error: reply.error })
+    }
+    await real!.server.connect(proxy)
+    await host.start()
+    const request = async (id: number, method: string, params: Record<string, unknown>) => {
+      await host.send({ jsonrpc: '2.0', id, method, params })
+      await vi.waitFor(() => expect(answers.has(id)).toBe(true))
+      return answers.get(id) as Record<string, unknown>
+    }
+    await request(1, 'initialize', {
+      protocolVersion: LATEST_PROTOCOL_VERSION,
+      capabilities: {},
+      clientInfo: { name: 'host', version: '1' },
+    })
+    await host.send({ jsonrpc: '2.0', method: 'notifications/initialized' })
+
+    const tools = new Map(
+      ((await request(2, 'tools/list', {})).tools as Array<Record<string, unknown>>).map((tool) => [
+        tool.name as string,
+        tool,
+      ])
+    )
+    for (const designed of DESIGN_VIEW_METADATA.slice(0, 2)) {
+      const wire = tools.get(designed.name as string)
+      expect(wire, `tools/list holds ${designed.name}`).toBeDefined()
+      expect(pickLikeDesign(wire!, designed)).toBe(JSON.stringify(designed))
+    }
+    // The tools that already existed name the same view, with a title and the
+    // read-only hint.
+    const flowsMeta = JSON.stringify(tools.get('money_flows')?._meta)
+    for (const name of ['graph_query', 'meta_usage_status', 'meta_subscription_status']) {
+      const tool = tools.get(name)!
+      expect(JSON.stringify(tool._meta), `${name} _meta`).toBe(flowsMeta)
+      expect((tool.annotations as Record<string, unknown>).readOnlyHint).toBe(true)
+      expect(typeof tool.title === 'string' && tool.title.length > 0).toBe(true)
+    }
+    expect(tools.get('graph_query_batch')?._meta).toBeUndefined()
+
+    const listed = (await request(3, 'resources/list', {})).resources as Array<
+      Record<string, unknown>
+    >
+    const listedView = listed.find((resource) => resource.uri === 'ui://chain-insights/view')
+    expect(pickLikeDesign(listedView!, DESIGN_VIEW_METADATA[2])).toBe(
+      JSON.stringify(DESIGN_VIEW_METADATA[2])
+    )
+    const read = (await request(4, 'resources/read', { uri: 'ui://chain-insights/view' }))
+      .contents as Array<Record<string, unknown>>
+    expect(read).toHaveLength(1)
+    expect(pickLikeDesign(read[0], DESIGN_VIEW_METADATA[2])).toBe(
+      JSON.stringify(DESIGN_VIEW_METADATA[2])
+    )
+    const html = read[0].text as string
+    expect(html.split('\n')[0]).toMatch(
+      /^<!-- Chain Insights UI [0-9a-f]{40} \(npm run build:claude-view\);/
+    )
+    expect(html).toContain('<html')
+    expect(html.length).toBeLessThan(400 * 1024)
+
+    expect(remote.listResources).not.toHaveBeenCalled()
+    expect(remote.readResource).not.toHaveBeenCalled()
+    await host.close()
+  })
+
+  it("ignores the graph endpoint's own views: its money_flows, app-only tools, _meta.ui and ui:// resources", async () => {
+    const laneMeta = {
+      ui: { resourceUri: 'ui://lane/other' },
+      'ui/resourceUri': 'ui://lane/other',
+    }
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'money_flows', title: 'Lane money flows', description: 'lane', _meta: laneMeta },
+      {
+        name: 'graph_expand',
+        description: 'lane',
+        _meta: { ui: { resourceUri: 'ui://lane/other', visibility: ['app'] } },
+      },
+      {
+        name: 'lane_only_app_tool',
+        description: 'lane',
+        _meta: { ui: { resourceUri: 'ui://lane/other', visibility: ['app'] } },
+      },
+      { name: 'graph_query', description: 'Federated graph query', _meta: laneMeta },
+      { name: 'trace_address', description: 'Trace', _meta: laneMeta },
+    ])
+    const queryResult = {
+      schema: 'chain-insights.result.v1',
+      tool: 'graph_query',
+      hint: null,
+      facts: { query: { results: [{ a: 1 }] } },
+    }
+    const callTool = vi.fn().mockResolvedValue({
+      content: [{ type: 'text', text: 'rows' }],
+      structuredContent: queryResult,
+      _meta: { 'ai.chain-insights/billing': { queries: 1 } },
+      isError: false,
+    })
+    const remote = remoteDouble(callTool)
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    vi.mocked(Client).mockImplementationOnce(function () {
+      return remote.client
     } as never)
 
     const { createProxy } = await import('../src/mcp/proxy.js')
     const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
     await createProxy()
-
     const serverInstance = vi.mocked(McpServer).mock.results.at(-1)?.value as {
       registerTool: ReturnType<typeof vi.fn>
       registerResource: ReturnType<typeof vi.fn>
     }
 
-    // Tool definitions keep their MCP Apps metadata.
-    const flows = findToolConfig(serverInstance, 'money_flows')
-    expect(flows._meta).toEqual(viewMeta)
-    expect(flows.annotations).toEqual({ readOnlyHint: true })
-    expect(z.toJSONSchema(flows.inputSchema as z.ZodTypeAny)).toMatchObject({
-      required: ['address', 'network'],
+    const registered = serverInstance.registerTool.mock.calls.map((call) => call[0] as string)
+    expect(registered.filter((name) => name === 'money_flows')).toHaveLength(1)
+    expect(registered.filter((name) => name === 'graph_expand')).toHaveLength(1)
+    expect(registered).not.toContain('lane_only_app_tool')
+    expect(findToolConfig(serverInstance, 'money_flows').title).toBe('Money flows')
+    expect(findToolConfig(serverInstance, 'graph_query')._meta).toEqual({
+      ui: { resourceUri: 'ui://chain-insights/view' },
+      'ui/resourceUri': 'ui://chain-insights/view',
     })
-    expect(findToolConfig(serverInstance, 'graph_query')._meta).toEqual(viewMeta)
-    // graph_expand is registered so the view can call it, with visibility
-    // ["app"], which keeps the host from offering it to the model.
-    expect(findToolConfig(serverInstance, 'graph_expand')._meta).toEqual(expandMeta)
-    const aml = findToolConfig(serverInstance, 'aml_address_risk')
-    expect(aml).not.toHaveProperty('_meta')
-    expect(aml.inputSchema).not.toHaveProperty('include_attachments')
+    expect(findToolConfig(serverInstance, 'trace_address')).not.toHaveProperty('_meta')
 
-    // The hosted ui:// resource is listed and read through the proxy, unchanged.
-    const resourceCalls = serverInstance.registerResource.mock.calls
-    const viewCall = resourceCalls.find((entry) => entry[1] === 'ui://chain-insights/view')
-    expect(viewCall).toBeDefined()
-    expect(viewCall?.[2]).toMatchObject({
-      mimeType: 'text/html;profile=mcp-app',
-      _meta: resourceMeta,
-    })
-    expect(resourceCalls.some((entry) => entry[1] === 'https://example.com/readme')).toBe(false)
-    const read = await (viewCall?.[3] as Function)(new URL('ui://chain-insights/view'), {})
-    expect(readResource).toHaveBeenCalledWith({ uri: 'ui://chain-insights/view' })
-    expect(read).toEqual({ contents: [viewResource] })
+    const resources = serverInstance.registerResource.mock.calls.map((call) => call[1])
+    expect([...resources].sort()).toEqual(['ui://chain-insights/topup', 'ui://chain-insights/view'])
+    expect(remote.listResources).not.toHaveBeenCalled()
+    expect(remote.readResource).not.toHaveBeenCalled()
 
-    // View answers keep their structuredContent and _meta.ui.
-    const flowsResult = await findToolHandler(
-      serverInstance,
-      'money_flows'
-    )({
-      address: flowView.center,
-      network: 'robinhood',
-    })
-    expect(flowsResult.structuredContent).toEqual(flowView)
-    expect(flowsResult._meta).toEqual(viewMeta)
-    const queryAnswer = await findToolHandler(
+    // graph_query answers exactly as the graph endpoint returned it.
+    const answer = await findToolHandler(
       serverInstance,
       'graph_query'
-    )({
-      query: 'USE topology MATCH (a:Address) RETURN a LIMIT 1',
-      network: 'robinhood',
+    )({ query: 'USE topology MATCH (a:Address) RETURN a LIMIT 1', network: 'robinhood' })
+    expect(answer).toEqual({
+      content: [{ type: 'text', text: 'rows' }],
+      structuredContent: queryResult,
+      _meta: { 'ai.chain-insights/billing': { queries: 1 } },
+      isError: false,
     })
-    expect(queryAnswer.structuredContent).toEqual(queryResult)
-
-    // The local top-up view is registered next to the hosted views.
-    expect(findToolConfig(serverInstance, 'wallet_topup')._meta).toMatchObject({
-      ui: { resourceUri: 'ui://chain-insights/topup' },
-    })
-    expect(resourceCalls.some((entry) => entry[1] === 'ui://chain-insights/topup')).toBe(true)
 
     // graph_expand stays out of every tool list the proxy builds for the model.
     const help = await findToolHandler(serverInstance, 'meta_help')({})
+    expect(help.content[0].text).toContain('money_flows')
     expect(help.content[0].text).not.toContain('graph_expand')
-    const { visibleRemoteTools } = await import('../src/mcp/tool-visibility.js')
-    const listed = visibleRemoteTools(
-      [
-        { name: 'money_flows', _meta: viewMeta },
-        { name: 'graph_expand', _meta: expandMeta },
-      ].map((tool) => tool as { name: string; _meta?: Record<string, unknown> })
-    ).map((tool) => tool.name)
-    expect(listed).toEqual(['money_flows'])
+  })
+
+  it('answers money_flows from three graph_query calls through the remote client', async () => {
+    const recorded = JSON.parse(
+      await readFile(
+        join(import.meta.dirname, 'fixtures', 'flows_scene', 'graph-query-answers.json'),
+        'utf8'
+      )
+    ) as Record<string, unknown>
+    const want = JSON.parse(
+      await readFile(
+        join(import.meta.dirname, 'fixtures', 'flows_scene', 'flows-0x0491.json'),
+        'utf8'
+      )
+    )
+    const callTool = vi.fn(async (request: { name: string; arguments: { query: string } }) => {
+      if (request.name !== 'graph_query') throw new Error(`unexpected ${request.name}`)
+      return recorded[request.arguments.query]
+    })
+    const remote = remoteDouble(callTool as unknown as ReturnType<typeof vi.fn>)
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    vi.mocked(Client).mockImplementationOnce(function () {
+      return remote.client
+    } as never)
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([{ name: 'graph_query', description: 'q' }])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    await createProxy()
+    const serverInstance = vi.mocked(McpServer).mock.results.at(-1)?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+
+    const result = await findToolHandler(
+      serverInstance,
+      'money_flows'
+    )({
+      address: '0x04911a118f11c75667e4d0dfb8e640af5a353550',
+      network: 'robinhood',
+    })
+    expect(result.isError).toBe(false)
+    expect(result.structuredContent).toEqual(want)
+    expect(callTool).toHaveBeenCalledTimes(3)
+    for (const call of callTool.mock.calls as unknown as Array<
+      [{ name: string; arguments: Record<string, unknown> }, undefined, { timeout: number }]
+    >) {
+      expect(call[0].name).toBe('graph_query')
+      expect(Object.keys(call[0].arguments).sort()).toEqual(['network', 'query'])
+      expect(call[0].arguments.network).toBe('robinhood')
+      expect(call[2].timeout).toBeGreaterThan(60_000)
+    }
+
+    // A malformed address reaches no graph endpoint.
+    const refused = await findToolHandler(
+      serverInstance,
+      'graph_expand'
+    )({ network: 'robinhood', address: '0x1234' })
+    expect(refused.isError).toBe(true)
+    expect(callTool).toHaveBeenCalledTimes(3)
+  })
+
+  it('answers money_flows with the unreachable-endpoint text when the graph endpoint is down', async () => {
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    vi.mocked(Client).mockImplementationOnce(function () {
+      return {
+        connect: vi.fn().mockRejectedValue(new Error('connect ECONNREFUSED')),
+        listTools: vi.fn(),
+        listPrompts: vi.fn(),
+        callTool: vi.fn(),
+      }
+    } as never)
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    await createProxy()
+    const serverInstance = vi.mocked(McpServer).mock.results.at(-1)?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const result = await findToolHandler(
+      serverInstance,
+      'money_flows'
+    )({ address: '0x04911a118f11c75667e4d0dfb8e640af5a353550', network: 'robinhood' })
+    expect(result.isError).toBe(true)
+    expect(result.content[0].text).toContain('Restart the Chain Insights MCP proxy')
   })
 
   it('exposes public investigation prompts for Chain Insights tools and cases', async () => {

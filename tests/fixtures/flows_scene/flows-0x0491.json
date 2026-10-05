@@ -1,0 +1,129 @@
+{
+ "schema": "chain-insights.flows.v1",
+ "network": "robinhood",
+ "center": "0x04911a118f11c75667e4d0dfb8e640af5a353550",
+ "nodes": [
+  {
+   "address": "0x04911a118f11c75667e4d0dfb8e640af5a353550",
+   "role": "scam",
+   "labels": [
+    "Scam"
+   ],
+   "total_in_usd": 20.96875433,
+   "total_out_usd": 20.96810681,
+   "degree_in": 5,
+   "degree_out": 1
+  },
+  {
+   "address": "0xc2ec5d5d094f75c7208ddb01e7f6842c936a9a8f",
+   "role": "other",
+   "labels": [],
+   "total_in_usd": 0,
+   "total_out_usd": 0,
+   "degree_in": 1,
+   "degree_out": 55668
+  },
+  {
+   "address": "0xcaf769f00ea65ea67babd04eec922bda8cfd5d11",
+   "role": "other",
+   "labels": [],
+   "total_in_usd": 74077.38096350993,
+   "total_out_usd": 63726.51154319069,
+   "degree_in": 50,
+   "degree_out": 1624691
+  },
+  {
+   "address": "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c",
+   "role": "other",
+   "labels": [
+    "SmartAccount"
+   ],
+   "total_in_usd": 6266.733527989998,
+   "total_out_usd": 6218.91923139,
+   "degree_in": 189,
+   "degree_out": 112
+  },
+  {
+   "address": "0x69f093990d6c2d6e690b15349194eed06a7e8e21",
+   "role": "other",
+   "labels": [],
+   "total_in_usd": 385.62196734,
+   "total_out_usd": 412.85068775999997,
+   "degree_in": 20,
+   "degree_out": 22
+  },
+  {
+   "address": "0x21d2c31a59be56d7bd35cc228f707ac2e19c5f2d",
+   "role": "other",
+   "labels": [],
+   "total_in_usd": 8332.862098229998,
+   "total_out_usd": 10136.569718180002,
+   "degree_in": 115,
+   "degree_out": 64
+  },
+  {
+   "address": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "role": "other",
+   "labels": [],
+   "total_in_usd": 41877.6222842,
+   "total_out_usd": 41857.44128530001,
+   "degree_in": 33,
+   "degree_out": 17
+  }
+ ],
+ "edges": [
+  {
+   "from": "0xc2ec5d5d094f75c7208ddb01e7f6842c936a9a8f",
+   "to": "0x04911a118f11c75667e4d0dfb8e640af5a353550",
+   "usd": 0,
+   "tx_count": 1,
+   "first_seen_ms": 1788198931000,
+   "last_seen_ms": 1788198931000
+  },
+  {
+   "from": "0xcaf769f00ea65ea67babd04eec922bda8cfd5d11",
+   "to": "0x04911a118f11c75667e4d0dfb8e640af5a353550",
+   "usd": 0.00064752,
+   "tx_count": 1,
+   "first_seen_ms": 1784932745000,
+   "last_seen_ms": 1784932745000
+  },
+  {
+   "from": "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c",
+   "to": "0x04911a118f11c75667e4d0dfb8e640af5a353550",
+   "usd": 5.23661492,
+   "tx_count": 1,
+   "first_seen_ms": 1783693032000,
+   "last_seen_ms": 1783693032000
+  },
+  {
+   "from": "0x69f093990d6c2d6e690b15349194eed06a7e8e21",
+   "to": "0x04911a118f11c75667e4d0dfb8e640af5a353550",
+   "usd": 5.24383063,
+   "tx_count": 1,
+   "first_seen_ms": 1781823778000,
+   "last_seen_ms": 1781823778000
+  },
+  {
+   "from": "0x21d2c31a59be56d7bd35cc228f707ac2e19c5f2d",
+   "to": "0x04911a118f11c75667e4d0dfb8e640af5a353550",
+   "usd": 10.48766126,
+   "tx_count": 2,
+   "first_seen_ms": 1781822282000,
+   "last_seen_ms": 1781822294000
+  },
+  {
+   "from": "0x04911a118f11c75667e4d0dfb8e640af5a353550",
+   "to": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "usd": 20.96810681,
+   "tx_count": 4,
+   "first_seen_ms": 1781822282000,
+   "last_seen_ms": 1783693032000
+  }
+ ],
+ "cursor": {
+  "in_offset": 5,
+  "out_offset": 1
+ },
+ "truncated": false
+}

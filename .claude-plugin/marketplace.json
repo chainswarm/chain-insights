@@ -5,13 +5,13 @@
     "url": "https://chain-insights.ai"
   },
   "metadata": {
-    "description": "The Chain Insights plugin for Claude: the hosted AML investigation connector and its skills."
+    "description": "The Chain Insights plugin for Claude: the local AML investigation proxy and its skills."
   },
   "plugins": [
     {
       "name": "chain-insights",
       "source": "./plugin",
-      "description": "AML investigation on the robinhood chain through the hosted Chain Insights connector, with the graph query skills."
+      "description": "AML investigation on the robinhood chain through the local Chain Insights MCP proxy, with the graph query skills."
     }
   ]
 }

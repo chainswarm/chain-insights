@@ -1,8 +1,8 @@
 {
   "name": "chain-insights",
   "displayName": "Chain Insights",
-  "version": "0.39.0",
-  "description": "AML investigation on the robinhood chain: query the Chain Insights Graph, trace recent money flows, and screen addresses through the hosted Chain Insights connector.",
+  "version": "0.40.0",
+  "description": "AML investigation on the robinhood chain: query the Chain Insights Graph, trace recent money flows, and screen addresses through the local Chain Insights MCP proxy.",
   "author": {
     "name": "Chainswarm Technology",
     "url": "https://chain-insights.ai"

@@ -1,8 +1,9 @@
 {
   "mcpServers": {
     "chain-insights": {
-      "type": "http",
-      "url": "https://mcp.chain-insights.ai/"
+      "type": "stdio",
+      "command": "npx",
+      "args": ["--yes", "--package=chain-insights@0.40.0", "chain-insights-mcp-proxy"]
     }
   }
 }

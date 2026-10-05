@@ -183,4 +183,49 @@ describe('Installer (FOUND-01)', () => {
     expect(raw).toContain('    enabled: true')
     expect(raw).not.toContain('old.js')
   })
+
+  // Claude Desktop on Linux reads $XDG_CONFIG_HOME/Claude/claude_desktop_config.json.
+  // The tests pin XDG_CONFIG_HOME inside the fake home, so they hold on Linux CI.
+  const desktopConfig = () => join(fakeHome, '.config', 'Claude', 'claude_desktop_config.json')
+  const runDesktop = () =>
+    execSync(
+      `HOME=${fakeHome} XDG_CONFIG_HOME=${join(fakeHome, '.config')} node bin/install.cjs --claude-desktop`,
+      { stdio: 'pipe' }
+    ).toString()
+
+  it('--claude-desktop registers the proxy with an absolute node path and installs no skills', () => {
+    const out = runDesktop()
+    const config = JSON.parse(readFileSync(desktopConfig(), 'utf8'))
+    const entry = config.mcpServers['chain-insights']
+    expect(entry.command).toBe(process.execPath)
+    expect(entry.args).toHaveLength(1)
+    expect(entry.args[0]).toMatch(/bin[\\/]mcp-proxy\.cjs$/)
+    expect(out).toContain('Restart Claude Desktop')
+    expect(existsSync(join(fakeHome, '.claude', 'skills'))).toBe(false)
+  })
+
+  it('--claude-desktop keeps other servers and settings, replaces only its own entry, and backs up', () => {
+    mkdirSync(join(fakeHome, '.config', 'Claude'), { recursive: true })
+    const before = {
+      globalShortcut: 'Ctrl+Space',
+      mcpServers: {
+        other: { command: 'other-server' },
+        'chain-insights': { command: 'node', args: ['/old/mcp-proxy.cjs'] },
+      },
+    }
+    writeFileSync(desktopConfig(), JSON.stringify(before), 'utf8')
+    runDesktop()
+    const after = JSON.parse(readFileSync(desktopConfig(), 'utf8'))
+    expect(after.globalShortcut).toBe('Ctrl+Space')
+    expect(after.mcpServers.other).toEqual({ command: 'other-server' })
+    expect(after.mcpServers['chain-insights'].args[0]).not.toBe('/old/mcp-proxy.cjs')
+    expect(JSON.parse(readFileSync(`${desktopConfig()}.bak`, 'utf8'))).toEqual(before)
+  })
+
+  it('--claude-desktop refuses a config that is not valid JSON and leaves it untouched', () => {
+    mkdirSync(join(fakeHome, '.config', 'Claude'), { recursive: true })
+    writeFileSync(desktopConfig(), '{ broken', 'utf8')
+    expect(() => runDesktop()).toThrow()
+    expect(readFileSync(desktopConfig(), 'utf8')).toBe('{ broken')
+  })
 })

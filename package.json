@@ -1,6 +1,6 @@
 {
   "name": "chain-insights",
-  "version": "0.39.0",
+  "version": "0.40.0",
   "description": "AML investigation CLI and MCP proxy for blockchain risk screening and Chain Insights Graph access",
   "homepage": "https://chain-insights.ai",
   "repository": {
@@ -54,7 +54,7 @@
     "docs/images"
   ],
   "scripts": {
-    "build": "tsdown && mkdir -p dist/assets && cp -r src/wallet/mcp-proxy/assets/* dist/assets/",
+    "build": "tsdown && mkdir -p dist/assets dist/apps && cp -r src/wallet/mcp-proxy/assets/* dist/assets/ && cp src/mcp/apps/claude-view.html dist/apps/",
     "dev": "tsx src/cli.ts",
     "corpus:generate": "tsx scripts/generate-query-corpus.mjs",
     "release:check": "node scripts/check-release-gate.mjs",

@@ -248,7 +248,11 @@ describe('shipped Chain Insights skills contract', () => {
     expect(readme).toContain('docs/contributing.md')
     expect(readme).toContain('docs/debugging.md')
 
-    expect(readme).not.toContain('Claude Desktop')
+    // The plugin section names the Claude apps that can start the local proxy,
+    // and the ones that cannot. Client detail stays out of the rest of README.
+    const pluginSection = /^### Claude plugin\n[\s\S]*?(?=^#{2,3} )/m.exec(readme)?.[0] ?? ''
+    expect(pluginSection).toContain('Claude Desktop')
+    expect(readme.replace(pluginSection, '')).not.toContain('Claude Desktop')
     expect(readme).not.toContain(`${retiredName('Graph', 'RAG')}`)
     expect(readme).not.toContain('x402')
     expect(readme).not.toContain('Base USDC')
