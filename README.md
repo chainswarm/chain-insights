@@ -57,12 +57,19 @@ omitted. Pin the current contract with `--version v1` on the workflow command.
 
 ### Claude plugin
 
-The `plugin/` folder is the Chain Insights plugin for Claude. It connects the
-hosted server `https://mcp.chain-insights.ai/` and brings the
-`chain-insights-cypher` and `chain-insights-schema-evm` skills. It needs no
-local program, so it installs in every Claude app, Claude Code included. Add
-this repository as a plugin marketplace, then install the
-`chain-insights` plugin from it.
+The `plugin/` folder is the Chain Insights plugin for Claude. It starts the
+local Chain Insights MCP proxy on your computer over stdio
+(`chain-insights-mcp-proxy` from the npm package, through `npx`), and brings the
+`chain-insights-cypher` and `chain-insights-schema-evm` skills. The proxy
+serves the money-flow, query-table and balance views itself, and reaches the
+Chain Insights Graph for the data.
+
+- **Runs in:** Claude Desktop, Cowork sessions on your computer, and Claude Code.
+- **Cannot start it:** claude.ai on the web, the Claude mobile apps and Cowork
+  cloud sessions. They run no program on your computer.
+
+The plugin needs Node.js 22 or newer. Add this repository as a plugin
+marketplace, then install the `chain-insights` plugin from it.
 
 The plugin skills are copies of `skills/`. After editing a skill, run
 `node scripts/sync-plugin-skills.mjs`; a test fails while the copies differ.

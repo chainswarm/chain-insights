@@ -3,31 +3,52 @@
 
 All notable changes to Chain Insights are recorded here.
 
-## [0.39.0] - 2026-10-05 — feat: Chain Insights views in Claude through the local proxy, the top-up QR view, and the Claude plugin
+## [0.40.0] - 2026-10-05 — feat: Chain Insights views in Claude, served by the local proxy; money flows, the top-up QR view, and the Claude plugin
 
-Claude Desktop with the local `cia` proxy draws the same views as the hosted
-Chain Insights connector. The local proxy adds a top-up view with the wallet's
-QR code. The old local graph viewer is gone.
+Claude Desktop and Cowork sessions on your computer draw Chain Insights views
+next to a tool answer. The local `cia` MCP proxy serves every view itself and
+reads the Chain Insights Graph for the data only. The old local graph viewer is
+gone.
 
 ### Added
 
-- The MCP proxy passes the hosted server's views through. A tool's
-  `_meta.ui` and `_meta["ui/resourceUri"]` reach Claude unchanged, the hosted
-  `ui://` resources are listed and read through the proxy, and the answers of
-  `graph_query`, `graph_query_batch`, `money_flows` and `graph_expand` keep
-  their `structuredContent` exactly as the server returned it. An app-only
-  tool (`_meta.ui.visibility` without `model`, such as `graph_expand`) is
-  registered for the view to call and stays out of `cia mcp tools`.
+- `ui://chain-insights/view`, served by the local proxy from one HTML file in
+  the package (`src/mcp/apps/claude-view.html`, rebuilt with
+  `scripts/refresh-claude-view.mjs <commit>`). It draws the money-flow graph,
+  the `graph_query` result table and the balance of `meta_usage_status` and
+  `meta_subscription_status`, in Claude's light or dark theme. Nothing is
+  fetched at run time.
+- `money_flows`, a local MCP tool: one robinhood address with its 12 most
+  recent senders and receivers, each link with lifetime USD, transaction count
+  and age. The model reads a text summary of at most 20 lines; the view draws
+  `chain-insights.flows.v1` (at most 60 addresses, under 40,000 characters).
+  It makes three anchored `graph_query` reads through the configured endpoint,
+  billed as graph queries.
+- `graph_expand`, a local MCP tool only the view calls
+  (`_meta.ui.visibility` `["app"]`): the next page of one clicked address. A
+  refused read (`query_timeout`, `topology_busy`, any error) answers as an
+  error naming its code, and the view marks the address.
+- Both refuse a malformed address, a network other than robinhood and an
+  offset over 10,000 before any read, at no cost.
+- `graph_query`, `meta_usage_status` and `meta_subscription_status` name the
+  view in their `_meta.ui`. Their answers are unchanged.
 - `wallet_topup`, a local MCP tool with the view `ui://chain-insights/topup`:
   the local wallet address, its QR code, Base Mainnet and USDC, in Claude's
   light or dark theme. It reads the address only; it signs and sends nothing.
-  With no wallet it names `cia wallet create`. The hosted connector does not
-  offer it.
+  With no wallet it names `cia wallet create`.
 - `plugin/`, the Chain Insights Claude plugin: the `chain-insights-cypher` and
-  `chain-insights-schema-evm` skills and the hosted connector
-  `https://mcp.chain-insights.ai/`. `.claude-plugin/marketplace.json` lists it.
-  `scripts/sync-plugin-skills.mjs` keeps the plugin skills equal to `skills/`,
-  and a test fails when they drift.
+  `chain-insights-schema-evm` skills, and a `.mcp.json` that starts the local
+  proxy (`chain-insights-mcp-proxy`) over stdio from this package. It runs in
+  Claude Desktop, Cowork sessions on your computer and Claude Code; claude.ai
+  on the web, the mobile apps and Cowork cloud sessions cannot start it.
+  `.claude-plugin/marketplace.json` lists it. `scripts/sync-plugin-skills.mjs`
+  keeps the plugin skills equal to `skills/`, and a test fails when they drift.
+
+### Changed
+
+- The proxy no longer forwards views from the graph endpoint: its `ui://`
+  resources, its tools' `_meta.ui` and its app-only tools are ignored. The
+  proxy is the only source of views.
 
 ### Fixed
 

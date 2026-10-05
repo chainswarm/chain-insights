@@ -52,10 +52,19 @@ describe('Claude plugin (plugin/)', () => {
     expect(plugin.author).toMatchObject({ name: expect.any(String) })
   })
 
-  it('connects the hosted server as a remote http connector', () => {
+  it('starts the local proxy over stdio from the published package at the package version', () => {
+    const pkg = readJson('package.json') as { version: string; bin: Record<string, string> }
+    expect(pkg.bin['chain-insights-mcp-proxy']).toBe('./bin/mcp-proxy.cjs')
     expect(readJson('plugin/.mcp.json')).toEqual({
-      mcpServers: { 'chain-insights': { type: 'http', url: 'https://mcp.chain-insights.ai/' } },
+      mcpServers: {
+        'chain-insights': {
+          type: 'stdio',
+          command: 'npx',
+          args: ['--yes', `--package=chain-insights@${pkg.version}`, 'chain-insights-mcp-proxy'],
+        },
+      },
     })
+    expect(readFileSync(join(root, 'plugin', '.mcp.json'), 'utf8')).not.toContain('https://')
   })
 
   it('ships no bin/ folder, a README of at least 40 words, and the licence', () => {

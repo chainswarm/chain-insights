@@ -764,7 +764,7 @@ let extAppsScript: string | null = null
 
 /**
  * The browser build of the ext-apps App client (the same 1.x pin as
- * chain-insights-ui), turned from an ES module into a script that publishes
+ * the Chain Insights UI package), turned from an ES module into a script that publishes
  * its exports on globalThis, so the view stays one self-contained file.
  */
 export function extAppsBrowserScript(): string {

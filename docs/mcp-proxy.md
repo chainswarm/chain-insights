@@ -77,28 +77,35 @@ The proxy:
 
 ## Local Tools
 
-| Tool                        | Purpose                                                                   |
-| --------------------------- | ------------------------------------------------------------------------- |
-| `meta_network_capabilities` | Show the current Chain Insights network/tool support matrix               |
-| `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                  |
-| `meta_help`                 | Show Chain Insights tool and workflow guidance                            |
-| `wallet_balance`            | Show the local payment wallet address, payment network, token, and amount |
-| `wallet_topup`              | Show the local payment wallet address and its QR code, with a Claude view |
+| Tool                        | Purpose                                                                                 |
+| --------------------------- | --------------------------------------------------------------------------------------- |
+| `meta_network_capabilities` | Show the current Chain Insights network/tool support matrix                             |
+| `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                                |
+| `meta_help`                 | Show Chain Insights tool and workflow guidance                                          |
+| `wallet_balance`            | Show the local payment wallet address, payment network, token, and amount               |
+| `wallet_topup`              | Show the local payment wallet address and its QR code, with a Claude view               |
+| `money_flows`               | Show the recent senders and receivers of one robinhood address, with a Claude view      |
+| `graph_expand`              | Load the next page of one address into an open money-flow view; called by the view only |
 
 ## Views in Claude
 
-Claude apps that draw MCP Apps views (Claude Desktop, claude.ai, Cowork) show
-them next to a tool answer. Through the local proxy:
+Claude Desktop and Cowork sessions on your computer draw MCP Apps views next
+to a tool answer. The local proxy serves every view itself. The Chain Insights
+Graph endpoint serves data only:
 
-- A remote tool keeps its `_meta.ui` and `_meta["ui/resourceUri"]`, so Claude
-  knows which view to draw.
-- The endpoint's `ui://` resources are listed and read through the proxy,
-  unchanged.
-- The answers of `graph_query`, `graph_query_batch` and the view tools keep
-  their `structuredContent` exactly as the endpoint returned it.
-- A tool only a view may call (`_meta.ui.visibility` without `model`) is
-  registered for the view and kept out of the model's tool list and out of
-  `cia mcp tools`.
+- `ui://chain-insights/view` is one HTML file shipped in the package. It draws
+  the money-flow graph for `money_flows` and `graph_expand`, the result table
+  for `graph_query`, and the balance for `meta_usage_status` and
+  `meta_subscription_status`. Nothing is fetched at run time.
+- `money_flows` and `graph_expand` run on your computer. Each makes three
+  anchored `graph_query` reads through the configured endpoint, billed as graph
+  queries. A malformed address or an offset over 10,000 is refused before any
+  read and costs nothing.
+- `graph_expand` carries `_meta.ui.visibility` `["app"]`: the view calls it,
+  and hosts keep it out of the model's tool list.
+- The endpoint's own `ui://` resources and `_meta.ui` are not forwarded.
+- The answers of `graph_query` and `graph_query_batch` keep their
+  `structuredContent` exactly as the endpoint returned it.
 - `wallet_topup` draws `ui://chain-insights/topup`: the wallet address, its QR
   code, Base Mainnet and USDC, in Claude's light or dark theme. The view signs
   nothing and sends nothing. Only the local proxy offers it.

@@ -1,0 +1,435 @@
+{
+ "schema": "chain-insights.flows.v1",
+ "network": "robinhood",
+ "center": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+ "nodes": [
+  {
+   "address": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "role": "other",
+   "labels": [],
+   "total_in_usd": 41877.6222842,
+   "total_out_usd": 41857.44128530001,
+   "degree_in": 33,
+   "degree_out": 17
+  },
+  {
+   "address": "0xcbf0e9ccb0b1f6a0edc098c156259739798e8b4d",
+   "role": "other",
+   "labels": [
+    "SmartAccount"
+   ],
+   "total_in_usd": 29758.040886699993,
+   "total_out_usd": 26906.565099689986,
+   "degree_in": 137,
+   "degree_out": 263290
+  },
+  {
+   "address": "0xe50a91219d0fc6d41c4189acf2e444d10ebe041d",
+   "role": "other",
+   "labels": [],
+   "total_in_usd": 485140.28331277997,
+   "total_out_usd": 487481.48654542986,
+   "degree_in": 184,
+   "degree_out": 93
+  },
+  {
+   "address": "0x331d9a049d496385998067abf6cbb6371c8d2466",
+   "role": "other",
+   "labels": [
+    "Bundler"
+   ],
+   "total_in_usd": 22449507.4144481,
+   "total_out_usd": 22137624.361314878,
+   "degree_in": 2005,
+   "degree_out": 91533
+  },
+  {
+   "address": "0xca5efe044350f5f29f63ff08a488b3e67000d594",
+   "role": "other",
+   "labels": [],
+   "total_in_usd": 5141.578446969999,
+   "total_out_usd": 5138.23719453,
+   "degree_in": 6,
+   "degree_out": 4
+  },
+  {
+   "address": "0x6fdbdb6ecc0d0eb472aa1ede6aec127455b4d251",
+   "role": "other",
+   "labels": [],
+   "total_in_usd": 32190.63961827,
+   "total_out_usd": 8426.410402760472,
+   "degree_in": 3,
+   "degree_out": 4520
+  },
+  {
+   "address": "0xcaf769f00ea65ea67babd04eec922bda8cfd5d11",
+   "role": "other",
+   "labels": [],
+   "total_in_usd": 74077.38096350993,
+   "total_out_usd": 63726.51154319069,
+   "degree_in": 50,
+   "degree_out": 1624691
+  },
+  {
+   "address": "0xe3d1a7e7752a66e3a2e601e01258ebfd95439acb",
+   "role": "other",
+   "labels": [],
+   "total_in_usd": 0,
+   "total_out_usd": 0,
+   "degree_in": 1,
+   "degree_out": 7556
+  },
+  {
+   "address": "0xb54500af7c3f9d7162adaa478b2329c3e9dbcc2c",
+   "role": "other",
+   "labels": [
+    "SmartAccount"
+   ],
+   "total_in_usd": 53522.052260269986,
+   "total_out_usd": 50496.90125485998,
+   "degree_in": 130,
+   "degree_out": 389934
+  },
+  {
+   "address": "0xa17ed2b7b069f44e8eaf477bfdee079358e423de",
+   "role": "other",
+   "labels": [],
+   "total_in_usd": 4475.843944849999,
+   "total_out_usd": 4286.97142401,
+   "degree_in": 8,
+   "degree_out": 66025
+  },
+  {
+   "address": "0x04911a118f11c75667e4d0dfb8e640af5a353550",
+   "role": "scam",
+   "labels": [
+    "Scam"
+   ],
+   "total_in_usd": 20.96875433,
+   "total_out_usd": 20.96810681,
+   "degree_in": 5,
+   "degree_out": 1
+  },
+  {
+   "address": "0x98117495f7685703bf97ee95a31fcd212993936f",
+   "role": "other",
+   "labels": [],
+   "total_in_usd": 4281.702841789999,
+   "total_out_usd": 2205.844483431213,
+   "degree_in": 21,
+   "degree_out": 628556
+  },
+  {
+   "address": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+   "role": "other",
+   "labels": [
+    "TransparentUpgradeableProxy",
+    "WETH"
+   ],
+   "total_in_usd": 20355462155.184204,
+   "total_out_usd": 20289850080.90535,
+   "degree_in": 171768,
+   "degree_out": 704252
+  },
+  {
+   "address": "0x19ba492a2fa0734f4b44c139dff4fbaca48907d6",
+   "role": "other",
+   "labels": [],
+   "total_in_usd": 48967362.17649416,
+   "total_out_usd": 48967360.743548565,
+   "degree_in": 45645,
+   "degree_out": 1
+  },
+  {
+   "address": "0xd961634a3aabbe888deef76f6fcff86ecd3d00c2",
+   "role": "other",
+   "labels": [],
+   "total_in_usd": 139665.72102231003,
+   "total_out_usd": 140049.7073259199,
+   "degree_in": 108,
+   "degree_out": 46
+  },
+  {
+   "address": "0xca11bde05977b3631167028862be2a173976ca11",
+   "role": "other",
+   "labels": [],
+   "total_in_usd": 36032412.308652624,
+   "total_out_usd": 36032412.30602582,
+   "degree_in": 22591,
+   "degree_out": 579475
+  },
+  {
+   "address": "0x0000000000000000000000000000000000000000",
+   "role": "victim",
+   "labels": [
+    "Victim"
+   ],
+   "total_in_usd": 24092246686.524315,
+   "total_out_usd": 26138015615.819267,
+   "degree_in": 876533,
+   "degree_out": 2632433
+  },
+  {
+   "address": "0xf55d551e3e7bfeca8067772b399d30a95d80f44e",
+   "role": "pool",
+   "labels": [],
+   "total_in_usd": 9255.254473800002,
+   "total_out_usd": 9234.075827010001,
+   "degree_in": 69,
+   "degree_out": 73
+  },
+  {
+   "address": "0xd9ec2db5f3d1b236843925949fe5bd8a3836fccb",
+   "role": "other",
+   "labels": [],
+   "total_in_usd": 11424138.197764471,
+   "total_out_usd": 11424058.71436761,
+   "degree_in": 23993,
+   "degree_out": 60148
+  },
+  {
+   "address": "0x4cd00e387622c35bddb9b4c962c136462338bc31",
+   "role": "other",
+   "labels": [],
+   "total_in_usd": 4926007319.119797,
+   "total_out_usd": 4925967375.155075,
+   "degree_in": 687142,
+   "degree_out": 20
+  },
+  {
+   "address": "0x7b226b0b2347aa522b97eba6c6da59c2edf908b2",
+   "role": "other",
+   "labels": [],
+   "total_in_usd": 247924977.02463573,
+   "total_out_usd": 247924976.83614764,
+   "degree_in": 23715,
+   "degree_out": 35145
+  },
+  {
+   "address": "0xb477751b76cf82d00a686a1232f5fcd772414af3",
+   "role": "other",
+   "labels": [],
+   "total_in_usd": 1890461417.992585,
+   "total_out_usd": 1890461417.9927535,
+   "degree_in": 177431,
+   "degree_out": 127308
+  },
+  {
+   "address": "0x24328ba336df3d57ec046234cc48d1cdac1bc748",
+   "role": "other",
+   "labels": [],
+   "total_in_usd": 183386.65373086146,
+   "total_out_usd": 183386.6537107308,
+   "degree_in": 9243,
+   "degree_out": 8224
+  },
+  {
+   "address": "0xa70fc67c9f69da90b63a0e4c05d229954574e313",
+   "role": "pool",
+   "labels": [],
+   "total_in_usd": 899241783.8946334,
+   "total_out_usd": 897410887.3180509,
+   "degree_in": 29652,
+   "degree_out": 37213
+  }
+ ],
+ "edges": [
+  {
+   "from": "0xcbf0e9ccb0b1f6a0edc098c156259739798e8b4d",
+   "to": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "usd": 0,
+   "tx_count": 2,
+   "first_seen_ms": 1790155997000,
+   "last_seen_ms": 1790162216000
+  },
+  {
+   "from": "0xe50a91219d0fc6d41c4189acf2e444d10ebe041d",
+   "to": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "usd": 6.5108619,
+   "tx_count": 2,
+   "first_seen_ms": 1788768257000,
+   "last_seen_ms": 1790154313000
+  },
+  {
+   "from": "0x331d9a049d496385998067abf6cbb6371c8d2466",
+   "to": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "usd": 4.71010486,
+   "tx_count": 1,
+   "first_seen_ms": 1788886604000,
+   "last_seen_ms": 1788886604000
+  },
+  {
+   "from": "0xca5efe044350f5f29f63ff08a488b3e67000d594",
+   "to": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "usd": 5.44369461,
+   "tx_count": 1,
+   "first_seen_ms": 1788816074000,
+   "last_seen_ms": 1788816074000
+  },
+  {
+   "from": "0x6fdbdb6ecc0d0eb472aa1ede6aec127455b4d251",
+   "to": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "usd": 0.96883187,
+   "tx_count": 1,
+   "first_seen_ms": 1787209296000,
+   "last_seen_ms": 1787209296000
+  },
+  {
+   "from": "0xcaf769f00ea65ea67babd04eec922bda8cfd5d11",
+   "to": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "usd": 0,
+   "tx_count": 1,
+   "first_seen_ms": 1784829378000,
+   "last_seen_ms": 1784829378000
+  },
+  {
+   "from": "0xe3d1a7e7752a66e3a2e601e01258ebfd95439acb",
+   "to": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "usd": 0,
+   "tx_count": 1,
+   "first_seen_ms": 1784014074000,
+   "last_seen_ms": 1784014074000
+  },
+  {
+   "from": "0xb54500af7c3f9d7162adaa478b2329c3e9dbcc2c",
+   "to": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "usd": 0,
+   "tx_count": 3,
+   "first_seen_ms": 1783571681000,
+   "last_seen_ms": 1783817098000
+  },
+  {
+   "from": "0xa17ed2b7b069f44e8eaf477bfdee079358e423de",
+   "to": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "usd": 0,
+   "tx_count": 1,
+   "first_seen_ms": 1783815310000,
+   "last_seen_ms": 1783815310000
+  },
+  {
+   "from": "0x04911a118f11c75667e4d0dfb8e640af5a353550",
+   "to": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "usd": 20.96810681,
+   "tx_count": 4,
+   "first_seen_ms": 1781822282000,
+   "last_seen_ms": 1783693032000
+  },
+  {
+   "from": "0x98117495f7685703bf97ee95a31fcd212993936f",
+   "to": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "usd": 0.00145459,
+   "tx_count": 1,
+   "first_seen_ms": 1783595418000,
+   "last_seen_ms": 1783595418000
+  },
+  {
+   "from": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+   "to": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "usd": 32.39073062,
+   "tx_count": 1,
+   "first_seen_ms": 1783496807000,
+   "last_seen_ms": 1783496807000
+  },
+  {
+   "from": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "to": "0x19ba492a2fa0734f4b44c139dff4fbaca48907d6",
+   "usd": 11.81774229,
+   "tx_count": 3,
+   "first_seen_ms": 1788768359000,
+   "last_seen_ms": 1790154330000
+  },
+  {
+   "from": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "to": "0xe50a91219d0fc6d41c4189acf2e444d10ebe041d",
+   "usd": 4.69926582,
+   "tx_count": 1,
+   "first_seen_ms": 1788886616000,
+   "last_seen_ms": 1788886616000
+  },
+  {
+   "from": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "to": "0xd961634a3aabbe888deef76f6fcff86ecd3d00c2",
+   "usd": 6.02273954,
+   "tx_count": 1,
+   "first_seen_ms": 1783987362000,
+   "last_seen_ms": 1783987362000
+  },
+  {
+   "from": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "to": "0xca11bde05977b3631167028862be2a173976ca11",
+   "usd": 19554.67477294,
+   "tx_count": 3,
+   "first_seen_ms": 1783493107000,
+   "last_seen_ms": 1783497261000
+  },
+  {
+   "from": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "to": "0x0000000000000000000000000000000000000000",
+   "usd": 32.38087552,
+   "tx_count": 1,
+   "first_seen_ms": 1783496807000,
+   "last_seen_ms": 1783496807000
+  },
+  {
+   "from": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "to": "0xf55d551e3e7bfeca8067772b399d30a95d80f44e",
+   "usd": 0,
+   "tx_count": 1,
+   "first_seen_ms": 1783496454000,
+   "last_seen_ms": 1783496454000
+  },
+  {
+   "from": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "to": "0xd9ec2db5f3d1b236843925949fe5bd8a3836fccb",
+   "usd": 2656.09910992,
+   "tx_count": 1,
+   "first_seen_ms": 1783496358000,
+   "last_seen_ms": 1783496358000
+  },
+  {
+   "from": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "to": "0x4cd00e387622c35bddb9b4c962c136462338bc31",
+   "usd": 511.33467743,
+   "tx_count": 5,
+   "first_seen_ms": 1781815549000,
+   "last_seen_ms": 1783478951000
+  },
+  {
+   "from": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "to": "0x7b226b0b2347aa522b97eba6c6da59c2edf908b2",
+   "usd": 11373.28442491,
+   "tx_count": 19,
+   "first_seen_ms": 1783476283000,
+   "last_seen_ms": 1783478834000
+  },
+  {
+   "from": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "to": "0xb477751b76cf82d00a686a1232f5fcd772414af3",
+   "usd": 2509.3045623,
+   "tx_count": 1,
+   "first_seen_ms": 1782939436000,
+   "last_seen_ms": 1782939436000
+  },
+  {
+   "from": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "to": "0x24328ba336df3d57ec046234cc48d1cdac1bc748",
+   "usd": 78.93372856,
+   "tx_count": 21,
+   "first_seen_ms": 1782934556000,
+   "last_seen_ms": 1782939053000
+  },
+  {
+   "from": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+   "to": "0xa70fc67c9f69da90b63a0e4c05d229954574e313",
+   "usd": 0,
+   "tx_count": 6,
+   "first_seen_ms": 1782936988000,
+   "last_seen_ms": 1782939053000
+  }
+ ],
+ "cursor": {
+  "in_offset": 12,
+  "out_offset": 12
+ },
+ "truncated": true
+}

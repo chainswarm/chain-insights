@@ -6,3 +6,7 @@ CHANGELOG.md
 # diff them verbatim. Formatting changes would break the pins.
 tests/fixtures/
 
+
+# Built in another repository and copied with its source commit on line one
+# (scripts/refresh-claude-view.mjs). Never formatted or edited here.
+src/mcp/apps/claude-view.html

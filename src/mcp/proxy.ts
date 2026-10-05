@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs'
 import { appendFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
@@ -20,6 +22,18 @@ import { primitiveBackendUsageStatus } from './usage-status.js'
 import { unavailableSubscriptionStatus } from './subscription-status.js'
 import { mirrorGraphNetworkCapabilities } from './capabilities.js'
 import { actionLogSignalsFromResult, appendActionLog } from './action-log.js'
+import {
+  FLOWS_MAX_OFFSET,
+  GRAPH_EXPAND_DESCRIPTION,
+  GRAPH_EXPAND_TOOL,
+  MONEY_FLOWS_DESCRIPTION,
+  MONEY_FLOWS_INSTRUCTION,
+  MONEY_FLOWS_TOOL,
+  handleGraphExpand,
+  handleMoneyFlows,
+  type FlowsDependencies,
+  type GraphQueryAnswer,
+} from './flows.js'
 
 const LOCAL_TOOL_NAMES = new Set([
   'meta_network_capabilities',
@@ -28,16 +42,59 @@ const LOCAL_TOOL_NAMES = new Set([
   'meta_help',
   'wallet_balance',
   'wallet_topup',
+  MONEY_FLOWS_TOOL,
+  GRAPH_EXPAND_TOOL,
 ])
+// Local tools only the view calls (visibility ["app"]): never named to the model.
+const APP_ONLY_LOCAL_TOOL_NAMES = new Set([GRAPH_EXPAND_TOOL])
 const GRAPH_ARRAY_KEYS = ['nodes', 'edges', 'flows', 'edge_anchors'] as const
-// The view resources the proxy forwards from the hosted server. Claude reads
-// them with resources/read when a tool's _meta.ui.resourceUri names one.
-const UI_RESOURCE_SCHEME = 'ui://'
-// The hosted Claude view. The local meta_usage_status and
-// meta_subscription_status name it, so Claude Desktop through the proxy draws
-// the balance view the hosted usage_status and subscription_status draw.
-export const HOSTED_VIEW_URI = 'ui://chain-insights/view'
-const HOSTED_VIEW_TOOL_META = { ui: { resourceUri: HOSTED_VIEW_URI } }
+
+// The Chain Insights view: one HTML file, served by this proxy and by nothing
+// else. The graph endpoint serves no view; a view, a ui:// resource or a
+// _meta.ui it advertises is never forwarded. The tool result says which view
+// the file draws: the money-flow graph (money_flows, graph_expand), the query
+// result table (graph_query) or the balance (meta_usage_status,
+// meta_subscription_status). The metadata below is the wire contract of the
+// Claude views, character for character.
+export const CLAUDE_VIEW_URI = 'ui://chain-insights/view'
+export const MCP_APP_MIME_TYPE = 'text/html;profile=mcp-app'
+// A tool whose answer the view draws: the resource under the current key and
+// the legacy flat key hosts still read.
+const VIEW_TOOL_META = {
+  ui: { resourceUri: CLAUDE_VIEW_URI },
+  'ui/resourceUri': CLAUDE_VIEW_URI,
+}
+// A tool only the view calls: the host keeps it away from the model.
+const APP_ONLY_TOOL_META = { ui: { resourceUri: CLAUDE_VIEW_URI, visibility: ['app'] } }
+const VIEW_RESOURCE_META = {
+  ui: { prefersBorder: false, csp: { resourceDomains: ['https://assets.claude.ai'] } },
+}
+const VIEW_TOOL_ANNOTATIONS = { readOnlyHint: true }
+const CLAUDE_VIEW_FILE = 'claude-view.html'
+
+let claudeViewHtml: string | undefined
+
+/**
+ * The view file shipped in the package: dist/apps/claude-view.html next to the
+ * built proxy, or src/mcp/apps/claude-view.html when run from source. Read once.
+ */
+export function readClaudeViewHtml(): string {
+  if (claudeViewHtml !== undefined) return claudeViewHtml
+  const here = path.dirname(fileURLToPath(import.meta.url))
+  const candidates = [
+    path.join(here, 'apps', CLAUDE_VIEW_FILE),
+    path.join(here, '..', 'src', 'mcp', 'apps', CLAUDE_VIEW_FILE),
+  ]
+  for (const candidate of candidates) {
+    try {
+      claudeViewHtml = readFileSync(candidate, 'utf8')
+      return claudeViewHtml
+    } catch {
+      /* try the next place */
+    }
+  }
+  throw new Error(`The Chain Insights view file ${CLAUDE_VIEW_FILE} is missing from the package`)
+}
 
 export type McpProxyMode = 'workspace' | 'stateless'
 
@@ -66,6 +123,11 @@ const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   graph_query_batch:
     'Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads.',
 }
+// Titles for proxied tools whose graph endpoint definition carries none.
+const KNOWN_PUBLIC_TOOL_TITLES: Record<string, string> = {
+  graph_query: 'Graph Query',
+  graph_query_batch: 'Graph Query Batch',
+}
 const FALLBACK_GRAPH_PRIMITIVE_TOOL_NAMES = ['graph_query', 'graph_query_batch'] as const
 
 type ToolInputShape = Record<string, z.ZodTypeAny>
@@ -75,7 +137,6 @@ type ToolCallInput = { name: string; arguments?: Record<string, unknown> }
 type RemoteToolCaller = {
   callTool: Client['callTool']
 }
-type RemoteResourceReader = Partial<Pick<Client, 'listResources' | 'readResource'>>
 const NETWORK_DESCRIPTION =
   'Network to query. Call meta_network_capabilities first and pass a name GraphRAG advertised. CIA does not pick a default network.'
 const NETWORK_SCHEMA = z.string().min(1).describe(NETWORK_DESCRIPTION)
@@ -87,7 +148,8 @@ const CHAIN_INSIGHTS_WORKFLOW = [
   'Workflow:',
   '1. Do not call investigation tools until required arguments are known. Network is required; use meta_network_capabilities to check supported networks and available tools, or ask the user if missing.',
   '2. Use aml_address_risk for single-address enrichment. Use graph_query(_batch) for graph-level questions that aml_address_risk does not answer.',
-  '3. Preserve tool summaries and structured facts as returned. Keep full blockchain addresses intact.',
+  `3. ${MONEY_FLOWS_INSTRUCTION}`,
+  '4. Preserve tool summaries and structured facts as returned. Keep full blockchain addresses intact.',
 ].join('\n')
 
 const GRAPH_SCHEMA_HINTS = [
@@ -132,6 +194,7 @@ const SERVER_INSTRUCTIONS = [
 const STATELESS_SERVER_INSTRUCTIONS = [
   'Chain Insights is running as a stateless AML proxy for a host application.',
   'Use meta_network_capabilities first when network support is unknown, then call aml_address_risk, graph_query, or graph_query_batch as needed.',
+  MONEY_FLOWS_INSTRUCTION,
   'Use wallet_balance to inspect the local payment wallet when payment setup is needed.',
   GRAPH_SCHEMA_HINTS,
   'Presentation rules: preserve tool summaries as returned; never truncate blockchain addresses or identity_resolution audit mappings.',
@@ -410,12 +473,7 @@ function installRemoteCypherLogging(
 }
 
 function remoteToolRequestOptions(toolName: string): Parameters<Client['callTool']>[2] | undefined {
-  if (
-    toolName === 'graph_query' ||
-    toolName === 'graph_query_batch' ||
-    toolName === 'money_flows' ||
-    toolName === 'graph_expand'
-  ) {
+  if (toolName === 'graph_query' || toolName === 'graph_query_batch') {
     return {
       timeout: REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS,
       maxTotalTimeout: REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS,
@@ -492,64 +550,22 @@ type RemoteToolResult = {
 }
 
 /**
- * The MCP Apps keys of a remote tool definition: `_meta.ui` (resourceUri and
- * visibility) and the legacy `_meta["ui/resourceUri"]`. Undefined when the
- * tool draws no view.
+ * The text a call to the graph endpoint answers with when it throws: payment
+ * guidance for a payment failure, the error otherwise. Shared by every proxied
+ * tool and by the money-flow reads.
  */
-function remoteUiToolMeta(tool: McpTool): Record<string, unknown> | undefined {
-  const meta = tool._meta
-  if (!isRecord(meta)) return undefined
-  const picked: Record<string, unknown> = {}
-  if (isRecord(meta.ui)) picked.ui = meta.ui
-  if (typeof meta['ui/resourceUri'] === 'string') picked['ui/resourceUri'] = meta['ui/resourceUri']
-  return Object.keys(picked).length > 0 ? picked : undefined
-}
-
-/**
- * The remote JSON Schema of a view tool as a Zod schema, so Claude sees the
- * same arguments the hosted server declares. Null when it cannot be read.
- */
-function remoteToolInputSchema(tool: McpTool): z.ZodTypeAny | null {
-  if (!isRecord(tool.inputSchema) || tool.inputSchema.type !== 'object') return null
-  try {
-    return z.fromJSONSchema(tool.inputSchema as Parameters<typeof z.fromJSONSchema>[0])
-  } catch {
-    return null
+function remoteCallFailureText(toolName: string, err: unknown): string {
+  if (err instanceof PaymentRequiredError) return err.message
+  const msg = (err as Error).message ?? String(err)
+  if (/\b402\b/.test(msg) || msg.toLowerCase().includes('payment')) {
+    return (
+      `Payment required for ${toolName}. This tool costs USDC on Base via x402 micropayments. ` +
+      'Next steps: run `cia wallet ready` to check funding and finish one-time payment setup, ' +
+      'run `cia wallet topup` if it says the wallet needs USDC, ' +
+      'or `cia access-key set <key>` if you have been given test access.'
+    )
   }
-}
-
-/**
- * List the hosted server's ui:// resources and serve each one locally by
- * forwarding resources/read, so Claude Desktop draws the same views through
- * the local proxy as through the hosted connector.
- */
-async function registerRemoteUiResources(
-  server: McpServer,
-  remoteClient: RemoteResourceReader,
-  logger: ReturnType<typeof createMcpLogger>,
-  localUris: ReadonlySet<string>
-): Promise<string[]> {
-  const listResources = remoteClient.listResources?.bind(remoteClient)
-  const readResource = remoteClient.readResource?.bind(remoteClient)
-  if (!listResources || !readResource) return []
-  const registered: string[] = []
-  try {
-    let cursor: string | undefined
-    do {
-      const page = await listResources(cursor ? { cursor } : undefined)
-      for (const resource of page.resources ?? []) {
-        const { uri, name, ...metadata } = resource
-        if (!uri.startsWith(UI_RESOURCE_SCHEME) || localUris.has(uri)) continue
-        if (registered.includes(uri)) continue
-        server.registerResource(name || uri, uri, metadata, async () => readResource({ uri }))
-        registered.push(uri)
-      }
-      cursor = page.nextCursor
-    } while (cursor)
-  } catch (err) {
-    await logger.error('remote.resources_failed', { error: errorForLog(err) })
-  }
-  return registered
+  return `MCP call failed: ${msg}`
 }
 
 function promptResult(text: string, description?: string): GetPromptResult {
@@ -1013,7 +1029,7 @@ export async function createProxy(): Promise<void> {
       title: 'Usage Status',
       description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.meta_usage_status,
       inputSchema: EMPTY_INPUT_SCHEMA,
-      _meta: HOSTED_VIEW_TOOL_META,
+      _meta: VIEW_TOOL_META,
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -1069,7 +1085,7 @@ export async function createProxy(): Promise<void> {
       title: 'Subscription Status',
       description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.meta_subscription_status,
       inputSchema: EMPTY_INPUT_SCHEMA,
-      _meta: HOSTED_VIEW_TOOL_META,
+      _meta: VIEW_TOOL_META,
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -1247,6 +1263,55 @@ export async function createProxy(): Promise<void> {
     )
   }
 
+  // money_flows and graph_expand: composed here from anchored graph_query
+  // reads sent through the remote client, the path and payment wrapping a
+  // graph_query call takes, so each read is billed as a graph query.
+  const flowsDependencies: FlowsDependencies = {
+    graphQuery: async (args) => {
+      const options = remoteToolRequestOptions('graph_query')
+      return (await remoteClient.callTool(
+        { name: 'graph_query', arguments: args },
+        undefined,
+        options
+      )) as GraphQueryAnswer
+    },
+    describeFailure: (err) => remoteCallFailureText('graph_query', err),
+    unavailable: () =>
+      remoteConnected
+        ? undefined
+        : `${remoteUnavailableMessage ?? `Chain Insights Graph is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
+  }
+  server.registerTool(
+    MONEY_FLOWS_TOOL,
+    {
+      title: 'Money flows',
+      description: MONEY_FLOWS_DESCRIPTION,
+      inputSchema: {
+        address: z.string().describe('One robinhood address: 0x and 40 hexadecimal characters.'),
+        network: z.string().describe('The network. Only robinhood is served.'),
+      },
+      annotations: VIEW_TOOL_ANNOTATIONS,
+      _meta: VIEW_TOOL_META,
+    },
+    async (args) => handleMoneyFlows(args, flowsDependencies)
+  )
+  server.registerTool(
+    GRAPH_EXPAND_TOOL,
+    {
+      title: 'Expand a money-flow node',
+      description: GRAPH_EXPAND_DESCRIPTION,
+      inputSchema: {
+        network: z.string(),
+        address: z.string(),
+        in_offset: z.number().int().min(0).max(FLOWS_MAX_OFFSET).optional(),
+        out_offset: z.number().int().min(0).max(FLOWS_MAX_OFFSET).optional(),
+      },
+      annotations: VIEW_TOOL_ANNOTATIONS,
+      _meta: APP_ONLY_TOOL_META,
+    },
+    async (args) => handleGraphExpand(args, flowsDependencies)
+  )
+
   server.registerTool(
     'meta_help',
     {
@@ -1277,6 +1342,7 @@ export async function createProxy(): Promise<void> {
                 '- aml_address_risk: screen one blockchain address; optionally compare it with another address.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
                 '- graph_query_batch: run related read-only graph-language queries through one paid graph call.',
+                '- money_flows: show the most recent senders and receivers of one robinhood address, with an interactive graph in hosts that draw MCP apps.',
                 '',
                 'Wallet tools:',
                 '- wallet_balance: show the local payment wallet address, payment network, token, and amount.',
@@ -1292,6 +1358,7 @@ export async function createProxy(): Promise<void> {
                 '- aml_address_risk: screen one blockchain address; optionally compare it with another address.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
                 '- graph_query_batch: run related read-only graph-language queries through one paid graph call.',
+                '- money_flows: show the most recent senders and receivers of one robinhood address, with an interactive graph in hosts that draw MCP apps.',
               ].join('\n'),
         },
       ],
@@ -1303,6 +1370,8 @@ export async function createProxy(): Promise<void> {
   for (const tool of tools ?? []) {
     if (HIDDEN_REMOTE_TOOL_NAMES.has(tool.name)) continue
     if (LOCAL_TOOL_NAMES.has(tool.name)) continue
+    // A tool only a view of the graph endpoint may call has no view here.
+    if (isAppOnlyTool(tool)) continue
     const inputSchema = knownPublicToolInputSchema(tool.name) ?? z.object({}).passthrough()
     const handler = async (args: unknown) => {
       try {
@@ -1335,51 +1404,23 @@ export async function createProxy(): Promise<void> {
           : await remoteClient.callTool(request)
         return normalizeRemoteToolResult(tool.name, result as RemoteToolResult)
       } catch (err) {
-        if (err instanceof PaymentRequiredError) {
-          return {
-            content: [{ type: 'text' as const, text: err.message }],
-            isError: true,
-          }
-        }
-        const msg = (err as Error).message ?? String(err)
-        const isTransport402 = /\b402\b/.test(msg) || msg.toLowerCase().includes('payment')
-        if (isTransport402) {
-          return {
-            content: [
-              {
-                type: 'text' as const,
-                text:
-                  `Payment required for ${tool.name}. This tool costs USDC on Base via x402 micropayments. ` +
-                  'Next steps: run `cia wallet ready` to check funding and finish one-time payment setup, ' +
-                  'run `cia wallet topup` if it says the wallet needs USDC, ' +
-                  'or `cia access-key set <key>` if you have been given test access.',
-              },
-            ],
-            isError: true,
-          }
-        }
         return {
-          content: [{ type: 'text' as const, text: `MCP call failed: ${msg}` }],
+          content: [{ type: 'text' as const, text: remoteCallFailureText(tool.name, err) }],
           isError: true,
         }
       }
     }
-    // A view tool keeps its MCP Apps metadata, so the host draws its view and
-    // keeps an app-only tool (visibility ["app"], such as graph_expand) away
-    // from the model while the view can still call it.
-    const uiMeta = remoteUiToolMeta(tool)
-    const annotations =
-      knownPublicToolAnnotations(tool.name) ??
-      (uiMeta && isRecord(tool.annotations) ? tool.annotations : undefined)
+    // The graph endpoint's own MCP Apps metadata (_meta.ui, ui/resourceUri)
+    // is never forwarded: the proxy is the only source of views. graph_query
+    // gets the view the proxy serves.
+    const annotations = knownPublicToolAnnotations(tool.name)
+    const drawsView = tool.name === 'graph_query'
     const toolConfig = {
-      title: tool.title,
+      title: tool.title ?? KNOWN_PUBLIC_TOOL_TITLES[tool.name],
       description: claudeFacingToolDescription(tool),
-      inputSchema:
-        uiMeta && !knownPublicToolInputSchema(tool.name)
-          ? (remoteToolInputSchema(tool) ?? inputSchema)
-          : inputSchema,
+      inputSchema,
       ...(annotations ? { annotations } : {}),
-      ...(uiMeta ? { _meta: uiMeta } : {}),
+      ...(drawsView ? { _meta: VIEW_TOOL_META } : {}),
     }
 
     server.registerTool(tool.name, toolConfig, handler)
@@ -1391,27 +1432,41 @@ export async function createProxy(): Promise<void> {
   const { registerTopupView, TOPUP_VIEW_URI } = await import('../wallet/mcp-proxy/topup-server.js')
   await registerTopupView(server, { walletAddress: localTopupWalletAddress })
 
-  const uiResources = remoteConnected
-    ? await registerRemoteUiResources(
-        server,
-        remoteClient as unknown as RemoteResourceReader,
-        logger,
-        new Set([TOPUP_VIEW_URI])
-      )
-    : []
+  // ui://chain-insights/view, read from the package. Nothing is fetched.
+  server.registerResource(
+    'Chain Insights view',
+    CLAUDE_VIEW_URI,
+    {
+      title: 'Chain Insights view',
+      description:
+        'The Chain Insights view for hosts that draw MCP apps: money flows, query results and balance, in light and dark.',
+      mimeType: MCP_APP_MIME_TYPE,
+      _meta: VIEW_RESOURCE_META,
+    },
+    async () => ({
+      contents: [
+        {
+          uri: CLAUDE_VIEW_URI,
+          mimeType: MCP_APP_MIME_TYPE,
+          text: readClaudeViewHtml(),
+          _meta: VIEW_RESOURCE_META,
+        },
+      ],
+    })
+  )
 
   // Connect to stdio transport — after this line, stdout belongs to MCP
   const transport = new StdioServerTransport()
   await server.connect(transport)
   await logger.info('proxy.ready', {
     tools: [
-      ...LOCAL_TOOL_NAMES,
+      ...[...LOCAL_TOOL_NAMES].filter((name) => !APP_ONLY_LOCAL_TOOL_NAMES.has(name)),
       ...(tools ?? [])
         .filter((tool) => !isAppOnlyTool(tool))
         .map((tool) => tool.name)
         .filter((name) => !HIDDEN_REMOTE_TOOL_NAMES.has(name) && !LOCAL_TOOL_NAMES.has(name)),
     ].length,
-    ui_resources: uiResources.length,
+    ui_resources: [CLAUDE_VIEW_URI, TOPUP_VIEW_URI],
   })
 
   // Signal handling — clean shutdown
