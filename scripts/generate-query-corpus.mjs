@@ -156,12 +156,11 @@ for (const recipe of documentedRecipes.recipes) {
   if (recipe.admits === false) {
     continue
   }
-  // A chain lookup is no builder query and no topology or facts read: the
-  // corpus is the admission contract of those two gates. The chain recipes are
-  // listed in tests/fixtures/layer-routing.json.
-  if (recipe.layer === 'chain') {
-    continue
-  }
+  // A chain lookup is no builder query and no topology or facts read, and it
+  // keeps its own scope (`chain`). It stays in the corpus all the same: the
+  // server runs every entry through the gate of its layer, so a chain recipe
+  // that names an old key, or a key the Address lookup lacks, fails there. The
+  // chain recipes are also listed in tests/fixtures/layer-routing.json.
   entries.push({
     builder: 'documented-recipe',
     params: { id: recipe.id, features: recipe.features },

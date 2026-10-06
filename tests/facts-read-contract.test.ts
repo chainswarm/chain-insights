@@ -76,6 +76,36 @@ describe('the reader of the facts limits', () => {
       ['facts_hops_refused'],
     ],
     [
+      'a kind label on the sender',
+      'USE facts MATCH (a:Account {address: "0xa"})-[t:TRANSFER]->(b:Address {address: "0xb"}) WHERE t.block_date = "2026-07-11" RETURN t.tx_id LIMIT 10',
+      ['facts_no_anchor'],
+    ],
+    [
+      'a kind label on the receiver',
+      'USE facts MATCH (a:Address {address: "0xa"})-[t:TRANSFER]->(b:Contract {address: "0xb"}) WHERE t.block_date = "2026-07-11" RETURN t.tx_id LIMIT 10',
+      ['facts_no_anchor'],
+    ],
+    [
+      'a second label beside Address',
+      'USE facts MATCH (a:Address:Account {address: "0xa"})-[t:TRANSFER]->(b:Address {address: "0xb"}) WHERE t.block_date = "2026-07-11" RETURN t.tx_id LIMIT 10',
+      ['facts_no_anchor'],
+    ],
+    [
+      'a kind label on a read by transaction',
+      'USE facts MATCH (a:Account)-[t:TRANSFER]->(b:Address) WHERE t.tx_id = "0xc" RETURN t.tx_id LIMIT 10',
+      ['facts_no_anchor'],
+    ],
+    [
+      'a network filter alone is no anchor',
+      'USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.network = "robinhood" RETURN t.tx_id LIMIT 10',
+      ['facts_no_anchor'],
+    ],
+    [
+      'a network filter beside a pair and one day',
+      `USE facts ${pair} WHERE t.block_date = "2026-07-11" AND t.network = "robinhood" ${tail}`,
+      [],
+    ],
+    [
       'an ORDER BY on a pair and a day',
       `USE facts ${pair} WHERE t.block_date = "2026-07-11" RETURN t.tx_id ORDER BY t.block_timestamp ASC LIMIT 1`,
       ['facts_order_not_served'],

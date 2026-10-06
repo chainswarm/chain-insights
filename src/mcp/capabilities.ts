@@ -38,7 +38,7 @@ export interface ChainAdmission extends NetworkAdmissionBlock {
   status?: string
   rules_version?: string
   grammar?: string
-  /** The labels of `USE chain`, such as Transaction, Block and Head. */
+  /** The labels of `USE chain`, such as Transaction, Block, Head and Address. */
   lookups?: string[]
   ceiling_seconds?: Record<string, number>
   slots?: number
@@ -49,6 +49,8 @@ export interface ChainAdmission extends NetworkAdmissionBlock {
   call_gas?: number
   head_ttl_ms?: number
   max_head_age_seconds?: number
+  /** How many blocks below the tip a past `Address` read (`at_block`) must be. Read it here, never write it down. */
+  at_block_min_depth?: number
 }
 
 /** `USE topology`: the shape rules, when the server publishes them. */

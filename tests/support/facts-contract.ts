@@ -174,15 +174,17 @@ function windowCode(terms: DateTerm[], listValues: string[] | null): FactsCode |
   return days > WINDOW_DAYS ? 'facts_window_too_wide' : null
 }
 
-type PatternNode = { variable: string; label: string; address: string | null; hasMap: boolean }
+type PatternNode = { variable: string; labels: string[]; address: string | null; hasMap: boolean }
 
 function readNode(inside: string): PatternNode {
-  const found = /^\s*(\w+)?\s*(?::\s*`?(\w+)`?)?\s*(?:\{([^}]*)\})?\s*$/.exec(inside)
+  const found = /^\s*(\w+)?\s*((?::\s*`?\w+`?\s*)*)(?:\{([^}]*)\})?\s*$/.exec(inside)
   const map = found?.[3] ?? ''
   const address = new RegExp(String.raw`\baddress\s*:\s*(${VALUE})`).exec(map)?.[1] ?? null
+  // A node may carry a second label, as in `a:Address:Account`.
+  const labels = [...(found?.[2] ?? '').matchAll(/:\s*`?(\w+)`?/g)].map((label) => label[1] ?? '')
   return {
     variable: found?.[1] ?? '',
-    label: found?.[2] ?? '',
+    labels,
     address,
     hasMap: map.trim() !== '',
   }
@@ -214,10 +216,13 @@ export function factsReadViolations(query: string): FactsCode[] {
   // The two ends of the arrow.
   const nodes = [...pattern.matchAll(/\(([^()]*)\)/g)].map((match) => readNode(match[1] ?? ''))
   const ends = [nodes[0], nodes[nodes.length - 1]].map(
-    (node) => node ?? { variable: '', label: '', address: null, hasMap: false }
+    (node) => node ?? { variable: '', labels: [], address: null, hasMap: false }
   )
-  // Both ends are Address nodes. Any other label, or a label in another case, anchors nothing.
-  if (ends.some((end) => end.label !== '' && end.label !== 'Address')) return ['facts_no_anchor']
+  // Both ends are Address nodes. Any other label (a kind such as Account or Contract, beside
+  // Address or alone), or a label in another case, anchors nothing.
+  if (ends.some((end) => end.labels.some((label) => label !== 'Address'))) {
+    return ['facts_no_anchor']
+  }
   // One variable names one part of the pattern, and an end with an address map needs a variable.
   const [left, right] = ends as [PatternNode, PatternNode]
   if (left.variable !== '' && left.variable === right.variable) return ['facts_pair_required']

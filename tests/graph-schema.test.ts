@@ -847,3 +847,50 @@ describe('the TRANSFER columns of the schema', () => {
     expect([...FACTS_TRANSFER_COLUMNS]).toEqual(names)
   })
 })
+
+// The same recording, changed in the two places where the unified names change
+// what a server answers: the graph lists the two kind labels beside `Address`,
+// and the chain layer lists the `Address` lookup beside the other three. The keys
+// of an address still hold `network`, because the server computes it on every
+// node and `keys()` reads the computed map. The build needs no change: it reads
+// what the server answers.
+describe('the schema of a server that serves the unified names', () => {
+  function unifiedServer(key: string): unknown {
+    if (key !== LABELS && key !== CAPABILITIES) return undefined
+    const reply = structuredClone(recorded.replies[key]!.structuredContent) as Record<string, any>
+    if (key === LABELS) {
+      reply['facts'].query.results.push({ label: 'Account' }, { label: 'Contract' })
+    } else {
+      const admission = reply['facts'].capabilities.networks[0].chain_admission
+      admission.lookups = ['Transaction', 'Block', 'Address', 'Head']
+      admission.at_block_min_depth = 256
+    }
+    return { content: [{ type: 'text', text: JSON.stringify(reply) }], structuredContent: reply }
+  }
+
+  it('lists the kind labels and the Address lookup, and keeps network among the keys of an address', async () => {
+    const { client } = fakeClient(unifiedServer)
+    const { document } = await buildGraphSchema({ client, network: 'robinhood', now: () => T0 })
+    const { topology, chain } = document.layers
+
+    expect(topology.labels).toEqual(expect.arrayContaining(['Address', 'Account', 'Contract']))
+    expect(topology.labels).toEqual([...topology.labels].sort())
+    expect(chain.lookups).toEqual(['Transaction', 'Block', 'Address', 'Head'])
+    expect(topology.samples['Address']).toEqual(expect.arrayContaining(['address', 'network']))
+    // `network` is still a stored key on a :Chain node, so the catalog keeps listing it.
+    expect(topology.property_keys).toContain('network')
+  })
+
+  it('names no old chain key and no kind as a chain lookup in the text of the answer', async () => {
+    const { client } = fakeClient(unifiedServer)
+    const { document } = await buildGraphSchema({ client, network: 'robinhood', now: () => T0 })
+    const text = formatGraphSchemaText(document)
+
+    expect(text).toContain('Lookups: Transaction, Block, Address, Head')
+    expect(text).not.toMatch(/\{(?:hash|height):|\b[a-z]\.(?:hash|height)\b/)
+    expect(document.layers.chain.lookups).not.toEqual(expect.arrayContaining(['Account']))
+    expect(document.layers.chain.lookups).not.toEqual(expect.arrayContaining(['Contract']))
+    // The TRANSFER columns hold no network: the server computes it, no view maps it.
+    expect(document.layers.facts.transfer_columns).not.toContain('network')
+  })
+})

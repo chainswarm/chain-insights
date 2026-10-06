@@ -1,16 +1,21 @@
 {
   "source": "graph server chain lookup catalogue",
-  "server_commit": "380f5445fa38ad49cac9fa1dcdae5ec6a42b868f",
-  "rules_version": "1",
+  "server_commit": "5852d58a6f7acb1eba5e4d814e40fbb2f0b85b0e",
+  "rules_version": "2",
   "grammar": "chain-v1",
+  "computed_on_every_label": [
+    "network"
+  ],
   "labels": [
     {
       "label": "Transaction",
       "answers": "the transaction and its result",
       "keys": [
-        "hash"
+        "tx_id"
       ],
+      "optional_keys": [],
       "key_rule": "",
+      "kind_labels": [],
       "properties": [
         "block_date",
         "block_hash",
@@ -21,13 +26,13 @@
         "from_address",
         "gas_limit",
         "gas_used",
-        "hash",
         "input_selector",
         "input_size",
         "log_count",
         "nonce",
         "status",
         "to_address",
+        "tx_id",
         "tx_index",
         "tx_key",
         "tx_type",
@@ -38,18 +43,20 @@
       "label": "Block",
       "answers": "a block and its time",
       "keys": [
-        "hash",
-        "height"
+        "block_hash",
+        "block_height"
       ],
+      "optional_keys": [],
       "key_rule": "exactly_one",
+      "kind_labels": [],
       "properties": [
         "base_fee_per_gas",
         "block_date",
+        "block_hash",
+        "block_height",
         "block_timestamp",
         "gas_limit",
         "gas_used",
-        "hash",
-        "height",
         "parent_hash",
         "tx_count"
       ]
@@ -58,16 +65,42 @@
       "label": "Head",
       "answers": "the chain tip, and how far graph and warehouse are behind",
       "keys": [],
+      "optional_keys": [],
       "key_rule": "",
+      "kind_labels": [],
       "properties": [
         "age_seconds",
+        "block_hash",
+        "block_height",
         "block_timestamp",
         "graph_blocks_behind",
         "graph_complete_through_block",
-        "hash",
-        "height",
         "warehouse_blocks_behind",
         "warehouse_complete_through_block"
+      ]
+    },
+    {
+      "label": "Address",
+      "answers": "the balance, the nonce and the kind of one address at one block",
+      "keys": [
+        "address"
+      ],
+      "optional_keys": [
+        "at_block"
+      ],
+      "key_rule": "",
+      "kind_labels": [
+        "Account",
+        "Contract",
+        "Wallet"
+      ],
+      "properties": [
+        "address",
+        "balance",
+        "code_size",
+        "delegated_to",
+        "is_contract",
+        "nonce"
       ]
     }
   ]

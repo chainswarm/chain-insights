@@ -102,6 +102,27 @@
       "query": "USE facts MATCH (a:Asset {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE t.block_date = \"2026-07-08\" RETURN t.tx_id AS tx_id LIMIT 10"
     },
     {
+      "id": "transfer-account-label-pair",
+      "code": "facts_no_anchor",
+      "rule": "anchor",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Account {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE t.block_date = \"2026-07-08\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-contract-label-pair",
+      "code": "facts_no_anchor",
+      "rule": "anchor",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(b:Contract {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE t.block_date = \"2026-07-08\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
+      "id": "transfer-two-labels-pair",
+      "code": "facts_no_anchor",
+      "rule": "anchor",
+      "relationship": "TRANSFER",
+      "query": "USE facts MATCH (a:Address:Account {address: \"0x1111111111111111111111111111111111110a01\"})-[t:TRANSFER]->(b:Address {address: \"0x2222222222222222222222222222222222220b02\"}) WHERE t.block_date = \"2026-07-08\" RETURN t.tx_id AS tx_id LIMIT 10"
+    },
+    {
       "id": "transfer-lowercase-label-pair",
       "code": "facts_no_anchor",
       "rule": "anchor",

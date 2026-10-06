@@ -70,15 +70,14 @@ query network.
 Consequences:
 
 - The `network` argument to `graph_query` selects the graph, not the address
-  subset. A `USE topology` match on `:Address` without an exact address must
-  add a `<alias>.network = "<network>"` predicate. Address-anchored lookups
-  stay unscoped on purpose: the address is a unique key.
-- `USE facts` is the inverse. Each network gets its own backing database
-  there, and the facts `Address` label has no mapped `network` property —
-  projecting it hard-fails. Facts serves `Address` only as a `TRANSFER`
-  endpoint, so a single-node `MATCH (a:Address)` is refused.
+  subset. `network` is also a property of every node and relationship on
+  `USE topology`, `USE facts` and `USE chain`. Its value is the query's
+  `network`, it is computed and never stored, and only a `:Chain` node (the far
+  side of a bridge) stores its own, which names the remote chain. A filter on
+  `network` narrows nothing. Anchor a query on an address instead.
+- `USE facts` carries `network` on its rows and endpoints too, with no view
+  column behind it. Facts serves `Address` only as a `TRANSFER` endpoint, so a
+  single-node `MATCH (a:Address)` is refused. Facts serves no kind label.
 
-Getting this backwards caused a production regression and a wrong-network
-sweep in the same day (2026-07). Verify against the live stack before
-restating it. Query-side detail:
+Verify against the live stack before restating it. Query-side detail:
 [../graph-query-compatibility.md](../graph-query-compatibility.md).

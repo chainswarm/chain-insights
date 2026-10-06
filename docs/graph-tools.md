@@ -38,14 +38,14 @@ query: `USE topology`, `USE facts` or `USE chain`.
 Route by what you know: topology searches, while facts and chain look up one known thing.
 
 1. I do not know the thing yet: `USE topology`.
-2. I know the pair and the day, or the transaction hash, and want the indexed rows: `USE facts`.
-3. I want the chain's own record of a transaction by its hash, a block by its number or hash, or the head: `USE chain`.
+2. I know the pair and the day, or the `tx_id`, and want the indexed rows: `USE facts`.
+3. I want the chain's own record of a transaction by its `tx_id`, a block by its `block_height` or `block_hash`, an address at one block (`Address`), or the head: `USE chain`.
 
-`USE chain` has no address lookup. Find the address on `USE topology`, then read the pair and one day on `USE facts`.
+`USE chain` with `Address` reads the balance, the nonce or the kind of one address, now or at a past block with `at_block`. A past block must be at least `chain_admission.at_block_min_depth` blocks below the tip. To find the counterparties of an address, search `USE topology`, then read the pair and one day on `USE facts`.
 
-When two fit, as with a hash: ask `USE chain` first for the record and the result, then `USE facts` for the transfers it caused.
+When two fit, as with a `tx_id`: ask `USE chain` first for the record and the result, then `USE facts` for the transfers it caused.
 
-The layers hand each other keys. Topology gives the pair and the first and last seen time. Chain gives the `block_date` of a hash or a height. Facts gives the `tx_id`.
+The layers hand each other keys, and each key keeps its name. Topology gives the pair and the first and last seen time. Facts gives the `tx_id` and the `block_height`. Chain takes an `address`, a `tx_id`, a `block_height` or a `block_hash`, and gives the `block_date` of a transaction or a block.
 
 A list, a range or a whole-chain question is served on no layer. Say so, and go back to an anchored `USE topology` search.
 
@@ -54,8 +54,9 @@ A list, a range or a whole-chain question is served on no layer. Say so, and go 
 | Who is connected to this address? Where did the money go?   | `topology` | One anchored hop on `FLOWS_TO`, with a `LIMIT`.              |
 | What moved between A and B on one day?                      | `facts`    | `TRANSFER` with both addresses and `block_date`.             |
 | Which days did A and B trade?                               | `topology` | The link's `first_seen_timestamp` and `last_seen_timestamp`. |
-| Did transaction `0x…` succeed? Which block, which day?      | `chain`    | `Transaction {hash}`.                                        |
-| Which day is block N?                                       | `chain`    | `Block {height}`, and return `block_date`.                   |
+| Did transaction `0x…` succeed? Which block, which day?      | `chain`    | `Transaction {tx_id}`.                                       |
+| Which day is block N?                                       | `chain`    | `Block {block_height}`, and return `block_date`.             |
+| Does this address hold a balance? Is it a contract?         | `chain`    | `Address {address}`, with `at_block` for a past block.       |
 | How far behind are the graph and the warehouse?             | `chain`    | `Head`.                                                      |
 | Every transaction of block N, or every address with label X | none       | A list or a scan. Say so. Do not retry.                      |
 
@@ -63,6 +64,27 @@ The server publishes the limits of a layer in `meta_network_capabilities`
 (`cia network robinhood --json` prints the same reply): the `chain_admission`
 block today, and `topology_admission` and `facts_admission` when the server
 sends them. Read a limit there. Do not write one down.
+
+## One name on every layer
+
+A thing has one name on topology, facts and chain. Copy a value from one layer
+into the next as it is. The layers differ by properties only.
+
+| Thing      | `USE topology`                                | `USE facts`                   | `USE chain`                                         |
+| ---------- | --------------------------------------------- | ----------------------------- | --------------------------------------------------- |
+| An address | `:Address {address}`, and a kind label        | `:Address {address}`, no kind | `Address {address}`, optional `at_block`            |
+| A kind     | `:Account` or `:Contract`, `is_contract` kept | none: refused with a hint     | `is_contract`, `nonce` and `delegated_to`, no label |
+| A tx       | `tx_id` on `DEPLOYED_CONTRACT` only           | `tx_id` on every row          | `Transaction {tx_id}`                               |
+| A block    | `block_height` on `DEPLOYED_CONTRACT` only    | `block_height` on every row   | `Block {block_height}` or `Block {block_hash}`      |
+| Time       | epoch milliseconds                            | epoch milliseconds            | epoch milliseconds                                  |
+| `network`  | the query's `network`                         | the query's `network`         | the query's `network`                               |
+
+`network` is a property of every node and every relationship, and its value is
+the query's `network`. It is never stored, except on a `:Chain` node, where it
+names the remote chain. A filter on another value gives no rows. A kind is a
+second label that topology takes from chain facts: `:Account` for a key holder,
+`:Contract` for a contract. An address that only received has none. Facts
+serves no kind.
 
 ## When a query is refused
 
@@ -93,19 +115,32 @@ lists every code with its layer, its class and the next move.
 ## Chain lookups
 
 `USE chain` asks the chain node for one known thing by its key. It serves the
-lookups that `chain_admission.lookups` lists: `Transaction` by `hash`, `Block`
-by `height` or `hash`, and `Head`, which takes no key. No lookup takes an
-address: `:Address` is a topology and a facts label, never a chain one. A lookup
-is one node with literal keys in braces and a `RETURN` of `var.property` items.
-It takes no `WHERE`, no relationship and no range. The properties of each lookup
-are named in the refusal of an unknown property.
+lookups that `chain_admission.lookups` lists: `Transaction` by `tx_id`, `Block`
+by `block_height` or `block_hash` (exactly one), `Address` by `address` (with an
+optional `at_block`), and `Head`, which takes no key. A lookup is one node with
+literal keys in braces and a `RETURN` of `var.property` items. It takes no
+`WHERE`, no relationship and no range. The names `hash` and `height` are no key
+and no property of any label: they are refused like any name a label lacks. The
+properties of each lookup are named in the refusal of an unknown property, and
+`meta_schema` lists the lookups the network serves.
 
 A transaction, with its result and the day it was mined:
 
 ```bash
 cia mcp call graph_query \
   network=robinhood \
-  'query=USE chain MATCH (t:Transaction {hash: "0x..."}) RETURN t.status, t.block_height, t.block_date'
+  'query=USE chain MATCH (t:Transaction {tx_id: "0x..."}) RETURN t.status, t.block_height, t.block_date'
+```
+
+An address at the newest block, and at a past block:
+
+```bash
+cia mcp call graph_query \
+  network=robinhood \
+  'query=USE chain MATCH (a:Address {address: "0x..."}) RETURN a.balance, a.nonce, a.is_contract'
+cia mcp call graph_query \
+  network=robinhood \
+  'query=USE chain MATCH (a:Address {address: "0x...", at_block: 79000000}) RETURN a.balance, a.nonce, a.is_contract'
 ```
 
 The head of the chain, and how far the graph and the warehouse are behind it:
@@ -113,11 +148,16 @@ The head of the chain, and how far the graph and the warehouse are behind it:
 ```bash
 cia mcp call graph_query \
   network=robinhood \
-  'query=USE chain MATCH (h:Head) RETURN h.height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind'
+  'query=USE chain MATCH (h:Head) RETURN h.block_height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind'
 ```
 
-A chain lookup that comes back `chain_unavailable` means the chain layer is off
-or behind: read `chain_admission.status`. Topology and facts still work.
+`block_timestamp` is an integer number of epoch milliseconds on every layer,
+chain included. `network` is served on every label, from the query's `network`.
+An `Address` lookup reads the kind from `is_contract`, `nonce` and
+`delegated_to`, and a past block must be at least
+`chain_admission.at_block_min_depth` blocks below the tip. A chain lookup that
+comes back `chain_unavailable` means the chain layer is off or behind: read
+`chain_admission.status`. Topology and facts still work.
 
 ## Swaps, liquidity pools and bridges
 
@@ -279,7 +319,7 @@ and `:Sanctioned`. Each role also has a flag on the node.
   labels, risk, lifetime metrics, and `FLOWS_TO`/`LINKED` relationships
   belong to `USE topology`.
 - Use `USE chain` for the chain node's own record of one known transaction,
-  block or the head. It looks up one key and never searches.
+  block, address or the head. It looks up one key and never searches.
 - A facts read names an address pair with one day, or one `tx_id` (the `0x`
   transaction hash on EVM networks). The pair is both endpoint addresses, from
   then to, and the day is a `block_date` equality. `block_timestamp` bounds in
@@ -518,10 +558,10 @@ statements of the graph (`CALL db.labels()`, `CALL db.relationshipTypes()`,
 each main link, through one session, and keeps the answer for 24 hours. Fields
 come from a sample, so a rare field may be missing. The probes below are the
 fallback. The current public Chain Insights Graph network is
-the single robinhood network; the network argument selects the graph, and
-the address-space split lives on the `:Address.network` node property. Do not
-infer support for unadvertised networks from internal database names or
-historical examples.
+the single robinhood network; the network argument selects the graph.
+`network` is the query's network on every node and relationship, never stored,
+except on `:Chain`. Do not infer support for unadvertised networks from
+internal database names or historical examples.
 
 Useful schema probes:
 

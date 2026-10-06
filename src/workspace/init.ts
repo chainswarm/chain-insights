@@ -188,9 +188,11 @@ The address-grain graph schema:
 - Call \`meta_network_capabilities\` first. Pass \`network=\` exactly as
   GraphRAG advertised it. CIA does not pick a default network.
   Address format follows that network. Every topology node is
-  \`(:Address {address, network})\`, keyed by the raw chain-native
+  \`(:Address {address})\`, keyed by the raw chain-native
   \`address\`. There is no separate identity key and no member-address
-  satellite: the address IS the graph node.
+  satellite: the address IS the graph node. \`network\` is the query's
+  network on every node and relationship, never stored, except on
+  \`:Chain\`. A kind is a second label (\`:Account\` or \`:Contract\`).
 - \`(:Address)-[:LINKED]-(:Address)\` is an **undirected** ownership-overlay
   edge (\`basis\` \`derived\`/\`associated\`, plus \`confidence\`,
   \`source_event\`, \`declared_owner\`, \`owner_state\`) asserting the two

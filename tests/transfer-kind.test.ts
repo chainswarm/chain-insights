@@ -147,7 +147,8 @@ describe('every list of TRANSFER properties holds kind and only mapped propertie
     const names = listed(await text(), marker).filter((word) => word !== 'and')
     expect(names).toContain('kind')
     expect(
-      names.filter((name) => !mapped.has(name)),
+      // network is computed by the server from the query on every facts row, not a mapped column.
+      names.filter((name) => !mapped.has(name) && name !== 'network'),
       'a listed property the server does not map on TRANSFER'
     ).toEqual([])
   })

@@ -10,13 +10,19 @@
 //       otherwise names the difference on stderr and exits 1
 //
 // The input is the server's own catalogue, read from its main branch. The output
-// keeps the grammar, and each label with the keys it takes and the properties it
-// serves. It drops every locator, source and derivation field, so no internal
-// node call or private path is copied.
+// keeps the grammar, each label with the keys it takes (and the optional keys,
+// such as `at_block`), the words that name a kind and are no lookup label, and
+// the properties it serves, and the names of the properties that every label
+// serves because the server computes them (`network`). It drops every locator, source and
+// derivation field, so no internal node call or private path is copied.
 //
-// Why this pin exists: the catalogue serves three labels, `Transaction`, `Block`
-// and `Head`. It has no address lookup. A routing line that offered one sent an
-// agent to a `chain_not_served` refusal, and nothing in the package caught it.
+// Why this pin exists: the catalogue serves four labels, `Transaction`, `Block`,
+// `Head` and `Address`. A transaction takes `tx_id`, a block `block_height` or
+// `block_hash`, and an address `address` with an optional `at_block`. A kind
+// (`Account`, `Contract`) is no lookup label: the `Address` lookup reads it as
+// `is_contract` and `nonce`. A text that taught an old name (`hash`, `height`),
+// or that offered a lookup the catalogue lacks, sent an agent to a refusal, and
+// nothing in the package caught it.
 import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -53,13 +59,16 @@ export function pinChainCatalogue(catalogueText, commit) {
     server_commit: commit,
     rules_version: catalogue.rules_version ?? '',
     grammar: catalogue.grammar ?? '',
+    computed_on_every_label: Object.keys(catalogue.computed_on_every_label ?? {}).sort(),
     labels: Object.entries(labels).map(([label, entry]) => {
       if (!entry.properties) fail(`${label}: the catalogue names no properties`)
       return {
         label,
         answers: entry.answers ?? '',
         keys: Object.keys(entry.keys ?? {}).sort(),
+        optional_keys: Object.keys(entry.optional_keys ?? {}).sort(),
         key_rule: entry.key_rule ?? '',
+        kind_labels: [...(entry.kind_labels ?? [])].sort(),
         properties: Object.keys(entry.properties).sort(),
       }
     }),
