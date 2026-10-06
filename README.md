@@ -72,9 +72,21 @@ Insights Graph for the data.
 The plugin needs Node.js 22 or newer. Add this repository as a plugin
 marketplace, then install the `chain-insights` plugin from it.
 
-Without the plugin, `npm install -g chain-insights` then
-`cia setup claude-desktop` registers the installed proxy in Claude Desktop
-directly. Restart Claude Desktop afterwards.
+Without the plugin, register the installed proxy in Claude Desktop directly:
+
+1. Quit Claude Desktop fully. Closing the window is not enough: it keeps
+   running and writes its settings file back, which can remove the new entry.
+   - macOS: Claude menu > Quit Claude (Cmd+Q).
+   - Windows: right-click the Claude icon in the taskbar tray > Quit.
+   - Linux: File menu > Quit, or the tray icon > Quit.
+2. Run `npm install -g chain-insights`, then `cia setup claude-desktop`.
+   It warns if Claude Desktop is still running.
+3. Start Claude Desktop. `chain-insights` shows under Settings > Developer.
+
+The entry is written to `claude_desktop_config.json` under `mcpServers`:
+`~/Library/Application Support/Claude` on macOS, `%APPDATA%\Claude` on
+Windows, `~/.config/Claude` on Linux. A `.bak` copy of the previous file is
+kept beside it.
 
 The plugin skills are copies of `skills/`. After editing a skill, run
 `node scripts/sync-plugin-skills.mjs`; a test fails while the copies differ.

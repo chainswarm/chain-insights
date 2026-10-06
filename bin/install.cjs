@@ -318,8 +318,34 @@ function installClaudeDesktopMcp(configFile, proxyPath) {
   fs.writeFileSync(configFile, `${JSON.stringify(config, null, 2)}\n`, 'utf8')
 }
 
+// Claude Desktop keeps its settings in the same file and writes the whole file
+// back when it saves them, so an entry added while it runs can be lost.
+function claudeDesktopRunning() {
+  const { spawnSync } = require('child_process')
+  try {
+    if (process.platform === 'win32') {
+      const out = spawnSync('tasklist', ['/FI', 'IMAGENAME eq Claude.exe', '/NH'], { encoding: 'utf8' })
+      return /claude\.exe/i.test(out.stdout || '')
+    }
+    const pgrepArgs = process.platform === 'darwin' ? ['-x', 'Claude'] : ['-f', '(^|/)claude-desktop( |$)']
+    return spawnSync('pgrep', pgrepArgs, { encoding: 'utf8' }).status === 0
+  } catch {
+    return false
+  }
+}
+
+function quitClaudeDesktopHint() {
+  if (process.platform === 'darwin') return 'Claude menu > Quit Claude (Cmd+Q)'
+  if (process.platform === 'win32') return 'right-click the Claude icon in the taskbar tray > Quit'
+  return 'File menu > Quit, or the tray icon > Quit'
+}
+
 if (hasClaudeDesktop) {
   const desktopConfig = claudeDesktopConfigPath()
+  if (claudeDesktopRunning()) {
+    console.log(`  ${bold}Claude Desktop is running.${reset} It can overwrite the new entry when it saves its own settings.`)
+    console.log(`  Quit it fully (${quitClaudeDesktopHint()}), run ${cyan}cia setup claude-desktop${reset} again, then start Claude Desktop.`)
+  }
   try {
     installClaudeDesktopMcp(desktopConfig, proxyBinPath)
     console.log(`  ${cyan}Claude Desktop MCP:${reset} registered in ${desktopConfig}`)
