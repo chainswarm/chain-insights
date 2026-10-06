@@ -12,8 +12,8 @@ import {
 // Three things a reader must not have to guess, each one a place where the
 // graph holds more or says less than the old text did:
 //
-//   1. FLOWS_TO tx_count counts internal native transfers, and no MCP read
-//      lists those yet.
+//   1. FLOWS_TO tx_count counts internal native transfers, and a facts TRANSFER
+//      row lists each one, marked by its kind (tests/transfer-kind.test.ts).
 //   2. No swap has strength `swap` today. Every served swap is `swap_like`
 //      with families `unknown`. `swap_unsplit` is warehouse-only.
 //   3. SWAPPED USD is 0 on an unpriced side. Empty is only the facts SWAP row.
@@ -43,14 +43,12 @@ describe('FLOWS_TO tx_count counts internal native transfers', () => {
     expect(flat(row)).toContain('a contract sending ETH during a call')
   })
 
-  it('the guide says TRANSFER lists the first group only and no MCP read lists the rest', () => {
+  it('the guide says TRANSFER lists all three groups the count holds', () => {
     const flows = flat(sectionWith(guide, 'FLOWS_TO properties'))
     expect(flows).toContain(
       '`tx_count` counts token and native transfers and also internal native transfers.'
     )
-    expect(flows).toContain('`USE facts` `TRANSFER` lists the first group only.')
-    expect(flows).toContain('No MCP read lists an internal native transfer yet')
-    expect(flows).toContain('a pair can have a `tx_count` above 0 and no `TRANSFER` row')
+    expect(flows).toContain('`USE facts` `TRANSFER` lists all three')
   })
 
   it('the guide says a link covers all time and a facts read covers one day', () => {
@@ -59,31 +57,27 @@ describe('FLOWS_TO tx_count counts internal native transfers', () => {
     expect(flows).toContain("read a pair's transfers one day at a time")
     const facts = flat(sectionWith(guide, 'Facts labels and relationships'))
     expect(facts).toContain('A facts read names an address pair with one day, or one `tx_id`')
-    expect(facts).toContain('It lists no internal native transfer')
   })
 
   it('the tools guide says the same', () => {
     const tools = flat(read(TOOLS))
     expect(tools).toContain('A link covers all time and a facts read covers one day')
-    expect(tools).toContain('It lists no internal native transfer')
-    expect(tools).toContain('`tx_count` counts those too')
-    expect(tools).toContain('No MCP read lists internal native transfers yet')
+    expect(tools).toContain('`FLOWS_TO` `tx_count` counts all three')
   })
 
-  it('the served hints say the same and keep the anchor query for a pair with transfers', () => {
+  it('the served hints say the same and keep the anchor query for a pair', () => {
     const hints = servedGraphHints()
     expect(hints).toContain(
       'tx_count counts token and native transfers plus internal native transfers (a contract sending ETH during a call)'
     )
     expect(hints).toContain('amount_usd_sum prices them all')
-    expect(hints).toContain('USE facts TRANSFER lists the first group only')
-    expect(hints).toContain('no MCP read lists internal transfers yet')
+    expect(hints).toContain('USE facts TRANSFER lists all three')
     expect(hints).toContain('A link covers all time and a USE facts read covers one day')
     expect(hints).toContain(
-      'For a pair with token or native transfers, a transaction anchor resolves through USE facts, on the UTC day of the first_seen_timestamp or last_seen_timestamp of the link: MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) WHERE t.block_date = "YYYY-MM-DD" RETURN t.tx_id'
+      'A transaction anchor of a pair resolves through USE facts, on the UTC day of the first_seen_timestamp or last_seen_timestamp of the link: MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) WHERE t.block_date = "YYYY-MM-DD" RETURN t.tx_id'
     )
     expect(hints).toContain(
-      'Tx ids of token and native transfers come from USE facts TRANSFER; internal native transfers have none to read yet.'
+      'Tx ids of every transfer, internal ones included, come from USE facts TRANSFER.'
     )
   })
 
@@ -92,10 +86,9 @@ describe('FLOWS_TO tx_count counts internal native transfers', () => {
     expect(text).toContain(
       '`tx_count` counts token and native transfers plus internal native transfers'
     )
-    expect(text).toContain('`USE facts` `TRANSFER` lists the first group only')
-    expect(text).toContain('no MCP read lists internal transfers yet')
+    expect(text).toContain('`USE facts` `TRANSFER` lists all three')
     expect(text).toContain('A link covers all time and a `USE facts` read covers one day')
-    expect(text).toContain('For a pair with token or native transfers, a transaction anchor')
+    expect(text).toContain('A transaction anchor of a pair resolves through `USE facts`')
   })
 
   it("no text still says a flow's transactions are TRANSFER rows", () => {
@@ -159,7 +152,7 @@ describe('swap strength today', () => {
   it('liquidity families are named as a different vocabulary from swap families', () => {
     const facts = flat(sectionWith(guide, 'Facts labels and relationships'))
     expect(facts).toContain('`family` on a liquidity row is `v2` or `v3`')
-    expect(facts).toContain('It is not a swap family: swap `families` read `unknown` today')
+    expect(facts).toContain('It is not a swap family: `SWAPPED.families` reads `unknown` today')
     expect(facts).toContain('`reason` (why a claim is `swap_like`: `unknown_pool_code` today)')
   })
 

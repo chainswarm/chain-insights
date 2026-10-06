@@ -634,7 +634,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     )
   })
 
-  it('says tx_count counts internal native transfers that no MCP read lists yet', async () => {
+  it('says tx_count counts internal native transfers and TRANSFER lists each one', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce(null)
 
@@ -645,12 +645,11 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     const instructions = String(vi.mocked(McpServer).mock.calls[0]?.[1]?.instructions)
     expect(instructions).toContain('internal native transfers')
-    expect(instructions).toContain('lists the first group only')
-    expect(instructions).toContain('no MCP read lists internal transfers yet')
+    expect(instructions).toContain('USE facts TRANSFER lists all three')
+    expect(instructions).toContain('Every TRANSFER row has a kind: token, native or internal.')
     // A link covers all time and a facts read covers one day.
     expect(instructions).toContain('A link covers all time and a USE facts read covers one day')
-    // The anchor query stays, on one day and with no ORDER BY, for a pair that
-    // has token or native transfers.
+    // The anchor query stays, on one day and with no ORDER BY, for any pair.
     expect(instructions).toContain(
       'WHERE t.block_date = "YYYY-MM-DD" RETURN t.tx_id, t.block_timestamp LIMIT 1'
     )

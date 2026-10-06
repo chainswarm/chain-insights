@@ -341,22 +341,29 @@ address (a recency window is auto-applied)_.
 | `block_date` bound inside an `OR` arm                                                      | `t.block_height >= 0 OR t.block_date >= ?` — the optimizer cannot prune the unbounded arm → rejected with the remedy error                                                                                                                                                                       |
 | `LIMIT` above the ceiling                                                                  | `LIMIT 5000` → _StarRocks-backed graph query LIMIT exceeds maximum 1000_                                                                                                                                                                                                                         |
 
-### `SWAP` reads and `pools` (temporary)
+### `TRANSFER` rows and `kind`
 
-**Temporary, until graph server issue 1121 is fixed. Remove this section when it
-ships.**
+Every `TRANSFER` row has a `kind`: `token`, `native` or `internal`. An `internal`
+row is ETH a contract sends while it runs a call, such as the ETH leg of a wrap.
+The `FLOWS_TO` link counts all three, so the rows of a pair are the transfers its
+link counts, up to the height the link was built to. `kind` is a column and a
+filter. Add `t.kind = "internal"` to the pair and the day to read only the
+internal rows. A `kind` filter narrows the read of a pair and one day. It never
+replaces them.
 
-- Do not return, filter or order by `pools` in a `USE facts` `SWAP` read. Every
-  such read fails at the warehouse query memory limit with
-  `facts query could not be completed`: by address, by day and by `tx_id`.
-- Only `pools` is built by the failing part of the warehouse view. `pool_keys`
-  and `families` come from the main read.
-- Read `SWAP` rows by `tx_id`, or by the payer, the recipient and one day, and
-  leave `pools` out.
-- For the pools of a swap, read `SWAPPED.pools` on `USE topology`, anchored on
-  the payer or the recipient. `SWAPPED` has one link per payer, recipient, sold
-  asset and bought asset, so its `pools` cover every route on the link, not one
-  route.
+### `SWAP` reads and the swap route
+
+A `USE facts` `SWAP` row carries no route: it has no `pools` and no `families`
+column. A read that names one of them, to return it, to filter on it or to order
+by it, is refused. The route of a swap stays a topology question.
+
+- For the pools of the swaps of an address, read `SWAPPED.pools` and
+  `SWAPPED.families` on `USE topology`, anchored on the payer or the recipient.
+  `SWAPPED` has one link per payer, recipient, sold asset and bought asset, so
+  its `pools` cover every route on the link, not one route.
+- Read `SWAP` rows by `tx_id`, or by the payer, the recipient and one day.
+  `route_id` stays on the row. It ties every leg of one route together and names
+  no pool.
 
 ### Not in the facts grammar (contract error)
 

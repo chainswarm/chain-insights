@@ -211,41 +211,48 @@
   },
   {
    "id": "skill-cypher-2",
-   "layer": "chain",
-   "anchor": "key",
-   "query": "USE chain MATCH (t:Transaction {hash: \"0x…\"}) RETURN t.status, t.block_height, t.block_date",
+   "layer": "facts",
+   "anchor": "pair_day",
+   "query": "USE facts MATCH (from:Address {address: \"0x…\"})-[t:TRANSFER]->(to:Address {address: \"0x…\"}) WHERE t.block_date = \"2026-07-11\" AND t.kind = \"internal\" RETURN t.tx_id AS tx_id, t.event_index AS event_index, t.kind AS kind, t.amount AS amount, t.amount_usd AS amount_usd LIMIT 50",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
    "id": "skill-cypher-3",
    "layer": "chain",
    "anchor": "key",
-   "query": "USE chain MATCH (b:Block {height: 79841521}) RETURN b.hash, b.block_date",
+   "query": "USE chain MATCH (t:Transaction {hash: \"0x…\"}) RETURN t.status, t.block_height, t.block_date",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
    "id": "skill-cypher-4",
+   "layer": "chain",
+   "anchor": "key",
+   "query": "USE chain MATCH (b:Block {height: 79841521}) RETURN b.hash, b.block_date",
+   "source": "skills/chain-insights-cypher/SKILL.md"
+  },
+  {
+   "id": "skill-cypher-5",
    "layer": "chain",
    "anchor": "head",
    "query": "USE chain MATCH (h:Head) RETURN h.height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
-   "id": "skill-cypher-5",
+   "id": "skill-cypher-6",
    "layer": "topology",
    "anchor": "address",
    "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[s:SWAPPED]->(b:Address) RETURN b.address AS recipient, s.sold_asset AS sold_asset, s.bought_asset AS bought_asset, s.sold_usd AS sold_usd, s.bought_usd AS bought_usd, s.pools AS pools, s.strength AS strength, s.swap_count AS swap_count LIMIT 50",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
-   "id": "skill-cypher-6",
+   "id": "skill-cypher-7",
    "layer": "topology",
    "anchor": "address",
    "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[:FLOWS_TO]->(p:Pool)-[r:REMOVED_LIQUIDITY]->(b:Address) WHERE NOT a:Pool AND b.address <> a.address RETURN p.address AS pool, b.address AS receiver, r.usd AS removed_usd, r.receiver_added_usd AS receiver_added_usd, r.receiver_provided AS receiver_provided LIMIT 50",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
-   "id": "skill-cypher-7",
+   "id": "skill-cypher-8",
    "layer": "facts",
    "anchor": "transaction",
    "query": "USE facts MATCH (payer:Address)-[s:SWAP]->(recipient:Address) WHERE s.tx_id = \"0x…\" RETURN payer.address AS payer, recipient.address AS recipient, s.strength AS strength, s.reason AS reason, s.route_id AS route_id, s.sold_asset_symbol AS sold, s.sold_usd AS sold_usd, s.bought_asset_symbol AS bought, s.bought_usd AS bought_usd LIMIT 10",

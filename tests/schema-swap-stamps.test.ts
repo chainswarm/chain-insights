@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 // Swap stamps are read from SWAPPED, never from FLOWS_TO. FLOWS_TO carries
 // value only. SWAPPED gives the aggregate (strength, pools, families), and the
-// facts graph SWAP row gives one route. The two skills and the two documents
+// facts graph SWAP row gives one route, without a route list. The two skills and the two documents
 // name no swap property on FLOWS_TO: no swap.kind, swap.family,
 // swap.deployment, swap.pool, swap.route_id, swap_envelope or assets_paired.
 // The served graph hints in src/mcp/proxy.ts are pinned the same way in
@@ -84,11 +84,15 @@ describe('swap attribution is read from SWAPPED or the facts SWAP row', () => {
     }
   })
 
-  it('the facts SWAP row carries one route: route_id, strength, pools', () => {
+  it('the facts SWAP row carries one route: route_id and strength, and no pools list', () => {
     const facts = read('skills/chain-insights-schema-evm/SKILL.md')
     const swapRow = facts.slice(facts.indexOf('`SWAP` holds one row per route'))
-    for (const property of ['`route_id`', '`strength`', '`pools`']) {
+    for (const property of ['`route_id`', '`strength`']) {
       expect(swapRow.includes(property), `facts SWAP lacks ${property}`).toBe(true)
     }
+    // The route lists live on SWAPPED. tests/swap-route.test.ts holds the facts
+    // row to the columns the server maps.
+    const table = swapRow.slice(swapRow.indexOf('| Property group'))
+    expect(table.slice(0, table.indexOf('\n\n')).includes('`pools`')).toBe(false)
   })
 })

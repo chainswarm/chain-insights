@@ -1552,8 +1552,9 @@ function htmlEscape(value: unknown): string {
 // transaction hash, and takes no ORDER BY, so the read names the UTC day (take
 // it from the link's first_seen_timestamp or last_seen_timestamp) and returns
 // one transfer of the pair on that day. Bounded: LIMIT 1 on the pair and the
-// day. A pair with only internal native transfers has no TRANSFER row, so the
-// anchor query returns nothing for it: no MCP read lists internal transfers yet.
+// day. TRANSFER lists every transfer the link counts, internal native transfers
+// included (kind internal), so the anchor query finds a row for a pair that only
+// internal transfers move.
 export function pairAnchorQuery(from: string, to: string, day: string): string {
   return [
     'USE facts',

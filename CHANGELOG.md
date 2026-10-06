@@ -3,6 +3,63 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.42.0] - 2026-10-06 — feat: the swap route is a topology question, and TRANSFER lists internal transfers
+
+An agent that uses `cia` now learns two changes of the graph server's facts
+layer. A facts `SWAP` row carries no route. A facts `TRANSFER` row covers every
+transfer the money-flow link counts, internal transfers included.
+
+### Changed
+
+- The swap route is a topology question. A `USE facts` `SWAP` row has no
+  `pools` and no `families` column, and a read that names one of them, to
+  return it, to filter on it or to order by it, is refused. The route of a swap
+  is `SWAPPED.pools` and `SWAPPED.families` on `USE topology`, anchored on the
+  payer or the recipient. `SWAPPED` has one link per payer, recipient, sold
+  asset and bought asset, so its `pools` cover every route on the link, not one
+  route. `route_id` stays on the facts row. The property table of the
+  `chain-insights-schema-evm` skill lists the columns the server maps on `SWAP`
+  and no route list.
+- The note "Temporary, until graph server issue 1121 is fixed" is gone. It told
+  an agent to leave `pools` out of a facts `SWAP` read, and it named a second
+  column that the facts row no longer has. It stood in both skills,
+  `docs/graph-tools.md`, `docs/graph-query-compatibility.md`, the served graph
+  hints and the workspace runtime notes. The permanent rule stands in each of
+  them.
+- "No MCP read lists internal native transfers yet" is gone from the schema
+  skill, `docs/graph-tools.md`, the served graph hints, the workspace runtime
+  notes and the comment of the anchor query. Every `TRANSFER` row has a `kind`:
+  `token`, `native` or `internal`. An `internal` row is ETH a contract sends
+  while it runs a call, such as the ETH leg of a wrap. `kind` is a column and a
+  filter: add `t.kind = "internal"` to the pair and the day to read only the
+  internal rows. The rows of a pair are the transfers its `FLOWS_TO` link
+  counts, up to the height the link was built to, so a pair with a `tx_count`
+  above 0 has `TRANSFER` rows. An `internal` row has an `edge_index` of 0 and
+  no `raw_amount`, so a sum names `amount` or `amount_usd`. The call depth, the
+  call type and the parent frame are not served.
+- The transaction anchor of a pair no longer says it works only for a pair with
+  token or native transfers. A pair that only internal transfers move has a row.
+
+### Added
+
+- A `USE facts` example in the `chain-insights-cypher` skill that reads the
+  internal rows of a pair on one day with `t.kind = "internal"`.
+- `tests/fixtures/facts-columns.json`, made by `scripts/pin-facts-columns.mjs`
+  from the graph server's mapping of the facts relationships: the property names
+  each of the five serves, and nothing else. `tests/swap-route.test.ts` holds
+  the skill's `SWAP` property table to it and checks that no shipped query names
+  a route column in a facts `SWAP` read. `tests/transfer-kind.test.ts` holds
+  every list of `TRANSFER` properties to it, and fails when a home still says an
+  internal transfer is not listed. Both replace `tests/swap-read-stopgap.test.ts`
+  and the sentences it pinned.
+
+### Fixtures
+
+- `tests/fixtures/facts-contract.json` is the pin of the graph server's current
+  read contract: the numbers, the codes and the 53 refusals are unchanged.
+  `tests/fixtures/server-refusal-codes.json` names the server commit it was
+  re-read from, with the same 40 codes.
+
 ## [0.41.0] - 2026-10-05 — feat: pick the layer first, act on every refusal, and show a tool error as the server's own text
 
 An agent that uses `cia` now learns which layer a question goes to, and what to
