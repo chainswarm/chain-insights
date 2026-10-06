@@ -39,11 +39,11 @@ Always pass `network` and your own `LIMIT`. These two commands, and
 Route by what you know: topology searches, while facts and chain look up one known thing.
 
 1. I do not know the thing yet: `USE topology`.
-2. I know the pair and the day, or the `tx_id`, and want the indexed rows: `USE facts`.
+2. I know the pair and the day, and want the indexed rows: `USE facts`.
 3. I want the chain's own record of a transaction by its `tx_id`, a block by its `block_height` or `block_hash`, an address at one block (`Address`), or the head: `USE chain`.
 
 `USE chain` with `Address` reads the balance, the nonce or the kind of one address, now or at a past block with `at_block`. A past block must be at least `chain_admission.at_block_min_depth` blocks below the tip. To find the counterparties of an address, search `USE topology`, then read the pair and one day on `USE facts`.
-When two fit, as with a `tx_id`: ask `USE chain` first for the record and the result, then `USE facts` for the transfers it caused.
+A transaction is a chain question: read it on `USE chain` by its `tx_id`. Chain gives its `block_date`; the transfers between a pair on that day are a `USE facts` read.
 The layers hand each other keys, and each key keeps its name. Topology gives the pair and the first and last seen time. Facts gives the `tx_id` and the `block_height`. Chain takes an `address`, a `tx_id`, a `block_height` or a `block_hash`, and gives the `block_date` of a transaction or a block.
 A list, a range or a whole-chain question is served on no layer. Say so, and go back to an anchored `USE topology` search.
 
@@ -70,7 +70,7 @@ A thing has one name on topology, facts and chain. Copy a value from one layer i
 
 A kind is a second label that topology takes from a chain fact: `:Account` for a key holder, `:Contract` for a contract (`:Contract:SmartAccount` for a contract wallet). Never both on one address. An address that only received has none, and so does a Nitro precompile on topology (chain reads it as a contract). A role label such as `:Pool` stays beside the kind. `is_contract` stays beside `:Contract`. Facts serves no kind: a facts read that names `:Account` or `:Contract` is refused, so ask `USE topology`, or `USE chain` for `is_contract` and `nonce`.
 
-A topology link is a lifetime summary of a pair, and a facts row is one event. They are two things, so they keep two names: `SWAPPED`, `ADDED_LIQUIDITY` and `REMOVED_LIQUIDITY` on topology, `SWAP`, `LIQUIDITY_ADD` and `LIQUIDITY_REMOVE` on facts. Read the summary on topology, anchored on an address, then the events behind it on facts, by the pair and one day or by a `tx_id`.
+A topology link is a lifetime summary of a pair, and a facts row is one event. They are two things, so they keep two names: `SWAPPED`, `ADDED_LIQUIDITY` and `REMOVED_LIQUIDITY` on topology, `SWAP`, `LIQUIDITY_ADD` and `LIQUIDITY_REMOVE` on facts. Read the summary on topology, anchored on an address, then the events behind it on facts, by the pair and one day.
 
 ## Topology
 
@@ -207,7 +207,7 @@ The server serves five read-only catalog calls: `CALL db.labels()`, `CALL db.rel
 
 ## Facts: an address pair with one day
 
-`USE facts` looks up rows you already know. A facts read names an address pair with one day, or one `tx_id`. A pair is both addresses, from then to, each as `{address: "<address>"}`, and the day is `t.block_date = "YYYY-MM-DD"`. One address, a day alone, a window of days, a block range and a bare `LIMIT` are not enough. It serves `TRANSFER`, `SWAP`, `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and `BRIDGE_CROSSING` rows.
+`USE facts` looks up rows you already know. A facts read names an address pair with one day. A transaction is read on `USE chain`, not here. A pair is both addresses, from then to, each as `{address: "<address>"}`, and the day is `t.block_date = "YYYY-MM-DD"`. One address, a day alone, a window of days, a block range and a bare `LIMIT` are not enough. It serves `TRANSFER`, `SWAP`, `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and `BRIDGE_CROSSING` rows.
 
 - A reply holds at most 200 rows, whatever the `LIMIT`.
 - A facts read has one relationship and no hop. For a walk, go to topology.
@@ -222,14 +222,6 @@ The server serves five read-only catalog calls: `CALL db.labels()`, `CALL db.rel
 USE facts
 MATCH (a:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c"})-[t:TRANSFER]->(b:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"}) WHERE t.block_date = "2026-07-10"
 RETURN t.tx_id AS tx_id, t.block_timestamp AS block_timestamp, t.asset_symbol AS asset_symbol, t.amount AS amount, t.amount_usd AS amount_usd, t.kind AS kind LIMIT 50
-```
-
-One transaction hash needs no day. The server finds it:
-
-```cypher
-USE facts
-MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.tx_id = "0x044587122970de1e3c377a8ed7ab56a49c777a2b7441a2f5d9ca32dbab9fbe71"
-RETURN a.address AS from_address, b.address AS to_address, t.amount AS amount, t.kind AS kind LIMIT 50
 ```
 
 ## Chain: one key, one node

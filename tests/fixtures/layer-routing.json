@@ -302,48 +302,41 @@
   },
   {
    "id": "skill-cypher-14",
-   "layer": "facts",
-   "anchor": "transaction",
-   "query": "USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.tx_id = \"0x044587122970de1e3c377a8ed7ab56a49c777a2b7441a2f5d9ca32dbab9fbe71\" RETURN a.address AS from_address, b.address AS to_address, t.amount AS amount, t.kind AS kind LIMIT 50",
-   "source": "skills/chain-insights-cypher/SKILL.md"
-  },
-  {
-   "id": "skill-cypher-15",
    "layer": "chain",
    "anchor": "key",
    "query": "USE chain MATCH (t:Transaction {tx_id: \"0x044587122970de1e3c377a8ed7ab56a49c777a2b7441a2f5d9ca32dbab9fbe71\"}) RETURN t.status, t.block_height, t.block_date",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
-   "id": "skill-cypher-16",
+   "id": "skill-cypher-15",
    "layer": "chain",
    "anchor": "key",
    "query": "USE chain MATCH (b:Block {block_height: 79841521}) RETURN b.block_hash, b.block_date",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
-   "id": "skill-cypher-17",
+   "id": "skill-cypher-16",
    "layer": "chain",
    "anchor": "key",
    "query": "USE chain MATCH (a:Address {address: \"0x04911a118f11c75667e4d0dfb8e640af5a353550\"}) RETURN a.balance, a.nonce, a.is_contract",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
-   "id": "skill-cypher-18",
+   "id": "skill-cypher-17",
    "layer": "chain",
    "anchor": "key",
    "query": "USE chain MATCH (a:Address {address: \"0x04911a118f11c75667e4d0dfb8e640af5a353550\", at_block: 79000000}) RETURN a.balance, a.nonce, a.is_contract",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
-   "id": "skill-cypher-19",
+   "id": "skill-cypher-18",
    "layer": "chain",
    "anchor": "head",
    "query": "USE chain MATCH (h:Head) RETURN h.block_height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
-   "id": "skill-cypher-20",
+   "id": "skill-cypher-19",
    "layer": "topology",
    "anchor": "address",
    "query": "USE topology MATCH (a:Address {address: \"0x04911a118f11c75667e4d0dfb8e640af5a353550\"})-[f:FLOWS_TO]->(b:Address) WHERE NOT a:Pool RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.last_seen_timestamp AS last_seen_timestamp ORDER BY f.last_seen_timestamp DESC LIMIT 25",

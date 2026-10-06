@@ -38,12 +38,12 @@ query: `USE topology`, `USE facts` or `USE chain`.
 Route by what you know: topology searches, while facts and chain look up one known thing.
 
 1. I do not know the thing yet: `USE topology`.
-2. I know the pair and the day, or the `tx_id`, and want the indexed rows: `USE facts`.
+2. I know the pair and the day, and want the indexed rows: `USE facts`.
 3. I want the chain's own record of a transaction by its `tx_id`, a block by its `block_height` or `block_hash`, an address at one block (`Address`), or the head: `USE chain`.
 
 `USE chain` with `Address` reads the balance, the nonce or the kind of one address, now or at a past block with `at_block`. A past block must be at least `chain_admission.at_block_min_depth` blocks below the tip. To find the counterparties of an address, search `USE topology`, then read the pair and one day on `USE facts`.
 
-When two fit, as with a `tx_id`: ask `USE chain` first for the record and the result, then `USE facts` for the transfers it caused.
+A transaction is a chain question: read it on `USE chain` by its `tx_id`. Chain gives its `block_date`; the transfers between a pair on that day are a `USE facts` read.
 
 The layers hand each other keys, and each key keeps its name. Topology gives the pair and the first and last seen time. Facts gives the `tx_id` and the `block_height`. Chain takes an `address`, a `tx_id`, a `block_height` or a `block_hash`, and gives the `block_date` of a transaction or a block.
 
@@ -320,8 +320,8 @@ and `:Sanctioned`. Each role also has a flag on the node.
   belong to `USE topology`.
 - Use `USE chain` for the chain node's own record of one known transaction,
   block, address or the head. It looks up one key and never searches.
-- A facts read names an address pair with one day, or one `tx_id` (the `0x`
-  transaction hash on EVM networks). The pair is both endpoint addresses, from
+- A facts read names an address pair with one day. A transaction is read on
+  `USE chain` by its `tx_id`, not on facts. The pair is both endpoint addresses, from
   then to, and the day is a `block_date` equality. `block_timestamp` bounds in
   epoch milliseconds may narrow the day to a time window. One address, a day
   alone, a window of days, a block range and a bare `LIMIT` are not enough. A
