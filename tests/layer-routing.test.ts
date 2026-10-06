@@ -197,9 +197,8 @@ describe('the routing lines are one text in the skill, the guide and the served 
 })
 
 describe('no third graph skill', () => {
-  it('skills/ holds the address risk, the cypher and the schema skill only', () => {
+  it('skills/ holds the cypher and the schema skill only: the address risk skill is gone', () => {
     expect(readdirSync(join(repoRoot, 'skills')).sort()).toEqual([
-      'chain-insights-address-risk',
       'chain-insights-cypher',
       'chain-insights-schema-evm',
     ])

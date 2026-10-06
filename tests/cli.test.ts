@@ -212,7 +212,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(`${result.stdout}\n${result.stderr}`).toMatch(/unknown command/i)
   })
 
-  it('does not run CIA workflows through the low-level mcp call', () => {
+  it('refuses aml_address_risk through the low-level mcp call: the tool is hidden until its verdict is fixed', () => {
     const result = spawnSync(
       process.execPath,
       [
@@ -228,9 +228,9 @@ describe('CLI scaffold (FOUND-02)', () => {
       { encoding: 'utf8' }
     )
     expect(result.status).toBe(1)
-    expect(`${result.stdout}\n${result.stderr}`).toContain(
-      'aml_address_risk is a CIA workflow. Run `cia workflow aml-address-risk` instead.'
-    )
+    const output = `${result.stdout}\n${result.stderr}`
+    expect(output).toContain("MCP tool 'aml_address_risk' is not exposed by Chain Insights.")
+    expect(output).not.toContain('cia workflow aml-address-risk')
   })
 
   it('workflows lists the canonical workflow execution command without network access', () => {

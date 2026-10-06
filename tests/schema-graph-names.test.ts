@@ -75,20 +75,13 @@ describe.each([SKILL, COMPAT])('%s', (file) => {
     expect(text.includes(`\`${type}\``), `${file} does not name ${type}`).toBe(true)
   })
 
-  it('names the ten ML pattern link types, FLASH_LOAN_ENVELOPE included', () => {
-    for (const type of ML_PATTERN_TYPES) {
-      expect(text.includes(`\`${type}\``), `${file} does not name ${type}`).toBe(true)
-    }
-  })
-
   it('describes the EIP-7702 link: a SET_CODE authorization, and a permit lands on APPROVED', () => {
     expect(text).toContain('EIP-7702')
     expect(text).toContain('`SET_CODE`')
     expect(text).toMatch(/permit lands on `APPROVED`, never here/)
   })
 
-  it('names UNSCORED and both DEX layers setting :Pool', () => {
-    expect(text).toContain('`UNSCORED`')
+  it('names both DEX layers setting :Pool', () => {
     expect(text).toMatch(/Both DEX layers set `:Pool`|Both DEX layers set it/)
     expect(text).toMatch(/pool with liquidity and no swap carries it/)
   })
@@ -195,11 +188,46 @@ describe('the Bittensor schema skill is gone', () => {
   })
 })
 
-// The ML layer writes the run id in the property run_id (decision log R3).
-describe.each([SKILL, COMPAT])('%s ML pattern links', (file) => {
-  const text = read(file).replace(/\s+/g, ' ')
+// The ML layer writes the run id in the property run_id (decision log R3). The
+// risk layer is off on the live server (layers.risk.enabled is false), so the
+// schema skill no longer maps the ML pattern links or the risk verdict. The
+// compatibility guide still does.
+describe('the ML pattern links', () => {
+  const guide = read(COMPAT).replace(/\s+/g, ' ')
 
-  it('names run_id as the run id property, beside kind and source_event', () => {
-    expect(text).toMatch(/`kind`, `source_event` `ml_pattern` and the run id in `run_id`/)
+  it('the compatibility guide names the ten ML pattern link types, FLASH_LOAN_ENVELOPE included', () => {
+    for (const type of ML_PATTERN_TYPES) {
+      expect(guide.includes(`\`${type}\``), `${COMPAT} does not name ${type}`).toBe(true)
+    }
+  })
+
+  it('the compatibility guide names run_id as the run id property, beside kind and source_event', () => {
+    expect(guide).toMatch(/`kind`, `source_event` `ml_pattern` and the run id in `run_id`/)
+  })
+})
+
+describe('the schema skill maps only what the live server serves', () => {
+  const skill = read(SKILL)
+
+  it('says the risk layer is off and names no ML pattern link or risk verdict as served', () => {
+    expect(skill).toContain('Not served today: the risk layer is off')
+    expect(skill).toContain('`layers.risk.enabled` is false')
+    // The one place the schema skill names the verdict fields and RISK_PROXIMITY is
+    // that sentence. No table, section or probe maps them.
+    for (const name of ['risk_score', 'risk_level', 'RISK_PROXIMITY']) {
+      const uses = skill.match(new RegExp(String.raw`\b${name}\b`, 'g')) ?? []
+      expect(uses.length, `${name} appears outside the not-served note`).toBe(1)
+    }
+    for (const type of ML_PATTERN_TYPES.filter((candidate) => candidate !== 'RISK_PROXIMITY')) {
+      expect(skill.includes(type), `${SKILL} names ${type}`).toBe(false)
+    }
+    expect(skill).not.toContain('UNSCORED')
+  })
+
+  it('names the account-abstraction and protocol labels the live graph carries', () => {
+    for (const label of ['SmartAccount', 'Bundler', 'Paymaster', 'EntryPoint', 'Protocol']) {
+      expect(skill, `${SKILL} does not name ${label}`).toContain(`\`${label}\``)
+    }
+    expect(skill).toContain('`token_standard`')
   })
 })

@@ -3,6 +3,60 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.44.0] - 2026-10-06 — fix: aml_address_risk hidden until its verdict is fixed; short ISO GQL skill; schema skill refreshed
+
+### Removed
+
+- `aml_address_risk` is hidden until its verdict is fixed. The MCP proxy does
+  not list it, does not register a local copy when the Chain Insights Graph
+  lacks it, and does not name it in the server instructions, in `meta_help` or
+  in the prompts. A call to it through the proxy is refused as an unknown tool.
+  `cia mcp call aml_address_risk` is refused too. The `aml-address-risk` MCP
+  prompt is gone. `cia workflow aml-address-risk` stays in the CLI and is no
+  longer advertised in the README, the docs or the workspace notes.
+- The `chain-insights-address-risk` skill. `cia setup` and `cia --claude`
+  delete an installed copy, as they do for every retired skill. The Claude
+  plugin never carried it.
+
+### Changed
+
+- `chain-insights-cypher` is rewritten to standard ISO GQL only, in 197 lines
+  instead of 513. It opens with the rules that stop the failures small models
+  made: write every address in full and in lowercase, never shorten one;
+  timestamps are integer milliseconds, never compared with an ISO string;
+  `USE chain` returns ISO text for `block_timestamp`; a wrong address or an
+  ISO string gives zero rows with no error; do not run a risk screen, write
+  files or run `cia --help` unless asked; fix a refused query once, then tell
+  the user what cannot be asked. It keeps the routing lines, the move by
+  refusal class, and the picture column convention. It carries eight examples
+  with full addresses, each admitted by the live endpoint: a route, one
+  address, the newest receivers, a facts read of a pair and a day, a facts
+  read of one transaction hash, and the three chain lookups. The table of
+  every refusal code and the swap, kind and limit sections are gone: the
+  refusal carries its own `fix` and `example`, and the schema skill holds the
+  rest.
+- `chain-insights-schema-evm` is refreshed against the live graph, in 541
+  lines instead of 644. Units and the full-address rule open it. The risk
+  verdict (`risk_score`, `risk_level`) and the ML pattern links are removed,
+  because the risk layer is off (`layers.risk.enabled` is false). The labels
+  `SmartAccount`, `Bundler`, `Paymaster`, `EntryPoint` and `Protocol`, the
+  `token_standard` property and the properties of the three chain lookups are
+  added. The dated swap statistics and the examples that only repeated the
+  recipes are gone. Its examples use full 42-character addresses.
+- README, `docs/`, the workspace notes and the plugin description no longer
+  advertise `aml_address_risk`. The public tool list is seven tools.
+- Test fixtures `tests/fixtures/topology-shape-cases.json` and
+  `tests/fixtures/layer-routing.json` are regenerated from the new skill
+  examples (`npm run corpus:generate`).
+
+### Changed (Claude view)
+
+- A chart is drawn only for 3 or more time points and no address column; a
+  head lookup or a short series shows as a table.
+- A refused query or an empty result draws one short line instead of a card.
+- The server instructions no longer teach `risk_score` or `risk_level`: no
+  overall risk score is served. Per-label risk lists stay.
+
 ## [0.43.1] - 2026-10-06 — fix: Claude Desktop setup warns while Claude Desktop runs
 
 ### Fixed

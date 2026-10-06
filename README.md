@@ -28,16 +28,13 @@ as-is on macOS; on Windows use WSL.
 ```bash
 npx chain-insights@latest --help   # run without installing
 npm install -g chain-insights      # or install the cia CLI globally
-cia workflows                      # list high-level CIA workflow tools
-cia workflow aml-address-risk \
-  --address 0xYourAddressHere --network robinhood
 cia networks                       # network status + dataset overview
 cia network robinhood              # details for one network
 cia mcp tools                      # list remote graph tools
 ```
 
-Sixty seconds gets you the CLI, a network overview, a CIA workflow, and the
-available remote graph tools for Robinhood.
+Sixty seconds gets you the CLI, a network overview, and the available remote
+graph tools for Robinhood.
 To call the same tools from an agent, register the MCP proxy:
 `cia setup claude-code` (or `claude-desktop` / `codex` / `hermes`).
 
@@ -48,12 +45,7 @@ script needs indented JSON:
 cia mcp call --json graph_query \
   network=robinhood \
   "query=USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 10"
-cia workflow aml-address-risk --json \
-  --address 0xYourAddressHere --network robinhood
 ```
-
-The AML address-risk contract uses the latest version when `version` is
-omitted. Pin the current contract with `--version v1` on the workflow command.
 
 ### Claude plugin
 
@@ -104,8 +96,8 @@ Owns:
 
 - The `cia` / `chain-insights` CLI and the `chain-insights-mcp-proxy` MCP
   server (source under `src/`).
-- The canonical public tool surface: prefixed `aml_*` / `graph_*` / `meta_*`
-  / `wallet_*` tools.
+- The canonical public tool surface: prefixed `graph_*` / `meta_*` /
+  `wallet_*` tools.
 - Local wallet and payment on Base mainnet (payment chain only).
 - Shipped product skills under `skills/` (`chain-insights-*`), packaged
   into the npm tarball.
@@ -115,8 +107,7 @@ Never touches:
 - Blockchain indexing, graph database storage, or graph serving — those
   belong to the Chain Insights Graph backend.
 - Automatic risk labeling. Address labels are served by the Chain Insights
-  Graph backend and read through `aml_address_risk`; the CLI never writes
-  labels.
+  Graph backend and read through `graph_query`; the CLI never writes labels.
 - Custodial wallets or hosted case databases. Investigation data stays with
   the caller.
 
@@ -124,7 +115,6 @@ Never touches:
 
 | Tool                        | Use it for                                                                         |
 | --------------------------- | ---------------------------------------------------------------------------------- |
-| `aml_address_risk`          | Screen one address for risk, behavior, neighborhood context, and exchange exposure |
 | `graph_query`               | Run one read-only GQL/Cypher query against a Chain Insights Graph layer            |
 | `graph_query_batch`         | Run related read-only graph queries as one MCP call                                |
 | `meta_network_capabilities` | Check supported Chain Insights networks and graph tools                            |
@@ -188,7 +178,7 @@ Graph queries choose the read graph explicitly:
 
 | Graph      | Use it for                                                                                                                                                                                                                                                                      |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `topology` | The unified address / FLOWS_TO / OPERATED_BY / LINKED graph — recent and full historical fund-flow traversal, the node `risk_score`/`risk_level` verdict, and swap, liquidity-pool and bridge totals (see [Graph tools](docs/graph-tools.md#swaps-liquidity-pools-and-bridges)) |
+| `topology` | The unified address / FLOWS_TO / OPERATED_BY / LINKED graph — recent and full historical fund-flow traversal, and swap, liquidity-pool and bridge totals (see [Graph tools](docs/graph-tools.md#swaps-liquidity-pools-and-bridges)) |
 | `facts`    | Bounded individual `TRANSFER` rows with amount, `amount_usd`, asset, transaction, and block facts, plus single `SWAP`, `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and `BRIDGE_CROSSING` rows                                                                                           |
 
 One rule is worth reading before writing a query by hand: the `network`
@@ -199,9 +189,8 @@ on `:Address` without an exact address must scope itself with
 database and `Address` carries no `network` property at all. See
 [Graph query compatibility](docs/graph-query-compatibility.md).
 
-Agent installs include `chain-insights-address-risk` for one-address
-screens, `chain-insights-cypher` for graph-query dialect rules, and
-`chain-insights-schema-evm` for the EVM / Robinhood graph map.
+Agent installs include `chain-insights-cypher` for graph-query dialect rules
+and `chain-insights-schema-evm` for the EVM / Robinhood graph map.
 
 ## Billing: Billable Units
 
@@ -221,19 +210,6 @@ cut off. When you see `truncated: true`:
 - Narrow the query with `LIMIT` to ask for fewer rows.
 - Page through results with `SKIP` to fetch the next batch.
 - Add a tighter `WHERE` filter before raising the limit.
-
-**Workflow tools carry a `usage` block.** `aml_address_risk` runs many graph
-queries behind the scenes to answer one question. Every response includes a
-`usage` block with the total cost of all of them:
-
-- **`billable_units`** — total units billed across every internal graph
-  query this workflow ran.
-- **`query_count`** — how many internal graph queries it took.
-- **`truncated_queries`** — how many of those internal queries hit their
-  row limit and got cut off.
-
-Use `usage` to see the real cost of a workflow call, not just of one
-`graph_query`.
 
 ## Prerequisites And Environment Setup
 
@@ -267,11 +243,12 @@ cia --version
 cia update --check
 ```
 
-Run a first screen from any directory:
+Run a first query from any directory:
 
 ```bash
-cia workflow aml-address-risk \
-  --address 0xYourAddressHere --network robinhood
+cia mcp call graph_query \
+  network=robinhood \
+  "query=USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 10"
 ```
 
 Create a local payment wallet when paid access is needed:
@@ -291,7 +268,7 @@ Example queries. Direct topology:
 ```bash
 cia mcp call graph_query \
   network=robinhood \
-  "query=USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level LIMIT 10"
+  "query=USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels LIMIT 10"
 ```
 
 Batch across graph views:

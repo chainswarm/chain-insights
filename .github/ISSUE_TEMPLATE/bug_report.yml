@@ -15,7 +15,7 @@ body:
     attributes:
       label: Command or action
       description: The exact command you ran, or the MCP tool call you made
-      placeholder: cia mcp aml-address-risk --network robinhood --address 0x...
+      placeholder: cia mcp call graph_query network=robinhood "query=USE topology MATCH ..."
     validations:
       required: true
   - type: textarea

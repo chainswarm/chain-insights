@@ -14,9 +14,8 @@ node bin/cli.js --help
 
 ## Adding AML Tools
 
-Current AML tools live in the Chain Insights layer:
-
-- `aml_address_risk`
+No AML tool lives in the Chain Insights layer today. `aml_address_risk` is
+hidden until its verdict is fixed.
 
 When adding a tool, document:
 

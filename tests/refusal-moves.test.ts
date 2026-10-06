@@ -1,70 +1,22 @@
 import { describe, expect, it } from 'vitest'
 
-import { read, sectionWith } from './support/schema-text.js'
+import { read, flat } from './support/schema-text.js'
 
-// Every refusal code of the graph server has one row in the move table of the
-// cypher skill, with the layer and the class the server gives it. The list of
-// codes is pinned in tests/fixtures/server-refusal-codes.json, read from the
-// server's own constants. A code the server adds fails here until the skill
-// has a row for it, and a row for a code the server never returns fails too.
+// The graph server's refusal codes are pinned in tests/fixtures/server-refusal-codes.json,
+// read from the server's own constants. Each refusal comes back with a code, a class
+// (refused, killed, capacity or failed), a fix and an example, so the cypher skill
+// teaches the move by class and never lists the codes: a table of every code went
+// stale each time the server added one, and the refusal already carries its own fix.
+// The class lines of the skill are held word for word by tests/layer-routing.test.ts.
 
 type PinnedCode = { code: string; layer: string; class: string }
 type Pinned = { source: string; server_commit: string; codes: PinnedCode[] }
-type MoveRow = { code: string; layer: string; class: string; move: string }
 
 const pinned = JSON.parse(read('tests/fixtures/server-refusal-codes.json')) as Pinned
 
 const SKILL = 'skills/chain-insights-cypher/SKILL.md'
 const CLASSES = ['refused', 'killed', 'capacity', 'failed']
 const LAYERS = ['any', 'topology', 'facts', 'chain']
-
-// The rows of the move table of one Markdown section: `| `code` | layer | class | move |`.
-function moveRows(section: string): MoveRow[] {
-  return section
-    .split('\n')
-    .filter((line) => /^\|\s*`[a-z_]+`\s*\|/.test(line))
-    .map((line) => {
-      const cells = line
-        .trim()
-        .replace(/^\|/, '')
-        .replace(/\|$/, '')
-        .split(/(?<!\\)\|/)
-        .map((cell) => cell.trim())
-      return {
-        code: (cells[0] ?? '').replaceAll('`', ''),
-        layer: (cells[1] ?? '').replaceAll('`', ''),
-        class: (cells[2] ?? '').replaceAll('`', ''),
-        move: cells.slice(3).join(' | '),
-      }
-    })
-}
-
-// What is wrong with a move table, as one line each. An empty list is a table
-// that holds exactly one row for every pinned code, with its layer and class,
-// and no row for any other code.
-function moveTableFindings(rows: MoveRow[], codes: PinnedCode[]): string[] {
-  const findings: string[] = []
-  const known = new Map(codes.map((entry) => [entry.code, entry]))
-  for (const entry of codes) {
-    const found = rows.filter((row) => row.code === entry.code)
-    if (found.length === 0) findings.push(`${entry.code}: no row in the move table`)
-    if (found.length > 1) findings.push(`${entry.code}: ${found.length} rows, want one`)
-    for (const row of found) {
-      if (row.class !== entry.class) {
-        findings.push(`${entry.code}: class ${row.class}, the server says ${entry.class}`)
-      }
-      if (row.layer !== entry.layer) {
-        findings.push(`${entry.code}: layer ${row.layer}, the server says ${entry.layer}`)
-      }
-      if (row.move.trim() === '') findings.push(`${entry.code}: the row names no move`)
-    }
-  }
-  for (const row of rows) {
-    if (!known.has(row.code))
-      findings.push(`${row.code}: a row for a code the server never returns`)
-  }
-  return findings
-}
 
 describe('the pinned list of refusal codes', () => {
   it('holds each code once, with a layer and a class the skill can name', () => {
@@ -98,48 +50,26 @@ describe('the pinned list of refusal codes', () => {
   })
 })
 
-describe('the move table of the cypher skill', () => {
-  const rows = moveRows(sectionWith(read(SKILL), 'refused'))
+describe('the cypher skill and the refusal codes', () => {
+  const skill = flat(read(SKILL))
 
-  it('holds exactly one row for each of the pinned codes, with its class and its layer', () => {
-    expect(moveTableFindings(rows, pinned.codes)).toEqual([])
-    expect(rows).toHaveLength(pinned.codes.length)
-  })
-
-  it('fails and names the code when the server adds a code the skill has no row for', () => {
-    const added = [...pinned.codes, { code: 'facts_new_rule', layer: 'facts', class: 'refused' }]
-    expect(moveTableFindings(rows, added)).toEqual(['facts_new_rule: no row in the move table'])
-  })
-
-  it('fails and names the code when the skill names a code the server never returns', () => {
-    const invented = [
-      ...rows,
-      { code: 'facts_window_exceeded', layer: 'facts', class: 'refused', move: 'Name one day.' },
-    ]
-    expect(moveTableFindings(invented, pinned.codes)).toEqual([
-      'facts_window_exceeded: a row for a code the server never returns',
-    ])
-  })
-
-  it('fails when a code has two rows or the wrong class', () => {
-    const first = rows[0] as MoveRow
-    expect(moveTableFindings([...rows, first], pinned.codes)).toEqual([
-      `${first.code}: 2 rows, want one`,
-    ])
-    const wrong = rows.map((row) =>
-      row.code === 'facts_busy' ? { ...row, class: 'refused' } : row
-    )
-    expect(moveTableFindings(wrong, pinned.codes)).toEqual([
-      'facts_busy: class refused, the server says capacity',
-    ])
-  })
-
-  it('gives every code of a class a move that fits the class', () => {
-    for (const row of rows) {
-      if (row.class === 'capacity') expect(row.move, row.code).toMatch(/wait/i)
-      if (row.class === 'failed' && row.code !== 'chain_unavailable') {
-        expect(row.move, row.code).toMatch(/tell the user/i)
-      }
+  it('teaches the move for every class a pinned code carries', () => {
+    const classes = new Set(pinned.codes.map((entry) => entry.class))
+    expect([...classes].sort()).toEqual([...CLASSES].sort())
+    for (const cls of classes) {
+      expect(skill, `the skill has no move for class ${cls}`).toContain(`Class \`${cls}\`:`)
     }
+  })
+
+  it('sends the reader to the fix and the example the refusal carries', () => {
+    expect(skill).toContain('`error_detail`: `code`, `rule`, `class`, `fix` and `example`')
+    expect(skill).toContain('read `fix`, rewrite the query from `example`, and send it once')
+  })
+
+  it('holds no table of codes: no pinned code is written down as a row', () => {
+    const rows = read(SKILL)
+      .split('\n')
+      .filter((line) => /^\|\s*`[a-z]+(?:_[a-z]+)+`\s*\|/.test(line))
+    expect(rows).toEqual([])
   })
 })

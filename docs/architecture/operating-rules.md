@@ -24,7 +24,7 @@ knowledge skill during the 2026-07-28 docs-layer rework.
 ## Data And Findings Invariants
 
 - Address labels are served by the Chain Insights Graph backend, never
-  written by this CLI. `aml_address_risk` reads them as enrichment.
+  written by this CLI.
 
 ## Development Workflow Rules
 
@@ -66,8 +66,7 @@ knowledge skill during the 2026-07-28 docs-layer rework.
   access → run AML tools.
 - Localhost endpoints are fine in debugging docs. Private paths are not.
 - The shipped product skills under `skills/` are
-  `chain-insights-address-risk`, `chain-insights-cypher`, and
-  `chain-insights-schema-evm`.
+  `chain-insights-cypher` and `chain-insights-schema-evm`.
   They are a separate product surface
   packaged into the npm tarball and enforced by
   `tests/skills-contract.test.ts`. A capability no skill mentions is

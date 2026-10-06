@@ -421,7 +421,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(toolNames).toContain('meta_usage_status')
     expect(toolNames).toContain('meta_help')
     expect(toolNames).toContain('graph_query')
-    expect(toolNames).toContain('aml_address_risk')
+    // Hidden until its verdict is fixed: no proxy tool, local or remote.
+    expect(toolNames).not.toContain('aml_address_risk')
     expect(toolNames).not.toContain(retiredName('aml_trace_victim', '_funds'))
     expect(toolNames).not.toContain(retiredName('aml_trace_suspect', '_funds'))
     expect(toolNames).not.toContain(retiredName('aml_trace_deposit', '_sources'))
@@ -473,7 +474,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       })
     )
     const instructions = vi.mocked(McpServer).mock.calls[0]?.[1]?.instructions
-    expect(instructions).toContain('aml_address_risk')
+    expect(instructions).not.toContain('aml_address_risk')
+    expect(instructions).not.toContain('single-address enrichment')
+    expect(instructions).toContain('graph_query(_batch)')
     expect(instructions).toContain('Network is required')
     expect(instructions).not.toContain('Graph visualization behavior')
     expect(instructions).not.toContain('prepares the graph view automatically')
@@ -564,7 +567,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }
   )
 
-  it('serves the graph names: three label_risk lists, role words, four role flags, UNSCORED', async () => {
+  it('serves the graph names: three label_risk lists, role words, four role flags, no risk score', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce(null)
 
@@ -583,8 +586,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       expect(instructions).toContain(list)
     }
     expect(instructions).not.toMatch(/label_risk\b(?!_)/)
-    // An absent risk_score is UNSCORED, which is no signal and never low risk.
-    expect(instructions).toContain('An absent risk_score means UNSCORED')
+    // No overall risk score is served: the instructions must say so, not teach risk_score.
+    expect(instructions).toContain('No overall risk score is served')
+    expect(instructions).not.toContain('risk_score float')
     // Role words and the four role flags, each flag present only when true.
     for (const word of ['Exchange', 'Scam', 'Victim', 'Sanctioned']) {
       expect(instructions).toMatch(new RegExp(`\\b${word}\\b`))
@@ -1519,7 +1523,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(properties.per_query_timeout_seconds.maximum).toBe(600)
   })
 
-  it('does not expose a retired graph-scope schema property on any of the four aml_* tools', async () => {
+  it('does not expose a retired graph-scope schema property on the graph tools', async () => {
     const retiredScopeArg = retiredName('topology', '_scope')
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
@@ -1536,7 +1540,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       registerTool: ReturnType<typeof vi.fn>
     }
 
-    for (const toolName of ['aml_address_risk']) {
+    for (const toolName of ['graph_query', 'graph_query_batch']) {
       const config = findToolConfig(serverInstance, toolName)
       const jsonSchema = z.toJSONSchema(z.object(config.inputSchema as z.ZodRawShape)) as Record<
         string,
@@ -1577,21 +1581,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(toolNames).not.toContain(staleTrack)
   })
 
-  it('registers local aml_address_risk recipe with incorporated exchange behavior when remote is topology-query-only', async () => {
-    const { loadSchema } = await import('../src/mcp/schema-cache.js')
-    vi.mocked(loadSchema).mockResolvedValueOnce([
-      { name: 'graph_query_batch', description: 'Cypher topology query batch' },
-    ])
-
-    const { createProxy } = await import('../src/mcp/proxy.js')
-    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
-    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
-
-    await createProxy()
-
-    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
-      callTool: ReturnType<typeof vi.fn>
-    }
+  it('runAmlAddressRisk screens an address with incorporated exchange behavior in one graph_query_batch round trip (the CLI workflow, no proxy tool)', async () => {
+    const { runAmlAddressRisk } = await import('../src/investigation/public-tools.js')
+    const clientInstance = { callTool: vi.fn() }
     clientInstance.callTool.mockResolvedValueOnce({
       content: [
         {
@@ -1656,11 +1648,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       isError: false,
     })
 
-    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
-      registerTool: ReturnType<typeof vi.fn>
-    }
-    const handler = findToolHandler(serverInstance, 'aml_address_risk')
-    const result = await handler({ address: '5Addr', network: 'bittensor' })
+    const result = await runAmlAddressRisk(clientInstance as never, {
+      address: '5Addr',
+      network: 'bittensor',
+    })
 
     expect(clientInstance.callTool).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1675,12 +1666,11 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         maxTotalTimeout: expect.any(Number),
       })
     )
-    expect(result.isError).toBe(false)
-    expect(result.content[0].text).toContain('Address risk for bittensor:5Addr')
-    expect(result.content[0].text).toContain('Risk: critical (0.91)')
-    expect(result.content[0].text).toContain('Live node triage: critical (0.91)')
-    expect(result.content[0].text).toContain('Exchange behavior')
-    expect(result.content[0].text).toContain('5Exchange')
+    expect(result.summaryText).toContain('Address risk for bittensor:5Addr')
+    expect(result.summaryText).toContain('Risk: critical (0.91)')
+    expect(result.summaryText).toContain('Live node triage: critical (0.91)')
+    expect(result.summaryText).toContain('Exchange behavior')
+    expect(result.summaryText).toContain('5Exchange')
     expect(result.structuredContent.facts.risk).toMatchObject({
       level: 'critical',
       score: 0.91,
@@ -1696,7 +1686,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.structuredContent.facts.exchange_behavior.outflows[0].exchange_address).toBe(
       '5Exchange'
     )
-    expect(result._meta).toBeUndefined()
     expect(clientInstance.callTool).toHaveBeenCalledWith(
       {
         name: 'graph_query_batch',
@@ -1733,21 +1722,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(inflowQuery).toContain('LIMIT 200')
   })
 
-  it('aml_address_risk escalates purely on topology label_risk when the ML verdict abstains, and drops labels beyond the top-10 deterministic window', async () => {
-    const { loadSchema } = await import('../src/mcp/schema-cache.js')
-    vi.mocked(loadSchema).mockResolvedValueOnce([
-      { name: 'graph_query_batch', description: 'Cypher topology query batch' },
-    ])
-
-    const { createProxy } = await import('../src/mcp/proxy.js')
-    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
-    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
-
-    await createProxy()
-
-    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
-      callTool: ReturnType<typeof vi.fn>
-    }
+  it('runAmlAddressRisk escalates purely on topology label_risk when the ML verdict abstains, and drops labels beyond the top-10 deterministic window', async () => {
+    const { runAmlAddressRisk } = await import('../src/investigation/public-tools.js')
+    const clientInstance = { callTool: vi.fn() }
     // 11 label_risk entries with distinct updated_timestamp values: the
     // oldest ('stale-label-oldest') must be dropped by the derived top-10
     // window, and the strongest surviving label ('Scam laundering
@@ -1828,17 +1805,15 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       isError: false,
     })
 
-    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
-      registerTool: ReturnType<typeof vi.fn>
-    }
-    const handler = findToolHandler(serverInstance, 'aml_address_risk')
-    const result = await handler({ address: '5LabelOnly', network: 'bittensor' })
+    const result = await runAmlAddressRisk(clientInstance as never, {
+      address: '5LabelOnly',
+      network: 'bittensor',
+    })
 
-    expect(result.isError).toBe(false)
     // (a) the escalated verdict level -- the strongest label (critical)
     // drives the level even though the ML verdict abstained.
     expect(result.structuredContent.facts.risk).toMatchObject({ level: 'critical' })
-    expect(result.content[0].text).toContain('Risk: critical')
+    expect(result.summaryText).toContain('Risk: critical')
     // (b) the drivers line surfaces the escalating label by name.
     const drivers = result.structuredContent.facts.risk.drivers as string[]
     expect(
@@ -1864,16 +1839,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(sourceLabels).toHaveLength(10)
   })
 
-  it('aml_address_risk writes workspace artifacts and references them in evidence', async () => {
-    const { createProxy } = await import('../src/mcp/proxy.js')
-    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
-    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
-
-    await createProxy()
-
-    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
-      callTool: ReturnType<typeof vi.fn>
-    }
+  it('runAmlAddressRisk writes workspace artifacts and references them in evidence (the CLI workflow, no proxy tool)', async () => {
+    const { runAmlAddressRisk } = await import('../src/investigation/public-tools.js')
+    const clientInstance = { callTool: vi.fn() }
     clientInstance.callTool.mockResolvedValueOnce({
       content: [
         {
@@ -1923,13 +1891,12 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       isError: false,
     })
 
-    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
-      registerTool: ReturnType<typeof vi.fn>
-    }
-    const handler = findToolHandler(serverInstance, 'aml_address_risk')
-    const result = await handler({ address: '5Addr', network: 'bittensor' })
+    const result = await runAmlAddressRisk(clientInstance as never, {
+      address: '5Addr',
+      network: 'bittensor',
+      writeArtifacts: true,
+    })
 
-    expect(result.isError).toBe(false)
     const artifacts = result.structuredContent.artifacts as Record<string, string>
     expect(artifacts).toMatchObject({
       graph_json: expect.stringContaining(`${testDataDir}/reports/graphs/`),
@@ -2515,6 +2482,84 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     )
   })
 
+  it('hides aml_address_risk: not listed, not registered, not in the instructions, and a call is refused as an unknown tool', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    // Even a remote endpoint that lists the tool does not bring it back, and an
+    // endpoint that lacks it brings no local fallback.
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'graph_query', description: 'Federated graph query' },
+      { name: 'graph_query_batch', description: 'Federated graph query batch' },
+      { name: 'aml_address_risk', description: 'Remote address risk' },
+    ])
+    const callTool = vi.fn().mockResolvedValue({ content: [{ type: 'text', text: 'remote' }] })
+    const remote = remoteDouble(callTool)
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    vi.mocked(Client).mockImplementationOnce(function () {
+      return remote.client
+    } as never)
+    const actual = await vi.importActual<typeof import('@modelcontextprotocol/sdk/server/mcp.js')>(
+      '@modelcontextprotocol/sdk/server/mcp.js'
+    )
+    let real: InstanceType<typeof actual.McpServer> | undefined
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    vi.mocked(McpServer).mockImplementationOnce(function (
+      ...args: ConstructorParameters<typeof actual.McpServer>
+    ) {
+      real = new actual.McpServer(...args)
+      real.connect = vi.fn().mockResolvedValue(undefined)
+      return real
+    } as never)
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    await createProxy()
+
+    const { InMemoryTransport } = await import('@modelcontextprotocol/sdk/inMemory.js')
+    const { LATEST_PROTOCOL_VERSION } = await import('@modelcontextprotocol/sdk/types.js')
+    const [host, proxy] = InMemoryTransport.createLinkedPair()
+    const answers = new Map<number, Record<string, unknown>>()
+    host.onmessage = (message) => {
+      const reply = message as { id?: number; result?: Record<string, unknown>; error?: unknown }
+      if (typeof reply.id === 'number')
+        answers.set(reply.id, reply.result ?? { error: reply.error })
+    }
+    await real!.server.connect(proxy)
+    await host.start()
+    const request = async (id: number, method: string, params: Record<string, unknown>) => {
+      await host.send({ jsonrpc: '2.0', id, method, params })
+      await vi.waitFor(() => expect(answers.has(id)).toBe(true))
+      return answers.get(id) as Record<string, unknown>
+    }
+    const initialized = await request(1, 'initialize', {
+      protocolVersion: LATEST_PROTOCOL_VERSION,
+      capabilities: {},
+      clientInfo: { name: 'host', version: '1' },
+    })
+    await host.send({ jsonrpc: '2.0', method: 'notifications/initialized' })
+
+    expect(String(initialized.instructions)).not.toContain('aml_address_risk')
+
+    const names = ((await request(2, 'tools/list', {})).tools as Array<{ name: string }>).map(
+      (tool) => tool.name
+    )
+    expect(names).toContain('graph_query')
+    expect(names).not.toContain('aml_address_risk')
+
+    const prompts = ((await request(3, 'prompts/list', {})).prompts as Array<{ name: string }>).map(
+      (prompt) => prompt.name
+    )
+    expect(prompts).not.toContain('aml-address-risk')
+
+    // The host calls it anyway: the proxy answers as it answers any unknown tool,
+    // and nothing reaches the endpoint.
+    const refused = await request(4, 'tools/call', {
+      name: 'aml_address_risk',
+      arguments: { network: 'robinhood', address: '0x04911a118f11c75667e4d0dfb8e640af5a353550' },
+    })
+    const refusal = JSON.stringify(refused)
+    expect(refusal).toMatch(/not found|unknown tool/i)
+    expect(callTool).not.toHaveBeenCalled()
+  })
+
   it('exposes public investigation prompts for Chain Insights tools and cases', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce(null)
@@ -2537,7 +2582,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     expect(promptNames).toEqual(
       expect.arrayContaining([
-        'aml-address-risk',
         'meta-network-capabilities',
         'meta-usage-status',
         'graph-query',
@@ -2546,6 +2590,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         'meta-help',
       ])
     )
+    // The risk screen is hidden until its verdict is fixed: no prompt names it.
+    expect(promptNames).not.toContain('aml-address-risk')
     expect(promptNames).not.toContain('address-risk')
     expect(promptNames).not.toContain('trace-tools')
     expect(promptNames).not.toContain('network-capabilities')
@@ -2556,9 +2602,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(promptNames).not.toContain('address-connection-risk')
     expect(promptNames).not.toContain('address-poisoning-funding-probe')
 
-    const addressRiskPrompt = serverInstance.registerPrompt.mock.calls.find(
-      (entry) => entry[0] === 'aml-address-risk'
-    )
     const networkCapabilitiesPrompt = serverInstance.registerPrompt.mock.calls.find(
       (entry) => entry[0] === 'meta-network-capabilities'
     )
@@ -2568,7 +2611,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const graphQueryBatchPrompt = serverInstance.registerPrompt.mock.calls.find(
       (entry) => entry[0] === 'graph-query-batch'
     )
-    expect(addressRiskPrompt?.[1].argsSchema.network).toBeDefined()
     expect(graphQueryPrompt?.[1].argsSchema.network).toBeDefined()
     expect(graphQueryBatchPrompt?.[1].argsSchema.network).toBeDefined()
     expect(networkCapabilitiesPrompt?.[1].title).toBe('Network Capabilities')
@@ -2593,19 +2635,16 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       getPrompt: ReturnType<typeof vi.fn>
     }
 
-    const handler = findPromptHandler(serverInstance, 'aml-address-risk')
+    const handler = findPromptHandler(serverInstance, 'graph-query')
     const result = await handler({
-      network: 'bittensor',
-      address: '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6',
+      network: 'robinhood',
+      query: 'USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 1',
       empty_optional: '',
     })
 
     expect(clientInstance.getPrompt).not.toHaveBeenCalled()
-    expect(result.messages[0].content.text).toContain('aml_address_risk')
-    expect(result.messages[0].content.text).toContain('on bittensor')
-    expect(result.messages[0].content.text).toContain(
-      '5Ccmf1dJKzGtXX7h17eN72MVMRsFwvYjPVmkXPUaapczECf6'
-    )
+    expect(result.messages[0].content.text).toContain('graph_query on robinhood')
+    expect(result.messages[0].content.text).not.toContain('aml_address_risk')
   })
 
   it('gives graph prompts address-grain schema-discovery guidance', async () => {
@@ -2682,16 +2721,22 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
       getPrompt: ReturnType<typeof vi.fn>
     }
-    const addressRiskPrompt = serverInstance.registerPrompt.mock.calls.find(
-      (entry) => entry[0] === 'aml-address-risk'
-    )
-    expect(addressRiskPrompt?.[1].title).toBe('AML Address Risk')
-    expect(addressRiskPrompt?.[1].argsSchema.network).toBeDefined()
-
-    const handler = findPromptHandler(serverInstance, 'aml-address-risk')
-    const result = await handler({ network: 'bittensor', address: '5Addr' })
+    // The remote prompt of the same name is never passed through, and the
+    // proxy registers no prompt of that name: the risk screen is hidden.
+    const registered = serverInstance.registerPrompt.mock.calls.map((entry) => entry[0])
+    expect(registered).not.toContain('aml-address-risk')
     expect(clientInstance.getPrompt).not.toHaveBeenCalled()
-    expect(result.messages[0].content.text).toContain('aml_address_risk on bittensor')
+    const graphQueryPrompt = serverInstance.registerPrompt.mock.calls.find(
+      (entry) => entry[0] === 'graph-query'
+    )
+    expect(graphQueryPrompt?.[1].argsSchema.network).toBeDefined()
+    const handler = findPromptHandler(serverInstance, 'graph-query')
+    const result = await handler({
+      network: 'robinhood',
+      query: 'USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 1',
+    })
+    expect(clientInstance.getPrompt).not.toHaveBeenCalled()
+    expect(result.messages[0].content.text).toContain('graph_query on robinhood')
     expect(result.messages[0].content.text).not.toContain('remote canonical prompt')
   })
 
@@ -2718,9 +2763,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       {
-        name: 'aml_address_risk',
-        title: 'Address Risk',
-        description: 'Risk report',
+        name: 'graph_query',
+        title: 'Graph Query',
+        description: 'Remote query tool',
         _meta: { ui: { resourceUri: 'ui://chain-insights/graph' } },
       },
     ])
@@ -2733,12 +2778,11 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
     }
-    const config = findToolConfig(serverInstance, 'aml_address_risk')
+    const config = findToolConfig(serverInstance, 'graph_query')
     const inputSchema = config.inputSchema as Record<string, unknown>
 
-    expect(inputSchema.address).toBeDefined()
+    expect(inputSchema.query).toBeDefined()
     expect(inputSchema.network).toBeDefined()
-    expect(inputSchema.version).toBeDefined()
     expect((inputSchema.network as { description?: string }).description).toContain(
       'Network to query'
     )
@@ -2748,17 +2792,16 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect((inputSchema.network as { description?: string }).description).not.toContain(
       'robinhood is the only supported network'
     )
-    expect(config.description).toContain('Required arguments: address, network.')
+    expect(config.description).toContain('Required arguments: query, network.')
     expect(config.description).toContain('Do not guess a default network')
-    expect(config.description).toContain('version=v1')
   })
 
   it('uses Chain Insights-owned descriptions for known public tools', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       {
-        name: 'aml_address_risk',
-        title: 'Address Risk',
+        name: 'graph_query',
+        title: 'Graph Query',
         description: 'Upstream stale description. Use address_connection_risk instead.',
         _meta: { ui: { resourceUri: 'ui://chain-insights/graph' } },
       },
@@ -2772,11 +2815,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
     }
-    const config = findToolConfig(serverInstance, 'aml_address_risk')
+    const config = findToolConfig(serverInstance, 'graph_query')
 
-    expect(config.description).toContain('Screen one blockchain address')
-    expect(config.description).not.toContain('Bittensor address')
-    expect(config.description).toContain('Required arguments: address, network.')
+    expect(config.description).toContain('Run a read-only GQL/Cypher query')
+    expect(config.description).toContain('Required arguments: query, network.')
     expect(config.description).not.toContain('Use address_connection_risk instead')
   })
 
@@ -2784,9 +2826,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       {
-        name: 'aml_address_risk',
-        title: 'Address Risk',
-        description: 'Risk report',
+        name: 'graph_query',
+        title: 'Graph Query',
+        description: 'Remote query tool',
         _meta: { ui: { resourceUri: 'ui://chain-insights/graph' } },
       },
     ])
@@ -2803,8 +2845,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
     }
-    const handler = findToolHandler(serverInstance, 'aml_address_risk')
-    const result = await handler({ address: '5Addr' })
+    const handler = findToolHandler(serverInstance, 'graph_query')
+    const result = await handler({
+      query: 'USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 1',
+    })
 
     expect(result.isError).toBe(true)
     expect(result.content[0].text).toContain('Missing required argument: network')
@@ -2822,9 +2866,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       {
-        name: 'aml_address_risk',
-        title: 'Address Risk',
-        description: 'Risk report',
+        name: 'graph_query',
+        title: 'Graph Query',
+        description: 'Remote query tool',
         outputSchema: {
           type: 'object',
           properties: { schema: { type: 'string' }, facts: { type: 'object' } },
@@ -2846,7 +2890,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       content: [{ type: 'text', text: '## Risk Report' }],
       structuredContent: {
         schema: 'chain-insights.result.v1',
-        tool: 'aml_address_risk',
+        tool: 'graph_query',
         facts: { risk: { level: 'critical' } },
       },
       _meta: {
@@ -2863,8 +2907,11 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
     }
-    const handler = findToolHandler(serverInstance, 'aml_address_risk')
-    const result = await handler({ address: '5Addr', network: 'bittensor' })
+    const handler = findToolHandler(serverInstance, 'graph_query')
+    const result = await handler({
+      query: 'USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 1',
+      network: 'robinhood',
+    })
 
     expect(result.content).toEqual([{ type: 'text', text: '## Risk Report' }])
     expect(result.structuredContent.facts.risk.level).toBe('critical')
@@ -2873,6 +2920,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.structuredContent).not.toHaveProperty('app_data')
   })
 
+  // No aml_* tool is served today (the risk screen is hidden), so a neutral name
+  // stands in: the sanitizing of an aml_* answer stays for the day one returns.
   it('sanitizes structured graph data when visualization metadata is disabled', async () => {
     const remoteGraphData = {
       schema: 'chain-insights.graph.v1',
@@ -2884,7 +2933,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       {
-        name: 'aml_address_risk',
+        name: 'aml_report_example',
         title: 'Address Risk',
         description: 'Risk report',
         outputSchema: {
@@ -2908,7 +2957,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       content: [{ type: 'text', text: '## Risk Report' }],
       structuredContent: {
         schema: 'chain-insights.result.v1',
-        tool: 'aml_address_risk',
+        tool: 'aml_report_example',
         hint: 'review graph report',
         facts: { risk: { level: 'critical' } },
         app_data: remoteGraphData,
@@ -2931,12 +2980,12 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
     }
-    const handler = findToolHandler(serverInstance, 'aml_address_risk')
+    const handler = findToolHandler(serverInstance, 'aml_report_example')
     const result = await handler({ address: '5Addr', network: 'bittensor' })
 
     expect(result.structuredContent).toEqual({
       schema: 'chain-insights.result.v1',
-      tool: 'aml_address_risk',
+      tool: 'aml_report_example',
       hint: 'review graph report',
       facts: { risk: { level: 'critical' } },
     })
@@ -2948,6 +2997,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result._meta).toBeUndefined()
   })
 
+  // No aml_* tool is served today (the risk screen is hidden), so a neutral name
+  // stands in: the sanitizing of an aml_* answer stays for the day one returns.
   it('sanitizes legacy structured graph data without a graph _meta envelope', async () => {
     const remoteGraphData = {
       schema: 'chain-insights.graph.v1',
@@ -2959,7 +3010,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       {
-        name: 'aml_address_risk',
+        name: 'aml_report_example',
         title: 'Address Risk',
         description: 'Risk report',
         outputSchema: {
@@ -2983,7 +3034,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       content: [{ type: 'text', text: '## Legacy Risk Report' }],
       structuredContent: {
         schema: 'chain-insights.result.v1',
-        tool: 'aml_address_risk',
+        tool: 'aml_report_example',
         facts: { risk: { level: 'critical' } },
         app_data: remoteGraphData,
         nested: {
@@ -2996,13 +3047,13 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
     }
-    const handler = findToolHandler(serverInstance, 'aml_address_risk')
+    const handler = findToolHandler(serverInstance, 'aml_report_example')
     const result = await handler({ address: '5Addr', network: 'bittensor' })
 
     expect(result.isError).toBe(false)
     expect(result.structuredContent).toEqual({
       schema: 'chain-insights.result.v1',
-      tool: 'aml_address_risk',
+      tool: 'aml_report_example',
       facts: { risk: { level: 'critical' } },
       nested: {},
     })
@@ -3014,7 +3065,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       {
-        name: 'aml_address_risk',
+        name: 'aml_report_example',
         title: 'Address Risk',
         description: 'Risk report',
         outputSchema: {
@@ -3050,7 +3101,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
     }
-    const handler = findToolHandler(serverInstance, 'aml_address_risk')
+    const handler = findToolHandler(serverInstance, 'aml_report_example')
     const result = await handler({ address: '5Addr', network: 'bittensor' })
 
     expect(result.isError).toBe(true)
@@ -3062,7 +3113,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       {
-        name: 'aml_address_risk',
+        name: 'aml_report_example',
         title: 'Address Risk',
         description: 'Risk report',
         outputSchema: {
@@ -3101,7 +3152,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
     }
-    const handler = findToolHandler(serverInstance, 'aml_address_risk')
+    const handler = findToolHandler(serverInstance, 'aml_report_example')
     const result = await handler({ address: '5Addr', network: 'bittensor' })
 
     expect(result.isError).toBe(true)
@@ -3113,7 +3164,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
       {
-        name: 'aml_address_risk',
+        name: 'aml_report_example',
         title: 'Address Risk',
         description: 'Risk report',
         outputSchema: {
@@ -3149,7 +3200,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
       registerTool: ReturnType<typeof vi.fn>
     }
-    const handler = findToolHandler(serverInstance, 'aml_address_risk')
+    const handler = findToolHandler(serverInstance, 'aml_report_example')
     const result = await handler({ address: '5Addr', network: 'bittensor' })
 
     expect(result.isError).toBe(true)
@@ -3180,7 +3231,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     )
     expect(result.content[0].text).toContain('Workflow:')
     expect(result.content[0].text).toContain('Network is required')
-    expect(result.content[0].text).toContain('aml_address_risk')
+    expect(result.content[0].text).not.toContain('aml_address_risk')
     expect(result.content[0].text).toContain('graph_query_batch')
     expect(result.content[0].text).not.toContain('topup')
     expect(result.content[0].text).not.toContain('Graph visualization behavior')

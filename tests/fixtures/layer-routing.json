@@ -206,105 +206,70 @@
    "id": "skill-cypher-1",
    "layer": "topology",
    "anchor": "address",
-   "query": "USE topology MATCH (a:Address {address: \"0x…\"})-[x:SWAPPED]->(b:Address) WHERE x.swap_count >= 2 RETURN b.address AS recipient, x.swap_count AS swap_count ORDER BY x.swap_count DESC LIMIT 25",
+   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"0x31a817802ee183eb8b13167ffe24bd28dcc6f30c\"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: \"0x7e3702e9dfaa847f9829a258f1e26fa431160662\"}) RETURN [n IN nodes(p) | n.address] AS route LIMIT 5",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
    "id": "skill-cypher-2",
-   "layer": "facts",
-   "anchor": "pair_day",
-   "query": "USE facts MATCH (from:Address {address: \"0x…\"})-[t:TRANSFER]->(to:Address {address: \"0x…\"}) WHERE t.block_date = \"2026-07-11\" AND t.kind = \"internal\" RETURN t.tx_id AS tx_id, t.event_index AS event_index, t.kind AS kind, t.amount AS amount, t.amount_usd AS amount_usd LIMIT 50",
+   "layer": "topology",
+   "anchor": "address",
+   "query": "USE topology MATCH (a:Address {address: \"0x04911a118f11c75667e4d0dfb8e640af5a353550\"}) RETURN a.address AS address, a.labels AS labels, a.degree_in AS degree_in, a.degree_out AS degree_out, a.last_activity_timestamp AS last_activity_timestamp LIMIT 1",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
    "id": "skill-cypher-3",
-   "layer": "chain",
-   "anchor": "key",
-   "query": "USE chain MATCH (t:Transaction {hash: \"0x…\"}) RETURN t.status, t.block_height, t.block_date",
+   "layer": "facts",
+   "anchor": "pair_day",
+   "query": "USE facts MATCH (a:Address {address: \"0x31a817802ee183eb8b13167ffe24bd28dcc6f30c\"})-[t:TRANSFER]->(b:Address {address: \"0x04911a118f11c75667e4d0dfb8e640af5a353550\"}) WHERE t.block_date = \"2026-07-10\" RETURN t.tx_id AS tx_id, t.block_timestamp AS block_timestamp, t.asset_symbol AS asset_symbol, t.amount AS amount, t.amount_usd AS amount_usd, t.kind AS kind LIMIT 50",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
    "id": "skill-cypher-4",
+   "layer": "facts",
+   "anchor": "transaction",
+   "query": "USE facts MATCH (a:Address)-[t:TRANSFER]->(b:Address) WHERE t.tx_id = \"0x044587122970de1e3c377a8ed7ab56a49c777a2b7441a2f5d9ca32dbab9fbe71\" RETURN a.address AS from_address, b.address AS to_address, t.amount AS amount, t.kind AS kind LIMIT 50",
+   "source": "skills/chain-insights-cypher/SKILL.md"
+  },
+  {
+   "id": "skill-cypher-5",
+   "layer": "chain",
+   "anchor": "key",
+   "query": "USE chain MATCH (t:Transaction {hash: \"0x044587122970de1e3c377a8ed7ab56a49c777a2b7441a2f5d9ca32dbab9fbe71\"}) RETURN t.status, t.block_height, t.block_date",
+   "source": "skills/chain-insights-cypher/SKILL.md"
+  },
+  {
+   "id": "skill-cypher-6",
    "layer": "chain",
    "anchor": "key",
    "query": "USE chain MATCH (b:Block {height: 79841521}) RETURN b.hash, b.block_date",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
-   "id": "skill-cypher-5",
+   "id": "skill-cypher-7",
    "layer": "chain",
    "anchor": "head",
    "query": "USE chain MATCH (h:Head) RETURN h.height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
-   "id": "skill-cypher-6",
-   "layer": "topology",
-   "anchor": "address",
-   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[s:SWAPPED]->(b:Address) RETURN b.address AS recipient, s.sold_asset AS sold_asset, s.bought_asset AS bought_asset, s.sold_usd AS sold_usd, s.bought_usd AS bought_usd, s.pools AS pools, s.strength AS strength, s.swap_count AS swap_count LIMIT 50",
-   "source": "skills/chain-insights-cypher/SKILL.md"
-  },
-  {
-   "id": "skill-cypher-7",
-   "layer": "topology",
-   "anchor": "address",
-   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[:FLOWS_TO]->(p:Pool)-[r:REMOVED_LIQUIDITY]->(b:Address) WHERE NOT a:Pool AND b.address <> a.address RETURN p.address AS pool, b.address AS receiver, r.usd AS removed_usd, r.receiver_added_usd AS receiver_added_usd, r.receiver_provided AS receiver_provided LIMIT 50",
-   "source": "skills/chain-insights-cypher/SKILL.md"
-  },
-  {
    "id": "skill-cypher-8",
-   "layer": "facts",
-   "anchor": "transaction",
-   "query": "USE facts MATCH (payer:Address)-[s:SWAP]->(recipient:Address) WHERE s.tx_id = \"0x…\" RETURN payer.address AS payer, recipient.address AS recipient, s.strength AS strength, s.reason AS reason, s.route_id AS route_id, s.sold_asset_symbol AS sold, s.sold_usd AS sold_usd, s.bought_asset_symbol AS bought, s.bought_usd AS bought_usd LIMIT 10",
-   "source": "skills/chain-insights-cypher/SKILL.md"
-  },
-  {
-   "id": "skill-cypher-9",
    "layer": "topology",
    "anchor": "address",
-   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[f:FLOWS_TO]->(b:Address) WHERE NOT a:Pool RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.last_seen_timestamp AS last_seen_timestamp ORDER BY f.last_seen_timestamp DESC LIMIT 25",
-   "source": "skills/chain-insights-cypher/SKILL.md"
-  },
-  {
-   "id": "skill-cypher-10",
-   "layer": "facts",
-   "anchor": "pair_day",
-   "query": "USE facts MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) WHERE t.block_date = \"YYYY-MM-DD\" RETURN t.block_timestamp AS block_timestamp, t.amount_usd AS amount_usd LIMIT 200",
+   "query": "USE topology MATCH (a:Address {address: \"0x04911a118f11c75667e4d0dfb8e640af5a353550\"})-[f:FLOWS_TO]->(b:Address) WHERE NOT a:Pool RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.last_seen_timestamp AS last_seen_timestamp ORDER BY f.last_seen_timestamp DESC LIMIT 25",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
    "id": "skill-schema-evm-1",
    "layer": "topology",
    "anchor": "address",
-   "query": "USE topology MATCH (a:Address {address: \"0x…\"}) RETURN a.labels AS labels, a.is_exchange AS is_exchange, a.is_scam AS is_scam, a.is_victim AS is_victim, a.is_sanctioned AS is_sanctioned LIMIT 1",
+   "query": "USE topology MATCH (a:Address {address: \"0x04911a118f11c75667e4d0dfb8e640af5a353550\"}) RETURN a.labels AS labels, a.is_exchange AS is_exchange, a.is_scam AS is_scam, a.is_victim AS is_victim, a.is_sanctioned AS is_sanctioned LIMIT 1",
    "source": "skills/chain-insights-schema-evm/SKILL.md"
   },
   {
    "id": "skill-schema-evm-2",
-   "layer": "topology",
-   "anchor": "address",
-   "query": "USE topology MATCH (src:Address {address: \"0x…\"})-[r1:FLOWS_TO|SWAPPED]->(mid:Address)-[r2:FLOWS_TO|SWAPPED]->(dst:Address) WHERE NOT src:Pool AND NOT mid:Pool AND mid.is_exchange IS NULL AND dst.address <> src.address RETURN mid.address AS via_address, type(r2) AS exit_edge, dst.address AS to_address, coalesce(r2.amount_usd_sum, r2.bought_usd) AS exit_usd LIMIT 25 UNION MATCH (src:Address {address: \"0x…\"})-[r1:FLOWS_TO|ADDED_LIQUIDITY]->(mid:Pool)-[r2:REMOVED_LIQUIDITY]->(dst:Address) WHERE NOT src:Pool AND dst.address <> src.address RETURN mid.address AS via_address, type(r2) AS exit_edge, dst.address AS to_address, r2.usd AS exit_usd LIMIT 25",
-   "source": "skills/chain-insights-schema-evm/SKILL.md"
-  },
-  {
-   "id": "skill-schema-evm-3",
-   "layer": "topology",
-   "anchor": "address",
-   "query": "USE topology MATCH (victim:Address {address: \"0x…\"})-[paid:FLOWS_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE NOT victim:Pool AND receiver.address <> victim.address RETURN pool.address AS pool_address, receiver.address AS receiver_address, paid.amount_usd_sum AS paid_in_usd, removal.usd AS removed_usd, removal.receiver_added_usd AS receiver_added_usd, removal.usd - removal.receiver_added_usd AS receiver_profit_usd, removal.receiver_provided AS receiver_provided ORDER BY removed_usd DESC LIMIT 25",
-   "source": "skills/chain-insights-schema-evm/SKILL.md"
-  },
-  {
-   "id": "skill-schema-evm-4",
-   "layer": "topology",
-   "anchor": "address",
-   "query": "USE topology MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: \"0x…\"}) RETURN owner.address AS owner_address, operation.tx_count AS tx_count, operation.amount_usd_sum AS amount_usd_sum, coalesce(operation.token_standard, \"mixed\") AS token_standard, operation.last_seen_timestamp AS last_seen_timestamp ORDER BY operation.tx_count DESC LIMIT 10",
-   "source": "skills/chain-insights-schema-evm/SKILL.md"
-  },
-  {
-   "id": "skill-schema-evm-5",
-   "layer": "topology",
-   "anchor": "probe",
-   "query": "USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 10",
+   "layer": "facts",
+   "anchor": "pair_day",
+   "query": "USE facts MATCH (a:Address {address: \"0x04911a118f11c75667e4d0dfb8e640af5a353550\"})-[t:TRANSFER]->(b:Address {address: \"0x7e3702e9dfaa847f9829a258f1e26fa431160662\"}) WHERE t.block_date = \"2026-07-10\" AND t.kind = \"internal\" RETURN t.tx_id AS tx_id, t.event_index AS event_index, t.kind AS kind, t.amount AS amount, t.amount_usd AS amount_usd LIMIT 50",
    "source": "skills/chain-insights-schema-evm/SKILL.md"
   },
   {
@@ -360,7 +325,7 @@
    "id": "hint-8",
    "layer": "topology",
    "anchor": "probe",
-   "query": "USE topology MATCH (n:Address) RETURN n.address AS address, n.network AS network, n.labels AS labels, n.risk_score AS risk_score, n.risk_level AS risk_level LIMIT 20",
+   "query": "USE topology MATCH (n:Address) RETURN n.address AS address, n.network AS network, n.labels AS labels, n.last_activity_timestamp AS last_activity_timestamp LIMIT 20",
    "source": "src/mcp/proxy.ts graph hints"
   },
   {

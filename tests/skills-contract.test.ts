@@ -81,11 +81,7 @@ function routeWalk(query: string): string | null {
   return walk
 }
 
-const reviewedSkills = [
-  'chain-insights-address-risk',
-  'chain-insights-cypher',
-  'chain-insights-schema-evm',
-]
+const reviewedSkills = ['chain-insights-cypher', 'chain-insights-schema-evm']
 
 describe('shipped Chain Insights skills contract', () => {
   it('ships exactly the reviewed public skill directories', () => {
@@ -100,21 +96,18 @@ describe('shipped Chain Insights skills contract', () => {
   it('teaches schema plus ISO GQL and excludes stale product guidance', () => {
     const evm = read('skills/chain-insights-schema-evm/SKILL.md')
     const cypher = read('skills/chain-insights-cypher/SKILL.md')
-    const addressRisk = read('skills/chain-insights-address-risk/SKILL.md')
 
     expect(evm).toMatch(/label|relationship|property/i)
     expect(cypher).toMatch(/ISO GQL/i)
     expect(cypher).toContain('graph_query')
-    expect(addressRisk).toContain('aml_address_risk')
-    expect(addressRisk).toContain('meta_network_capabilities')
-    expect(addressRisk).toContain('network=robinhood')
-    expect(addressRisk).toContain('compare_address')
-    expect(addressRisk).toContain('cia workflows')
-    expect(addressRisk).toContain('cia workflow aml-address-risk')
     expect(cypher).toContain('cia mcp call graph_query')
 
-    const content = [evm, cypher, addressRisk].join('\n')
+    const content = [evm, cypher].join('\n')
     expect(content).not.toMatch(/workspace|debug MCP/i)
+    // The risk screen is hidden until its verdict is fixed: no skill drives it,
+    // and no skill sends an agent to a workflow command to find one.
+    expect(content).not.toContain('aml_address_risk')
+    expect(content).not.toContain('aml-address-risk')
   })
 
   it('documents the OPERATED_BY owner-to-operator topology edge as topology-only and never as an automatic risk label', () => {
@@ -128,7 +121,6 @@ describe('shipped Chain Insights skills contract', () => {
     for (const surface of [evmSkill, graphTools, compatibility]) {
       expect(surface).toContain('OPERATED_BY')
     }
-    expect(read('skills/chain-insights-cypher/SKILL.md')).toContain('`OPERATED_BY`')
     expect(read('src/mcp/proxy.ts')).toContain('(:Address)-[:OPERATED_BY]->(:Address)')
     expect(read('src/workspace/init.ts')).toContain('operated_by_sample')
     expect(read('src/workspace/init.ts')).toContain('OPERATED_BY]->(operator:Address {address:')
@@ -144,9 +136,7 @@ describe('shipped Chain Insights skills contract', () => {
     // The relation is topology only — never served through USE facts, on any
     // variable spelling, and named in the facts-rejection enumerations.
     expect(combined).not.toMatch(/USE facts MATCH[^"\n]*OPERATED_BY/)
-    expect(read('skills/chain-insights-cypher/SKILL.md')).toMatch(
-      /Facts rejects[^.\n]*`OPERATED_BY`/
-    )
+    expect(evmSkill).toMatch(/Topology only\. Do not query `OPERATED_BY` on facts\./)
 
     // The canonical probe is pinned on the shipped recipe fixture: anchored
     // by an exact operator address, projecting the aggregate contract, and
@@ -223,7 +213,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(readme).toContain('approved access key')
     expect(readme).toContain('prepared wallet')
     expect(readme).toContain('[MCP proxy](docs/mcp-proxy.md)')
-    expect(readme).toContain('aml_address_risk')
+    expect(readme).not.toContain('aml_address_risk')
     expect(readme).toContain('graph_query')
     expect(readme).toContain('graph_query_batch')
 
@@ -233,8 +223,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(readme).not.toContain('sent_count')
     expect(readme).toContain('cia mcp networks')
     expect(readme).toContain('cia mcp tools --refresh')
-    expect(readme).toContain('cia workflows')
-    expect(readme).toContain('cia workflow aml-address-risk')
+    expect(readme).not.toContain('cia workflow aml-address-risk')
     expect(readme).toContain('docs/contributing.md')
     expect(readme).toContain('docs/debugging.md')
 
@@ -314,12 +303,12 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).not.toContain('docs/graph-query-compatibility.md')
     expect(openai).toContain('Chain Insights Cypher')
     expect(graphTools).toContain('chain-insights-cypher')
-    expect(graphTools).toContain('chain-insights-address-risk')
+    expect(graphTools).not.toContain('chain-insights-address-risk')
     expect(graphTools).toContain('chain-insights-schema-evm')
     expect(graphTools).not.toContain('chain-insights-bittensor-cypher')
     expect(graphTools).not.toContain('references/memgraph-examples.md')
     expect(mcpProxy).toContain('chain-insights-cypher')
-    expect(mcpProxy).toContain('chain-insights-address-risk')
+    expect(mcpProxy).not.toContain('chain-insights-address-risk')
     expect(mcpProxy).toContain('chain-insights-schema-evm')
     expect(mcpProxy).not.toContain('chain-insights-bittensor-cypher')
     expect(mcpProxy).not.toContain('Memgraph examples reference')
@@ -452,11 +441,17 @@ describe('shipped Chain Insights skills contract', () => {
       .filter(({ walk }) => !shapePatterns.some((pattern) => pattern.test(walk)))
       .map(({ name, walk }) => `${name}: ${walk}`)
     expect(offContract).toEqual([])
-    // Every contract shape is served: the cypher skill carries the route and
-    // the open target verbatim, and the documented recipes carry all three.
+    // Every contract shape is served: the cypher skill carries the route (with
+    // full addresses), and the documented recipes carry all three.
     const cypherSkill = read('skills/chain-insights-cypher/SKILL.md')
-    expect(cypherSkill).toContain(shapes[0])
-    expect(cypherSkill).toContain(shapes[2])
+    const skillWalks = markdownQueries(cypherSkill).flatMap((query) => {
+      const walk = routeWalk(query)
+      return walk ? [walk] : []
+    })
+    expect(
+      skillWalks.some((walk) => shapePatterns[0]?.test(walk)),
+      'the cypher skill shows no route search of the contract shape'
+    ).toBe(true)
     for (const [i, pattern] of shapePatterns.entries()) {
       expect(
         routeWalks.some(
@@ -890,7 +885,7 @@ describe('shipped Chain Insights skills contract', () => {
     const graphTools = read('docs/graph-tools.md')
     const mcpProxy = read('docs/mcp-proxy.md')
 
-    expect(readme).toContain('chain-insights-address-risk')
+    expect(readme).not.toContain('chain-insights-address-risk')
     expect(readme).toContain('chain-insights-schema-evm')
     expect(readme).not.toContain('chain-insights-bittensor-cypher')
     expect(readme).toContain('linked')

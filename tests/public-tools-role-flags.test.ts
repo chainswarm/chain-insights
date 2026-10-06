@@ -136,9 +136,10 @@ describe('the reader of a hydrated route reads the flag as a marker', () => {
 
 describe('the served skills and documents name the four role flags', () => {
   const root = process.cwd()
+  // The schema skill is the one home of the four flags. The cypher skill keeps one
+  // line on how to test a flag, and the last test reads it too.
   const files = [
     'skills/chain-insights-schema-evm/SKILL.md',
-    'skills/chain-insights-cypher/SKILL.md',
     'docs/graph-query-compatibility.md',
     'docs/graph-tools.md',
   ]
@@ -163,7 +164,7 @@ describe('the served skills and documents name the four role flags', () => {
   })
 
   it('no document teaches a role flag that reads false', () => {
-    for (const file of files) {
+    for (const file of [...files, 'skills/chain-insights-cypher/SKILL.md']) {
       const text = readFileSync(join(root, file), 'utf8')
       expect(/is_(exchange|scam|victim|sanctioned)\s*=\s*false/.test(text), file).toBe(false)
       expect(/is_(exchange|scam|victim|sanctioned)[^.\n]*reads? `?false/.test(text), file).toBe(

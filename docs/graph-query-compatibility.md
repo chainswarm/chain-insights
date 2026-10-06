@@ -86,8 +86,7 @@ The admitted GQL read surface runs on a read-only session, within the
 admission + bounds gate below. This includes clause- and pattern-level `WHERE`,
 `WITH` pipelines, `CASE`, `collect()`, temporal functions, `UNWIND`, map
 projections, `UNION`, and the full traversal surface. The topology graph serves
-`Address` nodes (with the role labels and flags, and a `risk_score` and
-`risk_level` verdict, where `UNSCORED` means the model gave no verdict),
+`Address` nodes (with the role labels and flags),
 `FLOWS_TO` lifetime money-flow edges, `OPERATED_BY` operator-mediated topology
 edges (the next section), the `LINKED` ownership overlay, the links from
 approvals, contract creations and smart accounts (`APPROVED`,

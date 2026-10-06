@@ -4,8 +4,7 @@ This document covers the graph-facing tools and the result contracts that
 agents should rely on during investigations.
 
 The first release exposes graph analysis through the hosted MCP endpoint and
-the `cia mcp` commands. High-level CIA workflows are listed by `cia workflows`
-and run with `cia workflow`. Results are returned as text and structured facts.
+the `cia mcp` commands. Results are returned as text and structured facts.
 
 ## Chain Insights Graph Surface
 
@@ -17,12 +16,8 @@ The Chain Insights Graph surface is intentionally small:
 | `graph_query`          | Run one read-only GQL/Cypher query through the universal graph endpoint                 |
 | `graph_query_batch`    | Run related read-only graph-language queries as one MCP call                            |
 
-Chain Insights tools such as `aml_address_risk` are recipes built over
-`graph_query_batch`. They are not assumed to exist on the
-Chain Insights Graph endpoint.
-
-`cia workflows` lists local, high-level CIA workflow tools. Use
-`cia workflow aml-address-risk` for the address-risk workflow.
+`aml_address_risk` is hidden until its verdict is fixed. The MCP proxy does
+not list it and refuses a call to it as an unknown tool.
 
 `cia mcp tools` lists the remote GraphRAG surface only. Use `cia networks` for
 the short network overview, `cia network <name>` for one network's details and
@@ -274,7 +269,7 @@ and `:Sanctioned`. Each role also has a flag on the node.
 - GQL/Cypher must be read-only.
 - Use `USE topology` for topology (the address / FLOWS_TO / OPERATED_BY / LINKED graph,
   covering unified recent and full historical activity in one graph, plus the
-  node `risk_score`/`risk_level` verdict, the `SWAPPED`,
+  the `SWAPPED`,
   `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY` and `BRIDGED` totals, and the
   `:Pool` label).
 - Use `USE facts` for bounded individual `TRANSFER` rows and their amount,
@@ -316,9 +311,8 @@ and `:Sanctioned`. Each role also has a flag on the node.
   `USE facts`). It can lower a limit. It cannot raise one.
 - Returned rows live in `structuredContent.facts`.
 
-Agent installers ship three skills:
+Agent installers ship two skills:
 
-- `chain-insights-address-risk`: one-address screen via `aml_address_risk`.
 - `chain-insights-cypher`: ISO GQL dialect, layer routing and the move for
   every refusal, for `graph_query` and `graph_query_batch`. No query cookbook.
 - `chain-insights-schema-evm`: EVM / Robinhood GraphRAG labels,
@@ -335,7 +329,7 @@ Example single query:
 ```bash
 cia mcp call graph_query \
   network=robinhood \
-  "query=USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level LIMIT 10"
+  "query=USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels LIMIT 10"
 ```
 
 Example facts queries, one transaction and one time window of a pair:
@@ -474,32 +468,20 @@ Notes:
 - Confirm any lead with `FLOWS_TO` money-flow context and address labels
   before drawing conclusions.
 
-## Address Risk
+## Full addresses and units
 
-`aml_address_risk` screens one address for AML risk, behavior patterns,
-neighborhood context, and exchange exposure. Use it as the first tool for a
-single-address investigation.
+Write every address in full, 42 characters with the `0x` prefix, in every
+query and every answer. Never shorten one with dots or an ellipsis: a shortened
+address is not an address, and no read can use it. The graph is address-grain,
+so there is no identity-resolution step.
 
-AML tools accept full blockchain addresses directly and return blockchain
-addresses as the public result surface — the graph is address-grain, so there
-is no identity-resolution step.
-
-Required input:
-
-- `network`
-- `address`
-
-Optional input:
-
-- `compare_address`
-- `version` — omit it to use the latest contract, or set it to `v1` to pin the
-  current AML contract.
+Timestamps are integer milliseconds since the Unix epoch, UTC. `block_date` is
+the string `"YYYY-MM-DD"`. Compare a timestamp with a number, never with an ISO
+string.
 
 CLI output is human-readable by default. Add `--json` to print indented JSON:
 
 ```bash
-cia workflow aml-address-risk --json \
-  --address 0xYourAddressHere --network robinhood
 cia mcp call --json graph_query network=robinhood \
   "query=USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 10"
 ```
@@ -539,7 +521,7 @@ Useful schema probes:
 cia mcp call graph_query_batch \
   network=robinhood \
   per_query_timeout_seconds=5 \
-  'queries=[{"id":"address_sample","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level, a.is_exchange AS is_exchange LIMIT 10"},{"id":"flow_sample","query":"USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"linked_sample","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 10"},{"id":"operated_by_sample","query":"USE topology MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: \"0x...\"}) RETURN owner.address AS owner_address, operation.tx_count AS tx_count, operation.amount_usd_sum AS amount_usd_sum LIMIT 10"},{"id":"node_metric_sample","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.tx_out_count AS tx_out_count LIMIT 10"}]'
+  'queries=[{"id":"address_sample","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.is_exchange AS is_exchange LIMIT 10"},{"id":"flow_sample","query":"USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"linked_sample","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 10"},{"id":"operated_by_sample","query":"USE topology MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: \"0x...\"}) RETURN owner.address AS owner_address, operation.tx_count AS tx_count, operation.amount_usd_sum AS amount_usd_sum LIMIT 10"},{"id":"node_metric_sample","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.tx_out_count AS tx_out_count LIMIT 10"}]'
 ```
 
 Use endpoint-safe property projections like `a.address` and `flow.tx_count`

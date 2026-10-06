@@ -921,11 +921,6 @@ mcpCommand.addCommand(
           await import('./mcp/tool-visibility.js')
         const args = parseMcpCallArgs(rawArgs)
         assertPublicMcpToolName(tool)
-        if (tool === 'aml_address_risk') {
-          throw new Error(
-            'aml_address_risk is a CIA workflow. Run `cia workflow aml-address-risk` instead.'
-          )
-        }
         validatePublicMcpToolArguments(tool, args)
 
         if (tool === 'wallet_balance') {
@@ -947,7 +942,7 @@ mcpCommand.addCommand(
 
         if (tool === 'meta_help') {
           console.log(
-            'Chain Insights workflow tools: aml_address_risk. Low-level GraphRAG tools: graph_query and graph_query_batch. Metadata and payment tools: meta_* and wallet_balance.'
+            'Graph tools: graph_query and graph_query_batch. Metadata and payment tools: meta_* and wallet_balance.'
           )
           return
         }

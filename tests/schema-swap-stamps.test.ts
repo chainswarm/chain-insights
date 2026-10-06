@@ -16,15 +16,21 @@ function read(path: string): string {
   return readFileSync(join(root, path), 'utf8')
 }
 
+// The schema skill is the one skill home of swap attribution. The cypher skill is
+// short and holds no swap section, so it only takes the stamp-name check below.
 const SKILLS_AND_DOCS = [
   'skills/chain-insights-schema-evm/SKILL.md',
-  'skills/chain-insights-cypher/SKILL.md',
   'docs/graph-tools.md',
   'docs/graph-query-compatibility.md',
 ]
 
 // The files the served hints come from, checked with the same stamp names.
-const SERVED_TEXT = [...SKILLS_AND_DOCS, 'src/mcp/proxy.ts', 'src/workspace/init.ts']
+const SERVED_TEXT = [
+  ...SKILLS_AND_DOCS,
+  'skills/chain-insights-cypher/SKILL.md',
+  'src/mcp/proxy.ts',
+  'src/workspace/init.ts',
+]
 
 const SWAP_STAMP = /swap\.(kind|family|deployment|pool|route_id|reason|interpreter_version)/
 const RETIRED_STAMP_NAMES = ['swap_envelope', 'assets_paired', 'generic_assets_paired']

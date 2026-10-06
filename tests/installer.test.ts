@@ -5,11 +5,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { execSync } from 'node:child_process'
 
-const reviewedSkills = [
-  'chain-insights-address-risk',
-  'chain-insights-cypher',
-  'chain-insights-schema-evm',
-]
+const reviewedSkills = ['chain-insights-cypher', 'chain-insights-schema-evm']
 
 // The retired EVM-only-graph skill is built from two halves so that only
 // bin/install.cjs and CHANGELOG.md carry its literal name (R25): a git grep
@@ -17,6 +13,7 @@ const reviewedSkills = [
 const retiredSchemaSkill = ['chain-insights-schema', 'bittensor'].join('-')
 
 const retiredSkills = [
+  'chain-insights-address-risk',
   'chain-insights-bittensor-cypher',
   'chain-insights-developer-experience',
   'chain-insights-investigation',
