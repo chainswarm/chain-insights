@@ -308,6 +308,24 @@ on a pair:
 `block_timestamp` or `block_height` bounds without the `block_date` bound are
 refused: they do not name the day.
 
+Every `TRANSFER` row has a `kind`: `token`, `native` or `internal`. An `internal`
+row is ETH a contract sends while it runs a call, such as the ETH leg of a wrap.
+The `FLOWS_TO` link counts all three, so the rows of a pair are the transfers its
+link counts, up to the height the link was built to. `kind` is a column and a
+filter. Add `t.kind = "internal"` to the pair and the day to read only the
+internal rows. For example:
+
+```cypher
+USE facts
+MATCH (from:Address {address: "0x…"})-[t:TRANSFER]->(to:Address {address: "0x…"})
+WHERE t.block_date = "2026-07-11" AND t.kind = "internal"
+RETURN t.tx_id AS tx_id, t.event_index AS event_index, t.kind AS kind,
+       t.amount AS amount, t.amount_usd AS amount_usd
+LIMIT 50
+```
+
+A `kind` filter narrows the read of a pair and one day. It never replaces them.
+
 Weighted money paths are not supported. Hop-count shortest paths only.
 
 When a facts read needs hops or money flow, move it to topology.
@@ -372,22 +390,20 @@ Swap attribution is read from `SWAPPED`, the aggregate (`strength`, `pools`,
 `families`), or from the facts `SWAP` row, one route. `FLOWS_TO` carries value
 only.
 
-**Temporary, until graph server issue 1121 is fixed. Remove this note when it ships.**
+A `USE facts` `SWAP` row carries no route: it has no `pools` and no `families`
+column. A read that names one of them, to return it, to filter on it or to
+order by it, is refused. The route of a swap stays a topology question.
 
-- Do not return, filter or order by `pools` in a `USE facts` `SWAP` read. Every
-  such read fails at the warehouse query memory limit with
-  `facts query could not be completed`: by address, by day and by `tx_id`.
-- Only `pools` is built by the failing part of the warehouse view. `pool_keys`
-  and `families` come from the main read.
-- Read `SWAP` rows by `tx_id`, or by the payer, the recipient and one day, and
-  leave `pools` out.
-- For the pools of a swap, read `SWAPPED.pools` on `USE topology`, anchored on
-  the payer or the recipient. `SWAPPED` has one link per payer, recipient, sold
-  asset and bought asset, so its `pools` cover every route on the link, not one
-  route.
+- For the pools of the swaps of an address, read `SWAPPED.pools` and
+  `SWAPPED.families` on `USE topology`, anchored on the payer or the recipient.
+  `SWAPPED` has one link per payer, recipient, sold asset and bought asset, so
+  its `pools` cover every route on the link, not one route.
+- Read `SWAP` rows by `tx_id`, or by the payer, the recipient and one day.
+  `route_id` stays on the row. It ties every leg of one route together and names
+  no pool.
 
-Today every served swap has `strength` `swap_like` and `families` `unknown`.
-Do not filter on `strength = 'swap'`: it matches nothing. A swap that could
+Today every served swap has `strength` `swap_like`, and `SWAPPED.families` reads
+`unknown`. Do not filter on `strength = 'swap'`: it matches nothing. A swap that could
 not be paired (`swap_unsplit`) has no edge and no row. Every Uniswap v4 swap
 is one. Load `chain-insights-schema-evm` for what each strength means.
 
@@ -418,7 +434,7 @@ RETURN p.address AS pool, b.address AS receiver, r.usd AS removed_usd,
 LIMIT 50
 ```
 
-One transaction's swap routes, facts, with no `pools`:
+One transaction's swap routes, facts, with their strength and the two sides:
 
 ```cypher
 USE facts

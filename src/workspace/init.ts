@@ -159,8 +159,6 @@ be treated as durable workspace state until copied into an artifact, report,
 entity note, or session note.
 `
 
-// The "Temporary" bullet under Rules is a stopgap for graph server issue 1121:
-// delete it when the fix ships.
 const RUNTIME_SKILL = `---
 name: chain-insights-runtime-schema
 description: Workspace-local Chain Insights runtime schema notes. Refresh this after connecting to a graph MCP endpoint.
@@ -233,13 +231,12 @@ The address-grain graph schema:
   Averages compute inline: \`r.amount_usd_sum / toFloat(r.tx_count)\`.
   \`tx_count\` counts token and native transfers plus internal native transfers
   (a contract sending ETH during a call), and \`amount_usd_sum\` prices them
-  all. \`USE facts\` \`TRANSFER\` lists the first group only, so a pair can have
-  a \`tx_count\` above 0 and no \`TRANSFER\` row, and no MCP read lists internal
-  transfers yet. A link covers all time and a \`USE facts\` read covers one day:
-  read the transfers of a pair one day at a time. For a pair with token or
-  native transfers, a transaction anchor resolves through the facts lane, on
-  the UTC day of the \`first_seen_timestamp\` or \`last_seen_timestamp\` of the
-  link:
+  all. \`USE facts\` \`TRANSFER\` lists all three, so the rows of a pair are the
+  transfers its link counts, up to the height the link was built to. A link
+  covers all time and a \`USE facts\` read covers one day: read the transfers of
+  a pair one day at a time. A transaction anchor of a pair resolves through
+  \`USE facts\`, on the UTC day of the \`first_seen_timestamp\` or
+  \`last_seen_timestamp\` of the link:
   \`USE facts MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) WHERE t.block_date = "YYYY-MM-DD" RETURN t.tx_id, t.block_timestamp LIMIT 1\`.
   Lifetime aggregates are the only serving window.
 - Money flow is \`(:Address)-[:FLOWS_TO]->(:Address)\`. Public AML tools
@@ -256,7 +253,11 @@ The address-grain graph schema:
   individual transfer rows (not aggregates) from \`facts_transfers_view\`,
   with edge properties \`amount\`, \`amount_usd\`, \`asset_symbol\`,
   \`asset_contract\`, \`tx_id\`, \`block_height\`, \`block_timestamp\`,
-  \`event_index\`, \`edge_index\`, \`price_usd\`, and \`price_missing\`.
+  \`event_index\`, \`edge_index\`, \`kind\`, \`price_usd\`, and \`price_missing\`.
+  Every \`TRANSFER\` row has a \`kind\`: \`token\`, \`native\` or \`internal\`. An
+  \`internal\` row is ETH a contract sends while it runs a call, such as the ETH
+  leg of a wrap. Add \`t.kind = "internal"\` to the pair and the day to read only
+  the internal rows.
   A facts read names an address pair with one day, or one \`tx_id\`, whether
   it is a \`TRANSFER\` row-select or a \`count()\`/\`sum()\` aggregate: both
   endpoint addresses as \`{address: "..."}\` on \`from\` and \`to\`, with
@@ -291,17 +292,13 @@ Rules:
   and an address with hundreds of thousands of neighbours can fail the same
   way. Discovery probes with \`LIMIT\` and no filter stay valid. The queries
   of one batch share a 100 s budget; \`USE facts\` queries stop at 30 s.
-- Temporary, until graph server issue 1121 is fixed. Do not return, filter or
-  order by \`pools\` in a \`USE facts\` \`SWAP\` read. Every such read fails at
-  the warehouse query memory limit with \`facts query could not be completed\`:
-  by address, by day and by \`tx_id\`. Only \`pools\` is built by the failing part
-  of the warehouse view. \`pool_keys\` and \`families\` come from the main read.
-  Read \`SWAP\` rows by \`tx_id\`, or by the payer, the recipient and one day, and
-  leave \`pools\` out.
-  For the pools of a swap, read \`SWAPPED.pools\` on \`USE topology\`,
-  anchored on the payer or the recipient. \`SWAPPED\` has one link per payer,
-  recipient, sold asset and bought asset, so its \`pools\` cover every route on
-  the link, not one route.
+- A \`USE facts\` \`SWAP\` row carries no route: it has no \`pools\` and no
+  \`families\` column. A read that names one of them, to return it, to filter on
+  it or to order by it, is refused. The route of a swap stays a topology
+  question. For the pools of the swaps of an address, read \`SWAPPED.pools\` and
+  \`SWAPPED.families\` on \`USE topology\`, anchored on the payer or the
+  recipient. \`SWAPPED\` has one link per payer, recipient, sold asset and bought
+  asset, so its \`pools\` cover every route on the link, not one route.
 - Preserve source schema field names in generated data files.
 - Do not rename, reinterpret, or add unit labels to graph fields unless the
   schema or query result explicitly supports that interpretation.

@@ -138,10 +138,10 @@ Lifetime aggregates. USD only. Do not use native `amount_sum`.
 `amount_usd_sum / toFloat(tx_count)`.
 
 `tx_count` counts token and native transfers and also internal native
-transfers. `USE facts` `TRANSFER` lists the first group only. No MCP read
-lists an internal native transfer yet, so a pair can have a `tx_count` above
-0 and no `TRANSFER` row. A link covers all time, and a `USE facts` read
-covers one day: read a pair's transfers one day at a time. See
+transfers. `USE facts` `TRANSFER` lists all three, so the rows of a pair are
+the transfers its link counts, up to the height the link was built to. A link
+covers all time, and a `USE facts` read covers one day: read a pair's
+transfers one day at a time. See
 [Facts labels and relationships](#facts-labels-and-relationships).
 
 `FLOWS_TO` into and out of pools stays as it is. A pool is a real
@@ -517,20 +517,20 @@ link carries an earlier run's id. A pattern is a model finding, not a verdict. R
 
 ## Facts labels and relationships
 
-| Label / relationship | Shape                                                       | Notes                                                                                                        |
-| -------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `Address`            | —                                                           | Row endpoint only. No `network` property. No `Pool` label.                                                   |
-| `TRANSFER`           | `(from:Address)-[t:TRANSFER]->(to:Address)`                 | One token or native transfer row. Lists no internal native transfer. Needs a pair and one day, or a `tx_id`. |
-| `SWAP`               | `(payer:Address)-[s:SWAP]->(recipient:Address)`             | One swap route. Needs a pair and one day, or a `tx_id`.                                                      |
-| `LIQUIDITY_ADD`      | `(provider:Address)-[l:LIQUIDITY_ADD]->(pool:Address)`      | One liquidity add. Needs a pair and one day, or a `tx_id`.                                                   |
-| `LIQUIDITY_REMOVE`   | `(pool:Address)-[l:LIQUIDITY_REMOVE]->(receiver:Address)`   | One liquidity removal. Needs a pair and one day, or a `tx_id`.                                               |
-| `BRIDGE_CROSSING`    | `(sender:Address)-[c:BRIDGE_CROSSING]->(recipient:Address)` | One bridge event. Needs a pair and one day, or a `tx_id`.                                                    |
+| Label / relationship | Shape                                                       | Notes                                                                                                                       |
+| -------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `Address`            | —                                                           | Row endpoint only. No `network` property. No `Pool` label.                                                                  |
+| `TRANSFER`           | `(from:Address)-[t:TRANSFER]->(to:Address)`                 | One transfer row: a token, a native or an internal native transfer, told by `kind`. Needs a pair and one day, or a `tx_id`. |
+| `SWAP`               | `(payer:Address)-[s:SWAP]->(recipient:Address)`             | One swap route. Needs a pair and one day, or a `tx_id`.                                                                     |
+| `LIQUIDITY_ADD`      | `(provider:Address)-[l:LIQUIDITY_ADD]->(pool:Address)`      | One liquidity add. Needs a pair and one day, or a `tx_id`.                                                                  |
+| `LIQUIDITY_REMOVE`   | `(pool:Address)-[l:LIQUIDITY_REMOVE]->(receiver:Address)`   | One liquidity removal. Needs a pair and one day, or a `tx_id`.                                                              |
+| `BRIDGE_CROSSING`    | `(sender:Address)-[c:BRIDGE_CROSSING]->(recipient:Address)` | One bridge event. Needs a pair and one day, or a `tx_id`.                                                                   |
 
 A relationship is served only where its data exists. Check
 `meta_network_capabilities` before you query one.
 
 `TRANSFER` properties include `tx_id`, `block_height`, `block_timestamp`,
-`event_index`, `edge_index`, `amount`, `amount_usd`, `asset_symbol`,
+`event_index`, `edge_index`, `kind`, `amount`, `amount_usd`, `asset_symbol`,
 `asset_contract`, `price_usd`, `price_missing`.
 
 `tx_id` is the `0x` transaction hash. A facts read names an address pair with
@@ -539,33 +539,44 @@ and the day is a `block_date` equality. A `block_timestamp` window in epoch
 milliseconds narrows the day and is refused on its own. A facts read has one
 relationship and takes no `ORDER BY`.
 
-`TRANSFER` lists token and native transfers. It lists no internal native
-transfer: see [`FLOWS_TO` properties](#flows_to-properties).
+Every `TRANSFER` row has a `kind`: `token`, `native` or `internal`. A `token`
+row is a token or NFT transfer event. A `native` row is the chain's own coin,
+sent by a transaction. An `internal` row is ETH a contract sends while it runs
+a call, such as the ETH leg of a wrap. The `FLOWS_TO` link counts all three:
+see [`FLOWS_TO` properties](#flows_to-properties).
+
+`kind` is a column and a filter. Add `t.kind = "internal"` to the pair and the
+day to read only the internal rows. A `kind` filter narrows the read of a pair
+and one day. It never replaces them.
+
+An `internal` row is one call frame. Its `event_index` is the frame's position
+in the transaction's calls and its `edge_index` is 0. Its `amount` is the value
+in ETH, and `amount_usd` is that value at the day's price. `raw_amount` and
+`decimals` read null, so a sum of `raw_amount` skips it: sum `amount` or
+`amount_usd`. The call depth, the call type and the parent frame are not
+served.
 
 `SWAP` holds one row per route of a `swap` or `swap_like` reading, self swaps
 included. Read it by the payer, the recipient and one day, or by a `tx_id`.
 `block_timestamp` is epoch milliseconds, in filters and in results, as on
 `TRANSFER`.
 
-**Temporary, until graph server issue 1121 is fixed. Remove this note when it ships.**
+A `USE facts` `SWAP` row carries no route: it has no `pools` and no `families`
+column. A read that names one of them, to return it, to filter on it or to
+order by it, is refused. The route of a swap stays a topology question.
 
-- Do not return, filter or order by `pools` in a `USE facts` `SWAP` read. Every
-  such read fails at the warehouse query memory limit with
-  `facts query could not be completed`: by address, by day and by `tx_id`.
-- Only `pools` is built by the failing part of the warehouse view. `pool_keys`
-  and `families` come from the main read.
-- Read `SWAP` rows by `tx_id`, or by the payer, the recipient and one day, and
-  leave `pools` out.
-- For the pools of a swap, read `SWAPPED.pools` on `USE topology`, anchored on
-  the payer or the recipient. `SWAPPED` has one link per payer, recipient, sold
-  asset and bought asset, so its `pools` cover every route on the link, not one
-  route.
+- For the pools of the swaps of an address, read `SWAPPED.pools` and
+  `SWAPPED.families` on `USE topology`, anchored on the payer or the recipient.
+  `SWAPPED` has one link per payer, recipient, sold asset and bought asset, so
+  its `pools` cover every route on the link, not one route.
+- `route_id` stays on the row. It ties every leg of one route together and
+  names no pool.
 
 | Property group | Properties                                                                                                                                                                  |
 | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Where          | `block_date`, `block_height`, `block_timestamp`, `tx_id`, `row_index`                                                                                                       |
 | Claim          | `strength` (`swap` or `swap_like`), `reason` (why a claim is `swap_like`: `unknown_pool_code` today), `route_id` (ties every leg of one route together), `registry_version` |
-| Parties        | `payer`, `recipient`, `pools` (in route order; do not return, filter or order by it, see the temporary note above), `pool_keys`, `families`                                 |
+| Parties        | `payer`, `recipient`                                                                                                                                                        |
 | Sold side      | `sold_asset`, `sold_asset_symbol`, `sold_decimals`, `sold_amount_raw`, `sold_amount`, `sold_price_usd`, `sold_usd`, `sold_price_missing`                                    |
 | Bought side    | `bought_asset`, `bought_asset_symbol`, `bought_decimals`, `bought_amount_raw`, `bought_amount`, `bought_price_usd`, `bought_usd`, `bought_price_missing`                    |
 
@@ -586,7 +597,7 @@ Read them by the two endpoints of the pattern and one day, or by a `tx_id`.
 `usd` sums the priced sides and is empty when neither side has a price.
 `amount0_price_missing` and `amount1_price_missing` say which side had none.
 `family` on a liquidity row is `v2` or `v3`, read from the event shape. It is
-not a swap family: swap `families` read `unknown` today.
+not a swap family: `SWAPPED.families` reads `unknown` today.
 
 `BRIDGE_CROSSING` holds one row per bridge event. Read it by the sender, the
 recipient and one day, or by a `tx_id`. Properties: `block_date`,
