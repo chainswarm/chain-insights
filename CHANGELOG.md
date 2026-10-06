@@ -3,6 +3,17 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.43.1] - 2026-10-06 — fix: Claude Desktop setup warns while Claude Desktop runs
+
+### Fixed
+
+- `cia setup claude-desktop` warns when Claude Desktop is running. Claude
+  Desktop writes its whole settings file back when it saves its settings, so
+  an entry added while it runs can be lost. The warning names how to quit it
+  on macOS, Windows and Linux.
+- README: the Claude Desktop setup steps say to quit Claude Desktop fully
+  first, for each operating system, and where the entry is written.
+
 ## [0.43.0] - 2026-10-06 — feat: pictures come from graph_query columns; money_flows withdrawn; graph_expand link clicks
 
 ### Removed
