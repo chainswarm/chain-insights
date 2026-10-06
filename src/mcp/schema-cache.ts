@@ -1,8 +1,6 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
-import os from 'node:os'
-
-const TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
+import { CACHE_TTL_MS, chainInsightsHome } from './cache-location.js'
 
 export interface McpTool {
   name: string
@@ -22,14 +20,14 @@ interface SchemaCache {
 
 // Derived at call time so tests can override HOME via process.env['HOME']
 function schemaPath(): string {
-  return path.join(os.homedir(), '.chain-insights', 'mcp-schema.json')
+  return path.join(chainInsightsHome(), 'mcp-schema.json')
 }
 
 export async function loadSchema(endpoint?: string): Promise<McpTool[] | null> {
   try {
     const raw = await readFile(schemaPath(), 'utf8')
     const cache = JSON.parse(raw) as SchemaCache // JSON parse errors propagate
-    if (Date.now() - cache.cachedAt > TTL_MS) return null // TTL expired
+    if (Date.now() - cache.cachedAt > CACHE_TTL_MS) return null // TTL expired
     if (endpoint && cache.endpoint !== endpoint) return null
     return cache.tools
   } catch (err) {

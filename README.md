@@ -30,6 +30,7 @@ npx chain-insights@latest --help   # run without installing
 npm install -g chain-insights      # or install the cia CLI globally
 cia networks                       # network status + dataset overview
 cia network robinhood              # details for one network
+cia network robinhood --schema     # live graph schema, cached for 24 hours
 cia mcp tools                      # list remote graph tools
 ```
 
@@ -117,6 +118,7 @@ Never touches:
 | `graph_query`               | Run one read-only GQL/Cypher query against a Chain Insights Graph layer            |
 | `graph_query_batch`         | Run related read-only graph queries as one MCP call                                |
 | `meta_network_capabilities` | Check supported Chain Insights networks and graph tools                            |
+| `meta_schema`               | Read the live graph schema of a network: labels, link types, fields, indexes       |
 | `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                           |
 | `meta_help`                 | Show Chain Insights tool and workflow guidance                                     |
 | `wallet_balance`            | Show the local payment wallet amount                                               |

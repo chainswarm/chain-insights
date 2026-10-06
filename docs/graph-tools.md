@@ -25,7 +25,7 @@ remote tools, and `cia mcp networks` for the full network capability matrix.
 Use `cia mcp call` for low-level GraphRAG calls and custom read-only queries.
 
 The Chain Insights MCP proxy adds product-facing local metadata tools such as
-`meta_network_capabilities`, `meta_usage_status`, and `meta_help`. On hosted
+`meta_network_capabilities`, `meta_schema`, `meta_usage_status`, and `meta_help`. On hosted
 backends, `meta_usage_status` can reflect remote quota telemetry. On
 backends without a quota tool, Chain Insights returns a local unmetered
 primitive-backend status instead.
@@ -509,9 +509,15 @@ suspect, or deposit are hypotheses for review, not automatic writes.
 
 ## Runtime Schema Capture
 
-Before the first graph query against a network, inspect the live graph schema and
+Before the first graph query against a network, read the live graph schema and
 use the observed labels, relationship types, and property names in subsequent
-queries. The current public Chain Insights Graph network is
+queries. The `meta_schema` tool does it in one call, and
+`cia network robinhood --schema` prints the same schema. It reads the catalog
+statements of the graph (`CALL db.labels()`, `CALL db.relationshipTypes()`,
+`CALL db.propertyKeys()` and `SHOW INDEXES`) and a sample of an address and of
+each main link, through one session, and keeps the answer for 24 hours. Fields
+come from a sample, so a rare field may be missing. The probes below are the
+fallback. The current public Chain Insights Graph network is
 the single robinhood network; the network argument selects the graph, and
 the address-space split lives on the `:Address.network` node property. Do not
 infer support for unadvertised networks from internal database names or

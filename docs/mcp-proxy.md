@@ -80,11 +80,24 @@ The proxy:
 | Tool                        | Purpose                                                                              |
 | --------------------------- | ------------------------------------------------------------------------------------ |
 | `meta_network_capabilities` | Show the current Chain Insights network/tool support matrix                          |
+| `meta_schema`               | Show the live graph schema of a network: labels, link types, fields, indexes         |
 | `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                             |
 | `meta_help`                 | Show Chain Insights tool and workflow guidance                                       |
 | `wallet_balance`            | Show the local payment wallet address, payment network, token, and amount            |
 | `wallet_topup`              | Show the local payment wallet address and its QR code, with a Claude view            |
 | `graph_expand`              | Expand a node or list a link's transfers in an open picture; called by the view only |
+
+`meta_schema` reads the live graph schema of one network: the labels, the link
+types, every property key, the indexes, the fields of an address and of each
+main link, the `USE facts` relationships with the `TRANSFER` columns, and the
+`USE chain` lookups. It takes `network` (required) and `refresh` (optional).
+The answer is cached on disk for 24 hours under `~/.chain-insights/cache/`, one
+file for each network and endpoint. A build reads through the one remote
+session of the proxy. A read that fails leaves its section empty and adds a
+note, and such a schema is kept for 10 minutes, not 24 hours. In the terminal,
+`cia network robinhood --schema` prints the same schema, with `--json` for the
+structured form and `--refresh` to rebuild it.
+`cia mcp call meta_schema network=robinhood` does the same.
 
 ## Views in Claude
 

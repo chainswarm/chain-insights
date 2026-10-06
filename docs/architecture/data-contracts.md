@@ -16,7 +16,13 @@ Every statement here was verified against the source files it names.
   `HIDDEN_REMOTE_TOOL_NAMES`. They never surface publicly. So does
   `aml_address_risk`, hidden until its verdict is fixed.
 - Local tools live in `src/mcp/proxy.ts`: `meta_network_capabilities`,
-  `meta_usage_status`, `meta_help`, `wallet_balance`.
+  `meta_schema`, `meta_usage_status`, `meta_help`, `wallet_balance`.
+- `meta_schema` (`src/mcp/graph-schema.ts`) builds the live graph schema of one
+  network from the catalog statements of the graph endpoint (`CALL db.labels()`,
+  `CALL db.relationshipTypes()`, `CALL db.propertyKeys()`, `SHOW INDEXES`), a
+  sample of the main kinds and the published capabilities. It returns
+  `chain-insights.graph-schema.v1`, and keeps it on disk for 24 hours
+  (`src/mcp/graph-schema-cache.ts`).
 - `meta_network_capabilities` repeats GraphRAG's advertised networks
   (`mirrorGraphNetworkCapabilities` in `src/mcp/capabilities.ts`). CIA
   preserves the tool status advertised for each network. It does not add

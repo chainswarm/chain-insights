@@ -78,6 +78,8 @@ Default local data directory:
   config.json
   wallet.json
   mcp-schema-*.json
+  cache/
+    schema-<network>-<endpoint hash>.json
 ```
 
 ## Security Model

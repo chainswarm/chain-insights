@@ -115,8 +115,8 @@ describe('shipped Chain Insights skills contract', () => {
     expect(cypher).toMatch(/ISO GQL/i)
     expect(cypher).toContain('graph_query')
     expect(cypher).toContain('cia mcp call graph_query')
-    // The schema skill is gone: the cypher skill reads the fields of the graph
-    // from a sample, and names the catalog calls as not served yet.
+    // The schema skill is gone: the cypher skill sends the agent to meta_schema for
+    // the fields of the graph, and keeps the sampling reads as the fallback.
     expect(cypher).toContain('## Find the fields')
 
     expect(cypher).not.toMatch(/workspace|debug MCP/i)
@@ -1023,8 +1023,19 @@ describe('the cypher skill: graph searches, units and the field sampling reads',
     expect(walks, 'the skill shows five walks').toBe(5)
   })
 
-  it('finds the fields with two sampling reads the guard admits, and names the catalog calls as not served', () => {
+  it('sends an agent to meta_schema for the fields, and keeps two sampling reads the guard admits as the fallback', () => {
     const section = skill.split('## Find the fields\n')[1]?.split('\n## ')[0] ?? ''
+    const flatSection = squash(section)
+    // The one line of the skill and of the server instructions is the same.
+    expect(flatSection).toContain(
+      'Call `meta_schema {network}` first when you need field names; it is cached for 24 hours.'
+    )
+    expect(flatSection).toContain('`cia network robinhood --schema`')
+    expect(flatSection).toContain('`--json`')
+    expect(flatSection).toContain('`--refresh`')
+    expect(flatSection).toContain('Fields come from a sample, so a rare field may be missing.')
+    expect(section.indexOf('meta_schema')).toBeLessThan(section.indexOf('```cypher'))
+    expect(flatSection).toContain('When `meta_schema` is not available')
     const reads = [...section.matchAll(/^```[\w-]*\n([\s\S]*?)^```/gm)].map((block) =>
       squash(block[1] ?? '')
     )
@@ -1041,8 +1052,8 @@ describe('the cypher skill: graph searches, units and the field sampling reads',
         admission['probe_max_limit'] ?? 0
       )
     }
-    // The catalog calls are named as being enabled, never shown as a query: the
-    // server refuses CALL and SHOW today (unsupported_topology_dialect).
+    // The catalog calls are served: meta_schema sends them, so the skill names them
+    // and never shows one as a query for the agent to send.
     const catalog = [
       'CALL db.labels()',
       'CALL db.relationshipTypes()',
@@ -1051,7 +1062,15 @@ describe('the cypher skill: graph searches, units and the field sampling reads',
       'SHOW INDEXES',
     ]
     for (const call of catalog) expect(flatSkill, call).toContain(`\`${call}\``)
-    expect(flatSkill).toContain('are being enabled on the server')
+    expect(flatSkill).toContain('The server serves five read-only catalog calls')
+    expect(flatSkill).toContain('so do not send them yourself')
+    expect(flatSkill).not.toContain('are being enabled on the server')
     for (const query of fenced) expect(query).not.toMatch(/\bCALL\b|\bSHOW\b/)
+  })
+
+  it('gives the server instructions the same one line about meta_schema', () => {
+    expect(squash(servedGraphHints())).toContain(
+      'Call meta_schema {network} first when you need field names; it is cached for 24 hours.'
+    )
   })
 })

@@ -1,5 +1,6 @@
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import * as z from 'zod'
@@ -3251,5 +3252,319 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).not.toContain('prox')
     expect(result.content[0].text).not.toContain('chain-insights mcp')
     expect(result.content[0].text).not.toContain('Useful CLI commands')
+  })
+
+  // meta_schema: the live graph schema of one network, built through the one
+  // remote session of the proxy from the catalog statements of the graph
+  // endpoint, and kept on disk for 24 hours. The remote double replies from the
+  // answers recorded once from the default endpoint.
+  describe('meta_schema, the live graph schema of one network', () => {
+    const recorded = JSON.parse(
+      readFileSync(join(process.cwd(), 'tests/fixtures/graph-schema-replies-20261006.json'), 'utf8')
+    ) as { replies: Record<string, { structuredContent: Record<string, unknown> }> }
+    // The capabilities, four catalog calls, one address sample and seven link samples.
+    const READS_OF_A_BUILD = 13
+    const REMOTE_TOOLS = [
+      { name: 'graph_query', description: 'Federated graph query' },
+      { name: 'graph_query_batch', description: 'Federated graph query batch' },
+      { name: 'network_capabilities', description: 'Capabilities' },
+      { name: 'usage_status', description: 'Usage status' },
+    ]
+    let home: string
+    let previousHome: string | undefined
+
+    beforeEach(() => {
+      home = mkdtempSync(join(tmpdir(), 'ci-proxy-meta-schema-'))
+      previousHome = process.env['HOME']
+      process.env['HOME'] = home
+    })
+
+    afterEach(() => {
+      if (previousHome === undefined) delete process.env['HOME']
+      else process.env['HOME'] = previousHome
+      rmSync(home, { recursive: true, force: true })
+    })
+
+    function recordedCallTool() {
+      return vi.fn(async (request: { name: string; arguments?: Record<string, unknown> }) => {
+        const key =
+          request.name === 'graph_query' ? String(request.arguments?.['query']) : request.name
+        const reply = recorded.replies[key]
+        if (!reply) throw new Error(`no recorded reply for ${key}`)
+        return {
+          content: [{ type: 'text', text: JSON.stringify(reply.structuredContent) }],
+          structuredContent: reply.structuredContent,
+        }
+      })
+    }
+
+    async function startProxy(callTool: ReturnType<typeof vi.fn>) {
+      const { loadSchema } = await import('../src/mcp/schema-cache.js')
+      vi.mocked(loadSchema).mockResolvedValueOnce(REMOTE_TOOLS)
+      const remote = remoteDouble(callTool)
+      const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+      vi.mocked(Client).mockImplementationOnce(function () {
+        return remote.client
+      } as never)
+      const { createProxy } = await import('../src/mcp/proxy.js')
+      const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+      await createProxy()
+      const server = vi.mocked(McpServer).mock.results.at(-1)?.value as {
+        registerTool: ReturnType<typeof vi.fn>
+        registerPrompt: ReturnType<typeof vi.fn>
+      }
+      return { remote, server, Client }
+    }
+
+    it('is a model-visible local tool with the title Graph schema and the read-only annotations, on the wire', async () => {
+      const remote = remoteDouble(recordedCallTool())
+      const { loadSchema } = await import('../src/mcp/schema-cache.js')
+      vi.mocked(loadSchema).mockResolvedValueOnce(REMOTE_TOOLS)
+      const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+      vi.mocked(Client).mockImplementationOnce(function () {
+        return remote.client
+      } as never)
+      // A real MCP server, so tools/list is read as a host reads it.
+      const actual = await vi.importActual<
+        typeof import('@modelcontextprotocol/sdk/server/mcp.js')
+      >('@modelcontextprotocol/sdk/server/mcp.js')
+      let real: InstanceType<typeof actual.McpServer> | undefined
+      const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+      vi.mocked(McpServer).mockImplementationOnce(function (
+        ...args: ConstructorParameters<typeof actual.McpServer>
+      ) {
+        real = new actual.McpServer(...args)
+        real.connect = vi.fn().mockResolvedValue(undefined)
+        return real
+      } as never)
+      const { createProxy } = await import('../src/mcp/proxy.js')
+      await createProxy()
+
+      const { InMemoryTransport } = await import('@modelcontextprotocol/sdk/inMemory.js')
+      const { LATEST_PROTOCOL_VERSION } = await import('@modelcontextprotocol/sdk/types.js')
+      const [host, proxy] = InMemoryTransport.createLinkedPair()
+      const answers = new Map<number, Record<string, unknown>>()
+      host.onmessage = (message) => {
+        const reply = message as { id?: number; result?: Record<string, unknown>; error?: unknown }
+        if (typeof reply.id === 'number')
+          answers.set(reply.id, reply.result ?? { error: reply.error })
+      }
+      await real!.server.connect(proxy)
+      await host.start()
+      const request = async (id: number, method: string, params: Record<string, unknown>) => {
+        await host.send({ jsonrpc: '2.0', id, method, params })
+        await vi.waitFor(() => expect(answers.has(id)).toBe(true))
+        return answers.get(id) as Record<string, unknown>
+      }
+      const initialized = await request(1, 'initialize', {
+        protocolVersion: LATEST_PROTOCOL_VERSION,
+        capabilities: {},
+        clientInfo: { name: 'host', version: '1' },
+      })
+      await host.send({ jsonrpc: '2.0', method: 'notifications/initialized' })
+
+      const tools = new Map(
+        ((await request(2, 'tools/list', {})).tools as Array<Record<string, unknown>>).map(
+          (tool) => [tool.name as string, tool]
+        )
+      )
+      const schema = tools.get('meta_schema')
+      expect(schema, 'tools/list holds meta_schema').toBeDefined()
+      expect(schema!.title).toBe('Graph schema')
+      expect(schema!.annotations).toEqual({
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      })
+      expect(String(schema!.description)).toContain('cached for 24 hours')
+      // Visible to the model: no MCP Apps visibility, no view of its own.
+      expect(schema!._meta, 'meta_schema carries no _meta').toBeUndefined()
+      expect(
+        (tools.get('graph_expand')!._meta as { ui: { visibility: string[] } }).ui.visibility,
+        'only graph_expand is app-only'
+      ).toEqual(['app'])
+      const input = schema!.inputSchema as {
+        required: string[]
+        properties: Record<string, { type: string }>
+      }
+      expect(input.required).toEqual(['network'])
+      expect(input.properties['network']!.type).toBe('string')
+      expect(input.properties['refresh']!.type).toBe('boolean')
+      // It sits beside the other meta tools.
+      for (const name of ['meta_help', 'meta_network_capabilities', 'meta_usage_status']) {
+        expect(tools.has(name), name).toBe(true)
+      }
+
+      // The instructions send the model to it for field names, and meta_help lists it.
+      expect(String(initialized.instructions)).toContain(
+        'Call meta_schema {network} first when you need field names; it is cached for 24 hours.'
+      )
+      const prompts = (await request(3, 'prompts/list', {})).prompts as Array<{ name: string }>
+      expect(prompts.map((prompt) => prompt.name)).toContain('meta-schema')
+      const help = (await request(4, 'tools/call', { name: 'meta_help', arguments: {} })) as {
+        content: Array<{ text: string }>
+      }
+      expect(help.content[0]!.text).toContain('- meta_schema: read the live graph schema')
+
+      // The call itself, over the wire: the text for the model and the document.
+      const called = (await request(5, 'tools/call', {
+        name: 'meta_schema',
+        arguments: { network: 'robinhood' },
+      })) as {
+        content: Array<{ text: string }>
+        structuredContent: { schema: string; network: string; cached: boolean }
+      }
+      expect(called.content[0]!.text.split('\n')[0]).toBe('Graph schema, network robinhood')
+      expect(called.structuredContent).toMatchObject({
+        schema: 'chain-insights.graph-schema.v1',
+        network: 'robinhood',
+        cached: false,
+      })
+      // The wire refuses a call with no network: it is required.
+      const refused = JSON.stringify(
+        await request(6, 'tools/call', { name: 'meta_schema', arguments: {} })
+      )
+      expect(refused).toMatch(/network/)
+      await host.close()
+    })
+
+    it('builds through the one remote session of the proxy, then answers from the cache, then rebuilds on refresh', async () => {
+      const callTool = recordedCallTool()
+      const { remote, server, Client } = await startProxy(callTool)
+      const handler = findToolHandler(server, 'meta_schema')
+
+      const first = await handler({ network: 'robinhood' })
+      expect(first.isError).toBe(false)
+      expect(first.structuredContent).toMatchObject({ cached: false, network: 'robinhood' })
+      expect(callTool).toHaveBeenCalledTimes(READS_OF_A_BUILD)
+      const sent = callTool.mock.calls.map(([request]) =>
+        request.name === 'graph_query' ? String(request.arguments?.['query']) : request.name
+      )
+      expect(sent[0]).toBe('network_capabilities')
+      expect(sent.slice(1, 5)).toEqual([
+        'USE topology CALL db.labels()',
+        'USE topology CALL db.relationshipTypes()',
+        'USE topology CALL db.propertyKeys()',
+        'USE topology SHOW INDEXES',
+      ])
+      expect(sent.join('\n')).not.toContain('visualization')
+
+      const second = await handler({ network: 'robinhood' })
+      expect(second.structuredContent).toMatchObject({ cached: true })
+      expect(second.content[0].text).toContain('from the cache')
+      expect(callTool).toHaveBeenCalledTimes(READS_OF_A_BUILD)
+
+      const third = await handler({ network: 'robinhood', refresh: true })
+      expect(third.structuredContent).toMatchObject({ cached: false })
+      expect(callTool).toHaveBeenCalledTimes(2 * READS_OF_A_BUILD)
+
+      // One session for every read of every build: one client, connected once.
+      expect(vi.mocked(Client)).toHaveBeenCalledTimes(1)
+      expect(remote.client.connect).toHaveBeenCalledTimes(1)
+      expect(existsSync(join(home, '.chain-insights', 'cache'))).toBe(true)
+    })
+
+    it('answers a call with no network or a network the endpoint does not serve as an error, and reads no more than the capabilities', async () => {
+      const callTool = recordedCallTool()
+      const { server } = await startProxy(callTool)
+      const handler = findToolHandler(server, 'meta_schema')
+
+      const missing = await handler({})
+      expect(missing.isError).toBe(true)
+      expect(missing.content[0].text).toMatch(/^invalid_network: network is required/)
+      expect(callTool).not.toHaveBeenCalled()
+
+      const unknown = await handler({ network: 'ethereum' })
+      expect(unknown.isError).toBe(true)
+      expect(unknown.content[0].text).toContain('Served networks: robinhood.')
+      expect(callTool).toHaveBeenCalledTimes(1)
+    })
+
+    it('leaves a note and an empty section when one read of the build fails, and still answers', async () => {
+      const replay = recordedCallTool()
+      const callTool = vi.fn(
+        async (request: { name: string; arguments?: Record<string, unknown> }) => {
+          if (request.arguments?.['query'] === 'USE topology SHOW INDEXES') {
+            throw new Error('Streamable HTTP error: socket hang up')
+          }
+          return replay(request)
+        }
+      )
+      const { server } = await startProxy(callTool)
+
+      const result = await findToolHandler(server, 'meta_schema')({ network: 'robinhood' })
+      expect(result.isError).toBe(false)
+      expect(result.structuredContent.layers.topology.indexes).toEqual([])
+      expect(result.structuredContent.layers.topology.labels).toContain('Address')
+      expect(result.structuredContent.notes[0]).toBe(
+        'indexes could not be read: Streamable HTTP error: socket hang up'
+      )
+    })
+
+    it('answers from a fresh cache when the endpoint is down, and says to restart when there is none', async () => {
+      const { buildGraphSchema } = await import('../src/mcp/graph-schema.js')
+      const { saveGraphSchemaCache } = await import('../src/mcp/graph-schema-cache.js')
+      const replay = recordedCallTool()
+      const { document } = await buildGraphSchema({
+        client: { callTool: (request) => replay(request as never) },
+        network: 'robinhood',
+      })
+      // The endpoint of the mocked config.
+      await saveGraphSchemaCache(
+        'robinhood',
+        document,
+        'http://localhost:8012/mcp',
+        true,
+        new Date()
+      )
+
+      const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+      vi.mocked(Client).mockImplementationOnce(function () {
+        return {
+          connect: vi.fn().mockRejectedValue(new Error('connection refused')),
+          listTools: vi.fn(),
+          listPrompts: vi.fn(),
+          getPrompt: vi.fn(),
+          callTool: vi.fn(),
+        }
+      } as never)
+      const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+      const { createProxy } = await import('../src/mcp/proxy.js')
+      const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+      await createProxy()
+      stderrSpy.mockRestore()
+      const server = vi.mocked(McpServer).mock.results.at(-1)?.value as {
+        registerTool: ReturnType<typeof vi.fn>
+      }
+      const handler = findToolHandler(server, 'meta_schema')
+
+      const cached = await handler({ network: 'robinhood' })
+      expect(cached.isError).toBe(false)
+      expect(cached.structuredContent).toMatchObject({ cached: true })
+
+      const none = await handler({ network: 'robinhood', refresh: true })
+      expect(none.isError).toBe(true)
+      expect(none.content[0].text).toContain('Restart the Chain Insights MCP proxy')
+    })
+
+    it('registers meta_schema in stateless mode too', async () => {
+      process.env['CHAIN_INSIGHTS_MCP_PROXY_MODE'] = 'stateless'
+      const { server } = await startProxy(recordedCallTool())
+      const names = server.registerTool.mock.calls.map((call) => call[0] as string)
+      expect(names).toContain('meta_schema')
+      expect(names).toContain('meta_help')
+      const config = findToolConfig(server, 'meta_schema')
+      expect(config.title).toBe('Graph schema')
+      const help = await findToolHandler(server, 'meta_help')({})
+      expect(help.content[0].text).toContain('meta_schema')
+    })
+
+    it('has a prompt that names the tool and the network', async () => {
+      const { server } = await startProxy(recordedCallTool())
+      const result = await findPromptHandler(server, 'meta-schema')({ network: 'robinhood' })
+      expect(result.messages[0].content.text).toContain('meta_schema')
+      expect(result.messages[0].content.text).toContain('robinhood')
+    })
   })
 })

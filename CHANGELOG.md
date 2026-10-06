@@ -3,6 +3,53 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.45.0] - 2026-10-06 — feat: meta_schema, the live graph schema of a network
+
+### Added
+
+- `meta_schema`, a local MCP tool beside `meta_help` and
+  `meta_network_capabilities`. It takes `network` (required) and `refresh`
+  (optional) and returns the live graph schema of that network, read from the
+  Chain Insights Graph instead of a hand-written skill: the labels, the link
+  types, every property key, the indexes, the fields of an address and of each
+  main link (`FLOWS_TO`, `OPERATED_BY`, `LINKED`, `SWAPPED`, `BRIDGED`,
+  `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`), the `USE facts` relationships with the
+  `TRANSFER` columns, and the `USE chain` lookups. The model gets a compact text
+  schema, and `structuredContent` holds `chain-insights.graph-schema.v1`. The tool
+  is read-only, titled "Graph schema" and visible to the model.
+- A build reads the catalog statements the graph serves on `USE topology`
+  (`CALL db.labels()`, `CALL db.relationshipTypes()`, `CALL db.propertyKeys()`
+  and `SHOW INDEXES`) and samples the keys of an address and of each main link
+  through `graph_query`, with the network's published capabilities for the facts
+  and chain layers. `CALL db.schema.visualization()` is not read: it bills 427
+  units where the four above bill 13 to 133 each. The fields come from a sample,
+  so the answer says a rare field may be missing. A build is 13 reads through one
+  MCP session and bills about 1,000 units, measured on the default endpoint.
+- The schema is cached on disk for 24 hours, one file for each network and
+  endpoint (`~/.chain-insights/cache/schema-<network>-<endpoint hash>.json`).
+  A cache hit sends no request. `refresh=true` rebuilds. A read that fails leaves
+  its section empty and adds a note, and such a schema is kept for 10 minutes
+  only. A rate limit of the endpoint stops the reads after it and says when to
+  call again.
+- `cia network <name> --schema` prints the same schema in the terminal, `--json`
+  prints the structured form, and `--refresh` rebuilds it.
+  `cia mcp call meta_schema network=robinhood` does the same. The `meta-schema`
+  prompt names the tool.
+
+### Changed
+
+- The server instructions say "Call meta_schema {network} first when you need
+  field names; it is cached for 24 hours", and `meta_help` lists the tool.
+- `chain-insights-cypher` sends an agent to `meta_schema` first in "Find the
+  fields". The two sampling reads stay as the fallback. The five catalog calls
+  are named as served, and the skill tells an agent not to send them: `meta_schema`
+  sends four of them through one session and keeps the answer. The Claude plugin
+  copy is synced.
+- `src/mcp/cache-location.ts` holds the home directory and the 24 hour lifetime
+  that the tool list cache and the schema cache share.
+- README, the MCP proxy guide, the graph tools guide, the architecture pages and
+  the stability page name the tool. The public MCP surface is eight tools.
+
 ## [0.44.1] - 2026-10-06 — feat: graph searches in the cypher skill; the EVM schema skill is retired
 
 ### Added
