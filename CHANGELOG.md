@@ -3,6 +3,20 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.42.2] - 2026-10-06 — fix: money_flows pages from the terminal and from Claude
+
+### Changed
+
+- The last lines of a `money_flows` answer say which senders and receivers it
+  shows ("Showing senders 1 to 12 of 246 …") and how to read the next page:
+  `money_flows` with `in_offset` and `out_offset`, the exact
+  `cia mcp call money_flows … in_offset=… out_offset=…` command, or a click in
+  the Claude Desktop picture. The old line "the view loads the next page on
+  click" meant nothing in a terminal.
+- `money_flows` accepts `in_offset` and `out_offset` (0 to 10,000) in the MCP
+  proxy and in `cia mcp call`, so Claude and a terminal can page as the picture
+  does.
+
 ## [0.42.1] - 2026-10-06 — feat: cia config reset, and money_flows from the CLI
 
 ### Added

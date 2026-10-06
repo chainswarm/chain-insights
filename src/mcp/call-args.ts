@@ -3,6 +3,8 @@
 // numeric zod schema. Every tunable search bound must therefore appear here,
 // or passing it from the CLI fails with a confusing type error.
 const NUMERIC_ARG_KEYS = new Set([
+  'in_offset',
+  'out_offset',
   'per_query_timeout_seconds',
   'incident_timestamp',
   'max_hops',
