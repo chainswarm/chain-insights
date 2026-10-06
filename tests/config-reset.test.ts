@@ -75,7 +75,7 @@ describe('cia config reset', () => {
   })
 })
 
-describe('cia mcp call for the money-flow tools', () => {
+describe('cia mcp call for the view tool', () => {
   let home: string
 
   beforeEach(() => {
@@ -86,16 +86,11 @@ describe('cia mcp call for the money-flow tools', () => {
     rmSync(home, { recursive: true, force: true })
   })
 
-  it('names money_flows as the CLI route when graph_expand is called', () => {
+  it('names graph_query as the CLI route when graph_expand is called', () => {
     const run = cia(home, 'mcp', 'call', 'graph_expand', 'network=robinhood', 'address=0x0')
     expect(run.status).not.toBe(0)
-    expect(run.stderr).toContain('cia mcp call money_flows')
-  })
-
-  it('asks for the address before money_flows reaches the graph', () => {
-    const run = cia(home, 'mcp', 'call', 'money_flows', 'network=robinhood')
-    expect(run.status).not.toBe(0)
-    expect(run.stderr).toMatch(/address/)
+    expect(run.stderr).toContain('cia mcp call graph_query')
+    expect(run.stderr).not.toContain('money_flows')
   })
 
   it('lists config reset in config --help', () => {

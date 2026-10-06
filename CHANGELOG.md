@@ -3,6 +3,45 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.43.0] - 2026-10-06 — feat: pictures come from graph_query columns; money_flows withdrawn; graph_expand link clicks
+
+### Removed
+
+- `money_flows` is withdrawn: the MCP proxy no longer offers it, `cia mcp tools`
+  no longer lists it, and `cia mcp call money_flows` is refused as an unknown
+  tool. Ask for the senders and receivers of an address with your own
+  `graph_query`. The picture now comes from the column names of the answer, not
+  from a dedicated tool.
+
+### Added
+
+- `graph_expand`, the tool only the Claude view calls, takes a link form,
+  `{network, from, to, day}`, beside the node form
+  `{network, address, in_offset?, out_offset?}`. The link form lists the
+  transfers from one address to another on one UTC day (`YYYY-MM-DD`), newest
+  first, at most 50, with `truncated` set when the day holds more. It is one
+  `USE facts` `graph_query` read, billed like any graph query. Both addresses
+  and the day are checked before the read: a malformed one is refused and
+  reaches no endpoint. A facts read takes no `ORDER BY`, so the proxy reads up
+  to 200 rows of the day and sorts them itself.
+- The answer is `chain-insights.transfers.v1`: `network`, `from`, `to`, `day`,
+  `transfers` (each with `tx_id`, `block_timestamp`, `amount`, `asset_symbol`
+  and `amount_usd`) and `truncated`, plus a short text summary. A refusal of the
+  Chain Insights Graph (`query_timeout`, `topology_busy`, a facts limit) comes
+  back as an error with its text.
+
+### Changed
+
+- The server instructions and the `chain-insights-cypher` skill teach the column
+  convention. Rows with `from_address` and `to_address` columns draw a graph in
+  Claude Desktop (optional `amount_usd_sum`, `tx_count`, `first_seen_timestamp`,
+  `last_seen_timestamp`, `link_kind`, `from_labels`, `to_labels`). Rows with a
+  `day`, `date` or `*_timestamp` column and number columns draw a chart. Any
+  other rows draw a table. Each carries one example query.
+- The text of a node answer of `graph_expand` no longer names a paging command.
+  `cia mcp call graph_expand` is still refused and now points to
+  `cia mcp call graph_query`.
+
 ## [0.42.2] - 2026-10-06 — fix: money_flows pages from the terminal and from Claude; dependency updates
 
 ### Changed

@@ -26,12 +26,9 @@ import { actionLogSignalsFromResult, appendActionLog } from './action-log.js'
 import {
   FLOWS_MAX_OFFSET,
   GRAPH_EXPAND_DESCRIPTION,
+  GRAPH_EXPAND_TITLE,
   GRAPH_EXPAND_TOOL,
-  MONEY_FLOWS_DESCRIPTION,
-  MONEY_FLOWS_INSTRUCTION,
-  MONEY_FLOWS_TOOL,
   handleGraphExpand,
-  handleMoneyFlows,
   type FlowsDependencies,
   type GraphQueryAnswer,
 } from './flows.js'
@@ -43,7 +40,6 @@ const LOCAL_TOOL_NAMES = new Set([
   'meta_help',
   'wallet_balance',
   'wallet_topup',
-  MONEY_FLOWS_TOOL,
   GRAPH_EXPAND_TOOL,
 ])
 // Local tools only the view calls (visibility ["app"]): never named to the model.
@@ -53,10 +49,10 @@ const GRAPH_ARRAY_KEYS = ['nodes', 'edges', 'flows', 'edge_anchors'] as const
 // The Chain Insights view: one HTML file, served by this proxy and by nothing
 // else. The graph endpoint serves no view; a view, a ui:// resource or a
 // _meta.ui it advertises is never forwarded. The tool result says which view
-// the file draws: the money-flow graph (money_flows, graph_expand), the query
-// result table (graph_query) or the balance (meta_usage_status,
-// meta_subscription_status). The metadata below is the wire contract of the
-// Claude views, character for character.
+// the file draws: a graph, a chart or a table from the columns of a graph_query
+// answer, the balance (meta_usage_status, meta_subscription_status), or the
+// answer of a click (graph_expand). The metadata below is the wire contract of
+// the Claude views, character for character.
 export const CLAUDE_VIEW_URI = 'ui://chain-insights/view'
 export const MCP_APP_MIME_TYPE = 'text/html;profile=mcp-app'
 // A tool whose answer the view draws: the resource under the current key and
@@ -145,12 +141,24 @@ const NETWORK_SCHEMA = z.string().min(1).describe(NETWORK_DESCRIPTION)
 const EMPTY_INPUT_SCHEMA = z.strictObject({})
 const REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS = 15 * 60 * 1000
 
+// What the Chain Insights view draws from a graph_query answer, told by column
+// name. The same rules are in skills/chain-insights-cypher/SKILL.md.
+const PICTURE_RULES = [
+  'Pictures: hosts that draw views, such as Claude Desktop, draw a graph_query answer from its column names. No other tool is needed.',
+  '- Rows with from_address and to_address columns draw a graph of at most 60 addresses. Optional columns: amount_usd_sum, tx_count, first_seen_timestamp, last_seen_timestamp, link_kind, from_labels, to_labels. Example: USE topology MATCH (a:Address {address: $addr})-[f:FLOWS_TO]->(b:Address) WHERE NOT a:Pool RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.last_seen_timestamp AS last_seen_timestamp ORDER BY f.last_seen_timestamp DESC LIMIT 25',
+  '- Rows with a day, date or *_timestamp column and number columns draw a chart. Example, the transfers of a known pair on one day: USE facts MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) WHERE t.block_date = "YYYY-MM-DD" RETURN t.block_timestamp AS block_timestamp, t.amount_usd AS amount_usd LIMIT 200',
+  '- Any other rows draw a table.',
+].join('\n')
+
+// The same rule in one sentence, for meta_help.
+const PICTURE_HELP_LINE =
+  'In hosts that draw views, a graph_query answer with from_address and to_address columns draws a graph, a day or time column with numbers draws a chart, and any other rows draw a table.'
+
 const CHAIN_INSIGHTS_WORKFLOW = [
   'Workflow:',
   '1. Do not call investigation tools until required arguments are known. Network is required; use meta_network_capabilities to check supported networks and available tools, or ask the user if missing.',
   '2. Use aml_address_risk for single-address enrichment. Use graph_query(_batch) for graph-level questions that aml_address_risk does not answer.',
-  `3. ${MONEY_FLOWS_INSTRUCTION}`,
-  '4. Preserve tool summaries and structured facts as returned. Keep full blockchain addresses intact.',
+  '3. Preserve tool summaries and structured facts as returned. Keep full blockchain addresses intact.',
 ].join('\n')
 
 const GRAPH_SCHEMA_HINTS = [
@@ -188,6 +196,7 @@ const GRAPH_SCHEMA_HINTS = [
 const SERVER_INSTRUCTIONS = [
   'Chain Insights is an AML and graph-analysis MCP server for AI agents.',
   CHAIN_INSIGHTS_WORKFLOW,
+  PICTURE_RULES,
   GRAPH_SCHEMA_HINTS,
   'Presentation rules: preserve tool summaries as returned; never truncate blockchain addresses or identity_resolution audit mappings.',
 ].join('\n\n')
@@ -195,7 +204,7 @@ const SERVER_INSTRUCTIONS = [
 const STATELESS_SERVER_INSTRUCTIONS = [
   'Chain Insights is running as a stateless AML proxy for a host application.',
   'Use meta_network_capabilities first when network support is unknown, then call aml_address_risk, graph_query, or graph_query_batch as needed.',
-  MONEY_FLOWS_INSTRUCTION,
+  PICTURE_RULES,
   'Use wallet_balance to inspect the local payment wallet when payment setup is needed.',
   GRAPH_SCHEMA_HINTS,
   'Presentation rules: preserve tool summaries as returned; never truncate blockchain addresses or identity_resolution audit mappings.',
@@ -798,8 +807,8 @@ function sanitizeRemoteMeta(metaValue: RemoteToolResult['_meta']): RemoteToolRes
 
 // Raw graph arrays and app_data are stripped from the aml_* answers only, the
 // graph-report tools of the old viewer. Every other answer (graph_query,
-// graph_query_batch, money_flows, graph_expand) keeps its structuredContent
-// exactly as the hosted server returned it: the views read it.
+// graph_query_batch) keeps its structuredContent exactly as the hosted server
+// returned it: the views read it.
 function stripsGraphPayload(toolName: string): boolean {
   return toolName.startsWith('aml_')
 }
@@ -1264,9 +1273,11 @@ export async function createProxy(): Promise<void> {
     )
   }
 
-  // money_flows and graph_expand: composed here from anchored graph_query
-  // reads sent through the remote client, the path and payment wrapping a
-  // graph_query call takes, so each read is billed as a graph query.
+  // graph_expand, the one dedicated tool, for the view only (visibility
+  // ["app"]): a node click is three anchored topology graph_query reads, a link
+  // click one facts graph_query read, all sent through the remote client, the
+  // path and payment wrapping a graph_query call takes, so each read is billed
+  // as a graph query.
   const flowsDependencies: FlowsDependencies = {
     graphQuery: async (args) => {
       const options = remoteToolRequestOptions('graph_query')
@@ -1283,45 +1294,18 @@ export async function createProxy(): Promise<void> {
         : `${remoteUnavailableMessage ?? `Chain Insights Graph is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
   }
   server.registerTool(
-    MONEY_FLOWS_TOOL,
-    {
-      title: 'Money flows',
-      description: MONEY_FLOWS_DESCRIPTION,
-      inputSchema: {
-        address: z.string().describe('One robinhood address: 0x and 40 hexadecimal characters.'),
-        network: z.string().describe('The network. Only robinhood is served.'),
-        in_offset: z
-          .number()
-          .int()
-          .min(0)
-          .max(FLOWS_MAX_OFFSET)
-          .optional()
-          .describe('Senders to skip, for the next page: the in_offset the previous answer names.'),
-        out_offset: z
-          .number()
-          .int()
-          .min(0)
-          .max(FLOWS_MAX_OFFSET)
-          .optional()
-          .describe(
-            'Receivers to skip, for the next page: the out_offset the previous answer names.'
-          ),
-      },
-      annotations: VIEW_TOOL_ANNOTATIONS,
-      _meta: VIEW_TOOL_META,
-    },
-    async (args) => handleMoneyFlows(args, flowsDependencies)
-  )
-  server.registerTool(
     GRAPH_EXPAND_TOOL,
     {
-      title: 'Expand a money-flow node',
+      title: GRAPH_EXPAND_TITLE,
       description: GRAPH_EXPAND_DESCRIPTION,
       inputSchema: {
         network: z.string(),
-        address: z.string(),
+        address: z.string().optional(),
         in_offset: z.number().int().min(0).max(FLOWS_MAX_OFFSET).optional(),
         out_offset: z.number().int().min(0).max(FLOWS_MAX_OFFSET).optional(),
+        from: z.string().optional(),
+        to: z.string().optional(),
+        day: z.string().optional(),
       },
       annotations: VIEW_TOOL_ANNOTATIONS,
       _meta: APP_ONLY_TOOL_META,
@@ -1359,7 +1343,8 @@ export async function createProxy(): Promise<void> {
                 '- aml_address_risk: screen one blockchain address; optionally compare it with another address.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
                 '- graph_query_batch: run related read-only graph-language queries through one paid graph call.',
-                '- money_flows: show the most recent senders and receivers of one robinhood address, with an interactive graph in hosts that draw MCP apps.',
+                '',
+                PICTURE_HELP_LINE,
                 '',
                 'Wallet tools:',
                 '- wallet_balance: show the local payment wallet address, payment network, token, and amount.',
@@ -1375,7 +1360,8 @@ export async function createProxy(): Promise<void> {
                 '- aml_address_risk: screen one blockchain address; optionally compare it with another address.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
                 '- graph_query_batch: run related read-only graph-language queries through one paid graph call.',
-                '- money_flows: show the most recent senders and receivers of one robinhood address, with an interactive graph in hosts that draw MCP apps.',
+                '',
+                PICTURE_HELP_LINE,
               ].join('\n'),
         },
       ],

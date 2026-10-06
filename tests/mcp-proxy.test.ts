@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import * as z from 'zod'
 import { PACKAGE_VERSION } from '../src/version.js'
+import { factsReadViolations } from './support/facts-contract.js'
 
 function retiredName(head: string, tail: string): string {
   return `${head}${tail}`
@@ -141,7 +142,10 @@ vi.mock('@modelcontextprotocol/sdk/client/index.js', () => ({
       listTools: vi.fn().mockResolvedValue({
         tools: [
           { name: 'trace_address', description: 'Trace address on-chain' },
-          { name: 'money_flows_between_exchanges', description: 'Exchange flow tracing' },
+          {
+            name: retiredName('money', '_flows_between_exchanges'),
+            description: 'Exchange flow tracing',
+          },
           { name: 'address_connection_risk', description: 'Connection risk' },
           { name: 'graph_query', description: 'Federated graph query' },
           { name: 'graph_query_batch', description: 'Federated graph query batch' },
@@ -473,7 +477,6 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).toContain('Network is required')
     expect(instructions).not.toContain('Graph visualization behavior')
     expect(instructions).not.toContain('prepares the graph view automatically')
-    expect(instructions).not.toContain('Claude Desktop')
     expect(instructions).not.toContain('iframe')
     expect(instructions).toContain('FLOWS_TO')
     expect(instructions).not.toContain('first_tx_id')
@@ -519,6 +522,47 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).not.toContain('SS58')
     expect(instructions).toContain('raw chain-native H160 address')
   })
+
+  it.each(['workspace', 'stateless'])(
+    'teaches the column convention of the pictures in the %s server instructions',
+    async (mode) => {
+      process.env['CHAIN_INSIGHTS_MCP_PROXY_MODE'] = mode
+      const { loadSchema } = await import('../src/mcp/schema-cache.js')
+      vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+      const { createProxy } = await import('../src/mcp/proxy.js')
+      const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+      await createProxy()
+
+      const instructions = String(vi.mocked(McpServer).mock.calls[0]?.[1]?.instructions)
+      // The graph rule, with its optional columns.
+      expect(instructions).toContain('from_address and to_address columns draw a graph')
+      expect(instructions).toContain(
+        'amount_usd_sum, tx_count, first_seen_timestamp, last_seen_timestamp, link_kind, from_labels, to_labels'
+      )
+      // The chart rule, and the table for the rest.
+      expect(instructions).toContain(
+        'a day, date or *_timestamp column and number columns draw a chart'
+      )
+      expect(instructions).toContain('Any other rows draw a table')
+      // One example each: a graph from an anchored address, a chart from one day of a known pair.
+      expect(instructions).toContain(
+        'RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum'
+      )
+      const chartExample = /transfers of a known pair on one day: (USE facts [^\n]+)/.exec(
+        instructions
+      )?.[1]
+      expect(chartExample).toContain(
+        't.block_timestamp AS block_timestamp, t.amount_usd AS amount_usd'
+      )
+      // The chart example is a read the graph server accepts: a pair and one day, no ORDER BY.
+      expect(factsReadViolations(chartExample ?? '')).toEqual([])
+      // No dedicated tool is named for a picture.
+      expect(instructions).not.toContain('money_flows')
+      expect(instructions).not.toContain('graph_expand')
+    }
+  )
 
   it('serves the graph names: three label_risk lists, role words, four role flags, UNSCORED', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
@@ -1435,7 +1479,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       { name: 'graph_query', description: 'Federated graph query' },
       { name: 'graph_query_batch', description: 'Federated graph query batch' },
       { name: 'topup', description: 'Unsupported remote top-up tool' },
-      { name: 'money_flows_between_exchanges', description: 'Deprecated exchange flow tool' },
+      {
+        name: retiredName('money', '_flows_between_exchanges'),
+        description: 'Deprecated exchange flow tool',
+      },
       { name: 'address_connection_risk', description: 'Deprecated connection risk tool' },
     ])
 
@@ -1460,7 +1507,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(toolNames).not.toContain('usage_status')
     expect(toolNames).not.toContain('help')
     expect(toolNames).not.toContain('topup')
-    expect(toolNames).not.toContain('money_flows_between_exchanges')
+    expect(toolNames).not.toContain(retiredName('money', '_flows_between_exchanges'))
     expect(toolNames).not.toContain('address_connection_risk')
 
     const graphQueryBatch = findToolConfig(serverInstance, 'graph_query_batch')
@@ -2048,14 +2095,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
   // order, so a renamed key, a reordered object or a changed value fails.
   const DESIGN_VIEW_METADATA = [
     `{
-      "name": "money_flows",
-      "title": "Money flows",
-      "annotations": { "readOnlyHint": true },
-      "_meta": { "ui": { "resourceUri": "ui://chain-insights/view" }, "ui/resourceUri": "ui://chain-insights/view" }
-    }`,
-    `{
       "name": "graph_expand",
-      "title": "Expand a money-flow node",
+      "title": "Expand a node or a link in the picture",
       "annotations": { "readOnlyHint": true },
       "_meta": { "ui": { "resourceUri": "ui://chain-insights/view", "visibility": ["app"] } }
     }`,
@@ -2159,35 +2200,47 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         tool,
       ])
     )
-    for (const designed of DESIGN_VIEW_METADATA.slice(0, 2)) {
-      const wire = tools.get(designed.name as string)
-      expect(wire, `tools/list holds ${designed.name}`).toBeDefined()
-      expect(pickLikeDesign(wire!, designed)).toBe(JSON.stringify(designed))
-    }
-    // The tools that already existed name the same view, with a title and the
-    // read-only hint.
-    const flowsMeta = JSON.stringify(tools.get('money_flows')?._meta)
+    const [expandDesign, resourceDesign] = DESIGN_VIEW_METADATA
+    const expand = tools.get('graph_expand')
+    expect(expand, 'tools/list holds graph_expand').toBeDefined()
+    expect(pickLikeDesign(expand!, expandDesign)).toBe(JSON.stringify(expandDesign))
+    // graph_expand is the one dedicated tool, and the view's alone: the model's
+    // list holds no tool that composes a picture.
+    expect(
+      (expand!._meta as { ui: { visibility: string[] } }).ui.visibility,
+      'graph_expand is app-only'
+    ).toEqual(['app'])
+    expect(tools.has('money_flows'), 'tools/list holds no money_flows').toBe(false)
+    // The tools that draw the answer of a call name the same view, with a title
+    // and the read-only hint.
+    const drawsMeta = JSON.stringify({
+      ui: { resourceUri: 'ui://chain-insights/view' },
+      'ui/resourceUri': 'ui://chain-insights/view',
+    })
     for (const name of ['graph_query', 'meta_usage_status', 'meta_subscription_status']) {
       const tool = tools.get(name)!
-      expect(JSON.stringify(tool._meta), `${name} _meta`).toBe(flowsMeta)
+      expect(JSON.stringify(tool._meta), `${name} _meta`).toBe(drawsMeta)
       expect((tool.annotations as Record<string, unknown>).readOnlyHint).toBe(true)
       expect(typeof tool.title === 'string' && tool.title.length > 0).toBe(true)
     }
+    // Both forms of graph_expand are on the wire: a node, or a link with a day.
+    const expandProperties = Object.keys(
+      (expand!.inputSchema as { properties: Record<string, unknown> }).properties
+    ).sort()
+    expect(expandProperties).toEqual(
+      ['address', 'day', 'from', 'in_offset', 'network', 'out_offset', 'to'].sort()
+    )
     expect(tools.get('graph_query_batch')?._meta).toBeUndefined()
 
     const listed = (await request(3, 'resources/list', {})).resources as Array<
       Record<string, unknown>
     >
     const listedView = listed.find((resource) => resource.uri === 'ui://chain-insights/view')
-    expect(pickLikeDesign(listedView!, DESIGN_VIEW_METADATA[2])).toBe(
-      JSON.stringify(DESIGN_VIEW_METADATA[2])
-    )
+    expect(pickLikeDesign(listedView!, resourceDesign)).toBe(JSON.stringify(resourceDesign))
     const read = (await request(4, 'resources/read', { uri: 'ui://chain-insights/view' }))
       .contents as Array<Record<string, unknown>>
     expect(read).toHaveLength(1)
-    expect(pickLikeDesign(read[0], DESIGN_VIEW_METADATA[2])).toBe(
-      JSON.stringify(DESIGN_VIEW_METADATA[2])
-    )
+    expect(pickLikeDesign(read[0], resourceDesign)).toBe(JSON.stringify(resourceDesign))
     const html = read[0].text as string
     expect(html.split('\n')[0]).toMatch(
       /^<!-- Chain Insights UI [0-9a-f]{40} \(npm run build:claude-view\);/
@@ -2200,14 +2253,13 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     await host.close()
   })
 
-  it("ignores the graph endpoint's own views: its money_flows, app-only tools, _meta.ui and ui:// resources", async () => {
+  it("ignores the graph endpoint's own views: its app-only tools, _meta.ui and ui:// resources", async () => {
     const laneMeta = {
       ui: { resourceUri: 'ui://lane/other' },
       'ui/resourceUri': 'ui://lane/other',
     }
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
-      { name: 'money_flows', title: 'Lane money flows', description: 'lane', _meta: laneMeta },
       {
         name: 'graph_expand',
         description: 'lane',
@@ -2248,10 +2300,12 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }
 
     const registered = serverInstance.registerTool.mock.calls.map((call) => call[0] as string)
-    expect(registered.filter((name) => name === 'money_flows')).toHaveLength(1)
+    expect(registered).not.toContain('money_flows')
     expect(registered.filter((name) => name === 'graph_expand')).toHaveLength(1)
     expect(registered).not.toContain('lane_only_app_tool')
-    expect(findToolConfig(serverInstance, 'money_flows').title).toBe('Money flows')
+    expect(findToolConfig(serverInstance, 'graph_expand')._meta).toEqual({
+      ui: { resourceUri: 'ui://chain-insights/view', visibility: ['app'] },
+    })
     expect(findToolConfig(serverInstance, 'graph_query')._meta).toEqual({
       ui: { resourceUri: 'ui://chain-insights/view' },
       'ui/resourceUri': 'ui://chain-insights/view',
@@ -2277,11 +2331,12 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     // graph_expand stays out of every tool list the proxy builds for the model.
     const help = await findToolHandler(serverInstance, 'meta_help')({})
-    expect(help.content[0].text).toContain('money_flows')
+    expect(help.content[0].text).not.toContain('money_flows')
     expect(help.content[0].text).not.toContain('graph_expand')
+    expect(help.content[0].text).toContain('from_address')
   })
 
-  it('answers money_flows from three graph_query calls through the remote client', async () => {
+  it('answers a graph_expand node click from three graph_query calls through the remote client', async () => {
     const recorded = JSON.parse(
       await readFile(
         join(import.meta.dirname, 'fixtures', 'flows_scene', 'graph-query-answers.json'),
@@ -2315,7 +2370,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     const result = await findToolHandler(
       serverInstance,
-      'money_flows'
+      'graph_expand'
     )({
       address: '0x04911a118f11c75667e4d0dfb8e640af5a353550',
       network: 'robinhood',
@@ -2341,7 +2396,87 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(callTool).toHaveBeenCalledTimes(3)
   })
 
-  it('answers money_flows with the unreachable-endpoint text when the graph endpoint is down', async () => {
+  it('answers a graph_expand link click with one facts graph_query call, and refuses a bad day before any call', async () => {
+    const from = '0x04911a118f11c75667e4d0dfb8e640af5a353550'
+    const to = '0x7e3702e9dfaa847f9829a258f1e26fa431160662'
+    const results = [
+      {
+        tx_id: `0x${'1'.padStart(64, '0')}`,
+        block_timestamp: Date.parse('2026-07-10T08:00:00Z'),
+        amount: '0.005',
+        asset_symbol: 'ETH',
+        amount_usd: 12.5,
+      },
+      {
+        tx_id: `0x${'2'.padStart(64, '0')}`,
+        block_timestamp: Date.parse('2026-07-10T09:30:00Z'),
+        amount: '0.004',
+        asset_symbol: 'ETH',
+        amount_usd: null,
+      },
+    ]
+    const callTool = vi.fn().mockResolvedValue({
+      content: [{ type: 'text', text: 'rows' }],
+      structuredContent: {
+        schema: 'chain-insights.result.v1',
+        tool: 'graph_query',
+        hint: null,
+        facts: { query: { results, count: results.length } },
+      },
+      isError: false,
+    })
+    const remote = remoteDouble(callTool)
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    vi.mocked(Client).mockImplementationOnce(function () {
+      return remote.client
+    } as never)
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([{ name: 'graph_query', description: 'q' }])
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    await createProxy()
+    const serverInstance = vi.mocked(McpServer).mock.results.at(-1)?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const expand = findToolHandler(serverInstance, 'graph_expand')
+
+    const result = await expand({ network: 'robinhood', from, to, day: '2026-07-10' })
+    expect(result.isError).toBe(false)
+    expect(result.structuredContent).toEqual({
+      schema: 'chain-insights.transfers.v1',
+      network: 'robinhood',
+      from,
+      to,
+      day: '2026-07-10',
+      transfers: [results[1], results[0]],
+      truncated: false,
+    })
+    expect(callTool).toHaveBeenCalledTimes(1)
+    const [request, , options] = callTool.mock.calls[0] as [
+      { name: string; arguments: { network: string; query: string } },
+      undefined,
+      { timeout: number },
+    ]
+    expect(request.name).toBe('graph_query')
+    expect(request.arguments.network).toBe('robinhood')
+    expect(request.arguments.query).toContain('USE facts MATCH')
+    expect(request.arguments.query).toContain(`{address: "${from}"})-[t:TRANSFER]->`)
+    expect(request.arguments.query).toContain('WHERE t.block_date = "2026-07-10"')
+    expect(options.timeout).toBeGreaterThan(60_000)
+
+    // A malformed day and a malformed address reach no graph endpoint.
+    for (const bad of [
+      { from, to, day: '2026-07-32' },
+      { from: '0x1234', to, day: '2026-07-10' },
+    ]) {
+      const refused = await expand({ network: 'robinhood', ...bad })
+      expect(refused.isError).toBe(true)
+    }
+    expect(callTool).toHaveBeenCalledTimes(1)
+  })
+
+  it('answers graph_expand with the unreachable-endpoint text when the graph endpoint is down', async () => {
     const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
     vi.mocked(Client).mockImplementationOnce(function () {
       return {
@@ -2359,10 +2494,25 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }
     const result = await findToolHandler(
       serverInstance,
-      'money_flows'
+      'graph_expand'
     )({ address: '0x04911a118f11c75667e4d0dfb8e640af5a353550', network: 'robinhood' })
     expect(result.isError).toBe(true)
     expect(result.content[0].text).toContain('Restart the Chain Insights MCP proxy')
+  })
+
+  it('registers no money_flows tool', async () => {
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    await createProxy()
+    const serverInstance = vi.mocked(McpServer).mock.results.at(-1)?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const registered = serverInstance.registerTool.mock.calls.map((call) => call[0] as string)
+    expect(registered).not.toContain('money_flows')
+    expect(registered).toContain('graph_expand')
+    expect(() => findToolHandler(serverInstance, 'money_flows')).toThrow(
+      'Tool was not registered: money_flows'
+    )
   })
 
   it('exposes public investigation prompts for Chain Insights tools and cases', async () => {

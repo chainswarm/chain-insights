@@ -77,15 +77,14 @@ The proxy:
 
 ## Local Tools
 
-| Tool                        | Purpose                                                                                 |
-| --------------------------- | --------------------------------------------------------------------------------------- |
-| `meta_network_capabilities` | Show the current Chain Insights network/tool support matrix                             |
-| `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                                |
-| `meta_help`                 | Show Chain Insights tool and workflow guidance                                          |
-| `wallet_balance`            | Show the local payment wallet address, payment network, token, and amount               |
-| `wallet_topup`              | Show the local payment wallet address and its QR code, with a Claude view               |
-| `money_flows`               | Show the recent senders and receivers of one robinhood address, with a Claude view      |
-| `graph_expand`              | Load the next page of one address into an open money-flow view; called by the view only |
+| Tool                        | Purpose                                                                              |
+| --------------------------- | ------------------------------------------------------------------------------------ |
+| `meta_network_capabilities` | Show the current Chain Insights network/tool support matrix                          |
+| `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                             |
+| `meta_help`                 | Show Chain Insights tool and workflow guidance                                       |
+| `wallet_balance`            | Show the local payment wallet address, payment network, token, and amount            |
+| `wallet_topup`              | Show the local payment wallet address and its QR code, with a Claude view            |
+| `graph_expand`              | Expand a node or list a link's transfers in an open picture; called by the view only |
 
 ## Views in Claude
 
@@ -94,13 +93,21 @@ to a tool answer. The local proxy serves every view itself. The Chain Insights
 Graph endpoint serves data only:
 
 - `ui://chain-insights/view` is one HTML file shipped in the package. It draws
-  the money-flow graph for `money_flows` and `graph_expand`, the result table
-  for `graph_query`, and the balance for `meta_usage_status` and
-  `meta_subscription_status`. Nothing is fetched at run time.
-- `money_flows` and `graph_expand` run on your computer. Each makes three
-  anchored `graph_query` reads through the configured endpoint, billed as graph
-  queries. A malformed address or an offset over 10,000 is refused before any
-  read and costs nothing.
+  a `graph_query` answer from its column names: rows with `from_address` and
+  `to_address` columns draw a graph (optional columns: `amount_usd_sum`,
+  `tx_count`, `first_seen_timestamp`, `last_seen_timestamp`, `link_kind`,
+  `from_labels`, `to_labels`), rows with a `day`, `date` or `*_timestamp` column
+  and number columns draw a chart, and any other rows draw a table. It also
+  draws the balance for `meta_usage_status` and `meta_subscription_status`.
+  Nothing is fetched at run time. The proxy has no tool that composes a picture
+  for the model: the model writes its own `graph_query`.
+- `graph_expand` runs on your computer and answers the clicks in a picture. It
+  takes `{network, address, in_offset?, out_offset?}` to load the newest senders
+  and receivers of one address (three anchored topology `graph_query` reads), or
+  `{network, from, to, day}` to list the transfers between two addresses on one
+  UTC day, newest first, at most 50 (one `USE facts` `graph_query` read). Each
+  read is billed as a graph query. A malformed address, a malformed day or an
+  offset over 10,000 is refused before any read and costs nothing.
 - `graph_expand` carries `_meta.ui.visibility` `["app"]`: the view calls it,
   and hosts keep it out of the model's tool list.
 - The endpoint's own `ui://` resources and `_meta.ui` are not forwarded.

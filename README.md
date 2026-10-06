@@ -61,8 +61,9 @@ The `plugin/` folder is the Chain Insights plugin for Claude. It starts the
 local Chain Insights MCP proxy on your computer over stdio
 (`chain-insights-mcp-proxy` from the npm package, through `npx`), and brings the
 `chain-insights-cypher` and `chain-insights-schema-evm` skills. The proxy
-serves the money-flow, query-table and balance views itself, and reaches the
-Chain Insights Graph for the data.
+serves the views itself (a graph, a chart or a table, picked from the column
+names of a `graph_query` answer, and the balance), and reaches the Chain
+Insights Graph for the data.
 
 - **Runs in:** Claude Desktop, Cowork sessions on your computer, and Claude Code.
 - **Cannot start it:** claude.ai on the web, the Claude mobile apps and Cowork

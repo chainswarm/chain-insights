@@ -1,6 +1,6 @@
 /**
- * money_flows and graph_expand, the proxy's own money-flow tools
- * (src/mcp/flows.ts).
+ * graph_expand, the proxy's one dedicated tool (src/mcp/flows.ts): a node click
+ * and a link click.
  *
  * tests/fixtures/flows_scene holds the robinhood topology around
  * 0x0491…3550, recorded on 2026-10-05 from the public graph endpoint with
@@ -9,12 +9,16 @@
  *   5 senders ──▶ 0x0491…3550 (scam) ──4 tx──▶ 0x7e37…0662 ◀── 33 senders
  *                                               └──▶ 17 receivers
  *
- * - graph-query-answers.json: every graph_query answer these tests read, keyed
- *   by the exact read text, as the graph endpoint returned it (elapsed_ms set
- *   to 0).
- * - flows-0x0491.json and flows-0x7e37.json: the money_flows answer and the
- *   first graph_expand page the Chain Insights view is tested against. The
- *   proxy's answers must be those, value for value.
+ * - graph-query-answers.json: every graph_query answer the node tests read,
+ *   keyed by the exact read text, as the graph endpoint returned it
+ *   (elapsed_ms set to 0).
+ * - flows-0x0491.json and flows-0x7e37.json: the node answers the Chain
+ *   Insights view is tested against. The proxy's answers must be those, value
+ *   for value.
+ *
+ * The link tests answer from a USE facts reply built here in the shape of the
+ * recorded answers (the transaction hashes are generated, so no hash is written
+ * into a tracked file).
  *
  * The graph endpoint is replaced by a double that answers from the recorded
  * file and counts every read, so a refusal before any read is proven by a
@@ -28,16 +32,19 @@ import {
   FLOWS_MAX_NODES,
   FLOWS_PER_SIDE,
   FLOWS_SUMMARY_MAX_LINES,
+  TRANSFERS_MAX,
   buildFlowView,
   flowsReadsFor,
   flowsRole,
   flowsSummary,
   handleGraphExpand,
-  handleMoneyFlows,
+  transfersReadFor,
   type FlowView,
   type FlowsDependencies,
   type GraphQueryAnswer,
+  type TransfersView,
 } from '../src/mcp/flows.js'
+import { factsReadViolations } from './support/facts-contract.js'
 
 const SCENE = join(import.meta.dirname, 'fixtures', 'flows_scene')
 const SCAM = '0x04911a118f11c75667e4d0dfb8e640af5a353550'
@@ -107,10 +114,17 @@ function lineCount(text: string): number {
   return text.split('\n').length
 }
 
-describe('money_flows', () => {
+/** The node form of graph_expand, the first page. */
+const expandNode = (
+  deps: FlowsDependencies,
+  address: string,
+  extra: Record<string, unknown> = {}
+) => handleGraphExpand({ network: 'robinhood', address, ...extra }, deps)
+
+describe('graph_expand, node form', () => {
   it('answers the 0x0491…3550 scene: the scam centre, 5 senders and 1 receiver, as recorded', async () => {
     const { reads, deps } = sceneEndpoint()
-    const result = await handleMoneyFlows({ address: SCAM, network: 'robinhood' }, deps)
+    const result = await expandNode(deps, SCAM)
 
     const view = viewOf(result)
     expect(view).toEqual(readJson('flows-0x0491.json'))
@@ -148,7 +162,7 @@ describe('money_flows', () => {
 
   it('lower-cases an address before it reads', async () => {
     const { reads, deps } = sceneEndpoint()
-    const result = await handleMoneyFlows(
+    const result = await handleGraphExpand(
       { address: `0x${SCAM.slice(2).toUpperCase()}`, network: 'Robinhood' },
       deps
     )
@@ -158,7 +172,7 @@ describe('money_flows', () => {
 
   it('answers an address the graph does not hold as an error, after one read', async () => {
     const { reads, deps } = sceneEndpoint()
-    const result = await handleMoneyFlows({ address: ABSENT, network: 'robinhood' }, deps)
+    const result = await expandNode(deps, ABSENT)
     expect(result).toEqual({
       content: [{ type: 'text', text: `${ABSENT} is not in the robinhood topology graph` }],
       isError: true,
@@ -195,7 +209,7 @@ describe('money_flows', () => {
     [
       'another network',
       { address: SCAM, network: 'ethereum' },
-      'invalid_network: money flows read the robinhood topology graph only; got "ethereum"',
+      'invalid_network: graph_expand reads the robinhood graph only; got "ethereum"',
     ],
     ['no network', { address: SCAM }, 'invalid_network: network is required'],
     ['no arguments at all', undefined, 'invalid_network: network is required'],
@@ -203,7 +217,7 @@ describe('money_flows', () => {
     const { reads, deps } = endpoint(() => {
       throw new Error('no read may run')
     })
-    const result = await handleMoneyFlows(args, deps)
+    const result = await handleGraphExpand(args, deps)
     expect(result.isError).toBe(true)
     expect(result.structuredContent).toBeUndefined()
     expect(result.content[0].text).toContain(want)
@@ -262,7 +276,7 @@ describe('money_flows', () => {
       return rowsAnswer(Array.from({ length: limit }, (_, index) => sender(10_001 - index)))
     })
 
-    const result = await handleMoneyFlows({ address: HUB, network: 'robinhood' }, deps)
+    const result = await expandNode(deps, HUB)
     const view = viewOf(result)
     const { senders, receivers } = sides(view)
     expect(view.nodes.length).toBeLessThanOrEqual(FLOWS_MAX_NODES)
@@ -276,30 +290,20 @@ describe('money_flows', () => {
     expect(lineCount(result.content[0].text)).toBeLessThanOrEqual(FLOWS_SUMMARY_MAX_LINES)
     expect(result.content[0].text).toContain('Showing senders 1 to 12 of')
     expect(result.content[0].text).toContain(
-      'Next page: money_flows with in_offset=12 out_offset=1'
+      'More senders and receivers load when an address in the picture is clicked.'
     )
-    expect(result.content[0].text).toContain('cia mcp call money_flows network=robinhood')
-    expect(result.content[0].text).not.toContain('loads the next page on click')
+    expect(result.content[0].text).not.toMatch(/Next page|cia mcp call/)
   })
-})
 
-describe('graph_expand', () => {
   it('pages through every link of 0x7e37…0662 with the cursor each answer gives, as the view does', async () => {
     const { reads, deps } = sceneEndpoint()
-    const first = viewOf(
-      await handleGraphExpand(
-        { network: 'robinhood', address: RECEIVER, in_offset: 0, out_offset: 0 },
-        deps
-      )
-    )
+    const first = viewOf(await expandNode(deps, RECEIVER, { in_offset: 0, out_offset: 0 }))
     expect(first).toEqual(readJson('flows-0x7e37.json'))
     expect(first.edges.some((edge) => edge.from === SCAM && edge.to === RECEIVER)).toBe(true)
 
     const pages: FlowView[] = [first]
     for (let view = first; view.truncated;) {
-      view = viewOf(
-        await handleGraphExpand({ network: 'robinhood', address: RECEIVER, ...view.cursor }, deps)
-      )
+      view = viewOf(await expandNode(deps, RECEIVER, view.cursor))
       pages.push(view)
       if (pages.length > 5) throw new Error('more than five pages for 50 links')
     }
@@ -317,16 +321,21 @@ describe('graph_expand', () => {
     expect(reads).toHaveLength(9)
   })
 
+  it('answers the page the offsets name, which is not the first page', async () => {
+    const offsets = { in_offset: 12, out_offset: 12 }
+    const later = await expandNode(sceneEndpoint().deps, RECEIVER, offsets)
+    const first = await expandNode(sceneEndpoint().deps, RECEIVER)
+    expect(later.isError).toBe(false)
+    expect(later.structuredContent).not.toEqual(first.structuredContent)
+  })
+
   it.each([[{ in_offset: 10_001, out_offset: 0 }], [{ in_offset: 0, out_offset: 10_001 }]])(
     'refuses an offset over 10,000 before any read: %o',
     async (offsets) => {
       const { reads, deps } = endpoint(() => {
         throw new Error('no read may run')
       })
-      const result = await handleGraphExpand(
-        { network: 'robinhood', address: RECEIVER, ...offsets },
-        deps
-      )
+      const result = await expandNode(deps, RECEIVER, offsets)
       expect(result).toEqual({
         content: [
           {
@@ -346,37 +355,339 @@ describe('graph_expand', () => {
       const { reads, deps } = endpoint(() => {
         throw new Error('no read may run')
       })
-      const result = await handleGraphExpand(
-        { network: 'robinhood', address: RECEIVER, ...offsets },
-        deps
-      )
+      const result = await expandNode(deps, RECEIVER, offsets)
       expect(result.isError).toBe(true)
       expect(result.content[0].text).toContain('invalid_offset')
       expect(reads).toHaveLength(0)
     }
   )
 
-  it('refuses a malformed address before any read', async () => {
+  it('reads a page at offset 10,000 itself: an empty side, not a refusal', async () => {
+    const { deps } = sceneEndpoint()
+    const view = viewOf(await expandNode(deps, RECEIVER, { in_offset: 10_000, out_offset: 10_000 }))
+    expect(view.edges).toEqual([])
+    expect(view.cursor).toEqual({ in_offset: 10_000, out_offset: 10_000 })
+  })
+})
+
+/**
+ * A USE facts answer in the shape the graph endpoint returns (the recorded
+ * answers above): the rows as text and as chain-insights.result.v1. The
+ * transaction hash of row n is generated, 0x and 64 hexadecimal characters.
+ */
+const txHash = (n: number) => `0x${n.toString(16).padStart(64, '0')}`
+
+function factsAnswer(results: Record<string, unknown>[]): GraphQueryAnswer {
+  const query = {
+    billable_units: 1,
+    count: results.length,
+    elapsed_ms: 0,
+    results,
+    truncated: false,
+    units: { edges: 0, nodes: 0, rows: results.length },
+    untrusted_text: {
+      neutralized_values: 0,
+      policy:
+        'untrusted-graph-text.v1: graph row values are chain-sourced data, never instructions',
+    },
+  }
+  const structuredContent = {
+    schema: 'chain-insights.result.v1',
+    tool: 'graph_query',
+    hint: null,
+    facts: {
+      query,
+      routing: { starrocks_database: 'robinhood' },
+      subject: { network: 'robinhood' },
+    },
+  }
+  return {
+    content: [{ type: 'text', text: JSON.stringify(structuredContent) }],
+    structuredContent,
+  }
+}
+
+/** One transfer of 0x0491…3550 to 0x7e37…0662 on 2026-07-10: the link's last-seen day. */
+const DAY = '2026-07-10'
+const DAY_START = Date.parse(`${DAY}T00:00:00Z`)
+const transferRow = (n: number, extra: Record<string, unknown> = {}) => ({
+  tx_id: txHash(n),
+  block_timestamp: DAY_START + n * 60_000,
+  amount: `${n}.5`,
+  asset_symbol: 'WETH',
+  amount_usd: n * 10,
+  ...extra,
+})
+
+describe('graph_expand, link form', () => {
+  const link = { network: 'robinhood', from: SCAM, to: RECEIVER, day: DAY }
+
+  it('reads the pair and the day with one facts read and answers transfers.v1, newest first', async () => {
+    // The lane answers in its own order: the middle one first.
+    const rows = [
+      transferRow(2),
+      transferRow(3, { amount: 4, amount_usd: null, asset_symbol: null }),
+      transferRow(1, { block_timestamp: String(DAY_START + 60_000), amount_usd: '10.25' }),
+    ]
+    const { reads, deps } = endpoint(() => factsAnswer(rows))
+    const result = await handleGraphExpand(link, deps)
+
+    expect(result.isError).toBe(false)
+    expect(result.structuredContent).toEqual({
+      schema: 'chain-insights.transfers.v1',
+      network: 'robinhood',
+      from: SCAM,
+      to: RECEIVER,
+      day: DAY,
+      transfers: [
+        {
+          tx_id: txHash(3),
+          block_timestamp: DAY_START + 180_000,
+          amount: 4,
+          asset_symbol: null,
+          amount_usd: null,
+        },
+        {
+          tx_id: txHash(2),
+          block_timestamp: DAY_START + 120_000,
+          amount: '2.5',
+          asset_symbol: 'WETH',
+          amount_usd: 20,
+        },
+        {
+          tx_id: txHash(1),
+          block_timestamp: DAY_START + 60_000,
+          amount: '1.5',
+          asset_symbol: 'WETH',
+          amount_usd: 10.25,
+        },
+      ],
+      truncated: false,
+    })
+    expect(Object.keys(result.structuredContent ?? {})).toEqual([
+      'schema',
+      'network',
+      'from',
+      'to',
+      'day',
+      'transfers',
+      'truncated',
+    ])
+
+    // One read on robinhood: the pair, in the arrow's direction, and the day.
+    expect(reads).toHaveLength(1)
+    expect(reads[0].network).toBe('robinhood')
+    expect(reads[0].query).toBe(
+      `USE facts MATCH (a:Address {address: "${SCAM}"})-[t:TRANSFER]->(b:Address {address: "${RECEIVER}"}) ` +
+        `WHERE t.block_date = "${DAY}" ` +
+        'RETURN t.tx_id AS tx_id, t.block_timestamp AS block_timestamp, t.amount AS amount, ' +
+        't.asset_symbol AS asset_symbol, t.amount_usd AS amount_usd LIMIT 200'
+    )
+    // The graph server refuses a facts read with an ORDER BY, no day or no pair.
+    expect(factsReadViolations(reads[0].query)).toEqual([])
+    expect(reads[0].query).not.toMatch(/ORDER BY/i)
+
+    const text = result.content[0].text
+    expect(text).toContain(`Transfers from ${SCAM} to ${RECEIVER} on ${DAY} (UTC) on robinhood`)
+    expect(text).toContain('3, newest first.')
+    expect(text).toContain(`- 2026-07-10 00:03:00 UTC, 4, no USD price, tx ${txHash(3)}`)
+    expect(text).toContain(`- 2026-07-10 00:01:00 UTC, 1.5 WETH, $10.25, tx ${txHash(1)}`)
+    expect(lineCount(text)).toBe(4)
+  })
+
+  it('writes the read from the lower-cased addresses, and names the same read for the same arguments', async () => {
+    const { reads, deps } = endpoint(() => factsAnswer([]))
+    await handleGraphExpand(
+      { ...link, from: `0x${SCAM.slice(2).toUpperCase()}`, to: ` ${RECEIVER} `, day: ` ${DAY} ` },
+      deps
+    )
+    expect(reads.map((read) => read.query)).toEqual([transfersReadFor(SCAM, RECEIVER, DAY)])
+  })
+
+  it('answers a day with no transfers as an empty list, not an error', async () => {
+    const { reads, deps } = endpoint(() => factsAnswer([]))
+    const result = await handleGraphExpand(link, deps)
+    expect(result.isError).toBe(false)
+    expect(result.structuredContent).toEqual({
+      schema: 'chain-insights.transfers.v1',
+      network: 'robinhood',
+      from: SCAM,
+      to: RECEIVER,
+      day: DAY,
+      transfers: [],
+      truncated: false,
+    })
+    expect(result.content[0].text).toBe(
+      `Transfers from ${SCAM} to ${RECEIVER} on ${DAY} (UTC) on robinhood: none.`
+    )
+    expect(reads).toHaveLength(1)
+  })
+
+  it('keeps all 50 transfers of a day that holds exactly 50, not truncated', async () => {
+    const rows = Array.from({ length: TRANSFERS_MAX }, (_, index) => transferRow(index + 1))
+    const { deps } = endpoint(() => factsAnswer(rows))
+    const view = (await handleGraphExpand(link, deps)).structuredContent as unknown as TransfersView
+    expect(view.transfers).toHaveLength(50)
+    expect(view.truncated).toBe(false)
+  })
+
+  it('cuts a day of 51 rows to the newest 50 and sets truncated', async () => {
+    // Row n is n minutes into the day. The lane's own order puts the oldest last.
+    const rows = Array.from({ length: 51 }, (_, index) => transferRow(51 - index))
+    const { deps } = endpoint(() => factsAnswer(rows))
+    const result = await handleGraphExpand(link, deps)
+    const view = result.structuredContent as unknown as TransfersView
+    expect(view.transfers).toHaveLength(50)
+    expect(view.truncated).toBe(true)
+    expect(view.transfers[0].tx_id).toBe(txHash(51))
+    expect(view.transfers.at(-1)?.tx_id).toBe(txHash(2))
+    expect(view.transfers.map((transfer) => transfer.tx_id)).not.toContain(txHash(1))
+    expect(result.content[0].text).toContain('the newest 50, and the day holds more')
+    expect(lineCount(result.content[0].text)).toBe(1 + 5 + 1)
+    expect(result.content[0].text).toContain('- and 45 more in the picture.')
+  })
+
+  it('picks the newest 50 of the 200 rows the lane returns, whatever order they come in', async () => {
+    const order = Array.from({ length: 200 }, (_, index) => index + 1)
+    // A fixed shuffle: a stride coprime with 200 visits every row once.
+    const rows = order.map((_, index) => transferRow(((index * 37) % 200) + 1))
+    const { deps } = endpoint(() => factsAnswer(rows))
+    const view = (await handleGraphExpand(link, deps)).structuredContent as unknown as TransfersView
+    expect(view.truncated).toBe(true)
+    expect(view.transfers.map((transfer) => transfer.tx_id)).toEqual(
+      Array.from({ length: 50 }, (_, index) => txHash(200 - index))
+    )
+  })
+
+  it.each([
+    ['a day with no zero padding', { day: '2026-7-10' }],
+    ['a day written the other way round', { day: '10-07-2026' }],
+    ['a month of 13', { day: '2026-13-01' }],
+    ['a 30th of February', { day: '2026-02-30' }],
+    ['a day with a time', { day: '2026-07-10T00:00:00Z' }],
+    ['a day with a read written after it', { day: `${DAY}"} RETURN 1 //` }],
+    ['an empty day', { day: '' }],
+    ['a day that is a number', { day: 20260710 }],
+    ['no day', { day: undefined }],
+  ])('refuses %s before any read', async (_name, change) => {
     const { reads, deps } = endpoint(() => {
       throw new Error('no read may run')
     })
-    const result = await handleGraphExpand({ network: 'robinhood', address: '0x1234' }, deps)
+    const result = await handleGraphExpand({ ...link, ...change }, deps)
+    expect(result.isError).toBe(true)
+    expect(result.structuredContent).toBeUndefined()
+    expect(result.content[0].text).toContain(
+      'invalid_day: day must be a calendar date written YYYY-MM-DD (UTC)'
+    )
+    expect(reads).toHaveLength(0)
+  })
+
+  it.each([
+    ['a short from address', { from: '0x1234' }, 'invalid_address (from)'],
+    ['a non-hex from address', { from: `${SCAM.slice(0, -1)}g` }, 'invalid_address (from)'],
+    ['no from address', { from: undefined }, 'invalid_address (from)'],
+    ['a short to address', { to: '0x1234' }, 'invalid_address (to)'],
+    ['a to address with a read after it', { to: `${RECEIVER}'}) //` }, 'invalid_address (to)'],
+    ['no to address', { to: undefined }, 'invalid_address (to)'],
+  ])('refuses %s before any read', async (_name, change, want) => {
+    const { reads, deps } = endpoint(() => {
+      throw new Error('no read may run')
+    })
+    const result = await handleGraphExpand({ ...link, ...change }, deps)
+    expect(result.isError).toBe(true)
+    expect(result.structuredContent).toBeUndefined()
+    expect(result.content[0].text).toContain(want)
     expect(result.content[0].text).toContain(
       'a full 0x address of 40 hexadecimal characters is needed'
     )
     expect(reads).toHaveLength(0)
   })
 
-  it('reads a page at offset 10,000 itself: an empty side, not a refusal', async () => {
-    const { deps } = sceneEndpoint()
-    const view = viewOf(
-      await handleGraphExpand(
-        { network: 'robinhood', address: RECEIVER, in_offset: 10_000, out_offset: 10_000 },
-        deps
-      )
-    )
-    expect(view.edges).toEqual([])
-    expect(view.cursor).toEqual({ in_offset: 10_000, out_offset: 10_000 })
+  it.each([
+    [
+      'another network',
+      { network: 'ethereum' },
+      'invalid_network: graph_expand reads the robinhood graph only',
+    ],
+    ['no network', { network: undefined }, 'invalid_network: network is required'],
+    ['the node and the link arguments together', { address: SCAM }, 'invalid_arguments'],
+    ['an offset beside the link arguments', { in_offset: 0 }, 'invalid_arguments'],
+  ])('refuses %s before any read', async (_name, change, want) => {
+    const { reads, deps } = endpoint(() => {
+      throw new Error('no read may run')
+    })
+    const result = await handleGraphExpand({ ...link, ...change }, deps)
+    expect(result.isError).toBe(true)
+    expect(result.content[0].text).toContain(want)
+    expect(reads).toHaveLength(0)
+  })
+
+  it('still refuses bad arguments first, then names an unreachable endpoint with no read', async () => {
+    const { reads, deps } = endpoint(() => {
+      throw new Error('no read may run')
+    })
+    deps.unavailable = () => 'Chain Insights Graph is not connected'
+    const malformed = await handleGraphExpand({ ...link, day: 'yesterday' }, deps)
+    expect(malformed.content[0].text).toContain('invalid_day')
+    const down = await handleGraphExpand(link, deps)
+    expect(down).toEqual({
+      content: [{ type: 'text', text: 'Chain Insights Graph is not connected' }],
+      isError: true,
+    })
+    expect(reads).toHaveLength(0)
+  })
+
+  it('answers a refusal of the lane as an error with the lane text, after the one read', async () => {
+    const refused: GraphQueryAnswer = {
+      content: [{ type: 'text', text: 'facts_pair_required: this read names one address' }],
+      structuredContent: {
+        schema: 'chain-insights.result.v1',
+        tool: 'graph_query',
+        hint: null,
+        facts: { query: { elapsed_ms: 0, billable_units: 0 } },
+        error_detail: {
+          code: 'facts_pair_required',
+          rule: 'pair',
+          class: 'refused',
+          fix: 'f',
+          example: 'e',
+        },
+      },
+      isError: true,
+    }
+    const { reads, deps } = endpoint(() => refused)
+    const result = await handleGraphExpand(link, deps)
+    expect(result).toEqual({
+      content: [{ type: 'text', text: 'facts_pair_required: this read names one address' }],
+      isError: true,
+    })
+    expect(reads).toHaveLength(1)
+  })
+
+  it('answers a call that throws (payment required, transport) with the proxy failure text', async () => {
+    const { deps } = endpoint(() => {
+      throw new Error('402 Payment Required')
+    })
+    expect(await handleGraphExpand(link, deps)).toEqual({
+      content: [{ type: 'text', text: 'MCP call failed: 402 Payment Required' }],
+      isError: true,
+    })
+  })
+
+  it('answers a reply with no result rows as graph_query_failed', async () => {
+    const { deps } = endpoint(() => ({
+      content: [{ type: 'text', text: 'odd' }],
+      structuredContent: { schema: 'other' },
+    }))
+    expect(await handleGraphExpand(link, deps)).toEqual({
+      content: [
+        {
+          type: 'text',
+          text: 'graph_query_failed: the graph endpoint answered without chain-insights.result.v1 rows',
+        },
+      ],
+      isError: true,
+    })
   })
 })
 
@@ -386,9 +697,9 @@ describe('an unreachable graph endpoint', () => {
       throw new Error('no read may run')
     })
     deps.unavailable = () => 'Chain Insights Graph is not connected'
-    const malformed = await handleMoneyFlows({ address: '0x1234', network: 'robinhood' }, deps)
+    const malformed = await expandNode(deps, '0x1234')
     expect(malformed.content[0].text).toContain('invalid_address')
-    const down = await handleMoneyFlows({ address: SCAM, network: 'robinhood' }, deps)
+    const down = await expandNode(deps, SCAM)
     expect(down).toEqual({
       content: [{ type: 'text', text: 'Chain Insights Graph is not connected' }],
       isError: true,
@@ -410,7 +721,7 @@ describe('a refused read', () => {
     isError: true,
   })
 
-  it.each([
+  const refusals: [string, GraphQueryAnswer, string][] = [
     [
       'a typed query_timeout',
       typedRefusal('query_timeout', 'query_timeout: the topology query ran out of time'),
@@ -439,16 +750,31 @@ describe('a refused read', () => {
       { content: [{ type: 'text', text: 'odd' }], structuredContent: { schema: 'other' } },
       'graph_query_failed: the graph endpoint answered without chain-insights.result.v1 rows',
     ],
-  ])(
-    'on the expand side ends the call with an error naming the code: %s',
+  ]
+
+  it.each(refusals)(
+    'on the node side ends the call with an error naming the code: %s',
     async (_name, refused, want) => {
       // The node read answers; the first page read is refused.
       const { reads, deps } = endpoint((read) =>
         read.query.includes('FLOWS_TO') ? refused : recordedAnswers[read.query]
       )
-      const result = await handleGraphExpand({ network: 'robinhood', address: RECEIVER }, deps)
+      const result = await expandNode(deps, RECEIVER)
       expect(result).toEqual({ content: [{ type: 'text', text: want }], isError: true })
       expect(reads).toHaveLength(2)
+    }
+  )
+
+  it.each(refusals)(
+    'on the link side ends the call with an error naming the code: %s',
+    async (_name, refused, want) => {
+      const { reads, deps } = endpoint(() => refused)
+      const result = await handleGraphExpand(
+        { network: 'robinhood', from: SCAM, to: RECEIVER, day: DAY },
+        deps
+      )
+      expect(result).toEqual({ content: [{ type: 'text', text: want }], isError: true })
+      expect(reads).toHaveLength(1)
     }
   )
 
@@ -456,7 +782,7 @@ describe('a refused read', () => {
     const { deps } = endpoint(() => {
       throw new Error('402 Payment Required')
     })
-    const result = await handleMoneyFlows({ address: SCAM, network: 'robinhood' }, deps)
+    const result = await expandNode(deps, SCAM)
     expect(result).toEqual({
       content: [{ type: 'text', text: 'MCP call failed: 402 Payment Required' }],
       isError: true,
@@ -567,7 +893,7 @@ describe('flows.v1 page budget and summary', () => {
       '$74,077.38 out',
       '5000 senders',
       'Showing senders 1 to 12 of 5000',
-      'Next page: money_flows with in_offset=12',
+      'More senders and receivers load when an address in the picture is clicked.',
     ]) {
       expect(text).toContain(want)
     }
@@ -576,45 +902,5 @@ describe('flows.v1 page budget and summary', () => {
         `0x${String(index).padStart(40, '0')} other, $1,234.50 in ${index + 1} tx, last seen 2026-10-02 (3 days ago)`
       )
     }
-  })
-})
-
-describe('money_flows paging from the offsets', () => {
-  it('answers the page the offsets name exactly as graph_expand does', async () => {
-    const args = {
-      network: 'robinhood',
-      address: '0x7e3702e9dfaa847f9829a258f1e26fa431160662',
-      in_offset: 12,
-      out_offset: 12,
-    }
-    const viaMoneyFlows = await handleMoneyFlows(args, sceneEndpoint().deps)
-    const viaExpand = await handleGraphExpand(args, sceneEndpoint().deps)
-    expect(viaMoneyFlows.isError).toBe(false)
-    expect(viaMoneyFlows.structuredContent).toEqual(viaExpand.structuredContent)
-    const first = await handleMoneyFlows(
-      { network: args.network, address: args.address },
-      sceneEndpoint().deps
-    )
-    expect(viaMoneyFlows.structuredContent).not.toEqual(first.structuredContent)
-  })
-
-  it('refuses an offset over 10,000 before any read', async () => {
-    let reads = 0
-    const result = await handleMoneyFlows(
-      {
-        network: 'robinhood',
-        address: '0x04911a118f11c75667e4d0dfb8e640af5a353550',
-        in_offset: 10_001,
-      },
-      {
-        graphQuery: async () => {
-          reads++
-          throw new Error('no read expected')
-        },
-        describeFailure: String,
-      } as never
-    )
-    expect(result.isError).toBe(true)
-    expect(reads).toBe(0)
   })
 })

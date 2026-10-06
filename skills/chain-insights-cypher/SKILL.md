@@ -453,6 +453,48 @@ asset, and the matching `…price_missing` is true. On `SWAPPED` it sums the
 routes, and a side with no price adds 0, so 0 can mean no price. Read the
 facts `SWAP` row to tell.
 
+## Name the columns for a picture
+
+Claude Desktop draws a `graph_query` answer from its column names. No other
+tool is needed. Alias the `RETURN` columns to choose the picture.
+
+| Columns in every row                                        | Claude Desktop draws                      |
+| ----------------------------------------------------------- | ----------------------------------------- |
+| `from_address` and `to_address`                             | A graph of at most 60 addresses.          |
+| A `day`, `date` or `*_timestamp` column, and number columns | A chart, one line for each number column. |
+| Anything else                                               | A table.                                  |
+
+A graph also reads these optional columns: `amount_usd_sum`, `tx_count`,
+`first_seen_timestamp`, `last_seen_timestamp`, `link_kind`, `from_labels` and
+`to_labels`. A graph and a chart can each be read as a table. In
+`graph_query_batch`, each query draws its own tab. Claude Code draws nothing
+and shows the rows as text.
+
+A graph, the newest receivers of one address, topology:
+
+```cypher
+USE topology
+MATCH (a:Address {address: $addr})-[f:FLOWS_TO]->(b:Address)
+WHERE NOT a:Pool
+RETURN a.address AS from_address, b.address AS to_address,
+       f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count,
+       f.last_seen_timestamp AS last_seen_timestamp
+ORDER BY f.last_seen_timestamp DESC
+LIMIT 25
+```
+
+A chart, the transfers of a known pair over one day, facts. A facts read covers
+one day and takes no `ORDER BY`, so each read is one chart. For more days, send
+one read for each day in `graph_query_batch`:
+
+```cypher
+USE facts
+MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to})
+WHERE t.block_date = "YYYY-MM-DD"
+RETURN t.block_timestamp AS block_timestamp, t.amount_usd AS amount_usd
+LIMIT 200
+```
+
 ## Hard stops
 
 - Read-only. No writes.

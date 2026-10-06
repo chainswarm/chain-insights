@@ -12,7 +12,7 @@ Every statement here was verified against the source files it names.
   backend names (`address_risk`, `trace_victim_funds`, `trace_suspect_funds`,
   `trace_deposit_sources`, `trace_funds`, `track_funds`,
   `network_capabilities`, `usage_status`, `balance`, `topup`, `help`,
-  `money_flows_between_exchanges`, `address_connection_risk`) via
+  `address_connection_risk` and the retired exchange-flows tool) via
   `HIDDEN_REMOTE_TOOL_NAMES`. They never surface publicly.
 - Local tools live in `src/mcp/proxy.ts`: `meta_network_capabilities`,
   `meta_usage_status`, `meta_help`, `wallet_balance`.
