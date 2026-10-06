@@ -1,6 +1,6 @@
 {
   "source": "graph server facts relationship properties",
-  "server_commit": "5852d58a6f7acb1eba5e4d814e40fbb2f0b85b0e",
+  "server_commit": "a676383e9520d821cf492c59ab5fb7c022abf1cd",
   "relationships": [
     {
       "relationship": "BRIDGE_CROSSING",
