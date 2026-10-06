@@ -596,7 +596,7 @@ program
           console.log('Settings reset to defaults.')
           console.log(`Graph endpoint: ${config.graphMcpEndpoint}`)
           console.log(`Mode:           ${config.graphMcpMode}`)
-          console.log('Test access key: removed')
+          console.log('Test access:     off')
           console.log('Wallet:          unchanged (~/.chain-insights/wallet.json)')
         } catch (err) {
           console.error((err as Error).message)
