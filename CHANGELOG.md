@@ -3,6 +3,30 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.46.2] - 2026-10-06 — fix: the question picks the layer
+
+### Changed
+
+- Routing: the skill, the guide and the served hints now route by what the
+  question names (an address, a pair with a day, a transaction, a block). The
+  first rule no longer reads "I do not know the thing yet", which sent a weak
+  model to an unanchored topology search that the server refuses.
+- The `chain-insights-cypher` skill opens "Pick the layer first" with a table:
+  what the user asks, the layer, and the first query. It gains the newest links
+  of one address (receivers and senders) and the profile of one address (counts,
+  volume and the active window, read from the node).
+- A question about the whole chain (recent addresses, biggest senders, a top
+  list) is served on no layer today. The skill says so in one line, gives the
+  sentence to tell the user, and asks for an address, a pair with a day or a
+  transaction hash. It sends no probe and no workaround query.
+- The skill tells an MCP host to call the `graph_query` tool, not a shell, and
+  asks to be loaded before the first graph query.
+
+- The served MCP instructions open with the routing paragraph, and the
+  `graph_query` description names the skill. Claude Code shows a model only the
+  first ~2 KB of the instructions; the routing now sits inside that window
+  (Haiku 4.5 test: refused calls 13 against 22 without it, 20 runs each).
+
 ## [0.46.1] - 2026-10-06 — fix: a transaction is a chain question
 
 ### Changed

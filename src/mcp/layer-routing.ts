@@ -7,10 +7,13 @@
 // guide are Markdown and hold the lines word for word. tests/layer-routing.test.ts
 // fails when one of the three differs from this file by one word.
 //
-// The rule is the graph server's own: topology searches, while facts and chain
-// look up one known thing. Nothing here is a limit. A limit that the server
-// publishes is read from `meta_network_capabilities`, and the text names the
-// field, never the number.
+// The rule follows the graph server's own: topology searches outward from one
+// known address, while facts and chain look up one known thing. The wording asks
+// the agent to say first what the question names (an address, a pair with a day,
+// a transaction, a block), because a question that names none of them is served
+// on no layer today. Nothing here is a limit. A limit that the server publishes
+// is read from `meta_network_capabilities`, and the text names the field, never
+// the number.
 //
 // `USE chain` serves the four labels of the server's chain catalogue and no
 // other: a transaction by its `tx_id`, a block by its `block_height` or its
@@ -24,12 +27,12 @@
 
 /** The routing rule, in one sentence. The server states it in the same words. */
 export const ROUTING_RULE =
-  'Route by what you know: topology searches, while facts and chain look up one known thing.'
+  'Route by what the question names: an address, a pair with a day, a transaction or a block. Topology searches outward from an address, while facts and chain look up one known thing.'
 
 /** The rule in three lines, one for each layer. */
 export const ROUTING_LINES = [
-  'I do not know the thing yet: `USE topology`.',
-  'I know the pair and the day, and want the indexed rows: `USE facts`.',
+  'I know an address and want its links, senders, receivers, hops or a route: `USE topology`, anchored on that address.',
+  'I know both addresses of a pair and one day, and want the rows of that day: `USE facts`.',
   "I want the chain's own record of a transaction by its `tx_id`, a block by its `block_height` or `block_hash`, an address at one block (`Address`), or the head: `USE chain`.",
 ] as const
 
@@ -45,9 +48,9 @@ export const ROUTING_TWO_FIT =
 export const ROUTING_HANDOFF =
   'The layers hand each other keys, and each key keeps its name. Topology gives the pair and the first and last seen time. Facts gives the `tx_id` and the `block_height`. Chain takes an `address`, a `tx_id`, a `block_height` or a `block_hash`, and gives the `block_date` of a transaction or a block.'
 
-/** A question that no layer serves. */
+/** A question that no layer serves today. The agent says so once and asks for an anchor. */
 export const ROUTING_NOT_SERVED =
-  'A list, a range or a whole-chain question is served on no layer. Say so, and go back to an anchored `USE topology` search.'
+  'A list, a range or a whole-chain question names no address, pair, transaction or block, so no layer serves it today. Say so in one line, ask the user for one of those, and send no workaround query.'
 
 /** What a refusal carries, and which part of it decides the move. */
 export const MOVE_INTRO =
@@ -102,12 +105,22 @@ export function moveLines(): string[] {
 }
 
 /**
+ * The routing rule and its three lines, with the question that no layer serves,
+ * as one paragraph. The proxy serves it first among its instructions: a host
+ * that keeps only the start of the instructions (Claude Code keeps 2 KB) still
+ * shows the agent where each kind of question goes, and which kind goes nowhere.
+ */
+export function routingHead(): string {
+  return `Pick the layer first. ${ROUTING_RULE} 1. ${ROUTING_LINES[0]} 2. ${ROUTING_LINES[1]} 3. ${ROUTING_LINES[2]} ${ROUTING_NOT_SERVED}`
+}
+
+/**
  * The two hints that the MCP proxy serves for routing and for refusals. Each is
  * one line of the served instructions.
  */
 export function routingHintLines(): string[] {
   return [
-    `- Pick the layer first. ${ROUTING_RULE} 1. ${ROUTING_LINES[0]} 2. ${ROUTING_LINES[1]} 3. ${ROUTING_LINES[2]} ${ROUTING_ADDRESS_ON_CHAIN} ${ROUTING_TWO_FIT} ${ROUTING_HANDOFF} ${ROUTING_NOT_SERVED} The lookups that USE chain serves are listed in chain_admission.lookups of meta_network_capabilities. Read every limit that the server publishes from meta_network_capabilities (chain_admission and, when the server sends them, topology_admission and facts_admission). Never write a limit down.`,
+    `- Pick the layer first. ${ROUTING_RULE} 1. ${ROUTING_LINES[0]} 2. ${ROUTING_LINES[1]} 3. ${ROUTING_LINES[2]} ${ROUTING_NOT_SERVED} ${ROUTING_ADDRESS_ON_CHAIN} ${ROUTING_TWO_FIT} ${ROUTING_HANDOFF} The lookups that USE chain serves are listed in chain_admission.lookups of meta_network_capabilities. Read every limit that the server publishes from meta_network_capabilities (chain_admission and, when the server sends them, topology_admission and facts_admission). Never write a limit down.`,
     `- Act on a refusal by its class. ${moveLines().join(' ')}`,
   ]
 }

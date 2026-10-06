@@ -35,10 +35,10 @@ primitive-backend status instead.
 A graph query goes to one of three layers. Name the layer at the start of the
 query: `USE topology`, `USE facts` or `USE chain`.
 
-Route by what you know: topology searches, while facts and chain look up one known thing.
+Route by what the question names: an address, a pair with a day, a transaction or a block. Topology searches outward from an address, while facts and chain look up one known thing.
 
-1. I do not know the thing yet: `USE topology`.
-2. I know the pair and the day, and want the indexed rows: `USE facts`.
+1. I know an address and want its links, senders, receivers, hops or a route: `USE topology`, anchored on that address.
+2. I know both addresses of a pair and one day, and want the rows of that day: `USE facts`.
 3. I want the chain's own record of a transaction by its `tx_id`, a block by its `block_height` or `block_hash`, an address at one block (`Address`), or the head: `USE chain`.
 
 `USE chain` with `Address` reads the balance, the nonce or the kind of one address, now or at a past block with `at_block`. A past block must be at least `chain_admission.at_block_min_depth` blocks below the tip. To find the counterparties of an address, search `USE topology`, then read the pair and one day on `USE facts`.
@@ -47,18 +47,22 @@ A transaction is a chain question: read it on `USE chain` by its `tx_id`. Chain 
 
 The layers hand each other keys, and each key keeps its name. Topology gives the pair and the first and last seen time. Facts gives the `tx_id` and the `block_height`. Chain takes an `address`, a `tx_id`, a `block_height` or a `block_hash`, and gives the `block_date` of a transaction or a block.
 
-A list, a range or a whole-chain question is served on no layer. Say so, and go back to an anchored `USE topology` search.
+A list, a range or a whole-chain question names no address, pair, transaction or block, so no layer serves it today. Say so in one line, ask the user for one of those, and send no workaround query.
 
-| The question                                                | Layer      | First query                                                  |
-| ----------------------------------------------------------- | ---------- | ------------------------------------------------------------ |
-| Who is connected to this address? Where did the money go?   | `topology` | One anchored hop on `FLOWS_TO`, with a `LIMIT`.              |
-| What moved between A and B on one day?                      | `facts`    | `TRANSFER` with both addresses and `block_date`.             |
-| Which days did A and B trade?                               | `topology` | The link's `first_seen_timestamp` and `last_seen_timestamp`. |
-| Did transaction `0x…` succeed? Which block, which day?      | `chain`    | `Transaction {tx_id}`.                                       |
-| Which day is block N?                                       | `chain`    | `Block {block_height}`, and return `block_date`.             |
-| Does this address hold a balance? Is it a contract?         | `chain`    | `Address {address}`, with `at_block` for a past block.       |
-| How far behind are the graph and the warehouse?             | `chain`    | `Head`.                                                      |
-| Every transaction of block N, or every address with label X | none       | A list or a scan. Say so. Do not retry.                      |
+| The question                                               | Layer      | First query                                                                 |
+| ---------------------------------------------------------- | ---------- | --------------------------------------------------------------------------- |
+| Recent activity or newest links of one address?            | `topology` | `FLOWS_TO` out of the address, `ORDER BY last_seen_timestamp`.              |
+| Who sent money to an address? Who received from it?        | `topology` | `FLOWS_TO` into or out of the address, with a `LIMIT`.                      |
+| Where did the money go, or come from, in N hops?           | `topology` | A guarded quantified walk, at most 4 hops, with a `LIMIT`.                  |
+| Is there a route between A and B?                          | `topology` | `SHORTEST 1` with both addresses.                                           |
+| How many, how much, first or last active, for one address? | `topology` | The address node: `degree_in`, `tx_total_count`, `last_activity_timestamp`. |
+| What moved between A and B on one day?                     | `facts`    | `TRANSFER` with both addresses and `block_date`.                            |
+| Which days did A and B trade?                              | `topology` | The link's `first_seen_timestamp` and `last_seen_timestamp`.                |
+| Did transaction `0x…` succeed? Which block, which day?     | `chain`    | `Transaction {tx_id}`.                                                      |
+| Which day is block N?                                      | `chain`    | `Block {block_height}`, and return `block_date`.                            |
+| Does this address hold a balance? Is it a contract?        | `chain`    | `Address {address}`, with `at_block` for a past block.                      |
+| How far behind are the graph and the warehouse?            | `chain`    | `Head`.                                                                     |
+| Recent addresses, biggest senders, a top list of the chain | none       | A list of the whole chain. Say so. Do not retry.                            |
 
 The server publishes the limits of a layer in `meta_network_capabilities`
 (`cia network robinhood --json` prints the same reply): the `chain_admission`

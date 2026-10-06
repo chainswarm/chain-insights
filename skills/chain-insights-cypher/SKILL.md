@@ -1,6 +1,6 @@
 ---
 name: chain-insights-cypher
-description: Use when answering any question about addresses, money flows, transfers, transactions or blocks with Chain Insights, when tracing where money went or came from, when writing or reviewing graph_query or graph_query_batch ISO GQL, when choosing between USE topology, USE facts and USE chain, or when a graph query is refused. Address, unit, layer, graph search and refusal rules, with one query for each kind of search.
+description: Load this before the first graph_query or graph_query_batch call: without it, most queries are refused. Use when answering any question about addresses, money flows, transfers, transactions or blocks with Chain Insights, when tracing where money went or came from, when writing or reviewing graph_query or graph_query_batch ISO GQL, when choosing between USE topology, USE facts and USE chain, or when a graph query is refused. Address, unit, layer, graph search and refusal rules, with one query for each kind of search.
 ---
 
 # Chain Insights Cypher
@@ -8,7 +8,8 @@ description: Use when answering any question about addresses, money flows, trans
 Standard ISO GQL for `graph_query` and `graph_query_batch`. Read-only. No
 `CALL`, no procedures, no vendor syntax.
 
-Run a query with `cia mcp call graph_query network=robinhood "query=<query>"`.
+In an MCP host, such as Claude Desktop, call the `graph_query` tool with `network` and `query`; `graph_query_batch` takes `queries`. There is no shell. In a shell, run a query with
+`cia mcp call graph_query network=robinhood "query=<query>"`.
 Send related reads in one call with `cia mcp call graph_query_batch network=robinhood 'queries=[{"id":"a","query":"<query>"}]'`.
 Always pass `network` and your own `LIMIT`. These two commands, and
 `cia network robinhood --schema` for field names, are all you need. Do not run
@@ -36,20 +37,35 @@ Always pass `network` and your own `LIMIT`. These two commands, and
 
 ## Pick the layer first
 
-Route by what you know: topology searches, while facts and chain look up one known thing.
+Route by what the question names: an address, a pair with a day, a transaction or a block. Topology searches outward from an address, while facts and chain look up one known thing.
 
-1. I do not know the thing yet: `USE topology`.
-2. I know the pair and the day, and want the indexed rows: `USE facts`.
+1. I know an address and want its links, senders, receivers, hops or a route: `USE topology`, anchored on that address.
+2. I know both addresses of a pair and one day, and want the rows of that day: `USE facts`.
 3. I want the chain's own record of a transaction by its `tx_id`, a block by its `block_height` or `block_hash`, an address at one block (`Address`), or the head: `USE chain`.
 
 `USE chain` with `Address` reads the balance, the nonce or the kind of one address, now or at a past block with `at_block`. A past block must be at least `chain_admission.at_block_min_depth` blocks below the tip. To find the counterparties of an address, search `USE topology`, then read the pair and one day on `USE facts`.
 A transaction is a chain question: read it on `USE chain` by its `tx_id`. Chain gives its `block_date`; the transfers between a pair on that day are a `USE facts` read.
 The layers hand each other keys, and each key keeps its name. Topology gives the pair and the first and last seen time. Facts gives the `tx_id` and the `block_height`. Chain takes an `address`, a `tx_id`, a `block_height` or a `block_hash`, and gives the `block_date` of a transaction or a block.
-A list, a range or a whole-chain question is served on no layer. Say so, and go back to an anchored `USE topology` search.
+A list, a range or a whole-chain question names no address, pair, transaction or block, so no layer serves it today. Say so in one line, ask the user for one of those, and send no workaround query.
 
-A top list, a count, a scan of a label or the recent active addresses of the
-whole chain are such questions. Do not search for a workaround. Say: "The graph
-cannot list those. Name an address, a pair with a day, or a transaction hash."
+Find the question in this table. Send its first query, once, with the addresses the user gave.
+
+| The user asks                                                | Layer      | First query                                                            |
+| ------------------------------------------------------------ | ---------- | ---------------------------------------------------------------------- |
+| Recent activity or newest links of one address               | `topology` | Newest links of one address (see Graph searches)                       |
+| Who sent money to an address? Who received from it?          | `topology` | Newest links of one address, the arrow flipped for senders             |
+| Where did the money go, or come from, in N hops?             | `topology` | Where the money went, or came from (`{0,N-1}`, N up to 5)              |
+| Is there a route between two addresses?                      | `topology` | Route between two addresses, `SHORTEST 1`                              |
+| What do two addresses have in common?                        | `topology` | Counterparties that two addresses share                                |
+| Biggest senders or receivers of one address                  | `topology` | Newest links of one address, `ORDER BY f.amount_usd_sum DESC LIMIT 10` |
+| How many, how much, first or last active, for one address    | `topology` | Profile of one address                                                 |
+| The transfers of a pair on one day                           | `facts`    | `TRANSFER` of the pair and the day, see Facts                          |
+| What happened in this transaction hash?                      | `chain`    | `Transaction {tx_id}`, see Chain                                       |
+| The latest block, block N, how far behind the graph is       | `chain`    | `Head`, or `Block {block_height}`                                      |
+| What fields does an Address have?                            | none       | Call `meta_schema {network}`. Send no query.                           |
+| Recent addresses, biggest senders, any top list of the chain | none today | Send no query. Say the line below.                                     |
+
+For a question of the last row, do not probe, scan or try another layer: a probe returns arbitrary rows, never the newest or the biggest. Say: "The graph cannot list the whole chain yet. Give me an address, a pair with a day, or a transaction hash, and I will show its recent links and flows."
 
 ## One name on every layer
 
@@ -59,7 +75,7 @@ A thing has one name on topology, facts and chain. Copy a value from one layer i
 | ---------- | --------------------------------------------- | ----------------------------- | ---------------------------------------------- |
 | An address | `:Address {address}`, and a kind label        | `:Address {address}`, no kind | `Address {address}`, optional `at_block`       |
 | A kind     | `:Account` or `:Contract`, `is_contract` kept | none: refused with a hint     | `is_contract`, `nonce` and `delegated_to`      |
-| A tx       | `tx_id` on `DEPLOYED_CONTRACT` only           | `tx_id` on every row          | `Transaction {tx_id}`                          |
+| A tx       | `tx_id` on `DEPLOYED_CONTRACT` only           | `tx_id` on every row          | `Transaction {tx_id}`, see Chain               |
 | A block    | `block_height` on `DEPLOYED_CONTRACT` only    | `block_height` on every row   | `Block {block_height}` or `Block {block_hash}` |
 | Time       | epoch milliseconds                            | epoch milliseconds            | epoch milliseconds                             |
 | `network`  | the query's `network`                         | the query's `network`         | the query's `network`                          |
@@ -78,7 +94,7 @@ A topology link is a lifetime summary of a pair, and a facts row is one event. T
 bridges and the `LINKED` overlay. The server checks these before it runs:
 
 - Anchor every pattern on a full address: `{address: "<address>"}` in the node, or `WHERE a.address = "<address>"`. A list of at most 25 addresses is an anchor. An address in `RETURN`, in an `OR` or in a `$parameter` is no anchor.
-- The one read with no anchor is a probe: one node or one hop, no `WHERE`, no `ORDER BY`, no aggregate, and a small `LIMIT`. Its rows are arbitrary.
+- The one read with no anchor is a probe: one node or one hop, no `WHERE`, no `ORDER BY`, no aggregate, and a small `LIMIT`. Its rows are arbitrary: never call them recent, top or biggest.
 - A sort, an aggregate, `DISTINCT`, `collect()` or a filter on a link property needs an anchor on every pattern.
 - End every read with a literal `LIMIT`: at most 5,000 rows, 100 for a probe. A path has at most 5 hops and a query at most 8. The live numbers are in `topology_admission` (`cia network robinhood --json`).
 - Paths use bounded quantifiers such as `-[:FLOWS_TO]-{1,5}`. A `*` range, the legacy path functions, `PROFILE`, writes and `CALL` are refused.
@@ -88,6 +104,28 @@ bridges and the `LINKED` overlay. The server checks these before it runs:
 ## Graph searches
 
 Each query below is admitted by the live server. Change only the addresses and the `RETURN`. Keep the guards inside the pattern: they apply the [pool trace rule](#pool-trace-rule), and a `WHERE` after a `SHORTEST` pattern runs too late. A walk follows links, not coins: confirm a hop with a pair and a day on `USE facts`.
+
+Newest links of one address, its receivers. Its newest senders are the same read with the arrow flipped:
+
+```cypher
+USE topology
+MATCH (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"})-[f:FLOWS_TO]->(b:Address) WHERE NOT a:Pool
+RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.last_seen_timestamp AS last_seen_timestamp ORDER BY f.last_seen_timestamp DESC LIMIT 25
+```
+
+```cypher
+USE topology
+MATCH (b:Address)-[f:FLOWS_TO]->(a:Address {address: "0x7e3702e9dfaa847f9829a258f1e26fa431160662"}) WHERE NOT a:Pool
+RETURN b.address AS from_address, a.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.last_seen_timestamp AS last_seen_timestamp ORDER BY f.last_seen_timestamp DESC LIMIT 25
+```
+
+Profile of one address: counterparties, transactions, volume and the active window, all from the node. Timestamps are milliseconds.
+
+```cypher
+USE topology
+MATCH (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"})
+RETURN a.degree_in AS senders, a.degree_out AS receivers, a.tx_total_count AS tx_count, a.total_volume_usd AS volume_usd, a.first_activity_timestamp AS first_active, a.last_activity_timestamp AS last_active LIMIT 1
+```
 
 Route between two addresses, one path. Only `MATCH SHORTEST 1` and `MATCH ANY SHORTEST` are served: a count above 1 is `route_search_refused`.
 
@@ -288,12 +326,4 @@ Claude Desktop draws a `graph_query` answer from its column names. Alias the
 
 A graph also reads these optional columns: `amount_usd_sum`, `tx_count`, `first_seen_timestamp`, `last_seen_timestamp`, `link_kind`, `from_labels` and `to_labels`. In `graph_query_batch`, each query draws its own tab. Claude Code draws nothing and shows the rows as text.
 
-A graph, the newest receivers of one address. Flip the arrow for its senders:
-
-```cypher
-USE topology
-MATCH (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"})-[f:FLOWS_TO]->(b:Address) WHERE NOT a:Pool
-RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.last_seen_timestamp AS last_seen_timestamp ORDER BY f.last_seen_timestamp DESC LIMIT 25
-```
-
-A chart is the facts read of one pair over one day above, with `block_timestamp` and `amount_usd` in the `RETURN`.
+A graph is the newest-links read of one address, receivers or senders, in Graph searches. A chart is the facts read of one pair over one day above, with `block_timestamp` and `amount_usd` in the `RETURN`.
