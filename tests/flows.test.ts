@@ -274,7 +274,12 @@ describe('money_flows', () => {
     expect(senders[0].from).toBe(sender(10_001).address)
     expect(reads).toHaveLength(3)
     expect(lineCount(result.content[0].text)).toBeLessThanOrEqual(FLOWS_SUMMARY_MAX_LINES)
-    expect(result.content[0].text).toContain('More flows exist than shown')
+    expect(result.content[0].text).toContain('Showing senders 1 to 12 of')
+    expect(result.content[0].text).toContain(
+      'Next page: money_flows with in_offset=12 out_offset=1'
+    )
+    expect(result.content[0].text).toContain('cia mcp call money_flows network=robinhood')
+    expect(result.content[0].text).not.toContain('loads the next page on click')
   })
 })
 
@@ -561,7 +566,8 @@ describe('flows.v1 page budget and summary', () => {
       '$20.97 in',
       '$74,077.38 out',
       '5000 senders',
-      'More flows exist',
+      'Showing senders 1 to 12 of 5000',
+      'Next page: money_flows with in_offset=12',
     ]) {
       expect(text).toContain(want)
     }
@@ -570,5 +576,45 @@ describe('flows.v1 page budget and summary', () => {
         `0x${String(index).padStart(40, '0')} other, $1,234.50 in ${index + 1} tx, last seen 2026-10-02 (3 days ago)`
       )
     }
+  })
+})
+
+describe('money_flows paging from the offsets', () => {
+  it('answers the page the offsets name exactly as graph_expand does', async () => {
+    const args = {
+      network: 'robinhood',
+      address: '0x7e3702e9dfaa847f9829a258f1e26fa431160662',
+      in_offset: 12,
+      out_offset: 12,
+    }
+    const viaMoneyFlows = await handleMoneyFlows(args, sceneEndpoint().deps)
+    const viaExpand = await handleGraphExpand(args, sceneEndpoint().deps)
+    expect(viaMoneyFlows.isError).toBe(false)
+    expect(viaMoneyFlows.structuredContent).toEqual(viaExpand.structuredContent)
+    const first = await handleMoneyFlows(
+      { network: args.network, address: args.address },
+      sceneEndpoint().deps
+    )
+    expect(viaMoneyFlows.structuredContent).not.toEqual(first.structuredContent)
+  })
+
+  it('refuses an offset over 10,000 before any read', async () => {
+    let reads = 0
+    const result = await handleMoneyFlows(
+      {
+        network: 'robinhood',
+        address: '0x04911a118f11c75667e4d0dfb8e640af5a353550',
+        in_offset: 10_001,
+      },
+      {
+        graphQuery: async () => {
+          reads++
+          throw new Error('no read expected')
+        },
+        describeFailure: String,
+      } as never
+    )
+    expect(result.isError).toBe(true)
+    expect(reads).toBe(0)
   })
 })

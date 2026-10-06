@@ -1290,6 +1290,22 @@ export async function createProxy(): Promise<void> {
       inputSchema: {
         address: z.string().describe('One robinhood address: 0x and 40 hexadecimal characters.'),
         network: z.string().describe('The network. Only robinhood is served.'),
+        in_offset: z
+          .number()
+          .int()
+          .min(0)
+          .max(FLOWS_MAX_OFFSET)
+          .optional()
+          .describe('Senders to skip, for the next page: the in_offset the previous answer names.'),
+        out_offset: z
+          .number()
+          .int()
+          .min(0)
+          .max(FLOWS_MAX_OFFSET)
+          .optional()
+          .describe(
+            'Receivers to skip, for the next page: the out_offset the previous answer names.'
+          ),
       },
       annotations: VIEW_TOOL_ANNOTATIONS,
       _meta: VIEW_TOOL_META,

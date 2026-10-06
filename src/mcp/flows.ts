@@ -310,9 +310,33 @@ export function flowsSummary(view: FlowView, now: Date): string {
     ...sideLines('Recent senders', senders),
     ...sideLines('Recent receivers', receivers),
   ]
-  if (view.truncated)
-    lines.push('More flows exist than shown; the view loads the next page on click.')
-  return lines.slice(0, FLOWS_SUMMARY_MAX_LINES).join('\n')
+  const body = lines.slice(0, FLOWS_SUMMARY_MAX_LINES - 2)
+  const footer = pagingLines(view, senders.length, receivers.length, center)
+  return [...body, ...footer].join('\n')
+}
+
+/**
+ * Where this page sits and how to read the next one. Written for every reader:
+ * the model, a terminal (cia mcp call), and a person looking at the picture in
+ * Claude Desktop, who clicks an address instead.
+ */
+function pagingLines(
+  view: FlowView,
+  shownSenders: number,
+  shownReceivers: number,
+  center: FlowNode | undefined
+): string[] {
+  const totalIn = center?.degree_in ?? 0
+  const totalOut = center?.degree_out ?? 0
+  const { in_offset: nextIn, out_offset: nextOut } = view.cursor
+  const range = (shown: number, next: number, total: number) =>
+    shown === 0 ? `none of ${total}` : `${next - shown + 1} to ${next} of ${total}`
+  const where = `Showing senders ${range(shownSenders, nextIn, totalIn)} and receivers ${range(shownReceivers, nextOut, totalOut)}, newest first.`
+  if (!view.truncated && nextIn >= totalIn && nextOut >= totalOut) return [where]
+  return [
+    where,
+    `Next page: money_flows with in_offset=${nextIn} out_offset=${nextOut} (terminal: cia mcp call money_flows network=${view.network} address=${view.center} in_offset=${nextIn} out_offset=${nextOut}); in Claude Desktop, click an address in the picture instead.`,
+  ]
 }
 
 function errorResult(text: string): FlowsToolResult {
@@ -429,14 +453,19 @@ async function runFlows(
   }
 }
 
-/** money_flows {address, network}: the first page of one address. */
+/** money_flows {address, network, in_offset?, out_offset?}: one page of one address, the first by default. */
 export async function handleMoneyFlows(
   args: unknown,
   deps: FlowsDependencies
 ): Promise<FlowsToolResult> {
-  const checked = checkNetworkAndAddress(isRecord(args) ? args : {})
+  const record = isRecord(args) ? args : {}
+  const checked = checkNetworkAndAddress(record)
   if ('error' in checked) return errorResult(checked.error)
-  return runFlows(deps, checked.network, checked.address, 0, 0)
+  const inOffset = checkOffset(record.in_offset)
+  if (typeof inOffset !== 'number') return errorResult(inOffset.error)
+  const outOffset = checkOffset(record.out_offset)
+  if (typeof outOffset !== 'number') return errorResult(outOffset.error)
+  return runFlows(deps, checked.network, checked.address, inOffset, outOffset)
 }
 
 /** graph_expand {network, address, in_offset, out_offset}: the next page of one address. */

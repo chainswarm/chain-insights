@@ -41,7 +41,7 @@ export const PUBLIC_MCP_TOOL_ALLOWED_ARGS: Record<string, string[]> = {
   // `time_scope` narrows a `USE topology` query to a temporal-shard subset
   graph_query: ['query', 'network', 'time_scope'],
   graph_query_batch: ['network', 'queries', 'per_query_timeout_seconds', 'time_scope'],
-  money_flows: ['address', 'network'],
+  money_flows: ['address', 'network', 'in_offset', 'out_offset'],
 }
 
 export function isHiddenRemoteToolName(name: string): boolean {
