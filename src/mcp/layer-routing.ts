@@ -12,13 +12,15 @@
 // publishes is read from `meta_network_capabilities`, and the text names the
 // field, never the number.
 //
-// `USE chain` serves the three labels of the server's chain catalogue and no
-// other: a transaction by its hash, a block by its number or its hash, and the
-// head, which takes no key. There is no address lookup on the chain layer, so a
-// routing line that offered one sent an agent to a refusal.
+// `USE chain` serves the four labels of the server's chain catalogue and no
+// other: a transaction by its `tx_id`, a block by its `block_height` or its
+// `block_hash`, an address at one block (`Address`, with an optional `at_block`),
+// and the head, which takes no key. A kind (`:Account`, `:Contract`) is never a
+// lookup label: the `Address` lookup reads it as `is_contract` and `nonce`.
 // tests/fixtures/chain-catalogue.json pins the labels, and
 // tests/chain-catalogue-pin.test.ts holds every chain recipe and the chain
-// routing line to them.
+// routing line to them. The depth below which a past block is served is a limit
+// that the server publishes, so the text names its field and never its number.
 
 /** The routing rule, in one sentence. The server states it in the same words. */
 export const ROUTING_RULE =
@@ -27,21 +29,21 @@ export const ROUTING_RULE =
 /** The rule in three lines, one for each layer. */
 export const ROUTING_LINES = [
   'I do not know the thing yet: `USE topology`.',
-  'I know the pair and the day, or the transaction hash, and want the indexed rows: `USE facts`.',
-  "I want the chain's own record of a transaction by its hash, a block by its number or hash, or the head: `USE chain`.",
+  'I know the pair and the day, or the `tx_id`, and want the indexed rows: `USE facts`.',
+  "I want the chain's own record of a transaction by its `tx_id`, a block by its `block_height` or `block_hash`, an address at one block (`Address`), or the head: `USE chain`.",
 ] as const
 
-/** The chain layer has no address lookup, so an address starts on topology. */
-export const ROUTING_NO_ADDRESS_ON_CHAIN =
-  '`USE chain` has no address lookup. Find the address on `USE topology`, then read the pair and one day on `USE facts`.'
+/** The chain layer reads one address at one block. A search for counterparties stays on topology. */
+export const ROUTING_ADDRESS_ON_CHAIN =
+  '`USE chain` with `Address` reads the balance, the nonce or the kind of one address, now or at a past block with `at_block`. A past block must be at least `chain_admission.at_block_min_depth` blocks below the tip. To find the counterparties of an address, search `USE topology`, then read the pair and one day on `USE facts`.'
 
 /** What to do when two layers fit. */
 export const ROUTING_TWO_FIT =
-  'When two fit, as with a hash: ask `USE chain` first for the record and the result, then `USE facts` for the transfers it caused.'
+  'When two fit, as with a `tx_id`: ask `USE chain` first for the record and the result, then `USE facts` for the transfers it caused.'
 
-/** The key that each layer hands to the next. */
+/** The key that each layer hands to the next. Each key keeps its name. */
 export const ROUTING_HANDOFF =
-  'The layers hand each other keys. Topology gives the pair and the first and last seen time. Chain gives the `block_date` of a hash or a height. Facts gives the `tx_id`.'
+  'The layers hand each other keys, and each key keeps its name. Topology gives the pair and the first and last seen time. Facts gives the `tx_id` and the `block_height`. Chain takes an `address`, a `tx_id`, a `block_height` or a `block_hash`, and gives the `block_date` of a transaction or a block.'
 
 /** A question that no layer serves. */
 export const ROUTING_NOT_SERVED =
@@ -77,7 +79,7 @@ export function routingLines(): string[] {
   return [
     ROUTING_RULE,
     ...ROUTING_LINES,
-    ROUTING_NO_ADDRESS_ON_CHAIN,
+    ROUTING_ADDRESS_ON_CHAIN,
     ROUTING_TWO_FIT,
     ROUTING_HANDOFF,
     ROUTING_NOT_SERVED,
@@ -105,7 +107,7 @@ export function moveLines(): string[] {
  */
 export function routingHintLines(): string[] {
   return [
-    `- Pick the layer first. ${ROUTING_RULE} 1. ${ROUTING_LINES[0]} 2. ${ROUTING_LINES[1]} 3. ${ROUTING_LINES[2]} ${ROUTING_NO_ADDRESS_ON_CHAIN} ${ROUTING_TWO_FIT} ${ROUTING_HANDOFF} ${ROUTING_NOT_SERVED} The lookups that USE chain serves are listed in chain_admission.lookups of meta_network_capabilities. Read every limit that the server publishes from meta_network_capabilities (chain_admission and, when the server sends them, topology_admission and facts_admission). Never write a limit down.`,
+    `- Pick the layer first. ${ROUTING_RULE} 1. ${ROUTING_LINES[0]} 2. ${ROUTING_LINES[1]} 3. ${ROUTING_LINES[2]} ${ROUTING_ADDRESS_ON_CHAIN} ${ROUTING_TWO_FIT} ${ROUTING_HANDOFF} ${ROUTING_NOT_SERVED} The lookups that USE chain serves are listed in chain_admission.lookups of meta_network_capabilities. Read every limit that the server publishes from meta_network_capabilities (chain_admission and, when the server sends them, topology_admission and facts_admission). Never write a limit down.`,
     `- Act on a refusal by its class. ${moveLines().join(' ')}`,
   ]
 }

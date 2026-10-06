@@ -1,6 +1,6 @@
 {
   "generated_by": "harvest-query-corpus-v2 workflow + runtime-verified normalization (2026-07-06)",
-  "note": "Documented + gap-filled Chain Insights graph query recipes. ISO GQL quantified paths and shortest selectors on USE topology are bounded per the resource policy. Merged into the corpus by generate-query-corpus.mjs; facts recipes drive the translator conformance + T0b baselines. A recipe marked admits: false documents a refusal and names the code it must get in expects_code; the corpus leaves it out. A recipe on the chain layer is one keyed lookup of the chain node (Transaction, Block or Head). The chain recipes stay out of the corpus: they are read by tests/layer-routing.test.ts and listed in tests/fixtures/layer-routing.json.",
+  "note": "Documented + gap-filled Chain Insights graph query recipes. ISO GQL quantified paths and shortest selectors on USE topology are bounded per the resource policy. Merged into the corpus by generate-query-corpus.mjs; facts recipes drive the translator conformance + T0b baselines. A recipe marked admits: false documents a refusal and names the code it must get in expects_code; the corpus leaves it out. A recipe on the chain layer is one keyed lookup of the chain node (Transaction, Block, Address or Head). The chain recipes go into the corpus with the scope chain, so the server gates them with the gate of the chain layer. They are also read by tests/layer-routing.test.ts and listed in tests/fixtures/layer-routing.json.",
   "recipes": [
     {
       "id": "recipe_facts_transfer_01",
@@ -342,9 +342,9 @@
     },
     {
       "id": "recipe_chain_tx_01",
-      "query": "USE chain MATCH (t:Transaction {hash: \"0x350065e1a55d7272de562706fdea5f48ae83cf10e468e56b2209f8cfbaaf1901\"}) RETURN t.status, t.block_height, t.block_date",
+      "query": "USE chain MATCH (t:Transaction {tx_id: \"0x350065e1a55d7272de562706fdea5f48ae83cf10e468e56b2209f8cfbaaf1901\"}) RETURN t.status, t.block_height, t.block_date",
       "layer": "chain",
-      "description": "One transaction by its hash: did it succeed, in which block and on which UTC day. The day is the key to name in a facts read of the transfers it caused. The same public fixture transaction as the facts recipes.",
+      "description": "One transaction by its tx_id: did it succeed, in which block and on which UTC day. The day is the key to name in a facts read of the transfers it caused. The same public fixture transaction as the facts recipes.",
       "features": [
         "chain-lookup",
         "transaction-key"
@@ -352,9 +352,9 @@
     },
     {
       "id": "recipe_chain_block_01",
-      "query": "USE chain MATCH (b:Block {height: 79841521}) RETURN b.hash, b.block_date",
+      "query": "USE chain MATCH (b:Block {block_height: 79841521}) RETURN b.block_hash, b.block_date",
       "layer": "chain",
-      "description": "One block by its height: its hash and the UTC day it belongs to. The block_date is the day to name in a facts read.",
+      "description": "One block by its block_height: its block_hash and the UTC day it belongs to. The block_date is the day to name in a facts read.",
       "features": [
         "chain-lookup",
         "block-key"
@@ -362,12 +362,23 @@
     },
     {
       "id": "recipe_chain_head_01",
-      "query": "USE chain MATCH (h:Head) RETURN h.height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind",
+      "query": "USE chain MATCH (h:Head) RETURN h.block_height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind",
       "layer": "chain",
       "description": "The chain head, and how far the warehouse and the graph are behind it. Head takes no key.",
       "features": [
         "chain-lookup",
         "head"
+      ]
+    },
+    {
+      "id": "recipe_chain_address_01",
+      "query": "USE chain MATCH (a:Address {address: \"0x2459dedb3012d1e929edd17df26620120bdf11bf\"}) RETURN a.balance, a.nonce, a.is_contract",
+      "layer": "chain",
+      "description": "One address at the newest block: its balance, its nonce and whether it is a contract. Add at_block to read a past block, at least chain_admission.at_block_min_depth blocks below the tip. A kind is read from is_contract and nonce, never asked as a lookup label. The same public fixture address as the facts recipes.",
+      "features": [
+        "chain-lookup",
+        "address-key",
+        "state-now"
       ]
     }
   ]

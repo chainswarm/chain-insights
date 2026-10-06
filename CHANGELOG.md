@@ -3,6 +3,66 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.46.0] - 2026-10-06 — feat: one address, one transaction and one name on topology, facts and chain
+
+### Breaking
+
+- `USE chain` renames its keys and properties to the names that facts and
+  topology already use. A transaction is `Transaction {tx_id}` (was `hash`). A
+  block is `Block {block_height}` or `Block {block_hash}` (was `height` and
+  `hash`). The head serves `block_height` and `block_hash`. There are no
+  aliases: the old names are refused like any key or property a label lacks
+  (`chain_key_invalid` for a key, `chain_not_served` for a property). Saved
+  queries with the old names are refused until they use the new ones.
+- `block_timestamp` on chain is an integer number of epoch milliseconds (was
+  datetime text), the same unit as facts and topology.
+- Needs a graph server that serves the unified names. The `chain-insights-cypher`
+  skill, the served hints, the routing lines and the query corpus teach the new
+  names only.
+
+### Added
+
+- `USE chain MATCH (a:Address {address: "0x…"}) RETURN a.balance, a.nonce, a.is_contract`
+  reads one address at one block: `balance`, `nonce`, `code_size`,
+  `is_contract` and `delegated_to`. Add `at_block` to read a past block. A past
+  block must be at least `chain_admission.at_block_min_depth` blocks below the
+  tip, and a nearer one is refused with `chain_block_out_of_range` and the rule
+  `at_block_near_tip`. A kind is no lookup label.
+- `network` on every node and relationship of every layer. Its value is the
+  query's `network`, it is never stored, and a `:Chain` node keeps its own, which
+  names the remote chain.
+- `:Account` and `:Contract` kind labels on `:Address` on topology, with
+  `is_contract` kept beside `:Contract`. Facts serves no kind: a facts read that
+  names `:Account` or `:Contract` is refused with `facts_no_anchor`.
+- A chain lookup of an address in the documented recipes and in the query
+  corpus. The corpus now holds the chain lookups beside the topology and facts
+  queries.
+- `at_block_min_depth` in the typed `chain_admission` block of the capabilities
+  reply.
+
+### Changed
+
+- The routing lines name a transaction by `tx_id`, a block by `block_height` or
+  `block_hash`, an address at one block, and the head. The line that said chain
+  has no address lookup is replaced by one that offers the `Address` lookup.
+- `chain-insights-cypher` gains "One name on every layer": one table of the
+  address, the kind, the transaction, the block, the time and `network` on the
+  three layers, the kind labels, and the summary links and event rows
+  (`SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY` against `SWAP`,
+  `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE`). Its chain section teaches the renamed
+  keys and the `Address` lookup with full addresses, and rule 2 says that
+  timestamps are epoch milliseconds on every layer, chain included. The Claude
+  plugin copy is synced.
+- `meta_schema` needs no change. It reads the live graph, so on a server with
+  the unified names it lists `Account` and `Contract` among the labels and
+  `Address` among the chain lookups, and the keys of an address still hold
+  `network`. A test holds the build to that answer.
+- The guides and the README no longer say that `network` is a stored property of
+  an address, and the unscoped sweep example drops its `network` predicate.
+- The pins of the server's chain catalogue, facts columns and facts read
+  contract carry the unified names, `network` and the three kind-label
+  refusals.
+
 ## [0.45.0] - 2026-10-06 — feat: meta_schema, the live graph schema of a network
 
 ### Added

@@ -2,6 +2,10 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
+import { chainCatalogue } from './support/chain-catalogue.js'
+import { factsColumns } from './support/facts-columns.js'
+import { flat, sectionWith } from './support/schema-text.js'
+
 // The graph query compatibility guide describes the graph as it is built now:
 // every link type, the ten ML pattern link types, role words, and none of the
 // retired names or Bittensor labels. The EVM schema skill is gone: the cypher
@@ -13,6 +17,7 @@ function read(path: string): string {
   return readFileSync(join(root, path), 'utf8')
 }
 
+const CYPHER = 'skills/chain-insights-cypher/SKILL.md'
 const COMPAT = 'docs/graph-query-compatibility.md'
 const GRAPH_TOOLS = 'docs/graph-tools.md'
 const PROXY = 'src/mcp/proxy.ts'
@@ -210,5 +215,64 @@ describe('the EVM schema skill is gone', () => {
     }
     expect(list('RETIRED_SKILL_NAMES')).toContain(`'${NAME}'`)
     expect(list('PUBLIC_SKILL_NAMES')).not.toContain(NAME)
+  })
+})
+
+// One address, one transaction and one name on topology, facts and chain. The
+// cypher skill teaches the kind labels, `network`, the chain `Address` lookup and
+// the two names of a swap, a liquidity event and a bridge crossing.
+describe('the cypher skill teaches the unified names', () => {
+  const skill = read(CYPHER)
+
+  it('names :Account and :Contract as a second label on Address, with is_contract kept', () => {
+    const names = flat(sectionWith(skill, 'One name'))
+    expect(names).toContain('`:Account`')
+    expect(names).toContain('`:Contract`')
+    expect(names).toContain('`:Contract:SmartAccount`')
+    expect(names).toContain('`is_contract`')
+    // A kind is a chain fact: none for an address that only received, none on facts.
+    expect(names).toMatch(/only received has none/i)
+    expect(names).toMatch(/Facts serves no kind/)
+    // Never both kinds on one address.
+    expect(names).toMatch(/Never both on one address/)
+  })
+
+  it("says network is the query's network on every node and relationship, never stored, except on :Chain", () => {
+    const names = flat(sectionWith(skill, 'One name'))
+    expect(names).toMatch(/`network` is a property of every node and every relationship/)
+    expect(names).toMatch(/its value is the query's `network`/)
+    expect(names).toMatch(/never stored, except on a `:Chain` node/)
+  })
+
+  it('lists every chain label of the pinned catalogue with its keys, and at_block', () => {
+    const chain = flat(sectionWith(skill, 'Chain:'))
+    for (const { label, keys } of chainCatalogue().labels) {
+      expect(chain, `the USE chain section names no ${label}`).toContain(`\`${label}\``)
+      for (const key of keys) expect(chain, `${label} key ${key}`).toContain(`\`${key}\``)
+    }
+    for (const word of ['balance', 'nonce', 'is_contract', 'delegated_to', 'code_size']) {
+      expect(chain, `the Address lookup misses ${word}`).toContain(`\`a.${word}\``)
+    }
+    expect(chain).toContain('chain_admission.at_block_min_depth')
+    expect(flat(skill)).toMatch(/epoch milliseconds on every layer, chain included/)
+  })
+
+  it('shows facts rows and topology links by their two names, a summary and an event', () => {
+    const names = flat(sectionWith(skill, 'One name'))
+    for (const name of ['SWAPPED', 'ADDED_LIQUIDITY', 'REMOVED_LIQUIDITY']) {
+      expect(names, `the section misses the topology link ${name}`).toContain(`\`${name}\``)
+    }
+    for (const name of ['SWAP', 'LIQUIDITY_ADD', 'LIQUIDITY_REMOVE']) {
+      expect(names, `the section misses the facts row ${name}`).toContain(`\`${name}\``)
+    }
+    expect(names).toMatch(/lifetime summary of a pair/i)
+    expect(names).toMatch(/a facts row is one event/i)
+  })
+
+  it("names network among the facts properties as the query's network, never a mapped column", () => {
+    for (const { relationship, properties } of factsColumns().relationships) {
+      expect(properties, `${relationship} maps a stored network`).not.toContain('network')
+    }
+    expect(flat(sectionWith(skill, 'Facts'))).toMatch(/carry `network`, the query's `network`/)
   })
 })

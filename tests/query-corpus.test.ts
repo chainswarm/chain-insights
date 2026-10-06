@@ -5,6 +5,8 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
 
+import { chainLookupProblem } from './support/chain-catalogue.js'
+
 // Query-contract pin: the committed corpus is the contract consumed by
 // the Chain Insights Graph backend's read-only query validator test. If a
 // builder changes without `npm run corpus:generate`, this test fails; if
@@ -49,6 +51,25 @@ describe('graph query corpus', () => {
           /SHORTEST|\*\s*BFS|\*\s*DFS|\*\s*\d|\*\s*KSHORTEST|\*\s*WSHORTEST|\{\d+,\d*\}/
         )
       }
+    }
+  })
+
+  it('holds the chain lookups of the documented recipes, each in the scope chain with the unified names', () => {
+    const corpus = JSON.parse(readFileSync(committedPath, 'utf8')) as {
+      entries: { scope: string; query: string }[]
+    }
+    const chain = corpus.entries.filter((entry) => entry.scope === 'chain')
+    for (const label of ['Transaction', 'Block', 'Address', 'Head']) {
+      expect(
+        chain.some((entry) => entry.query.includes(`:${label}`)),
+        `no chain entry for ${label}`
+      ).toBe(true)
+    }
+    for (const entry of chain) {
+      expect(chainLookupProblem(entry.query), entry.query).toBeNull()
+      expect(entry.query, 'an old chain name').not.toMatch(
+        /\{(?:hash|height):|\b[a-z]\.(?:hash|height)\b/
+      )
     }
   })
 

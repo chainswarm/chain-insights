@@ -19,12 +19,11 @@ Always pass `network` and your own `LIMIT`. These two commands, and
 1. Write every address in full, in lowercase: `0x` plus 40 hex characters, 42
    in all. Never shorten one with `...` or `…`, in a query or in an answer.
    Copy addresses from results exactly.
-2. Timestamps on topology and facts are integer milliseconds since the epoch,
-   UTC. Compute them from the current date: a day is 86,400,000 ms. Never
-   compare one with an ISO string. `block_date` is the string `"YYYY-MM-DD"`.
-   `USE chain` returns `block_timestamp` as an ISO string: read it, never
-   filter on it. Every `*_usd` field is US dollars. `*_raw` is the token's
-   smallest unit, not dollars.
+2. Timestamps on every layer are integer milliseconds since the epoch, UTC,
+   and `USE chain` is no exception. Compute them from the current date: a day
+   is 86,400,000 ms. Never compare one with an ISO string. `block_date` is the
+   string `"YYYY-MM-DD"`. Every `*_usd` field is US dollars. `*_raw` is the
+   token's smallest unit, not dollars.
 3. A shortened address, a mixed-case address, or an ISO string against a
    millisecond column gives zero rows with no error. Check these first. Zero
    rows is not proof of safety.
@@ -40,17 +39,38 @@ Always pass `network` and your own `LIMIT`. These two commands, and
 Route by what you know: topology searches, while facts and chain look up one known thing.
 
 1. I do not know the thing yet: `USE topology`.
-2. I know the pair and the day, or the transaction hash, and want the indexed rows: `USE facts`.
-3. I want the chain's own record of a transaction by its hash, a block by its number or hash, or the head: `USE chain`.
+2. I know the pair and the day, or the `tx_id`, and want the indexed rows: `USE facts`.
+3. I want the chain's own record of a transaction by its `tx_id`, a block by its `block_height` or `block_hash`, an address at one block (`Address`), or the head: `USE chain`.
 
-`USE chain` has no address lookup. Find the address on `USE topology`, then read the pair and one day on `USE facts`.
-When two fit, as with a hash: ask `USE chain` first for the record and the result, then `USE facts` for the transfers it caused.
-The layers hand each other keys. Topology gives the pair and the first and last seen time. Chain gives the `block_date` of a hash or a height. Facts gives the `tx_id`.
+`USE chain` with `Address` reads the balance, the nonce or the kind of one address, now or at a past block with `at_block`. A past block must be at least `chain_admission.at_block_min_depth` blocks below the tip. To find the counterparties of an address, search `USE topology`, then read the pair and one day on `USE facts`.
+When two fit, as with a `tx_id`: ask `USE chain` first for the record and the result, then `USE facts` for the transfers it caused.
+The layers hand each other keys, and each key keeps its name. Topology gives the pair and the first and last seen time. Facts gives the `tx_id` and the `block_height`. Chain takes an `address`, a `tx_id`, a `block_height` or a `block_hash`, and gives the `block_date` of a transaction or a block.
 A list, a range or a whole-chain question is served on no layer. Say so, and go back to an anchored `USE topology` search.
 
 A top list, a count, a scan of a label or the recent active addresses of the
 whole chain are such questions. Do not search for a workaround. Say: "The graph
 cannot list those. Name an address, a pair with a day, or a transaction hash."
+
+## One name on every layer
+
+A thing has one name on topology, facts and chain. Copy a value from one layer into the next as it is. The layers differ by properties only.
+
+| Thing      | `USE topology`                                | `USE facts`                   | `USE chain`                                    |
+| ---------- | --------------------------------------------- | ----------------------------- | ---------------------------------------------- |
+| An address | `:Address {address}`, and a kind label        | `:Address {address}`, no kind | `Address {address}`, optional `at_block`       |
+| A kind     | `:Account` or `:Contract`, `is_contract` kept | none: refused with a hint     | `is_contract`, `nonce` and `delegated_to`      |
+| A tx       | `tx_id` on `DEPLOYED_CONTRACT` only           | `tx_id` on every row          | `Transaction {tx_id}`                          |
+| A block    | `block_height` on `DEPLOYED_CONTRACT` only    | `block_height` on every row   | `Block {block_height}` or `Block {block_hash}` |
+| Time       | epoch milliseconds                            | epoch milliseconds            | epoch milliseconds                             |
+| `network`  | the query's `network`                         | the query's `network`         | the query's `network`                          |
+
+`block_timestamp` is an integer number of epoch milliseconds on every layer, chain included. `block_date` is a UTC day, `YYYY-MM-DD`. The old chain names `hash` and `height` are gone: they are refused like any name a label lacks.
+
+`network` is a property of every node and every relationship, and its value is the query's `network`. It is never stored, except on a `:Chain` node, where it names the remote chain. A filter `x.network = "robinhood"` keeps every row, and a filter on another value gives no rows. It never narrows a scan: anchor on an address instead.
+
+A kind is a second label that topology takes from a chain fact: `:Account` for a key holder, `:Contract` for a contract (`:Contract:SmartAccount` for a contract wallet). Never both on one address. An address that only received has none, and so does a Nitro precompile on topology (chain reads it as a contract). A role label such as `:Pool` stays beside the kind. `is_contract` stays beside `:Contract`. Facts serves no kind: a facts read that names `:Account` or `:Contract` is refused, so ask `USE topology`, or `USE chain` for `is_contract` and `nonce`.
+
+A topology link is a lifetime summary of a pair, and a facts row is one event. They are two things, so they keep two names: `SWAPPED`, `ADDED_LIQUIDITY` and `REMOVED_LIQUIDITY` on topology, `SWAP`, `LIQUIDITY_ADD` and `LIQUIDITY_REMOVE` on facts. Read the summary on topology, anchored on an address, then the events behind it on facts, by the pair and one day or by a `tx_id`.
 
 ## Topology
 
@@ -63,6 +83,7 @@ bridges and the `LINKED` overlay. The server checks these before it runs:
 - End every read with a literal `LIMIT`: at most 5,000 rows, 100 for a probe. A path has at most 5 hops and a query at most 8. The live numbers are in `topology_admission` (`cia network robinhood --json`).
 - Paths use bounded quantifiers such as `-[:FLOWS_TO]-{1,5}`. A `*` range, the legacy path functions, `PROFILE`, writes and `CALL` are refused.
 - Role flags `is_exchange`, `is_scam`, `is_victim` and `is_sanctioned` are absent unless true: use `IS NULL` or `IS NOT NULL`, never `= false`.
+- A kind label sits beside `:Address`: `WHERE a:Contract` or `WHERE a:Account` tests it, as `:Pool` is tested. It is no anchor.
 
 ## Graph searches
 
@@ -180,7 +201,7 @@ USE topology
 MATCH ()-[r:FLOWS_TO]->() RETURN keys(r) AS keys LIMIT 5
 ```
 
-Name another link type to read its keys: `SWAPPED`, `LINKED`, `OPERATED_BY`, `BRIDGED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY`. `synced_through_height` and `pair_key` are bookkeeping: never filter or sort on them.
+Name another link type to read its keys: `SWAPPED`, `LINKED`, `OPERATED_BY`, `BRIDGED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY`. The keys of an address and of a link include `network`: it is the query's `network`, computed on every node and link. `synced_through_height` and `pair_key` are bookkeeping: never filter or sort on them.
 
 The server serves five read-only catalog calls: `CALL db.labels()`, `CALL db.relationshipTypes()`, `CALL db.propertyKeys()`, `CALL db.schema.visualization()` and `SHOW INDEXES`. `meta_schema` sends four of them for you through one session and keeps the answer, so do not send them yourself.
 
@@ -191,6 +212,8 @@ The server serves five read-only catalog calls: `CALL db.labels()`, `CALL db.rel
 - A reply holds at most 200 rows, whatever the `LIMIT`.
 - A facts read has one relationship and no hop. For a walk, go to topology.
 - A facts read takes no `ORDER BY`. Rows come in the server's own order. Sort the page yourself.
+- Every row and both endpoints carry `network`, the query's `network`. A filter on it is no anchor: it never replaces the pair and the day.
+- Facts serves no kind. A read that names `:Account` or `:Contract` is refused with `facts_no_anchor`: ask `USE topology` for the kind, or `USE chain` for `is_contract` and `nonce`.
 - A facts read covers one day. For more days, send one read for each day.
 - Amounts and USD values come back as text, such as `"5.23661492"`. Convert them before you add them.
 - `TRANSFER` columns: `tx_id`, `block_date`, `block_height`, `block_timestamp`, `event_index`, `edge_index`, `kind`, `asset_contract`, `asset_symbol`, `amount`, `amount_usd`, `price_usd`, `price_missing`, `token_id`, `token_standard`, `operator_address`, `raw_amount` and `decimals`. `kind` is `token`, `native` or `internal`: an `internal` row is ETH a contract sends while it runs a call.
@@ -211,22 +234,38 @@ RETURN a.address AS from_address, b.address AS to_address, t.amount AS amount, t
 
 ## Chain: one key, one node
 
-`USE chain` asks the chain node for one known thing: `Transaction` by `hash`, `Block` by `height` or `hash`, or `Head`. One node, literal keys in braces, a `RETURN` of `var.property` items, no `WHERE`, no range. Read its limits in `chain_admission` (`cia network robinhood --json`).
+`USE chain` asks the chain node for one known thing: `Transaction` by `tx_id`, `Block` by `block_height` or `block_hash` (exactly one), `Address` by `address` (with an optional `at_block`), or `Head`. One node, literal keys in braces, a `RETURN` of `var.property` items, no `WHERE`, no range. Read its limits in `chain_admission` (`cia network robinhood --json`).
 
 ```cypher
 USE chain
-MATCH (t:Transaction {hash: "0x044587122970de1e3c377a8ed7ab56a49c777a2b7441a2f5d9ca32dbab9fbe71"}) RETURN t.status, t.block_height, t.block_date
+MATCH (t:Transaction {tx_id: "0x044587122970de1e3c377a8ed7ab56a49c777a2b7441a2f5d9ca32dbab9fbe71"}) RETURN t.status, t.block_height, t.block_date
 ```
 
 ```cypher
 USE chain
-MATCH (b:Block {height: 79841521}) RETURN b.hash, b.block_date
+MATCH (b:Block {block_height: 79841521}) RETURN b.block_hash, b.block_date
+```
+
+An address at the newest block, and at a past block:
+
+```cypher
+USE chain
+MATCH (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"}) RETURN a.balance, a.nonce, a.is_contract
 ```
 
 ```cypher
 USE chain
-MATCH (h:Head) RETURN h.height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind
+MATCH (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550", at_block: 79000000}) RETURN a.balance, a.nonce, a.is_contract
 ```
+
+```cypher
+USE chain
+MATCH (h:Head) RETURN h.block_height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind
+```
+
+An `Address` lookup always answers one row, because every address has a state. `a.balance` is decimal text. Read the kind from `a.is_contract`, `a.nonce` and `a.delegated_to`: `a.is_contract` is `true` for a contract and null for any other address, a `nonce` above 0 with `a.is_contract` null is an account, and `a.delegated_to` names the target of an EIP-7702 delegation, which is an account. `a.code_size` is the size of the code, and the code itself is never returned. `:Account` and `:Contract` are never a chain lookup label.
+
+`at_block` must be at least `chain_admission.at_block_min_depth` blocks below the tip. A nearer block is refused with `chain_block_out_of_range` and the rule `at_block_near_tip`: leave `at_block` out to read the newest block. The names `hash` and `height` are no key and no property of any label.
 
 ## When a query is refused
 

@@ -125,7 +125,7 @@ describe('printMcpTextContent', () => {
     rule: 'layer_off',
     class: 'failed',
     fix: 'Check chain_admission.enabled in network_capabilities.',
-    example: 'USE chain MATCH (h:Head) RETURN h.height',
+    example: 'USE chain MATCH (h:Head) RETURN h.block_height',
   }
 
   it('throws an McpToolError that keeps the server text and the error_detail of the reply', () => {

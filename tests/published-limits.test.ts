@@ -124,7 +124,9 @@ describe('the number detector', () => {
       publishedNumberFindings('Send at most `chain_admission.batch_max` lookups in one batch.')
     ).toEqual([])
     expect(
-      publishedNumberFindings('```cypher\nUSE chain MATCH (h:Head) RETURN h.height LIMIT 5\n```')
+      publishedNumberFindings(
+        '```cypher\nUSE chain MATCH (h:Head) RETURN h.block_height LIMIT 5\n```'
+      )
     ).toEqual([])
     expect(publishedNumberFindings('Wait at least 5 seconds, then send the query once.')).toEqual(
       []

@@ -185,21 +185,28 @@
    "id": "recipe_chain_tx_01",
    "layer": "chain",
    "anchor": "key",
-   "query": "USE chain MATCH (t:Transaction {hash: \"0x350065e1a55d7272de562706fdea5f48ae83cf10e468e56b2209f8cfbaaf1901\"}) RETURN t.status, t.block_height, t.block_date",
+   "query": "USE chain MATCH (t:Transaction {tx_id: \"0x350065e1a55d7272de562706fdea5f48ae83cf10e468e56b2209f8cfbaaf1901\"}) RETURN t.status, t.block_height, t.block_date",
    "source": "tests/fixtures/documented-recipes.json"
   },
   {
    "id": "recipe_chain_block_01",
    "layer": "chain",
    "anchor": "key",
-   "query": "USE chain MATCH (b:Block {height: 79841521}) RETURN b.hash, b.block_date",
+   "query": "USE chain MATCH (b:Block {block_height: 79841521}) RETURN b.block_hash, b.block_date",
    "source": "tests/fixtures/documented-recipes.json"
   },
   {
    "id": "recipe_chain_head_01",
    "layer": "chain",
    "anchor": "head",
-   "query": "USE chain MATCH (h:Head) RETURN h.height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind",
+   "query": "USE chain MATCH (h:Head) RETURN h.block_height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind",
+   "source": "tests/fixtures/documented-recipes.json"
+  },
+  {
+   "id": "recipe_chain_address_01",
+   "layer": "chain",
+   "anchor": "key",
+   "query": "USE chain MATCH (a:Address {address: \"0x2459dedb3012d1e929edd17df26620120bdf11bf\"}) RETURN a.balance, a.nonce, a.is_contract",
    "source": "tests/fixtures/documented-recipes.json"
   },
   {
@@ -304,25 +311,39 @@
    "id": "skill-cypher-15",
    "layer": "chain",
    "anchor": "key",
-   "query": "USE chain MATCH (t:Transaction {hash: \"0x044587122970de1e3c377a8ed7ab56a49c777a2b7441a2f5d9ca32dbab9fbe71\"}) RETURN t.status, t.block_height, t.block_date",
+   "query": "USE chain MATCH (t:Transaction {tx_id: \"0x044587122970de1e3c377a8ed7ab56a49c777a2b7441a2f5d9ca32dbab9fbe71\"}) RETURN t.status, t.block_height, t.block_date",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
    "id": "skill-cypher-16",
    "layer": "chain",
    "anchor": "key",
-   "query": "USE chain MATCH (b:Block {height: 79841521}) RETURN b.hash, b.block_date",
+   "query": "USE chain MATCH (b:Block {block_height: 79841521}) RETURN b.block_hash, b.block_date",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
    "id": "skill-cypher-17",
    "layer": "chain",
-   "anchor": "head",
-   "query": "USE chain MATCH (h:Head) RETURN h.height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind",
+   "anchor": "key",
+   "query": "USE chain MATCH (a:Address {address: \"0x04911a118f11c75667e4d0dfb8e640af5a353550\"}) RETURN a.balance, a.nonce, a.is_contract",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
    "id": "skill-cypher-18",
+   "layer": "chain",
+   "anchor": "key",
+   "query": "USE chain MATCH (a:Address {address: \"0x04911a118f11c75667e4d0dfb8e640af5a353550\", at_block: 79000000}) RETURN a.balance, a.nonce, a.is_contract",
+   "source": "skills/chain-insights-cypher/SKILL.md"
+  },
+  {
+   "id": "skill-cypher-19",
+   "layer": "chain",
+   "anchor": "head",
+   "query": "USE chain MATCH (h:Head) RETURN h.block_height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind",
+   "source": "skills/chain-insights-cypher/SKILL.md"
+  },
+  {
+   "id": "skill-cypher-20",
    "layer": "topology",
    "anchor": "address",
    "query": "USE topology MATCH (a:Address {address: \"0x04911a118f11c75667e4d0dfb8e640af5a353550\"})-[f:FLOWS_TO]->(b:Address) WHERE NOT a:Pool RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.last_seen_timestamp AS last_seen_timestamp ORDER BY f.last_seen_timestamp DESC LIMIT 25",

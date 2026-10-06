@@ -34,6 +34,12 @@ describe('the pinned facts columns', () => {
     }
   })
 
+  it('reads network from no view: the server computes it from the query, so no mapped column carries it', () => {
+    for (const entry of pin.relationships) {
+      expect(entry.properties, `${entry.relationship} maps a stored network`).not.toContain('network')
+    }
+  })
+
   it('names no repository path: no value holds a path of the server', () => {
     const values: string[] = []
     JSON.stringify(pin, (_key, value: unknown) => {

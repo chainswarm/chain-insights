@@ -38,11 +38,21 @@ const plain = (text: string): string => flat(text).replace(/\\?`/g, '').replace(
 describe('the pinned facts contract', () => {
   it('holds the numbers, the anchors, the six codes and every refusal of the server', () => {
     expect(contract.anchors).toEqual(['pair', 'transaction'])
-    expect(contract.refusals).toHaveLength(53)
-    expect(contract.refusals.filter((refusal) => refusal.relationship !== '')).toHaveLength(51)
+    expect(contract.refusals).toHaveLength(56)
+    expect(contract.refusals.filter((refusal) => refusal.relationship !== '')).toHaveLength(54)
     for (const refusal of contract.refusals) {
       expect(contract.codes, refusal.id).toContain(refusal.code)
     }
+  })
+
+  it('holds the three kind-label refusals: Account, Contract and a second label beside Address', () => {
+    const kind = contract.refusals.filter((refusal) =>
+      /:(?:Account|Contract)\b/.test(refusal.query)
+    )
+    expect(kind.map((refusal) => refusal.code)).toEqual(Array(3).fill('facts_no_anchor'))
+    expect(kind.some((refusal) => /\(\w+:Address:Account\b/.test(refusal.query))).toBe(true)
+    expect(kind.some((refusal) => /\(\w+:Account \{/.test(refusal.query))).toBe(true)
+    expect(kind.some((refusal) => /\(\w+:Contract \{/.test(refusal.query))).toBe(true)
   })
 
   it('names no repository path: no value holds a path of the server', () => {

@@ -914,7 +914,7 @@ describe('cia mcp call - a tool error is the server answering', () => {
         rule: saved.rule,
         class: saved.class,
         fix: saved.fix,
-        example: 'USE chain MATCH (h:Head) RETURN h.height',
+        example: 'USE chain MATCH (h:Head) RETURN h.block_height',
       })
     )
 
@@ -923,7 +923,7 @@ describe('cia mcp call - a tool error is the server answering', () => {
       'call',
       'graph_query',
       'network=robinhood',
-      'query=USE chain MATCH (h:Head) RETURN h.height'
+      'query=USE chain MATCH (h:Head) RETURN h.block_height'
     )
 
     expect(exitSpy).toHaveBeenCalledWith(1)
@@ -940,7 +940,7 @@ describe('cia mcp call - a tool error is the server answering', () => {
         rule: saved.rule,
         class: saved.class,
         fix: saved.fix,
-        example: 'USE chain MATCH (h:Head) RETURN h.height',
+        example: 'USE chain MATCH (h:Head) RETURN h.block_height',
       })
     )
 
@@ -949,7 +949,7 @@ describe('cia mcp call - a tool error is the server answering', () => {
       'call',
       'graph_query',
       'network=robinhood',
-      'query=USE chain MATCH (h:Head) RETURN h.height'
+      'query=USE chain MATCH (h:Head) RETURN h.block_height'
     )
 
     expect(printed).toContain('the chain layer is off or behind')

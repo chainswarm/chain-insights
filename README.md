@@ -8,9 +8,9 @@
 [![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/chainswarm/chain-insights)](https://securityscorecards.dev/viewer/?uri=github.com/chainswarm/chain-insights)
 [![License](https://img.shields.io/npm/l/chain-insights)](https://github.com/chainswarm/chain-insights/blob/main/LICENSE)
 
-  *Follow the funds. Find the obvious.*
+_Follow the funds. Find the obvious._
 
-  [Website](https://chain-insights.ai) | [npm](https://www.npmjs.com/package/chain-insights) | [Quickstart](#quickstart)
+[Website](https://chain-insights.ai) | [npm](https://www.npmjs.com/package/chain-insights) | [Quickstart](#quickstart)
 </div>
 
 Chain Insights is open-source AML and forensics infrastructure for AI agents
@@ -181,13 +181,14 @@ Graph queries choose the read graph explicitly:
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `topology` | The unified address / FLOWS_TO / OPERATED_BY / LINKED graph — recent and full historical fund-flow traversal, and swap, liquidity-pool and bridge totals (see [Graph tools](docs/graph-tools.md#swaps-liquidity-pools-and-bridges)) |
 | `facts`    | Bounded individual `TRANSFER` rows with amount, `amount_usd`, asset, transaction, and block facts, plus single `SWAP`, `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and `BRIDGE_CROSSING` rows                                                                                           |
+| `chain`    | One keyed lookup on the chain node: a transaction by `tx_id`, a block by `block_height` or `block_hash`, an address at one block (balance, nonce, kind), or the head                                                                                                            |
 
 One rule is worth reading before writing a query by hand: the `network`
-argument selects the graph, not the addresses inside it. The address-space
-split lives on the `:Address.network` node property. A `USE topology` match
-on `:Address` without an exact address must scope itself with
-`WHERE a.network = "..."`. On `USE facts` each network has its own backing
-database and `Address` carries no `network` property at all. See
+argument selects the graph. `network` is also a property of every node and
+relationship on every layer, and its value is the query's `network`. It is never
+stored, except on a `:Chain` node, so a filter on it narrows nothing: anchor on
+an address instead. A thing has one name on every layer: `address`, `tx_id`,
+`block_height` and `block_hash`, with time in epoch milliseconds. See
 [Graph query compatibility](docs/graph-query-compatibility.md).
 
 Agent installs include `chain-insights-cypher` for graph-query dialect rules,

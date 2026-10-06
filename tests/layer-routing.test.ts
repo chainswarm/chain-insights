@@ -142,26 +142,54 @@ describe('every entry meets the rule of its layer', () => {
   })
 
   it('names the example and the problem when a chain query is a range, a search or has no literal key', () => {
-    expect(chainProblem('USE chain MATCH (b:Block) WHERE b.height > 10 RETURN b.hash')).toMatch(
-      /not one node/
-    )
-    expect(chainProblem('USE chain MATCH (b:Block {height: 10}) RETURN b.hash LIMIT 50')).toMatch(
-      /LIMIT of 50/
-    )
-    expect(chainProblem('USE chain MATCH (t:Transaction {hash: $hash}) RETURN t.status')).toMatch(
+    expect(
+      chainProblem('USE chain MATCH (b:Block) WHERE b.block_height > 10 RETURN b.block_hash')
+    ).toMatch(/not one node/)
+    expect(
+      chainProblem('USE chain MATCH (b:Block {block_height: 10}) RETURN b.block_hash LIMIT 50')
+    ).toMatch(/LIMIT of 50/)
+    expect(chainProblem('USE chain MATCH (t:Transaction {tx_id: $tx_id}) RETURN t.status')).toMatch(
       /not a literal/
     )
     expect(chainProblem('USE chain MATCH (t:Transaction) RETURN t.status')).toMatch(/names no key/)
-    expect(chainProblem('USE chain MATCH (h:Head {height: 5}) RETURN h.height')).toMatch(
-      /Head takes none/
+    expect(
+      chainProblem('USE chain MATCH (h:Head {block_height: 5}) RETURN h.block_height')
+    ).toMatch(/Head takes none/)
+    expect(
+      chainProblem('USE chain MATCH (t:Transaction {tx_id: "0xabc"}) RETURN t.status')
+    ).toBeNull()
+    expect(
+      chainProblem('USE chain MATCH (b:Block {block_height: 7}) RETURN b.block_hash, b.block_date')
+    ).toBeNull()
+    expect(chainProblem('USE chain MATCH (h:Head) RETURN h.block_height LIMIT 1')).toBeNull()
+    expect(
+      chainProblem('USE chain MATCH (a:Address {address: "0xabc"}) RETURN a.balance, a.nonce')
+    ).toBeNull()
+    expect(
+      chainProblem(
+        'USE chain MATCH (a:Address {address: "0xabc", at_block: 79000000}) RETURN a.is_contract'
+      )
+    ).toBeNull()
+  })
+
+  it('holds the Address lookup twice: the newest block, and a past block with at_block', () => {
+    const lookups = routing.entries.filter(
+      (entry) => entry.layer === 'chain' && entry.query.includes(':Address')
     )
     expect(
-      chainProblem('USE chain MATCH (t:Transaction {hash: "0xabc"}) RETURN t.status')
-    ).toBeNull()
+      lookups.some((entry) => !entry.query.includes('at_block')),
+      'no Address lookup of the newest block'
+    ).toBe(true)
     expect(
-      chainProblem('USE chain MATCH (b:Block {height: 7}) RETURN b.hash, b.block_date')
-    ).toBeNull()
-    expect(chainProblem('USE chain MATCH (h:Head) RETURN h.height LIMIT 1')).toBeNull()
+      lookups.some((entry) => entry.query.includes('at_block')),
+      'no Address lookup of a past block'
+    ).toBe(true)
+  })
+
+  it('writes a chain entry with no old key and no old property', () => {
+    for (const entry of routing.entries.filter((candidate) => candidate.layer === 'chain')) {
+      expect(entry.query, entry.id).not.toMatch(/\{(?:hash|height):|\b[a-z]\.(?:hash|height)\b/)
+    }
   })
 })
 

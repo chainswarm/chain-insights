@@ -2,12 +2,18 @@
 
 Chain Insights Graph accepts ISO GQL through `graph_query` and
 `graph_query_batch`. A query is routed by its leading `USE <graph>` clause to
-one of two backends, each with its own accepted surface:
+one of three backends, each with its own accepted surface:
 
-| Graph      | Backend                     | Query surface                              |
-| ---------- | --------------------------- | ------------------------------------------ |
-| `topology` | DozerDB, directly over Bolt | **ISO GQL**, bounded (see topology bounds) |
-| `facts`    | StarRocks warehouse         | Corpus-scoped GQL subset, compiled to SQL  |
+| Graph      | Backend                     | Query surface                                                           |
+| ---------- | --------------------------- | ----------------------------------------------------------------------- |
+| `topology` | DozerDB, directly over Bolt | **ISO GQL**, bounded (see topology bounds)                              |
+| `facts`    | StarRocks warehouse         | Corpus-scoped GQL subset, compiled to SQL                               |
+| `chain`    | The chain node              | One keyed lookup: `Transaction`, `Block`, `Address` or `Head`, by a key |
+
+The same thing has the same name on all three: `address`, `tx_id`,
+`block_height` and `block_hash`, with time in epoch milliseconds and `network`
+from the query. The `chain-insights-cypher` skill holds the table, and
+`meta_schema` reads the fields of each from the live graph.
 
 Two consequences drive everything below:
 
@@ -26,7 +32,7 @@ Two consequences drive everything below:
 > removed in the 2026-09 Robinhood Dozer cutover. Docs and skills that teach
 > those path operators or client merge are historical.
 
-## The shared-graph model — what `network` actually selects
+## The `network` argument and the `network` property
 
 Read this before writing any query that matches `:Address` without an exact
 address.
@@ -36,49 +42,44 @@ space over ONE address-grain topology graph. There is no SS58/H160 split and
 no second query network — `network=robinhood` selects the one public graph and
 there is no `network=robinhood_evm` argument to pass.
 
-The consequence is exact and easy to get wrong:
+`network` is also a property of every node and every relationship on
+`USE topology`, `USE facts` and `USE chain`. Its value is the query's `network`
+argument. It is computed and never stored, with one exception: on a `:Chain`
+node (the far side of a bridge) it names the remote chain, and it is stored and
+read as it is.
 
-> **The `network` argument selects the GRAPH, not the subset of addresses
-> inside it.**
-
-A `USE topology` query that matches `:Address` without a network predicate
-scans the whole public H160 space; scope by the node property when you want an
-explicit subset:
+> **A filter on `network` never narrows a scan.** `WHERE a.network = "robinhood"`
+> keeps every row, and a filter on another value gives no rows. Narrow a query
+> with an address anchor.
 
 ```cypher
--- WRONG: unbounded sweep — returns every H160 address in the public space
-USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 100
+-- A probe: one node, no WHERE, a LIMIT of 100 or less
+USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network LIMIT 20
 
--- RIGHT: scope by the node property
-USE topology MATCH (a:Address) WHERE a.network = "robinhood"
-RETURN a.address AS address LIMIT 100
+-- Anchored: an address in the pattern
+USE topology MATCH (a:Address {address: "0x…"})-[f:FLOWS_TO]->(b:Address)
+WHERE NOT a:Pool
+RETURN b.address AS address LIMIT 100
 ```
 
-Exact-address lookups (`MATCH (a:Address {address: "0x…"})`) need no predicate:
-the address is already a unique key, and adding a network predicate there fails
-closed on an H160 address screened under the chain's primary network name.
+### `USE facts` serves it too
 
-### `USE facts` is the opposite case
-
-`facts` is the one place each network _does_ get its own backing database —
-the routing metadata on a result reports it as
-`facts.routing.starrocks_database`. Because the database already scopes the
-network, the facts `Address` label has **no mapped `network` property at all**:
+Facts rows and the facts `Address` endpoint carry `network` as well. The server
+computes it from the query's `network` argument. No view holds a column for it:
 
 ```text
 USE facts MATCH (a:Address {address:"0x…"})-[t:TRANSFER]->(b:Address {address:"0x…"})
           WHERE t.block_date = "2026-07-11"
-          RETURN a.network AS from_network
-→ unknown graph identifier: property "network" is not mapped on label "Address"
+          RETURN a.network AS from_network, t.network AS row_network
+→ from_network = robinhood, row_network = robinhood
 ```
 
-`Address` on facts is served only as a `TRANSFER` relationship endpoint, so a
-single-node `MATCH (a:Address)` is refused there as well. Read address-grain
-node properties — including `network` — on `USE topology`.
-
-Getting these two rules backwards is not a stylistic problem. An unscoped
-topology sweep publishes wrong-network results at double the metered cost, and
-a facts query projecting `network` hard-fails rather than degrading.
+A filter on `network` is no anchor: a facts read still names an address pair
+with one day, or one `tx_id`. `Address` on facts is served only as a `TRANSFER`
+relationship endpoint, so a single-node `MATCH (a:Address)` is refused there as
+well. Facts serves no kind label: a read that names `:Account` or `:Contract` is
+refused, so read the kind on `USE topology`, or on `USE chain` with
+`is_contract` and `nonce`.
 
 ## `topology` — ISO GQL
 
@@ -147,8 +148,9 @@ not valued, and sits in none of the four reason counters.
 
 The canonical probe is point-anchored and sub-second on the hosted endpoint:
 given one operator address, its top owners. Scope comes from the tool's
-`network=robinhood` argument (it selects the graph — see the shared-graph
-model above), so no in-query network predicate is needed:
+`network=robinhood` argument (it selects the graph — see
+[the `network` argument](#the-network-argument-and-the-network-property)), so no
+in-query network predicate is needed:
 
 ```cypher
 USE topology
@@ -172,18 +174,15 @@ acting.
 The whole-graph high-fan-in sweep — every operator grouped by distinct owner
 count — is a valid shape but a heavy one: at millions of edges it can exceed
 the per-query limit (60 seconds by default), and a sweep that times out can
-still consume the metered seconds. Scope both endpoints by the network
-property (this match has no exact-address key, so the shared-graph rule
-applies), bound it by a recent `last_seen_timestamp` window — recompute the
-cutoff rather than copying a literal, for example now minus 7 days in Unix
-milliseconds — and prefer the point-anchored probe on metered endpoints:
+still consume the metered seconds. A `network` filter does not narrow it. Bound
+it by a recent `last_seen_timestamp` window — recompute the cutoff rather than
+copying a literal, for example now minus 7 days in Unix milliseconds — and
+prefer the point-anchored probe on metered endpoints:
 
 ```cypher
 USE topology
 MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address)
-WHERE owner.network = "robinhood"
-  AND operator.network = "robinhood"
-  AND operation.last_seen_timestamp >= 1787631843154  -- now minus 7 days, ms
+WHERE operation.last_seen_timestamp >= 1787631843154  -- now minus 7 days, ms
 WITH operator,
      count(DISTINCT owner) AS owner_count,
      sum(operation.tx_count) AS transfer_count
@@ -382,6 +381,7 @@ StarRocks. Use the topology graph, or restructure:
 | Self-joins / node-to-node comparison `WHERE a <> b`                             | Compare key properties: `a.address <> b.address`                                                                        |
 | Untyped relationship `-[r]->`                                                   | Name the relationship type                                                                                              |
 | Metadata functions `keys(n)`, `labels(n)`, `type(r)`                            | Project known properties explicitly                                                                                     |
+| `:Account` and `:Contract` kind labels                                          | `USE topology` for the label, or `USE chain` for `is_contract` and `nonce`. Facts serves no kind                        |
 
 There is no longer a local pinned conformance suite; verify supported and
 rejected shapes against a live Chain Insights Graph endpoint.
@@ -407,6 +407,16 @@ node label and its flag. Only `is_exchange` ends a walk.
 Caveats: facts carries only its mapped labels, so role-label patterns are
 topology-only. The property-flag form (`is_exchange`) remains the canonical
 filter.
+
+## Kind labels (topology graph)
+
+A kind is a second label on an `Address`, set from a chain fact: `:Account` for
+a key holder and `:Contract` for a contract (`:Contract:SmartAccount` for a
+contract wallet). `is_contract` stays beside `:Contract`. An address that only
+received has no kind, and no address carries both kinds. A role label stays
+beside the kind. Facts serves no kind, and a kind is never a `USE chain` lookup
+label: `USE chain MATCH (a:Address {address: "0x…"}) RETURN a.is_contract, a.nonce`
+reads it at one block.
 
 ## Practical guidance
 

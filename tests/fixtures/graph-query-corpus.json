@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/generate-query-corpus.mjs",
- "entry_count": 46,
+ "entry_count": 50,
  "entries": [
   {
    "builder": "addressFeatureQuery",
@@ -86,6 +86,55 @@
    },
    "scope": "topology",
    "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[l:LINKED]-(b:Address) WHERE a.network <> b.network RETURN a.address AS address, a.network AS network, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence, l.source_event AS source_event, l.declared_owner AS declared_owner LIMIT 50"
+  },
+  {
+   "builder": "documented-recipe",
+   "params": {
+    "id": "recipe_chain_address_01",
+    "features": [
+     "chain-lookup",
+     "address-key",
+     "state-now"
+    ]
+   },
+   "scope": "chain",
+   "query": "USE chain MATCH (a:Address {address: \"0x2459dedb3012d1e929edd17df26620120bdf11bf\"}) RETURN a.balance, a.nonce, a.is_contract"
+  },
+  {
+   "builder": "documented-recipe",
+   "params": {
+    "id": "recipe_chain_block_01",
+    "features": [
+     "chain-lookup",
+     "block-key"
+    ]
+   },
+   "scope": "chain",
+   "query": "USE chain MATCH (b:Block {block_height: 79841521}) RETURN b.block_hash, b.block_date"
+  },
+  {
+   "builder": "documented-recipe",
+   "params": {
+    "id": "recipe_chain_head_01",
+    "features": [
+     "chain-lookup",
+     "head"
+    ]
+   },
+   "scope": "chain",
+   "query": "USE chain MATCH (h:Head) RETURN h.block_height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind"
+  },
+  {
+   "builder": "documented-recipe",
+   "params": {
+    "id": "recipe_chain_tx_01",
+    "features": [
+     "chain-lookup",
+     "transaction-key"
+    ]
+   },
+   "scope": "chain",
+   "query": "USE chain MATCH (t:Transaction {tx_id: \"0x350065e1a55d7272de562706fdea5f48ae83cf10e468e56b2209f8cfbaaf1901\"}) RETURN t.status, t.block_height, t.block_date"
   },
   {
    "builder": "documented-recipe",

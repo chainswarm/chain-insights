@@ -8,7 +8,8 @@ import {
   traceHopsWithoutSwapped,
   unguardedPoolWalks,
 } from './support/pool-walk-guard.js'
-import { servedGraphHints } from './support/schema-text.js'
+import { flat, servedGraphHints } from './support/schema-text.js'
+import { routingLines } from '../src/mcp/layer-routing.js'
 
 const root = process.cwd()
 
@@ -179,10 +180,12 @@ describe('shipped Chain Insights skills contract', () => {
     expect(graphTools).toContain('"id":"operated_by_sample"')
     expect(graphTools).toContain('OPERATED_BY]->(operator:Address {address:')
 
-    // The unanchored sweep scopes both endpoints by the network property.
+    // The unanchored sweep is bounded by a recent window. It carries no network
+    // predicate: the network is the query's, so a filter on it narrows nothing.
     expect(compatibility).toMatch(
-      /MATCH \(owner:Address\)-\[operation:OPERATED_BY\]->\(operator:Address\)[\s\S]{0,200}WHERE owner\.network = "robinhood"[\s\S]{0,200}AND operator\.network = "robinhood"/
+      /MATCH \(owner:Address\)-\[operation:OPERATED_BY\]->\(operator:Address\)\s+WHERE operation\.last_seen_timestamp >= \d+/
     )
+    expect(compatibility).not.toMatch(/(?:owner|operator)\.network = "robinhood"/)
 
     // The text never describes the relation as a risk signal, in any of the
     // phrasings a doc edit would realistically introduce.
@@ -1071,6 +1074,112 @@ describe('the cypher skill: graph searches, units and the field sampling reads',
   it('gives the server instructions the same one line about meta_schema', () => {
     expect(squash(servedGraphHints())).toContain(
       'Call meta_schema {network} first when you need field names; it is cached for 24 hours.'
+    )
+  })
+})
+
+// The unified names (one address, one transaction and one clock on topology,
+// facts and chain). Each test is a search of the files that teach an agent, and
+// nothing else: it reads files and calls no server.
+describe('unified names', () => {
+  // Every text that teaches an agent a name: the skills and their plugin copies,
+  // the docs, the README, the hints that the proxy serves, and the fixtures.
+  function teachingTexts(): [string, string][] {
+    const files = [
+      ...markdownFiles('skills'),
+      ...markdownFiles('plugin/skills'),
+      ...markdownFiles('docs'),
+      'README.md',
+      ...readdirSync(join(root, 'tests/fixtures'))
+        .filter((name) => name.endsWith('.json'))
+        .map((name) => `tests/fixtures/${name}`),
+    ]
+    return [
+      ...files.map((path): [string, string] => [path, read(path)]),
+      ['src/mcp/proxy.ts graph hints', servedGraphHints()],
+    ]
+  }
+
+  const OLD_CHAIN_NAME =
+    /Transaction \{hash|Block \{(?:height|hash)|\bh\.(?:height|hash)\b|\bt\.hash\b|\bb\.(?:height|hash)\b/
+
+  it('skills and fixtures name no old chain key', () => {
+    const found = teachingTexts()
+      .map(([name, text]) => [name, OLD_CHAIN_NAME.exec(text)?.[0]] as const)
+      .filter(([, hit]) => hit !== undefined)
+    expect(found, 'a text still names a chain key that was renamed').toEqual([])
+  })
+
+  it('no skill names a stored Address.network or :Wallet', () => {
+    const STORED_NETWORK = /:?Address\.network|\bno (?:mapped )?`network` property/i
+    const WALLET_LABEL = /:Wallet\b/
+    const found = teachingTexts()
+      .filter(([name]) => !name.startsWith('tests/fixtures/'))
+      .flatMap(([name, text]) =>
+        [STORED_NETWORK, WALLET_LABEL].flatMap((pattern) => {
+          const hit = pattern.exec(flat(text))
+          return hit ? [`${name}: ${hit[0]}`] : []
+        })
+      )
+    expect(found, 'a text still teaches a stored network or a :Wallet label').toEqual([])
+  })
+
+  it("the served hints say network is the query's", () => {
+    const hints = flat(servedGraphHints())
+    expect(hints).toMatch(
+      /network is the query's network on every node and relationship, never stored, except on :Chain/
+    )
+    expect(hints).not.toMatch(/network value on Address nodes/i)
+    // The kind is a second label on topology, none on facts, and properties on chain.
+    expect(hints).toMatch(/topology carries :Account or :Contract as a second label/)
+    expect(hints).toMatch(/facts serves no kind/i)
+    for (const name of ['is_contract', 'nonce', 'delegated_to']) expect(hints).toContain(name)
+  })
+
+  it('routing offers the Address lookup', () => {
+    const lines = routingLines().join(' ')
+    expect(lines).toMatch(/`USE chain`[^.]*`Address`|`Address`[^.]*`USE chain`/)
+    for (const word of ['balance', 'nonce', 'kind', 'at_block']) expect(lines).toContain(word)
+    for (const [name, text] of teachingTexts()) {
+      expect(flat(text), `${name} says chain has no address lookup`).not.toMatch(
+        /(?:chain|`USE chain`) has no address lookup|no address lookup/i
+      )
+    }
+    expect(flat(servedGraphHints())).toContain(
+      routingLines().find((line) => line.includes('`Address`')) ?? 'no routing line names Address'
+    )
+  })
+})
+
+describe('the cypher skill teaches the chain Address lookup', () => {
+  const skill = flat(read('skills/chain-insights-cypher/SKILL.md'))
+
+  it('shows the lookup for the newest block and for a past block with at_block, with a full address', () => {
+    // The skill never shortens an address, so the examples carry all 42 characters.
+    expect(skill).toMatch(
+      /USE chain MATCH \(a:Address \{address: "0x[0-9a-f]{40}"\}\) RETURN a\.balance/
+    )
+    expect(skill).toMatch(
+      /USE chain MATCH \(a:Address \{address: "0x[0-9a-f]{40}", at_block: \d+\}\) RETURN a\.balance/
+    )
+  })
+
+  it('names the near-tip refusal and the field that publishes its depth, never the depth', () => {
+    expect(skill).toContain('at_block_near_tip')
+    expect(skill).toContain('chain_admission.at_block_min_depth')
+    expect(skill).not.toMatch(/\b256 blocks\b/)
+  })
+
+  it('says a kind is read from is_contract and nonce, and is no lookup label', () => {
+    expect(skill).toMatch(/`a\.is_contract`/)
+    expect(skill).toMatch(
+      /`:Account`[^.]*`:Contract`[^.]*(?:not|never) (?:a )?(?:chain )?lookup label/
+    )
+  })
+
+  it('names epoch milliseconds for block_timestamp on every layer, chain included', () => {
+    expect(skill).toMatch(
+      /`block_timestamp` is[^.]*epoch milliseconds on every layer, chain included/
     )
   })
 })

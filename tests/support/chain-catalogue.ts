@@ -8,8 +8,13 @@ import { read } from './schema-text.js'
 export type ChainLabel = {
   label: string
   answers: string
+  /** The keys the lookup takes. All of them, or exactly one when `key_rule` says so. */
   keys: string[]
+  /** Keys a lookup may add, such as `at_block` on an `Address`. */
+  optional_keys: string[]
   key_rule: string
+  /** Words that name a kind of address and are no lookup label. The lookup that answers for them says so. */
+  kind_labels: string[]
   properties: string[]
 }
 
@@ -18,6 +23,8 @@ export type ChainCatalogue = {
   server_commit: string
   rules_version: string
   grammar: string
+  /** The properties every label serves, computed by the server, such as `network`. */
+  computed_on_every_label: string[]
   labels: ChainLabel[]
 }
 
@@ -28,11 +35,13 @@ export function chainCatalogue(): ChainCatalogue {
   return pinned
 }
 
-// A lookup is one node of a served label, with its key in braces as a literal, a
+// A lookup is one node of a served label, with its keys in braces as literals, a
 // RETURN of properties of that node, and no WHERE, no relationship and no range.
 const CHAIN_LOOKUP =
   /^USE chain MATCH \((\w+):(\w+)(?: \{([^{}]*)\})?\) RETURN ((?:\w+\.\w+)(?:, \w+\.\w+)*)(?: LIMIT (\d+))?$/
 const LITERAL_KEY = String.raw`(?:"[^"$]*"|\d+)`
+// `at_block` is a block number: an integer literal, never text.
+const BLOCK_NUMBER = /^\d+$/
 
 function list(items: string[]): string {
   if (items.length <= 1) return items.join('')
@@ -58,18 +67,39 @@ export function chainLookupProblem(
       return `returns ${item}, which is not a property of ${variable}`
     }
     const property = item.slice(variable.length + 1)
-    if (!entry.properties.includes(property)) {
+    if (
+      !entry.properties.includes(property) &&
+      !(catalogue.computed_on_every_label ?? []).includes(property)
+    ) {
       return `returns ${item}, and ${label} does not serve ${property}`
     }
   }
-  const key = new RegExp(String.raw`^(\w+): (${LITERAL_KEY})$`).exec(keys ?? '')
-  if (entry.keys.length === 0) {
+  const allowed = [...entry.keys, ...(entry.optional_keys ?? [])]
+  if (allowed.length === 0) {
     return keys === undefined ? null : `names a key, and ${label} takes none`
   }
-  if (keys === undefined) return `names no key, and ${label} takes one`
-  if (!key) return `names a key that is not a literal: ${keys}`
-  if (!entry.keys.includes(key[1])) {
-    return `names a ${label} by ${key[1]}, and it takes ${list(entry.keys)}`
+  if (keys === undefined) return `names no key, and ${label} takes ${list(entry.keys)}`
+  const named: Record<string, string> = {}
+  for (const part of keys.split(', ')) {
+    const pair = new RegExp(String.raw`^(\w+): (${LITERAL_KEY})$`).exec(part)
+    if (!pair) return `names a key that is not a literal: ${keys}`
+    const [, name, value] = pair as unknown as [string, string, string]
+    if (!allowed.includes(name)) {
+      return `names a ${label} by ${name}, and it takes ${list(allowed)}`
+    }
+    if (name in named) return `names ${name} twice`
+    named[name] = value
+  }
+  if (entry.key_rule === 'exactly_one') {
+    if (Object.keys(named).length !== 1) {
+      return `names ${Object.keys(named).length} keys, and ${label} takes exactly one of ${list(entry.keys)}`
+    }
+  } else {
+    const missing = entry.keys.filter((key) => !(key in named))
+    if (missing.length > 0) return `names no ${list(missing)}, and ${label} needs it`
+  }
+  if ('at_block' in named && !BLOCK_NUMBER.test(named['at_block'] ?? '')) {
+    return `names at_block as ${named['at_block']}, and it is a block number from 0`
   }
   return null
 }
