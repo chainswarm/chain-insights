@@ -22,6 +22,13 @@ import { primitiveBackendUsageStatus } from './usage-status.js'
 import { unavailableSubscriptionStatus } from './subscription-status.js'
 import { mirrorGraphNetworkCapabilities } from './capabilities.js'
 import { routingHintLines } from './layer-routing.js'
+import {
+  GraphSchemaError,
+  META_SCHEMA_DESCRIPTION,
+  META_SCHEMA_TITLE,
+  handleMetaSchema,
+  type GraphSchemaDependencies,
+} from './graph-schema.js'
 import { actionLogSignalsFromResult, appendActionLog } from './action-log.js'
 import {
   FLOWS_MAX_OFFSET,
@@ -35,6 +42,7 @@ import {
 
 const LOCAL_TOOL_NAMES = new Set([
   'meta_network_capabilities',
+  'meta_schema',
   'meta_usage_status',
   'meta_subscription_status',
   'meta_help',
@@ -108,6 +116,7 @@ const GRAPH_LAYERS_TEXT =
 
 const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   meta_network_capabilities: 'Return the current Chain Insights network and tool support matrix.',
+  meta_schema: META_SCHEMA_DESCRIPTION,
   meta_usage_status: "Return the caller's public free graph_query quota for the current UTC day.",
   meta_subscription_status:
     "Return the caller's CIA subscription window end, daily allowance, consumption, and tier.",
@@ -183,6 +192,7 @@ const GRAPH_SCHEMA_HINTS = [
   '- A USE facts SWAP row carries no route: it has no pools and no families column. A read that names one of them, to return it, to filter on it or to order by it, is refused. The route of a swap stays a topology question. For the pools of the swaps of an address, read SWAPPED.pools and SWAPPED.families on USE topology, anchored on the payer or the recipient. SWAPPED has one link per payer, recipient, sold asset and bought asset, so its pools cover every route on the link, not one route.',
   '- Traversal rule: for BFS, fixed-hop fallback, shortest-path, or manual FLOWS_TO traversal, exchange hot wallets are terminal endpoints only. Do not expand from, through, or classify exchange nodes as deposit, suspect, or intermediate candidates; filter every non-terminal node with is_exchange IS NULL. is_exchange is absent unless true, so a labelled node with no is_exchange is walked through, and is_scam, is_victim and is_sanctioned do not end a walk. At a Pool, follow the pool trace rule above.',
   '- Pool guard: a trace walks FLOWS_TO and SWAPPED, so it crosses a swap from payer to recipient without passing through the pool. A walk may end at a Pool, but never starts at one or passes through one: its start and every address in its middle stay off a Pool. A fixed-hop walk adds WHERE NOT src:Pool AND NOT mid:Pool, each its own AND term, never inside an OR. A quantified or shortest-path walk puts the guards inside the path pattern, on the start and on up to 4 guarded hops before one last hop: MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: $to}) RETURN [n IN nodes(p) | n.address] AS route LIMIT 5. ANY SHORTEST takes the same pattern. A route search asks for one path. An open target from one address: MATCH SHORTEST 1 (a:Address {address: $addr} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address) RETURN b.address LIMIT 50. Use these shapes as written, changing only the addresses and the RETURN. A WHERE placed after a SHORTEST pattern runs after the shortest route is chosen, so it drops a route that crosses a pool instead of finding the route that avoids it.',
+  '- Call meta_schema {network} first when you need field names; it is cached for 24 hours. The two discovery reads below are the fallback.',
   '- Start schema discovery with endpoint-safe property reads: MATCH (n:Address) RETURN n.address AS address, n.network AS network, n.labels AS labels, n.last_activity_timestamp AS last_activity_timestamp LIMIT 20',
   '- Relationship discovery: MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count LIMIT 20',
   "- Anchor every topology read that filters on a link property: put an address in its pattern. Without one, a read starts from every link of the type it names, and you should not count on the filter to narrow that: WHERE x.strength = 'swap' on SWAPPED checks every SWAPPED link, LIMIT stops the read only after enough rows match, and a filter that matches few or none can run to the 60 s topology limit and fail with query_timeout. Example: MATCH (a:Address {address: $addr})-[x:SWAPPED]->(b:Address) WHERE x.swap_count >= 2 RETURN b.address, x.swap_count LIMIT 25. Pick an address with few links: degree_out and degree_in are a rough guide, because they count neighbours, not links, and an address with hundreds of thousands of neighbours can fail the same way. Discovery probes with LIMIT and no filter stay valid. The queries of one batch share a 100 s budget; USE facts queries stop at 30 s.",
@@ -594,6 +604,20 @@ function registerLocalPrompts(server: McpServer): void {
   )
 
   server.registerPrompt(
+    'meta-schema',
+    {
+      title: 'Graph Schema',
+      description: 'Read the live graph schema of one network before writing a query.',
+      argsSchema: { network: NETWORK_SCHEMA },
+    },
+    async ({ network }) =>
+      promptResult(
+        `Use Chain Insights meta_schema with network ${network}. Report the labels, link types and fields exactly as returned; do not invent fields.`,
+        'Graph schema'
+      )
+  )
+
+  server.registerPrompt(
     'meta-usage-status',
     {
       title: 'Usage Status',
@@ -983,6 +1007,43 @@ export async function createProxy(): Promise<void> {
     }
   )
 
+  // meta_schema: the live graph schema of one network, built from the catalog
+  // statements of the graph endpoint and kept on disk for 24 hours. A build reads
+  // through the proxy's one remote session; a cache hit reads nothing.
+  const schemaDependencies: GraphSchemaDependencies = {
+    endpoint: graphMcpEndpoint,
+    withClient: async (fn) => {
+      if (!remoteConnected) {
+        throw new GraphSchemaError(
+          `${remoteUnavailableMessage ?? `Chain Insights Graph is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`
+        )
+      }
+      return fn(remoteClient)
+    },
+    describeFailure: (err) => remoteCallFailureText('meta_schema', err),
+  }
+  server.registerTool(
+    'meta_schema',
+    {
+      title: META_SCHEMA_TITLE,
+      description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.meta_schema,
+      inputSchema: {
+        network: NETWORK_SCHEMA,
+        refresh: z
+          .boolean()
+          .optional()
+          .describe('Rebuild the schema now instead of reading the 24 hour cache.'),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    async (args) => handleMetaSchema(args, schemaDependencies)
+  )
+
   server.registerTool(
     'meta_usage_status',
     {
@@ -1219,6 +1280,7 @@ export async function createProxy(): Promise<void> {
                 '',
                 'Investigation tools:',
                 '- meta_network_capabilities: inspect supported networks and available tools.',
+                '- meta_schema: read the live graph schema of one network: labels, link types and field names. Cached for 24 hours.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
                 '- meta_subscription_status: check the caller CIA subscription window end, daily allowance, consumption, and tier.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
@@ -1235,6 +1297,7 @@ export async function createProxy(): Promise<void> {
                 '',
                 'Available graph-backed tools:',
                 '- meta_network_capabilities: inspect supported networks and available tools.',
+                '- meta_schema: read the live graph schema of one network: labels, link types and field names. Cached for 24 hours.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
                 '- meta_subscription_status: check the caller CIA subscription window end, daily allowance, consumption, and tier.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',

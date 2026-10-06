@@ -173,6 +173,27 @@ async function printNetworkCapability(name: string, opts: { json?: boolean }): P
   }
 }
 
+/**
+ * The live graph schema of one network (meta_schema). A fresh cache answers with
+ * no request; a build opens one session and reads through it.
+ */
+async function printNetworkSchema(
+  name: string,
+  opts: { json?: boolean; refresh?: boolean }
+): Promise<void> {
+  const { loadConfig } = await import('./config/index.js')
+  const { resolveGraphMcpEndpoint } = await import('./mcp/client.js')
+  const { formatGraphSchemaText, getGraphSchema } = await import('./mcp/graph-schema.js')
+  const config = await loadConfig()
+  const schema = await getGraphSchema({
+    network: name,
+    refresh: opts.refresh === true,
+    endpoint: resolveGraphMcpEndpoint(config),
+    withClient: (fn) => withGraphMcpClient('chain-insights-cli-schema', (client) => fn(client)),
+  })
+  console.log(opts.json ? JSON.stringify(schema, null, 2) : formatGraphSchemaText(schema))
+}
+
 type SubscriptionStatusLookup =
   { kind: 'available'; facts: SubscriptionStatusFacts } | { kind: 'unavailable'; reason: string }
 
@@ -329,10 +350,22 @@ program
   .command('network')
   .description('Show details for one supported graph network')
   .argument('<name>', 'Network identifier or display name (for example: robinhood)')
-  .option('--json', 'Print raw capability JSON for this network')
-  .action(async (name: string, opts: { json?: boolean }) => {
+  .option('--json', 'Print raw capability JSON for this network (with --schema: the schema JSON)')
+  .option(
+    '--schema',
+    'Show the live graph schema: labels, link types, fields and indexes (cached for 24 hours)'
+  )
+  .option('--refresh', 'With --schema: rebuild the schema now instead of reading the cache')
+  .action(async (name: string, opts: { json?: boolean; schema?: boolean; refresh?: boolean }) => {
     try {
-      await printNetworkCapability(name, opts)
+      if (opts.refresh && !opts.schema) {
+        throw new Error('--refresh needs --schema: run `cia network <name> --schema --refresh`.')
+      }
+      if (opts.schema) {
+        await printNetworkSchema(name, opts)
+      } else {
+        await printNetworkCapability(name, opts)
+      }
     } catch (err) {
       console.error((err as Error).message)
       process.exit(1)
@@ -931,6 +964,14 @@ mcpCommand.addCommand(
 
         if (tool === 'meta_network_capabilities') {
           await printNetworkCapabilities({ json: opts.json })
+          return
+        }
+
+        if (tool === 'meta_schema') {
+          await printNetworkSchema(String(args['network'] ?? ''), {
+            json: opts.json,
+            refresh: String(args['refresh'] ?? '').toLowerCase() === 'true',
+          })
           return
         }
 

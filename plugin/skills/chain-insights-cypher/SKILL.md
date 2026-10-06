@@ -10,8 +10,9 @@ Standard ISO GQL for `graph_query` and `graph_query_batch`. Read-only. No
 
 Run a query with `cia mcp call graph_query network=robinhood "query=<query>"`.
 Send related reads in one call with `cia mcp call graph_query_batch network=robinhood 'queries=[{"id":"a","query":"<query>"}]'`.
-Always pass `network` and your own `LIMIT`. These two commands are all you
-need. Do not run `cia --help` to look for others.
+Always pass `network` and your own `LIMIT`. These two commands, and
+`cia network robinhood --schema` for field names, are all you need. Do not run
+`cia --help` to look for others.
 
 ## Rules that stop most failures
 
@@ -165,7 +166,9 @@ So a walk never starts at a pool and never passes through one. It may end at one
 
 ## Find the fields
 
-The graph holds more fields than this skill names. Read the keys of a sample. A contract carries more keys than a plain address. Read `degree_in` and `degree_out` of an address before you walk from it: a hub ends in `query_timeout`.
+Call `meta_schema {network}` first when you need field names; it is cached for 24 hours. From a shell, run `cia network robinhood --schema`. It adds `--json` for the structured form and `--refresh` to rebuild. It lists the labels, the link types, the fields of an address and of each main link, the indexes, the `TRANSFER` columns and the `USE chain` lookups, read from the live graph. Fields come from a sample, so a rare field may be missing.
+
+The graph holds more fields than this skill names. When `meta_schema` is not available, or the field you need is not in it, read the keys of a sample. A contract carries more keys than a plain address. Read `degree_in` and `degree_out` of an address before you walk from it: a hub ends in `query_timeout`.
 
 ```cypher
 USE topology
@@ -179,7 +182,7 @@ MATCH ()-[r:FLOWS_TO]->() RETURN keys(r) AS keys LIMIT 5
 
 Name another link type to read its keys: `SWAPPED`, `LINKED`, `OPERATED_BY`, `BRIDGED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY`. `synced_through_height` and `pair_key` are bookkeeping: never filter or sort on them.
 
-The catalog calls `CALL db.labels()`, `CALL db.relationshipTypes()`, `CALL db.propertyKeys()`, `CALL db.schema.visualization()` and `SHOW INDEXES` are being enabled on the server. Do not send them until it serves them.
+The server serves five read-only catalog calls: `CALL db.labels()`, `CALL db.relationshipTypes()`, `CALL db.propertyKeys()`, `CALL db.schema.visualization()` and `SHOW INDEXES`. `meta_schema` sends four of them for you through one session and keeps the answer, so do not send them yourself.
 
 ## Facts: an address pair with one day
 
