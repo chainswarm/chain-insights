@@ -18,7 +18,7 @@ sleep 2
 
 # Test tool listing via JSON-RPC
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | chain-insights-mcp-proxy | jq '.result.tools[].name'
-# Expected: Returns tool names (meta_network_capabilities, meta_usage_status, aml_*, graph_query*, wallet_balance, meta_help)
+# Expected: Returns tool names (meta_network_capabilities, meta_usage_status, graph_query*, wallet_balance, meta_help). No aml_address_risk: it is hidden.
 
 # Test local tool (no Graph connection required)
 echo '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"meta_help","arguments":{}}}' | chain-insights-mcp-proxy | jq '.result.content[].text' | head -5
@@ -28,9 +28,13 @@ echo '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"meta_help"
 echo '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"meta_network_capabilities","arguments":{}}}' | chain-insights-mcp-proxy | jq '.result.structuredContent'
 # Expected: Returns structured content with network capabilities (robinhood, tools, layers)
 
-# Test payment-required scenario (if wallet not configured)
-echo '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"aml_address_risk","arguments":{"network":"robinhood","address":"0xtest"}}}' | chain-insights-mcp-proxy 2>&1 | grep -i "payment"
+# Test payment-required scenario through the CLI (if wallet not configured)
+cia mcp call graph_query network=robinhood "query=USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 1" 2>&1 | grep -i "payment"
 # Expected: Error message mentioning "Payment required" and next steps (wallet ready, access-key set)
+
+# Test the hidden tool: aml_address_risk is refused as an unknown tool
+echo '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"aml_address_risk","arguments":{"network":"robinhood","address":"0xtest"}}}' | chain-insights-mcp-proxy 2>&1 | grep -i "not found"
+# Expected: "Tool aml_address_risk not found"
 
 # Test structured logging
 tail -f ~/.chain-insights/runtime/logs/mcp-proxy.jsonl | head -5

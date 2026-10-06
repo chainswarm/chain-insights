@@ -11,9 +11,7 @@ import { cpSync, existsSync, readFileSync, readdirSync, rmSync, statSync } from 
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// The skills the plugin carries. chain-insights-address-risk stays out: it
-// drives aml_address_risk, a tool of the local cia proxy that the hosted
-// connector the plugin installs does not serve.
+// The skills the plugin carries: every skill that skills/ ships.
 export const PLUGIN_SKILLS = ['chain-insights-cypher', 'chain-insights-schema-evm']
 
 const defaultRoot = dirname(dirname(fileURLToPath(import.meta.url)))

@@ -35,11 +35,12 @@ function plain(text: string): string {
   return flat(text).replace(/\\?`/g, '').replace(/\*\*/g, '')
 }
 
+// The schema skill is the one skill home of the swap route rule. The cypher skill
+// is short: it names no swap column, and the "no shipped recipe names a route
+// column" test below still reads it.
 const GUIDE_HOMES = [
   'skills/chain-insights-schema-evm/SKILL.md',
-  'skills/chain-insights-cypher/SKILL.md',
   'plugin/skills/chain-insights-schema-evm/SKILL.md',
-  'plugin/skills/chain-insights-cypher/SKILL.md',
   'docs/graph-tools.md',
   'docs/graph-query-compatibility.md',
 ]
@@ -51,6 +52,8 @@ const SHIPPED_TEXT = [
   'src/workspace/init.ts',
   'src/investigation/public-tools.ts',
   ...GUIDE_HOMES,
+  'skills/chain-insights-cypher/SKILL.md',
+  'plugin/skills/chain-insights-cypher/SKILL.md',
   ...markdownFiles('docs'),
 ]
 
@@ -103,7 +106,6 @@ describe('the stopgap is gone', () => {
   it('the dialect skill no longer promises pools from one facts swap route', () => {
     const cypher = flat(read('skills/chain-insights-cypher/SKILL.md'))
     expect(cypher).not.toContain('One swap route, its strength and pools')
-    expect(cypher).toContain('One swap route and its strength')
   })
 })
 
@@ -260,13 +262,11 @@ describe('no shipped recipe names a route column in a facts SWAP read', () => {
     const swapReads = surfaces.flatMap(({ name, queries }) =>
       queries.filter((query) => FACTS_SWAP.test(query)).map((query) => ({ name, query }))
     )
-    // The guard is not vacuous: the dialect skill and the tools guide each
-    // ship one facts SWAP read that returns rows.
+    // The guard is not vacuous: the tools guide ships a facts SWAP read that
+    // returns rows.
     expect(
       swapReads.filter(({ query }) => /\bRETURN\b/i.test(query)).map(({ name }) => name)
-    ).toEqual(
-      expect.arrayContaining(['skills/chain-insights-cypher/SKILL.md', 'docs/graph-tools.md'])
-    )
+    ).toEqual(expect.arrayContaining(['docs/graph-tools.md']))
 
     const violations = swapReads
       .filter(({ query }) => namesRouteInFactsSwap(query))

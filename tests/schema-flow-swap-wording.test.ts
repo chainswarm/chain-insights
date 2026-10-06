@@ -138,15 +138,12 @@ describe('swap strength today', () => {
     expect(swapped).toContain('It exists in the warehouse only')
     expect(swapped).toContain('It makes no edge and no facts row')
     expect(swapped).toContain('A missing `SWAPPED` edge is not proof that no swap happened')
-    expect(swapped).toContain('Three kinds of transaction read `swap_unsplit` today')
     expect(swapped).toContain(
-      'A Uniswap v4 swap. Every one does, by design, so v4 swaps are hidden'
+      'Every Uniswap v4 swap reads `swap_unsplit`, by design, so v4 swaps are hidden'
     )
-    expect(swapped).toContain('An intent fill')
-    expect(swapped).toContain('one input and one output')
-    expect(swapped).toContain(
-      '1% on 2026-06-18, 7% on 2026-07-10, 19% on 2026-07-26 and 32% on 2026-08-10'
-    )
+    // The dated shares of a day's routes went stale the day they were written, and
+    // the short guide names none.
+    expect(swapped).not.toMatch(/\d+% on 20\d\d-\d\d-\d\d/)
   })
 
   it('liquidity families are named as a different vocabulary from swap families', () => {
@@ -186,11 +183,12 @@ describe('swap strength today', () => {
     expect(hints).toContain('the shape is a swap but the pool code is not proven')
   })
 
-  it('the dialect skill warns off a strength = swap filter', () => {
-    const cypher = flat(read(CYPHER))
-    expect(cypher).toContain('Today every served swap has `strength` `swap_like`')
-    expect(cypher).toContain("Do not filter on `strength = 'swap'`: it matches nothing.")
-    expect(cypher).toContain('has no edge and no row')
+  it('the schema skill warns off a strength = swap filter, and the short dialect skill holds no swap section', () => {
+    const guideText = flat(read(GUIDE))
+    expect(guideText).toContain(
+      "A filter on `strength = 'swap'` or on a known family matches nothing"
+    )
+    expect(flat(read(CYPHER))).not.toContain('strength')
   })
 
   it('no text still says the pool matches no reviewed family', () => {
@@ -229,11 +227,10 @@ describe('SWAPPED USD is 0 on an unpriced side', () => {
     expect(swapped).toContain(
       '`sold_price_missing` and `bought_price_missing` say which side had no price'
     )
-    expect(swapped).toContain('47 of 100 swap routes had no price on the bought side')
   })
 
-  it('empty USD is only the facts row, in the guide, the tools guide and the dialect skill', () => {
-    for (const path of [GUIDE, TOOLS, CYPHER]) {
+  it('empty USD is only the facts row, in the guide and the tools guide', () => {
+    for (const path of [GUIDE, TOOLS]) {
       const text = flat(read(path))
       expect(text, path).not.toContain('Empty when no price service covers it')
       const claims = [...text.matchAll(/USD is empty|it is empty when no service prices/g)]
@@ -248,14 +245,11 @@ describe('SWAPPED USD is 0 on an unpriced side', () => {
     )
   })
 
-  it('the tools guide and the dialect skill say SWAPPED adds 0 for an unpriced side', () => {
+  it('the tools guide says SWAPPED adds 0 for an unpriced side', () => {
     const tools = flat(read(TOOLS))
     expect(tools).toContain('`SWAPPED` sums its routes, and a route side with no price adds 0')
     expect(tools).toContain('So 0 can mean no price. Do not read 0 as worth nothing')
     expect(tools).toContain('`sold_price_missing` and `bought_price_missing`')
-    const cypher = flat(read(CYPHER))
-    expect(cypher).toContain('On a facts row it is empty when no service prices the asset')
-    expect(cypher).toContain('a side with no price adds 0, so 0 can mean no price')
   })
 
   it('the served hints say a route side with no price adds 0 and point at the facts row', () => {

@@ -1,6 +1,34 @@
 import { describe, expect, it } from 'vitest'
 import { McpToolError } from '../src/mcp/print-result.js'
-import { formatMcpCallError } from '../src/mcp/tool-visibility.js'
+import {
+  PUBLIC_MCP_TOOL_ALLOWED_ARGS,
+  PUBLIC_MCP_TOOL_REQUIRED_ARGS,
+  assertPublicMcpToolName,
+  formatMcpCallError,
+  isHiddenRemoteToolName,
+  visibleRemoteTools,
+} from '../src/mcp/tool-visibility.js'
+
+describe('aml_address_risk is hidden until its verdict is fixed', () => {
+  it('is a hidden name, never listed from a remote catalogue and refused by name', () => {
+    expect(isHiddenRemoteToolName('aml_address_risk')).toBe(true)
+    expect(
+      visibleRemoteTools([
+        { name: 'aml_address_risk' },
+        { name: 'graph_query' },
+        { name: 'graph_query_batch' },
+      ]).map((tool) => tool.name)
+    ).toEqual(['graph_query', 'graph_query_batch'])
+    expect(() => assertPublicMcpToolName('aml_address_risk')).toThrow(
+      "MCP tool 'aml_address_risk' is not exposed by Chain Insights."
+    )
+  })
+
+  it('has no public argument contract', () => {
+    expect(PUBLIC_MCP_TOOL_REQUIRED_ARGS).not.toHaveProperty('aml_address_risk')
+    expect(PUBLIC_MCP_TOOL_ALLOWED_ARGS).not.toHaveProperty('aml_address_risk')
+  })
+})
 
 describe('MCP CLI error guidance', () => {
   it.each(['MCP error -32602: unknown tool "unknown"', 'Tool unknown not found'])(

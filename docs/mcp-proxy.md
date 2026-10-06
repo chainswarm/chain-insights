@@ -132,20 +132,19 @@ network list and each network's advertised remote tools. `cia mcp networks`
 exposes the same full network capability matrix. Use `cia mcp tools --refresh`
 after a backend tool change.
 
-Run the address-risk workflow with `cia workflow aml-address-risk`. Use
-`cia mcp call graph_query` or `cia mcp call graph_query_batch` for low-level
+Use `cia mcp call graph_query` or `cia mcp call graph_query_batch` for
 agent-authored graph reads.
 
 `meta_usage_status` is a Chain Insights proxy tool. On hosted Chain Insights Graph
 backends it can reflect remote quota telemetry. On backends without a quota
 tool, it returns a local unmetered primitive-backend status.
 
-Chain Insights adds the high-level local graph recipe `aml_address_risk`
-when the remote endpoint only exposes primitives.
+Graph queries take full blockchain addresses directly and return blockchain
+addresses as the public result surface. The graph is address-grain, so there
+is no identity-resolution step. Never shorten an address.
 
-AML recipes accept full blockchain addresses directly and return blockchain
-addresses as the public result surface — the graph is address-grain, so there
-is no identity-resolution step.
+The proxy does not offer `aml_address_risk`. It is hidden until its verdict is
+fixed: `tools/list` omits it, and a call to it is refused as an unknown tool.
 
 ## Auth Modes
 
@@ -199,27 +198,14 @@ cia mcp call --json graph_query \
   "query=USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 10"
 ```
 
-The CIA address-risk workflow also supports JSON output and version selection:
-
-```bash
-cia workflow aml-address-risk --json \
-  --address 0xYourAddressHere --network robinhood
-
-cia workflow aml-address-risk --version v1 \
-  --address 0xYourAddressHere --network robinhood
-```
-
-Omit the version to route to the latest supported AML contract. The package
-version shown by `cia --version` is separate from tool contract versions.
-
 UAT on 2026-05-31 showed the 10-second free tier was enough for exact
 address checks, sample address reads, sample flow reads, and the
 free-to-paid handoff, but bounded sample reads still returned topology data
 inside the same daily allowance.
 
-For a one-address screen, install `chain-insights-address-risk`. For custom
-graph reads, install `chain-insights-cypher` plus `chain-insights-schema-evm`.
-Cypher is Memgraph dialect only. The schema skill holds the GraphRAG map.
+For graph reads, install `chain-insights-cypher` plus
+`chain-insights-schema-evm`. The cypher skill teaches ISO GQL and the three
+read layers. The schema skill holds the graph map.
 
 Paid x402 mode:
 
@@ -260,8 +246,7 @@ cia --hermes
 The Hermes installer writes Chain Insights skills under the Hermes skills
 directory and registers the stdio MCP proxy in the Hermes config.
 
-For a one-address screen, agents should use `chain-insights-address-risk`.
-For manual graph-language work, use `chain-insights-cypher` plus
+For graph-language work, agents use `chain-insights-cypher` plus
 `chain-insights-schema-evm`.
 
 ## Supported Agent Setup
@@ -284,7 +269,6 @@ Desktop afterwards.
 
 Current MCP prompts exposed by the local proxy:
 
-- `aml-address-risk`
 - `meta-network-capabilities`
 - `meta-usage-status`
 - `graph-query`
@@ -306,7 +290,7 @@ available tools exactly as returned.
 ```text
 Use Chain Insights graph_query on network robinhood with:
 USE topology MATCH (a:Address)
-RETURN a.address AS address, a.network AS network, a.labels AS labels, a.risk_level AS risk_level
+RETURN a.address AS address, a.network AS network, a.labels AS labels
 LIMIT 10
 ```
 

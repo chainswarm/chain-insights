@@ -38,7 +38,9 @@ const CYPHER = 'skills/chain-insights-cypher/SKILL.md'
 const TOOLS = 'docs/graph-tools.md'
 const COMPAT = 'docs/graph-query-compatibility.md'
 
-const GUIDE_HOMES = [GUIDE, CYPHER, `plugin/${GUIDE}`, `plugin/${CYPHER}`, TOOLS, COMPAT] as const
+// The schema skill is the one skill home of the kind of a row. The cypher skill
+// is short and states the facts read, not the kinds.
+const GUIDE_HOMES = [GUIDE, `plugin/${GUIDE}`, TOOLS, COMPAT] as const
 
 // Every file a reader or an agent is shown.
 const SHIPPED_TEXT = [
@@ -47,6 +49,8 @@ const SHIPPED_TEXT = [
   'src/workspace/init.ts',
   'src/investigation/public-tools.ts',
   ...GUIDE_HOMES,
+  CYPHER,
+  `plugin/${CYPHER}`,
   ...markdownFiles('docs'),
 ]
 
@@ -217,14 +221,14 @@ describe('the stale sentences are gone', () => {
 })
 
 describe('the read of the internal rows is a read the server admits', () => {
-  it('the dialect skill shows it, and it names a pair, one day and the kind', () => {
-    const queries = markdownQueries(read(CYPHER)).filter((query) => query.includes('t.kind'))
-    expect(queries.length, 'the dialect skill shows no read of t.kind').toBeGreaterThan(0)
+  it('the schema skill shows it, and it names a pair, one day and the kind', () => {
+    const queries = markdownQueries(read(GUIDE)).filter((query) => query.includes('t.kind'))
+    expect(queries.length, 'the schema skill shows no read of t.kind').toBeGreaterThan(0)
     for (const raw of queries) {
       const query = flat(raw)
       expect(factsReadViolations(query), query).toEqual([])
       expect(query).toMatch(
-        /\{address: "0x…"\}\)-\[t:TRANSFER\]->\(to:Address \{address: "0x…"\}\)/
+        /\{address: "0x[0-9a-f]{40}"\}\)-\[t:TRANSFER\]->\(b:Address \{address: "0x[0-9a-f]{40}"\}\)/
       )
       expect(query).toMatch(/t\.block_date = "\d{4}-\d{2}-\d{2}"/)
       expect(query).toContain('t.kind = "internal"')

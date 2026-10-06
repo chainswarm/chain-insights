@@ -18,9 +18,8 @@ Exit codes are contract. Scripts and agent harnesses may rely on them.
 
 ### MCP tool names
 
-The public MCP surface is these eight tools:
+The public MCP surface is these seven tools:
 
-- `aml_address_risk`
 - `graph_query`
 - `graph_query_batch`
 - `meta_help`
@@ -33,9 +32,10 @@ Tool names are contract. Removing or renaming one is a deprecation event.
 Tool _arguments_ may grow additively at any time; existing argument names and
 meanings are stable.
 
-The CLI supports `--json` for indented structured output. The
-`aml_address_risk` tool accepts an optional `version`; omitting it routes to
-the latest contract, while `version=v1` pins the current contract.
+`aml_address_risk` is hidden until its verdict is fixed. It is not on the
+public surface, and a call to it is refused as an unknown tool.
+
+The CLI supports `--json` for indented structured output.
 
 ### Config keys
 

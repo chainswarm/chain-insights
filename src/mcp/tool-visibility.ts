@@ -3,6 +3,9 @@ import { McpToolError, formatMcpToolError } from './print-result.js'
 export const HIDDEN_REMOTE_TOOL_NAMES = new Set([
   'topup',
   'address_risk',
+  // Hidden until its verdict is fixed: never listed, never registered, never
+  // called through the proxy. The remote graph endpoint does not serve it.
+  'aml_address_risk',
   'trace_victim_funds',
   'trace_suspect_funds',
   'trace_deposit_sources',
@@ -23,7 +26,6 @@ export const HIDDEN_REMOTE_TOOL_NAMES = new Set([
 ])
 
 export const PUBLIC_MCP_TOOL_REQUIRED_ARGS: Record<string, string[]> = {
-  aml_address_risk: ['address', 'network'],
   graph_query: ['query', 'network'],
   graph_query_batch: ['network', 'queries'],
 }
@@ -36,7 +38,6 @@ export const PUBLIC_MCP_TOOL_REQUIRED_ARGS: Record<string, string[]> = {
 // appears on a tool schema, and is covered end-to-end through the proxy in
 // tests/mcp-proxy.test.ts.
 export const PUBLIC_MCP_TOOL_ALLOWED_ARGS: Record<string, string[]> = {
-  aml_address_risk: ['address', 'network', 'compare_address', 'version'],
   // `time_scope` narrows a `USE topology` query to a temporal-shard subset
   graph_query: ['query', 'network', 'time_scope'],
   graph_query_batch: ['network', 'queries', 'per_query_timeout_seconds', 'time_scope'],
@@ -67,19 +68,17 @@ export function visibleRemoteTools<T extends { name: string; _meta?: Record<stri
 export function assertPublicMcpToolName(name: string): void {
   if (!isHiddenRemoteToolName(name)) return
   const replacement =
-    name === 'address_risk'
-      ? ' Use aml_address_risk instead.'
-      : name === 'network_capabilities'
-        ? ' Use meta_network_capabilities instead.'
-        : name === 'usage_status'
-          ? ' Use meta_usage_status instead.'
-          : name === 'subscription_status'
-            ? ' Use meta_subscription_status instead.'
-            : name === 'balance'
-              ? ' Use wallet_balance instead.'
-              : name === 'help'
-                ? ' Use meta_help instead.'
-                : ''
+    name === 'network_capabilities'
+      ? ' Use meta_network_capabilities instead.'
+      : name === 'usage_status'
+        ? ' Use meta_usage_status instead.'
+        : name === 'subscription_status'
+          ? ' Use meta_subscription_status instead.'
+          : name === 'balance'
+            ? ' Use wallet_balance instead.'
+            : name === 'help'
+              ? ' Use meta_help instead.'
+              : ''
   throw new Error(`MCP tool '${name}' is not exposed by Chain Insights.${replacement}`)
 }
 

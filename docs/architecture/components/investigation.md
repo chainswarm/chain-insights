@@ -10,7 +10,9 @@ Tests: tests/mcp-proxy.test.ts, tests/cli-mcp.test.ts
 
 Implements AML address screening and comparison. It composes read-only
 `graph_query` and `graph_query_batch` calls, builds a risk profile, and returns
-a text summary with structured facts.
+a text summary with structured facts. The CLI command stays. The MCP proxy
+does not offer it as a tool: `aml_address_risk` is hidden until its verdict is
+fixed.
 
 ## Reads
 

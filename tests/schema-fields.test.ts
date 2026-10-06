@@ -266,8 +266,11 @@ describe('the served hints name the same fields', () => {
 
 // The bounds text: an unanchored link filter, and the limits that apply.
 describe('the bounds text', () => {
-  it('the dialect skill and the graph tools guide say a link filter needs an address anchor', () => {
-    for (const path of ['skills/chain-insights-cypher/SKILL.md', 'docs/graph-tools.md']) {
+  it('the graph tools guide says a link filter needs an address anchor, and the short dialect skill says it in one line', () => {
+    expect(flat(read('skills/chain-insights-cypher/SKILL.md'))).toContain(
+      'a filter on a link property needs an anchor on every pattern'
+    )
+    for (const path of ['docs/graph-tools.md']) {
       const text = flat(read(path))
       expect(text, path).toContain(
         'A topology read that filters on a link property needs an address anchor'
@@ -303,7 +306,7 @@ describe('the bounds text', () => {
   })
 
   it('the anchored example is a one-hop SWAPPED read on a named address', () => {
-    for (const path of ['skills/chain-insights-cypher/SKILL.md', 'docs/graph-tools.md']) {
+    for (const path of ['docs/graph-tools.md']) {
       expect(read(path), path).toContain(
         'MATCH (a:Address {address: "0x…"})-[x:SWAPPED]->(b:Address)\nWHERE x.swap_count >= 2'
       )
@@ -336,9 +339,6 @@ describe('the bounds text', () => {
     expect(tools).toContain('"starrocks_tier_timeout_seconds": 30')
     expect(flat(read('docs/graph-query-compatibility.md'))).toContain(
       'the per-query limit (60 seconds by default)'
-    )
-    expect(flat(read('skills/chain-insights-schema-evm/SKILL.md'))).toContain(
-      'can exceed the 60-second per-query limit'
     )
   })
 })

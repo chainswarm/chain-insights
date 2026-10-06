@@ -322,16 +322,12 @@ Rules:
 
 AML tool guidance:
 
-1. Discover high-level CIA workflows with \`cia workflows\`.
-2. Use the \`cia workflow aml-address-risk\` command for single-address
-   enrichment and optional comparison with another address.
-3. Use \`cia mcp call graph_query_batch\` only when the high-level tools do not
-   answer the exact question, and \`cia mcp call graph_query\` for single
-   read-only queries.
+1. Use \`cia mcp call graph_query\` for single read-only queries, and
+   \`cia mcp call graph_query_batch\` for related reads.
+2. Do not run a risk screen unless the user asks about risk.
 
-\`aml_address_risk\` takes a raw blockchain address as input directly — there
-is no identity-resolution step — and returns \`chain-insights.result.v1\`. Preserve
-full blockchain addresses in the summary and all workspace artifacts.
+Preserve full blockchain addresses in the summary and all workspace
+artifacts. Never shorten an address.
 `
 
 const SCHEMA_README = `# Runtime Schema Captures

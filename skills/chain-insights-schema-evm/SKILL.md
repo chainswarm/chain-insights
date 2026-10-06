@@ -1,52 +1,71 @@
 ---
 name: chain-insights-schema-evm
-description: Use when reading the EVM / Robinhood GraphRAG map — node labels, relationships, and properties for graph_query and graph_query_batch.
+description: Use when reading the EVM / Robinhood graph map — node labels, relationships, and properties for graph_query and graph_query_batch. Names only what the live server serves.
 ---
 
 # Chain Insights schema: EVM / Robinhood
 
-This is the GraphRAG map for EVM addresses. When GraphRAG advertises
-`robinhood`, pass `network=robinhood`.
+The map of the graph that `network=robinhood` serves. Every label,
+relationship and property below was read from the live server. Load
+`chain-insights-cypher` for the query rules and the three read layers.
 
-Robinhood is EVM-only. Addresses are H160 `0x...`. The node property
-`:Address.network` is `robinhood`.
+## Units and addresses
 
-Load `chain-insights-cypher` for Memgraph dialect rules.
+- An address is 42 characters: `0x` and 40 lowercase hex digits. Write it in
+  full in every query and every answer. Never shorten it with `...` or `…`. A
+  shortened or mixed-case address matches nothing and gives zero rows, with no
+  error.
+- `*_timestamp` on topology and facts is an integer in milliseconds since the
+  Unix epoch, UTC. Never compare it with an ISO string. `USE chain` is the
+  exception: its `block_timestamp` is an ISO string such as
+  `"2026-07-10T14:17:12Z"`.
+- `block_date` is a UTC day, `"YYYY-MM-DD"`.
+- `amount_usd_sum`, `total_*_usd` and every `*_usd` field are US dollars.
+  They are numbers on topology and text on facts, such as `"5.23661492"`.
+- `*_raw` fields are exact token quantities in the token's smallest unit. They
+  are not USD.
+- `*_height` and `*_block` fields are block numbers.
 
 ## Topology labels
 
-| Label                                      | What it is                                                                                                                                                                                                                                         |
-| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Address`                                  | One chain address. Keyed by raw `address`.                                                                                                                                                                                                         |
-| `Pool`                                     | A second label on an `Address`: the pool of a swap route or a liquidity event. Both DEX layers set it, so a pool with liquidity and no swap carries it. The node keeps `:Address` and its properties. See the [pool trace rule](#pool-trace-rule). |
-| `Chain`                                    | The far side of a bridge: a remote chain and the endpoint used on it. Never an `Address`, so no `FLOWS_TO` walk passes through it.                                                                                                                 |
-| `EvmAuthorizationRequest`                  | One EIP-7702 authorization, keyed by `request_id`. Never an `Address`, so no `FLOWS_TO` walk passes through it.                                                                                                                                    |
-| `Exchange`, `Scam`, `Victim`, `Sanctioned` | Role labels, a second label on an `Address`. See [Role labels and flags](#role-labels-and-flags).                                                                                                                                                  |
+| Label                                                | What it is                                                                                                                                                                                                                                         |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Address`                                            | One chain address. Keyed by raw `address`.                                                                                                                                                                                                         |
+| `Pool`                                               | A second label on an `Address`: the pool of a swap route or a liquidity event. Both DEX layers set it, so a pool with liquidity and no swap carries it. The node keeps `:Address` and its properties. See the [pool trace rule](#pool-trace-rule). |
+| `Chain`                                              | The far side of a bridge: a remote chain and the endpoint used on it. Never an `Address`, so no `FLOWS_TO` walk passes through it.                                                                                                                 |
+| `EvmAuthorizationRequest`                            | One EIP-7702 authorization, keyed by `request_id`. Never an `Address`, so no `FLOWS_TO` walk passes through it.                                                                                                                                    |
+| `Exchange`, `Scam`, `Victim`, `Sanctioned`           | Role labels, a second label on an `Address`. See [Role labels and flags](#role-labels-and-flags).                                                                                                                                                  |
+| `SmartAccount`, `Bundler`, `Paymaster`, `EntryPoint` | Account-abstraction roles, a second label on an `Address`. An `EntryPoint` is the contract the user operations go through.                                                                                                                         |
+| `Protocol`                                           | A token, contract, DEX or DeFi address, a second label on an `Address`. The contract name is in `labels`.                                                                                                                                          |
 
 ## Topology relationships
 
-| Relationship           | Shape                                                                       | Meaning                                                                                          |
-| ---------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `FLOWS_TO`             | `(:Address)-[:FLOWS_TO]->(:Address)`                                        | Lifetime money flow. Directed.                                                                   |
-| `SWAPPED`              | `(:Address)-[:SWAPPED]->(:Address)`                                         | Swap payer to swap recipient, two different addresses. Directed.                                 |
-| `ADDED_LIQUIDITY`      | `(:Address)-[:ADDED_LIQUIDITY]->(:Pool)`                                    | Provider to pool. Directed.                                                                      |
-| `REMOVED_LIQUIDITY`    | `(:Pool)-[:REMOVED_LIQUIDITY]->(:Address)`                                  | Pool to the address the liquidity was paid to. Directed.                                         |
-| `BRIDGED`              | `(:Address)-[:BRIDGED]->(:Chain)` out, `(:Chain)-[:BRIDGED]->(:Address)` in | Bridge use, per address and remote endpoint. Directed.                                           |
-| `OPERATED_BY`          | `(:Address)-[:OPERATED_BY]->(:Address)`                                     | Owner to the transaction sender or event operator. Directed. Topology only.                      |
-| `LINKED`               | `(:Address)-[:LINKED]-(:Address)`                                           | Same-actor overlay. Undirected. Topology only.                                                   |
-| `APPROVED`             | `(:Address)-[:APPROVED]->(:Address)`                                        | Token owner to spender. One link per pair. Directed.                                             |
-| `DEPLOYED_CONTRACT`    | `(:Address)-[:DEPLOYED_CONTRACT]->(:Address)`                               | Deployer to the contract it created. One link per creation. Directed.                            |
-| `SPONSORED`            | `(:Address)-[:SPONSORED]->(:Address)`                                       | Paymaster to the smart account it paid for. Directed.                                            |
-| `BUNDLED`              | `(:Address)-[:BUNDLED]->(:Address)`                                         | Bundler to the smart account it submitted for. Directed.                                         |
-| `SIGNED_FOR`           | `(:Address)-[:SIGNED_FOR]->(:Address)`                                      | Signing key to the smart account it signs for. Directed.                                         |
-| `SIGNED_AUTHORIZATION` | `(:Address)-[:SIGNED_AUTHORIZATION]->(:EvmAuthorizationRequest)`            | EIP-7702: a wallet to the authorization it signed. Directed.                                     |
-| ML pattern links       | address-to-address, ten types                                               | Pattern the ML run found. Do not treat as money flow. See [ML pattern links](#ml-pattern-links). |
+| Relationship           | Shape                                                                       | Meaning                                                                     |
+| ---------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `FLOWS_TO`             | `(:Address)-[:FLOWS_TO]->(:Address)`                                        | Lifetime money flow. Directed.                                              |
+| `SWAPPED`              | `(:Address)-[:SWAPPED]->(:Address)`                                         | Swap payer to swap recipient, two different addresses. Directed.            |
+| `ADDED_LIQUIDITY`      | `(:Address)-[:ADDED_LIQUIDITY]->(:Pool)`                                    | Provider to pool. Directed.                                                 |
+| `REMOVED_LIQUIDITY`    | `(:Pool)-[:REMOVED_LIQUIDITY]->(:Address)`                                  | Pool to the address the liquidity was paid to. Directed.                    |
+| `BRIDGED`              | `(:Address)-[:BRIDGED]->(:Chain)` out, `(:Chain)-[:BRIDGED]->(:Address)` in | Bridge use, per address and remote endpoint. Directed.                      |
+| `OPERATED_BY`          | `(:Address)-[:OPERATED_BY]->(:Address)`                                     | Owner to the transaction sender or event operator. Directed. Topology only. |
+| `LINKED`               | `(:Address)-[:LINKED]-(:Address)`                                           | Same-actor overlay. Undirected. Topology only.                              |
+| `APPROVED`             | `(:Address)-[:APPROVED]->(:Address)`                                        | Token owner to spender. One link per pair. Directed.                        |
+| `DEPLOYED_CONTRACT`    | `(:Address)-[:DEPLOYED_CONTRACT]->(:Address)`                               | Deployer to the contract it created. One link per creation. Directed.       |
+| `SPONSORED`            | `(:Address)-[:SPONSORED]->(:Address)`                                       | Paymaster to the smart account it paid for. Directed.                       |
+| `BUNDLED`              | `(:Address)-[:BUNDLED]->(:Address)`                                         | Bundler to the smart account it submitted for. Directed.                    |
+| `SIGNED_FOR`           | `(:Address)-[:SIGNED_FOR]->(:Address)`                                      | Signing key to the smart account it signs for. Directed.                    |
+| `SIGNED_AUTHORIZATION` | `(:Address)-[:SIGNED_AUTHORIZATION]->(:EvmAuthorizationRequest)`            | EIP-7702: a wallet to the authorization it signed. Directed.                |
 
 `LINKED`, `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY` and `BRIDGED` are
-topology-only. Do not query them on facts. Facts serves their rows under
-other names: see [Facts labels and relationships](#facts-labels-and-relationships).
+topology-only. Do not query them on facts. Facts serves their rows under other
+names: see [Facts labels and relationships](#facts-labels-and-relationships).
 
 One edge holds the lifetime totals of one pair. Single events are facts rows.
+
+Not served today: the risk layer is off (`layers.risk.enabled` is false in
+`meta_network_capabilities`). An `Address` has no `risk_score` or `risk_level`,
+and the graph holds no ML pattern link such as `RISK_PROXIMITY`. Do not read or
+query them.
 
 ## Bookkeeping fields on links
 
@@ -64,34 +83,27 @@ filter, sort or group on them.
 
 | Property                                                                      | Notes                                                                        |
 | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `address`                                                                     | Raw H160. Public results keep this form.                                     |
+| `address`                                                                     | Raw H160, lowercase. Public results keep this form.                          |
 | `network`                                                                     | Address space. `robinhood` here.                                             |
-| `labels`                                                                      | Role words on the node.                                                      |
+| `labels`                                                                      | Role words and names on the node.                                            |
 | `is_exchange` / `is_scam` / `is_victim` / `is_sanctioned`                     | Role flags. Each is absent unless true.                                      |
 | `label_risk_labels` / `label_risk_levels` / `label_risk_updated_timestamps`   | Per-label risk, three parallel lists. Entry i of each list is one label row. |
-| `risk_score` / `risk_level`                                                   | ML verdict. No `risk_score` means `UNSCORED`, not low risk.                  |
 | `tx_in_count` / `tx_out_count` / `tx_total_count`                             | Lifetime counts.                                                             |
 | `degree_in` / `degree_out` / `degree_total`                                   | Neighbor counts.                                                             |
 | `total_in_usd` / `total_out_usd` / `total_volume_usd` / `net_flow_usd`        | Lifetime USD.                                                                |
 | `first_activity_timestamp` / `last_activity_timestamp` / `activity_span_days` | Activity window.                                                             |
 
-There is no `AddressLabel` node and no `HAS_LABEL` or `HAS_RISK_SCORE` edge.
-
 A contract address also carries `is_contract` and the creation fields
 `contract_creation_tx_id`, `contract_creation_type`,
 `contract_creation_confidence`, `contract_creation_block_height` and
 `contract_creation_timestamp`. They come from its newest creation.
-`is_contract` is `true` or absent.
-
-`UNSCORED` means the model gave the address no verdict: it has no
-`risk_score`, and a run that dropped it writes `risk_level` `UNSCORED`. Read
-it as no signal. Never read it as low risk.
+`is_contract` is `true` or absent. A token contract also carries
+`token_standard`, such as `ERC20`.
 
 ## Role labels and flags
 
-The graph says what an address is, not why a detector said so. The reason
-stays in the evidence pipeline. `labels` holds role words, never detector
-names.
+The graph says what an address is, not why a detector said so. `labels` holds
+role words, never detector names.
 
 | Label kind   | Node label    | Flag            | Role word in `labels`              |
 | ------------ | ------------- | --------------- | ---------------------------------- |
@@ -100,24 +112,20 @@ names.
 | `protection` | `:Victim`     | `is_victim`     | `Victim`                           |
 | `sanctioned` | `:Sanctioned` | `is_sanctioned` | `Sanctioned`, plus the entity name |
 
-- `:Exchange` is a node label now. It is a second label on an `Address`, like
-  `:Scam`, `:Victim` and `:Sanctioned`. `:SmartAccount`, `:Bundler`,
-  `:Paymaster` and `:EntryPoint` follow the same way, and `:Protocol` marks a
-  token, contract, DEX or DeFi address, with the contract name in `labels`.
+- `:Exchange` is a node label. It is a second label on an `Address`, like
+  `:Scam`, `:Victim` and `:Sanctioned`.
 - The four role flags `is_exchange`, `is_scam`, `is_victim` and
-  `is_sanctioned` are markers. Each is absent unless true: an address carries
-  `is_scam` only while it has a live `risk` label. No flag is ever `false`.
-  Test one with `IS NOT NULL` or `IS NULL`. Do not test `= false`.
+  `is_sanctioned` are markers. Each is absent unless true. No flag is ever
+  `false`. Test one with `IS NOT NULL` or `IS NULL`. Do not test `= false`.
 - A withdrawn label removes its node label and its flag.
 - Only `is_exchange` marks a terminal in a trace. See
   [Exchange terminals](#exchange-terminals).
 
-Read the flags of one address. A flag the address does not have reads as
-null:
+Read the flags of one address. A flag the address does not have reads as null:
 
 ```cypher
 USE topology
-MATCH (a:Address {address: "0x…"})
+MATCH (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"})
 RETURN a.labels AS labels, a.is_exchange AS is_exchange, a.is_scam AS is_scam,
        a.is_victim AS is_victim, a.is_sanctioned AS is_sanctioned
 LIMIT 1
@@ -161,38 +169,17 @@ this rule:
 4. Across a swap, follow `SWAPPED` from payer to recipient, between two
    different addresses. Do not walk through the pool.
 
-This section is the rule's one home. The dialect skill, the graph tools
-guide and the documented recipes point here. The MCP server's graph hints
-carry these four steps word for word, for clients that load no skill, and a
-test keeps the two the same.
+This section is the rule's one home. The other guides point here. The MCP
+server's graph hints carry these four steps word for word, and a test keeps
+the two the same.
 
 A walk keeps step 3 with the pool guard: a `FLOWS_TO` walk never starts at a
 `:Pool` and never passes through one. It may end at one. A fixed-hop walk
 writes `WHERE NOT src:Pool AND NOT mid:Pool`. A quantified or shortest-path
 walk puts `WHERE NOT a:Pool` on its start and `WHERE NOT via:Pool` inside the
 path pattern. A walk keeps step 4 by following `FLOWS_TO|SWAPPED`, so it
-crosses a swap from payer to recipient. `chain-insights-cypher` shows both
-forms.
-
-Two-hop trace under the rule. The first branch walks `FLOWS_TO` and `SWAPPED`
-through ordinary addresses and never starts at or passes a pool. The second
-passes a pool only on a removal. Neither reaches the traders a pool paid on
-their swaps:
-
-```cypher
-USE topology
-MATCH (src:Address {address: "0x…"})-[r1:FLOWS_TO|SWAPPED]->(mid:Address)-[r2:FLOWS_TO|SWAPPED]->(dst:Address)
-WHERE NOT src:Pool AND NOT mid:Pool AND mid.is_exchange IS NULL AND dst.address <> src.address
-RETURN mid.address AS via_address, type(r2) AS exit_edge, dst.address AS to_address,
-       coalesce(r2.amount_usd_sum, r2.bought_usd) AS exit_usd
-LIMIT 25
-UNION
-MATCH (src:Address {address: "0x…"})-[r1:FLOWS_TO|ADDED_LIQUIDITY]->(mid:Pool)-[r2:REMOVED_LIQUIDITY]->(dst:Address)
-WHERE NOT src:Pool AND dst.address <> src.address
-RETURN mid.address AS via_address, type(r2) AS exit_edge, dst.address AS to_address,
-       r2.usd AS exit_usd
-LIMIT 25
-```
+crosses a swap from payer to recipient. `chain-insights-cypher` shows the
+route form.
 
 ## Pool properties
 
@@ -244,29 +231,14 @@ A route whose legs could not be paired has strength `swap_unsplit`. It has no
 payer, recipient or pool: without a trace the reader cannot tell who paid
 whom. It exists in the warehouse only. It makes no edge and no facts row.
 `strength` is `swap` or `swap_like` on `SWAPPED` and on facts `SWAP`. A
-missing `SWAPPED` edge is not proof that no swap happened.
-
-Three kinds of transaction read `swap_unsplit` today:
-
-- A Uniswap v4 swap. Every one does, by design, so v4 swaps are hidden: they
-  make no `SWAPPED` edge and no facts `SWAP` row. They were about 95% of
-  `swap_unsplit` on 2026-07-26.
-- An intent fill, such as a limit order that a settlement contract fills. It
-  has no pool.
-- A Uniswap V2 or V3 swap whose token movements do not form one input and one
-  output.
-
-The `swap_unsplit` share of a day's swap routes rises with Uniswap v4 use: 1%
-on 2026-06-18, 7% on 2026-07-10, 19% on 2026-07-26 and 32% on 2026-08-10.
+missing `SWAPPED` edge is not proof that no swap happened. Every Uniswap v4
+swap reads `swap_unsplit`, by design, so v4 swaps are hidden.
 
 `sold_usd` and `bought_usd` are always numbers on a link. A route side with no
-price adds 0 to the sum, and the link has no count of unpriced routes. So a
-link with `bought_usd` 0 may be worth nothing, or may have no price. The
-facts `SWAP` row of one route tells which. `sold_price_missing` and
+price adds 0 to the sum, and the link has no count of unpriced routes. The
+facts `SWAP` row of one route tells which: `sold_price_missing` and
 `bought_price_missing` say which side had no price, and the matching
-`sold_usd` or `bought_usd` is empty there. A real 0 is rare: on 2026-07-26,
-47 of 100 swap routes had no price on the bought side, and fewer than 1 in
-100 was a real 0 USD.
+`sold_usd` or `bought_usd` is empty there.
 
 `pair_key` and `synced_through_height` on `SWAPPED` are
 [bookkeeping](#bookkeeping-fields-on-links).
@@ -288,28 +260,10 @@ row says `party_state` `unnamed`.
 | `receiver_added_usd`                     | `REMOVED_LIQUIDITY` only. USD the receiver itself added to the same pool, or 0. |
 | `receiver_provided`                      | `REMOVED_LIQUIDITY` only. True when the receiver also added to the pool.        |
 
-A receiver's profit from a pool is `usd` minus `receiver_added_usd`.
-
-- A drain by a stranger: `receiver_provided` is false and
-  `receiver_added_usd` is 0.
-- A rug pull by the pool's creator: `receiver_provided` is true and `usd` is
-  far above `receiver_added_usd`.
-
-Rug-pull probe. It follows the pool trace rule: in on `FLOWS_TO`, out on
-`REMOVED_LIQUIDITY`:
-
-```cypher
-USE topology
-MATCH (victim:Address {address: "0x…"})-[paid:FLOWS_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address)
-WHERE NOT victim:Pool AND receiver.address <> victim.address
-RETURN pool.address AS pool_address, receiver.address AS receiver_address,
-       paid.amount_usd_sum AS paid_in_usd, removal.usd AS removed_usd,
-       removal.receiver_added_usd AS receiver_added_usd,
-       removal.usd - removal.receiver_added_usd AS receiver_profit_usd,
-       removal.receiver_provided AS receiver_provided
-ORDER BY removed_usd DESC
-LIMIT 25
-```
+A receiver's profit from a pool is `usd` minus `receiver_added_usd`. A drain by
+a stranger has `receiver_provided` false and `receiver_added_usd` 0. A rug pull
+by the pool's creator has `receiver_provided` true and `usd` far above
+`receiver_added_usd`.
 
 ## BRIDGED properties
 
@@ -333,14 +287,8 @@ connected through it.
 One edge aggregates one directed owner/operator pair. The source is the
 owner (`from_address`). The destination is the transaction sender that moved
 the owner's tokens (ERC-20/721), or the event operator (ERC-1155);
-not the approved spender. It is the one link that points at the actor instead
-of away from it. It meets an `APPROVED` spender only when that spender sent
-the transaction itself: a contract that spends an approval keeps the
-`APPROVED` link, and `OPERATED_BY` points at the wallet that called it.
-Direct transfers with an empty operator create no edge. ERC-20, ERC-721, and
-ERC-1155 share this relationship type.
-
-Topology only. Do not query `OPERATED_BY` on facts.
+not the approved spender. Direct transfers with an empty operator create no
+edge. Topology only. Do not query `OPERATED_BY` on facts.
 
 | Property                                         | Notes                                                                                                                      |
 | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
@@ -363,33 +311,8 @@ Topology only. Do not query `OPERATED_BY` on facts.
 `valuation_tracked_count`: a transfer that fails a basic check is tracked, is
 not valued, and sits in none of the four reason counters.
 
-`OPERATED_BY` is a topology fact. It is not proof of malicious intent and
-carries no risk label. Relayers, keeper bots, and sweepers look like drainers
-on owner count alone. Confirm with `FLOWS_TO` and label context.
-
-Point-anchored probe (sub-second on the hosted endpoint). It needs no
-network predicate for the same reason any exact-address lookup does not: the
-address is already a unique key, so the match cannot leave the selected
-address space:
-
-```cypher
-USE topology
-MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: "0x…"})
-RETURN owner.address AS owner_address,
-       operation.tx_count AS tx_count,
-       operation.amount_usd_sum AS amount_usd_sum,
-       coalesce(operation.token_standard, "mixed") AS token_standard,
-       operation.last_seen_timestamp AS last_seen_timestamp
-ORDER BY operation.tx_count DESC
-LIMIT 10
-```
-
-Call that probe `operated_by_sample` in `graph_query_batch`. Zero rows is a
-healthy result. Whole-graph high-fan-in sweeps (every operator grouped by distinct owner
-count) are valid but heavy: at millions of edges they can exceed the
-60-second per-query limit and burn metered seconds. Scope both endpoints
-by `network`, bound by a recent `last_seen_timestamp` window (recompute the
-cutoff), and prefer the point-anchored probe on metered endpoints.
+`OPERATED_BY` is a topology fact. It is not proof of malicious intent: relayers
+and sweepers look like drainers. Confirm with `FLOWS_TO` and label context.
 
 ## LINKED properties
 
@@ -405,18 +328,6 @@ cutoff), and prefer the point-anchored probe on metered endpoints.
 Use one visible `LINKED` hop, then `FLOWS_TO`. Do not collapse linked
 addresses into one node.
 
-Probe:
-
-```cypher
-USE topology MATCH (a:Address)-[l:LINKED]-(b:Address)
-RETURN a.address AS address, b.address AS linked_address,
-       b.network AS linked_network, l.basis AS basis,
-       l.confidence AS confidence
-LIMIT 10
-```
-
-Call that probe `linked_sample` in `graph_query_batch`.
-
 ## APPROVED properties
 
 One link per token owner and spender, from `Approval` and `ApprovalForAll`
@@ -431,8 +342,7 @@ not in the source.
 | `first_height` / `last_height` | First and last block height of the approval events.                                  |
 | `source_event`                 | `approval`.                                                                          |
 
-An approval is a fact, not proof of malicious intent. Routers and aggregators
-hold unlimited approvals too. Confirm with `FLOWS_TO` and label context.
+An approval is a fact, not proof of malicious intent.
 
 ## DEPLOYED_CONTRACT properties
 
@@ -441,7 +351,7 @@ created twice has two links.
 
 | Property                                             | Notes                                                                                                                                      |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `kind`                                               | How the contract was created.                                                                                                              |
+| `kind`                                               | How the contract was created: `direct` or `factory`.                                                                                       |
 | `tx_id` / `block_height` / `block_timestamp`         | The creation transaction.                                                                                                                  |
 | `deployer_address` / `factory_address` / `tx_origin` | Who deployed it, through which factory, and who sent the transaction.                                                                      |
 | `source_event`                                       | `contract_creation`.                                                                                                                       |
@@ -451,7 +361,7 @@ created twice has two links.
 ## SPONSORED properties
 
 One link per paymaster and smart account, from the paymaster to the account
-whose user operations it paid for. Lifetime totals per pair.
+it paid for. Lifetime totals per pair.
 
 | Property                       | Notes                                     |
 | ------------------------------ | ----------------------------------------- |
@@ -463,10 +373,10 @@ whose user operations it paid for. Lifetime totals per pair.
 
 ## BUNDLED properties
 
-One link per bundler and smart account, from the bundler to the account whose
-user operations it submitted. It has the same properties as `SPONSORED`:
-`operations`, `failed_operations`, `entrypoints`, `first_height`,
-`last_height` and `source_event` `user_operation`.
+One link per bundler and smart account, from the bundler to the account it
+submitted for. It has the same properties as `SPONSORED`: `operations`,
+`failed_operations`, `entrypoints`, `first_height`, `last_height` and
+`source_event` `user_operation`.
 
 ## SIGNED_FOR properties
 
@@ -492,29 +402,6 @@ node per `request_id`. A token permit lands on `APPROVED`, never here.
 | `source_event`                 | `authorization`.             |
 | `first_height` / `last_height` | First and last block height. |
 
-## ML pattern links
-
-The ML run writes each pattern as its own relationship type, one per kind,
-between the addresses the pattern joins. None is money flow.
-
-| Type                   | What the pattern says                                                      |
-| ---------------------- | -------------------------------------------------------------------------- |
-| `CYCLE_PARTICIPANT`    | The address is in a money cycle that returns to its start.                 |
-| `LAYERING_HOP`         | The address is a hop in a layering chain.                                  |
-| `SMURFING_CLUSTER`     | The address is in a group splitting value into small amounts.              |
-| `SYBIL_CLUSTER`        | The address is in a group that acts as one owner.                          |
-| `MOTIF_PARTICIPANT`    | The address takes part in a known flow shape, such as fan-in or fan-out.   |
-| `RISK_PROXIMITY`       | The address sits a few hops from a risky address.                          |
-| `BURST_ACTIVITY`       | A sudden burst of activity.                                                |
-| `DORMANT_REACTIVATION` | A long-idle address that woke up.                                          |
-| `THRESHOLD_EVASION`    | Amounts kept just under a reporting threshold.                             |
-| `FLASH_LOAN_ENVELOPE`  | The flow sits inside a flash loan: borrowed and repaid in one transaction. |
-
-Every one carries `kind`, `source_event` `ml_pattern` and the run id in
-`run_id`: the id of the ML run that wrote it. A newer run replaces them, so no
-link carries an earlier run's id. A pattern is a model finding, not a verdict. Read it with
-`risk_score`, `risk_level` and the labels.
-
 ## Facts labels and relationships
 
 | Label / relationship | Shape                                                       | Notes                                                                                                                       |
@@ -531,7 +418,8 @@ A relationship is served only where its data exists. Check
 
 `TRANSFER` properties include `tx_id`, `block_height`, `block_timestamp`,
 `event_index`, `edge_index`, `kind`, `amount`, `amount_usd`, `asset_symbol`,
-`asset_contract`, `price_usd`, `price_missing`.
+`asset_contract`, `price_usd`, `price_missing`. `amount`, `amount_usd` and
+`price_usd` come back as text.
 
 `tx_id` is the `0x` transaction hash. A facts read names an address pair with
 one day, or one `tx_id`. The pair is both endpoint addresses, from then to,
@@ -547,7 +435,16 @@ see [`FLOWS_TO` properties](#flows_to-properties).
 
 `kind` is a column and a filter. Add `t.kind = "internal"` to the pair and the
 day to read only the internal rows. A `kind` filter narrows the read of a pair
-and one day. It never replaces them.
+and one day. It never replaces them. For example:
+
+```cypher
+USE facts
+MATCH (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"})-[t:TRANSFER]->(b:Address {address: "0x7e3702e9dfaa847f9829a258f1e26fa431160662"})
+WHERE t.block_date = "2026-07-10" AND t.kind = "internal"
+RETURN t.tx_id AS tx_id, t.event_index AS event_index, t.kind AS kind,
+       t.amount AS amount, t.amount_usd AS amount_usd
+LIMIT 50
+```
 
 An `internal` row is one call frame. Its `event_index` is the frame's position
 in the transaction's calls and its `edge_index` is 0. Its `amount` is the value
@@ -621,19 +518,19 @@ graph: there is no relationship to walk and nothing to search. Each lookup is
 one node with its key in braces. Load `chain-insights-cypher` for the rule that
 sends a question here, and for the shape of a lookup.
 
-| Label         | Key                             | What it answers                                                         |
-| ------------- | ------------------------------- | ----------------------------------------------------------------------- |
-| `Transaction` | `hash`                          | The transaction and its result: `status`, `block_height`, `block_date`. |
-| `Block`       | `height` or `hash`, exactly one | A block and its time: `hash`, `block_timestamp`, `block_date`.          |
-| `Head`        | none                            | The chain tip, and how far the graph and the warehouse are behind it.   |
+| Label         | Key                             | Properties                                                                                                                                                                                                                                                                        |
+| ------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Transaction` | `hash`                          | `status`, `block_height`, `block_date`, `block_timestamp`, `block_hash`, `tx_index`, `tx_type`, `from_address`, `to_address`, `created_contract`, `value`, `nonce`, `gas_limit`, `gas_used`, `effective_gas_price`, `input_selector`, `input_size`, `log_count`, `hash`, `tx_key` |
+| `Block`       | `height` or `hash`, exactly one | `height`, `hash`, `parent_hash`, `block_date`, `block_timestamp`, `tx_count`, `gas_limit`, `gas_used`, `base_fee_per_gas`                                                                                                                                                         |
+| `Head`        | none                            | `height`, `hash`, `block_timestamp`, `age_seconds`, `warehouse_complete_through_block`, `warehouse_blocks_behind`, `graph_complete_through_block`, `graph_blocks_behind`                                                                                                          |
 
 These labels are all the chain layer serves. There is no `:Address` lookup
 here: find an address on `USE topology`, then read the pair and one day on
 `USE facts`. The labels that the server serves are listed in
 `chain_admission.lookups` of `meta_network_capabilities`. The refusal of an
-unknown property
-(`chain_not_served`) lists the properties of that label. A `block_date` is a
-UTC day, the same day that a facts `block_date` names.
+unknown property (`chain_not_served`) lists the properties of that label.
+A `block_date` is a UTC day, the same day that a facts `block_date` names.
+`value`, `effective_gas_price` and `base_fee_per_gas` are text, in wei.
 
 ## Exchange terminals
 

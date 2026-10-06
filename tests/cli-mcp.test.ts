@@ -364,7 +364,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
   // ─── mcp tools — missing wallet ───────────────────────────────────────────
 
   it('mcp tools — configured graph auth token: skips direct wallet checks and uses graph endpoint', async () => {
-    const remoteTools = [{ name: 'aml_address_risk', description: 'Screen address risk' }]
+    const remoteTools = [{ name: 'graph_query', description: 'Federated graph query' }]
     mockLoadSchema.mockResolvedValue(null) // cache miss
     mockLoadConfig.mockResolvedValue({
       graphMcpEndpoint: 'http://localhost:8012/mcp',
@@ -375,7 +375,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     mockClientListTools.mockResolvedValue({ tools: remoteTools })
     mockSaveSchema.mockResolvedValue(undefined)
     mockClientClose.mockResolvedValue(undefined)
-    mockFormatToolsTable.mockReturnValue('aml_address_risk  Screen address risk')
+    mockFormatToolsTable.mockReturnValue('graph_query  Federated graph query')
 
     await runMcpToolsAction()
 
@@ -658,6 +658,8 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     ],
     ['balance', "MCP tool 'balance' is not exposed by Chain Insights. Use wallet_balance instead."],
     ['help', "MCP tool 'help' is not exposed by Chain Insights. Use meta_help instead."],
+    // Hidden until its verdict is fixed.
+    ['aml_address_risk', "MCP tool 'aml_address_risk' is not exposed by Chain Insights."],
   ])('mcp call rejects hidden tool %s before remote passthrough', async (tool, message) => {
     await expect(
       runMcpCallAction(tool, ['trusted_addresses=0xSeed', 'network=robinhood'])

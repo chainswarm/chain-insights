@@ -104,7 +104,7 @@ export function resolveMcpProxyMode(env: NodeJS.ProcessEnv = process.env): McpPr
 }
 
 const GRAPH_LAYERS_TEXT =
-  "Use USE topology for topology (address/FLOWS_TO/OPERATED_BY/LINKED graph with SWAPPED, ADDED_LIQUIDITY, REMOVED_LIQUIDITY, BRIDGED and the Pool label, unified recent+historical, plus the node risk_score/risk_level verdict) and USE facts for bounded TRANSFER, SWAP, LIQUIDITY_ADD, LIQUIDITY_REMOVE and BRIDGE_CROSSING rows and enrichment, and USE chain for the chain node's own record of one known transaction, block or the head."
+  "Use USE topology for topology (address/FLOWS_TO/OPERATED_BY/LINKED graph with SWAPPED, ADDED_LIQUIDITY, REMOVED_LIQUIDITY, BRIDGED and the Pool label, unified recent+historical) and USE facts for bounded TRANSFER, SWAP, LIQUIDITY_ADD, LIQUIDITY_REMOVE and BRIDGE_CROSSING rows and enrichment, and USE chain for the chain node's own record of one known transaction, block or the head."
 
 const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   meta_network_capabilities: 'Return the current Chain Insights network and tool support matrix.',
@@ -114,8 +114,6 @@ const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   meta_help: 'Show a short guide to Chain Insights tools and workflow.',
   wallet_balance:
     'Show the local Chain Insights payment wallet address, payment network, token, and amount.',
-  aml_address_risk:
-    'Screen one blockchain address for AML risk, behavior patterns, neighborhood context, exchange exposure, and optional comparison with another address. Topology reads cover full lifetime history in one unified graph. Omit version to use the latest contract, or pass version=v1 to pin the v1 contract.',
   graph_query: `Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. ${GRAPH_LAYERS_TEXT} Preserve full addresses exactly.`,
   graph_query_batch:
     'Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads.',
@@ -157,7 +155,7 @@ const PICTURE_HELP_LINE =
 const CHAIN_INSIGHTS_WORKFLOW = [
   'Workflow:',
   '1. Do not call investigation tools until required arguments are known. Network is required; use meta_network_capabilities to check supported networks and available tools, or ask the user if missing.',
-  '2. Use aml_address_risk for single-address enrichment. Use graph_query(_batch) for graph-level questions that aml_address_risk does not answer.',
+  '2. Use graph_query(_batch) for every question about addresses, money flow and transactions.',
   '3. Preserve tool summaries and structured facts as returned. Keep full blockchain addresses intact.',
 ].join('\n')
 
@@ -169,9 +167,9 @@ const GRAPH_SCHEMA_HINTS = [
   '- The graph is address-grain. The only topology money node label is Address, keyed by the raw chain-native H160 address on EVM networks, for example 0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24. The network value on Address nodes matches the tool argument. There is no separate identity key.',
   '- Address nodes carry address, network, labels, and the role flags is_exchange, is_scam, is_victim and is_sanctioned. (:Address)-[:LINKED]-(:Address) is an undirected ownership-overlay edge (basis derived/associated, plus confidence, source_event, declared_owner, owner_state) asserting the two addresses are controlled by the same actor. LINKED is served on the topology graph only. Enumerate LINKED neighbors with MATCH (a:Address {address: $addr})-[l:LINKED]-(b:Address) RETURN b.address, b.network, l.basis, l.confidence LIMIT 25.',
   '- Labels hold role words, never detector names: Exchange (plus the exchange name), Scam, Victim and Sanctioned (plus the entity name). Each role is also a node label and a flag on the Address: :Exchange and is_exchange follow the exchange label, :Scam and is_scam the risk label, :Victim and is_victim the protection label, :Sanctioned and is_sanctioned the sanctioned label. Each flag is present only when true and absent otherwise, never false: test IS NOT NULL or IS NULL, not = false. A withdrawn label removes its node label and its flag.',
-  '- Address nodes also carry a risk verdict (risk_score float, risk_level string) plus base activity rollups: degree_in/degree_out/degree_total (distinct counterparty addresses), tx_in_count/tx_out_count/tx_total_count, total_in_usd/total_out_usd/total_volume_usd, net_flow_usd (in minus out; positive = net receiver) — all computed from external flows only — and first_activity_timestamp/last_activity_timestamp/activity_span_days, which include all flows (self-loops included). FLOWS_TO edges carry exactly tx_count, amount_usd_sum (total money flow, token and native value merged), first_seen_timestamp, last_seen_timestamp. Lifetime aggregates are the only serving window. Averages are computed inline (amount_usd_sum / toFloat(tx_count)). tx_count counts token and native transfers plus internal native transfers (a contract sending ETH during a call), and amount_usd_sum prices them all. USE facts TRANSFER lists all three, so the rows of a pair are the transfers its link counts, up to the height the link was built to. A link covers all time and a USE facts read covers one day: read the transfers of a pair one day at a time. A transaction anchor of a pair resolves through USE facts, on the UTC day of the first_seen_timestamp or last_seen_timestamp of the link: MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) WHERE t.block_date = "YYYY-MM-DD" RETURN t.tx_id, t.block_timestamp LIMIT 1.',
+  '- Address nodes carry base activity rollups: degree_in/degree_out/degree_total (distinct counterparty addresses), tx_in_count/tx_out_count/tx_total_count, total_in_usd/total_out_usd/total_volume_usd, net_flow_usd (in minus out; positive = net receiver) — all computed from external flows only — and first_activity_timestamp/last_activity_timestamp/activity_span_days, which include all flows (self-loops included). FLOWS_TO edges carry exactly tx_count, amount_usd_sum (total money flow, token and native value merged), first_seen_timestamp, last_seen_timestamp. Lifetime aggregates are the only serving window. Averages are computed inline (amount_usd_sum / toFloat(tx_count)). tx_count counts token and native transfers plus internal native transfers (a contract sending ETH during a call), and amount_usd_sum prices them all. USE facts TRANSFER lists all three, so the rows of a pair are the transfers its link counts, up to the height the link was built to. A link covers all time and a USE facts read covers one day: read the transfers of a pair one day at a time. A transaction anchor of a pair resolves through USE facts, on the UTC day of the first_seen_timestamp or last_seen_timestamp of the link: MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) WHERE t.block_date = "YYYY-MM-DD" RETURN t.tx_id, t.block_timestamp LIMIT 1.',
   '- For actor-level exposure (AC11), UNION FLOWS_TO and SWAPPED reachability over one visible LINKED hop instead of expanding through the LINKED edge itself: MATCH (a:Address {address: $addr})-[:LINKED]-(owned:Address)-[r:FLOWS_TO|SWAPPED]-(b:Address) WHERE NOT a:Pool AND NOT owned:Pool AND owned.address <> b.address AND a.address <> b.address RETURN owned.address, b.address, type(r), coalesce(r.amount_usd_sum, r.bought_usd) LIMIT 50.',
-  '- The risk verdict lives on topology nodes (risk_score float, risk_level string). An absent risk_score means UNSCORED: the model gave the address no verdict, which is no signal and never low risk. Labels and per-label risk also live on the address node: the labels array plus three parallel lists, label_risk_labels, label_risk_levels and label_risk_updated_timestamps, where entry i of each list is one label row. USE facts serves bounded single-event rows (TRANSFER, SWAP, LIQUIDITY_ADD, LIQUIDITY_REMOVE and BRIDGE_CROSSING edges) only; lifetime address metrics (degrees, totals, activity window) are node properties on USE topology.',
+  '- Labels and per-label risk live on the address node: the labels array plus three parallel lists, label_risk_labels, label_risk_levels and label_risk_updated_timestamps, where entry i of each list is one label row. No overall risk score is served. USE facts serves bounded single-event rows (TRANSFER, SWAP, LIQUIDITY_ADD, LIQUIDITY_REMOVE and BRIDGE_CROSSING edges) only; lifetime address metrics (degrees, totals, activity window) are node properties on USE topology.',
   '- (from:Address)-[t:TRANSFER]->(to:Address) on USE facts returns individual transfer rows, not aggregates, with properties amount, amount_usd, asset_symbol, asset_contract, tx_id, block_height, block_timestamp, event_index, edge_index, kind, price_usd, and price_missing. Every TRANSFER row has a kind: token, native or internal. An internal row is ETH a contract sends while it runs a call, such as the ETH leg of a wrap. Add t.kind = "internal" to the pair and the day to read only the internal rows. A facts read names an address pair with one day, or one tx_id, whether it is a TRANSFER row-select or a count()/sum() aggregate: both endpoint addresses as {address: "..."} on from and to, with WHERE t.block_date = "YYYY-MM-DD", or WHERE t.tx_id = "..." on its own (on EVM networks tx_id is the 0x transaction hash). t.block_timestamp bounds in epoch milliseconds may narrow the day to a time window. One address, a day alone, a window of days, a block range or a bare LIMIT is not enough. A facts read holds at most 200 rows in a reply, has one relationship and no hop, and takes no ORDER BY: sort the page yourself.',
   '- Facts graph labels include Address; the TRANSFER, SWAP, LIQUIDITY_ADD, LIQUIDITY_REMOVE and BRIDGE_CROSSING relationships each connect two Address nodes. Facts address keys match topology address values exactly.',
   '- Topology relationships include FLOWS_TO, SWAPPED, OPERATED_BY, LINKED, and RISK_PROXIMITY between Address nodes, ADDED_LIQUIDITY and REMOVED_LIQUIDITY to and from Pool nodes, and BRIDGED to and from Chain nodes.',
@@ -185,10 +183,10 @@ const GRAPH_SCHEMA_HINTS = [
   '- A USE facts SWAP row carries no route: it has no pools and no families column. A read that names one of them, to return it, to filter on it or to order by it, is refused. The route of a swap stays a topology question. For the pools of the swaps of an address, read SWAPPED.pools and SWAPPED.families on USE topology, anchored on the payer or the recipient. SWAPPED has one link per payer, recipient, sold asset and bought asset, so its pools cover every route on the link, not one route.',
   '- Traversal rule: for BFS, fixed-hop fallback, shortest-path, or manual FLOWS_TO traversal, exchange hot wallets are terminal endpoints only. Do not expand from, through, or classify exchange nodes as deposit, suspect, or intermediate candidates; filter every non-terminal node with is_exchange IS NULL. is_exchange is absent unless true, so a labelled node with no is_exchange is walked through, and is_scam, is_victim and is_sanctioned do not end a walk. At a Pool, follow the pool trace rule above.',
   '- Pool guard: a trace walks FLOWS_TO and SWAPPED, so it crosses a swap from payer to recipient without passing through the pool. A walk may end at a Pool, but never starts at one or passes through one: its start and every address in its middle stay off a Pool. A fixed-hop walk adds WHERE NOT src:Pool AND NOT mid:Pool, each its own AND term, never inside an OR. A quantified or shortest-path walk puts the guards inside the path pattern, on the start and on up to 4 guarded hops before one last hop: MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: $to}) RETURN [n IN nodes(p) | n.address] AS route LIMIT 5. ANY SHORTEST takes the same pattern. A route search asks for one path. An open target from one address: MATCH SHORTEST 1 (a:Address {address: $addr} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address) RETURN b.address LIMIT 50. Use these shapes as written, changing only the addresses and the RETURN. A WHERE placed after a SHORTEST pattern runs after the shortest route is chosen, so it drops a route that crosses a pool instead of finding the route that avoids it.',
-  '- Start schema discovery with endpoint-safe property reads: MATCH (n:Address) RETURN n.address AS address, n.network AS network, n.labels AS labels, n.risk_score AS risk_score, n.risk_level AS risk_level LIMIT 20',
+  '- Start schema discovery with endpoint-safe property reads: MATCH (n:Address) RETURN n.address AS address, n.network AS network, n.labels AS labels, n.last_activity_timestamp AS last_activity_timestamp LIMIT 20',
   '- Relationship discovery: MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count LIMIT 20',
   "- Anchor every topology read that filters on a link property: put an address in its pattern. Without one, a read starts from every link of the type it names, and you should not count on the filter to narrow that: WHERE x.strength = 'swap' on SWAPPED checks every SWAPPED link, LIMIT stops the read only after enough rows match, and a filter that matches few or none can run to the 60 s topology limit and fail with query_timeout. Example: MATCH (a:Address {address: $addr})-[x:SWAPPED]->(b:Address) WHERE x.swap_count >= 2 RETURN b.address, x.swap_count LIMIT 25. Pick an address with few links: degree_out and degree_in are a rough guide, because they count neighbours, not links, and an address with hundreds of thousands of neighbours can fail the same way. Discovery probes with LIMIT and no filter stay valid. The queries of one batch share a 100 s budget; USE facts queries stop at 30 s.",
-  '- graph_query uses the active Chain Insights graph endpoint. Select the graph with USE topology for topology (address/FLOWS_TO/OPERATED_BY/LINKED graph with SWAPPED, ADDED_LIQUIDITY, REMOVED_LIQUIDITY, BRIDGED and the Pool label, unified recent+historical, plus the node risk_score/risk_level verdict) and USE facts for bounded TRANSFER, SWAP, LIQUIDITY_ADD, LIQUIDITY_REMOVE and BRIDGE_CROSSING rows and enrichment, and USE chain for one keyed lookup on the chain node: a transaction by hash, a block by number or hash, or the head, and no address. On topology, address is the node grain, not the topology name.',
+  '- graph_query uses the active Chain Insights graph endpoint. Select the graph with USE topology for topology (address/FLOWS_TO/OPERATED_BY/LINKED graph with SWAPPED, ADDED_LIQUIDITY, REMOVED_LIQUIDITY, BRIDGED and the Pool label, unified recent+historical) and USE facts for bounded TRANSFER, SWAP, LIQUIDITY_ADD, LIQUIDITY_REMOVE and BRIDGE_CROSSING rows and enrichment, and USE chain for one keyed lookup on the chain node: a transaction by hash, a block by number or hash, or the head, and no address. On topology, address is the node grain, not the topology name.',
   '- All graph_query calls are read-only. Never use CREATE, INSERT, MERGE, SET, DELETE, REMOVE, DROP, DETACH, ADD, CONNECT, DISCONNECT, ALTER, TRUNCATE, GRANT, or REVOKE.',
   '- Use USE facts graph patterns for fact and enrichment reads. Do not query internal table namespaces directly.',
 ].join('\n')
@@ -203,7 +201,7 @@ const SERVER_INSTRUCTIONS = [
 
 const STATELESS_SERVER_INSTRUCTIONS = [
   'Chain Insights is running as a stateless AML proxy for a host application.',
-  'Use meta_network_capabilities first when network support is unknown, then call aml_address_risk, graph_query, or graph_query_batch as needed.',
+  'Use meta_network_capabilities first when network support is unknown, then call graph_query or graph_query_batch as needed.',
   PICTURE_RULES,
   'Use wallet_balance to inspect the local payment wallet when payment setup is needed.',
   GRAPH_SCHEMA_HINTS,
@@ -217,19 +215,6 @@ const STATELESS_SERVER_INSTRUCTIONS = [
 // ignored — the failure mode that shipped with `time_scope`.
 export function knownPublicToolInputSchema(toolName: string): ToolInputShape | null {
   switch (toolName) {
-    case 'aml_address_risk':
-      return {
-        address: z.string().min(1).describe('Blockchain address to screen.'),
-        network: NETWORK_SCHEMA,
-        compare_address: z
-          .string()
-          .optional()
-          .describe('Optional address to compare against the screened address.'),
-        version: z
-          .string()
-          .optional()
-          .describe('Optional AML tool contract version. Omit to use the latest version.'),
-      }
     case 'graph_query':
       return {
         query: z.string().min(1).describe(`Read-only GQL/Cypher query. ${GRAPH_LAYERS_TEXT}`),
@@ -594,41 +579,6 @@ function promptResult(text: string, description?: string): GetPromptResult {
 }
 
 function registerLocalPrompts(server: McpServer): void {
-  server.registerPrompt(
-    'aml-address-risk',
-    {
-      title: 'AML Address Risk',
-      description:
-        'Screen a blockchain address for AML risk, behavioral patterns, neighborhood profile, member addresses, and exchange links.',
-      argsSchema: {
-        network: NETWORK_SCHEMA,
-        address: z.string().describe('Blockchain address to screen'),
-        compare_address: z
-          .string()
-          .optional()
-          .describe('Optional address to compare against the screened address'),
-        version: z
-          .string()
-          .optional()
-          .describe('Optional AML tool contract version. Omit to use the latest version'),
-      },
-    },
-    async ({ network, address, compare_address, version }) =>
-      promptResult(
-        [
-          `Use Chain Insights aml_address_risk${version ? ` version ${version}` : ''} on ${network} for:`,
-          '',
-          `\`${address}\``,
-          compare_address ? `\nCompare with: \`${compare_address}\`` : '',
-          '',
-          'Present the summary as-is. Do not add analysis, verdicts, or risk assessments; the tool output already contains the risk assessment.',
-        ]
-          .filter(Boolean)
-          .join('\n'),
-        'AML address risk screening'
-      )
-  )
-
   server.registerPrompt(
     'meta-network-capabilities',
     {
@@ -1204,75 +1154,6 @@ export async function createProxy(): Promise<void> {
       }
     }
   )
-  if (!remoteToolNames.has('aml_address_risk')) {
-    server.registerTool(
-      'aml_address_risk',
-      {
-        title: 'Address Risk',
-        description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.aml_address_risk,
-        inputSchema: {
-          address: z.string().min(1).describe('Blockchain address to screen'),
-          network: NETWORK_SCHEMA,
-          compare_address: z
-            .string()
-            .optional()
-            .describe('Optional address to compare against the screened address'),
-          version: z
-            .string()
-            .optional()
-            .describe('Optional AML tool contract version. Omit to use the latest version'),
-        },
-        annotations: {
-          readOnlyHint: true,
-          destructiveHint: false,
-          idempotentHint: true,
-          openWorldHint: true,
-        },
-      },
-      async ({ address, network, compare_address, version }) => {
-        try {
-          if (!remoteConnected) {
-            return {
-              content: [
-                {
-                  type: 'text' as const,
-                  text: `${remoteUnavailableMessage ?? `Chain Insights Graph is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
-                },
-              ],
-              isError: true,
-            }
-          }
-          const { runAmlAddressRisk } = await import('../investigation/public-tools.js')
-          const result = await runAmlAddressRisk(
-            remoteClient,
-            {
-              address,
-              network,
-              compareAddress: compare_address,
-              writeArtifacts: workspaceArtifactsEnabled,
-            },
-            version
-          )
-          return {
-            content: [{ type: 'text' as const, text: result.summaryText }],
-            structuredContent: result.structuredContent,
-            isError: false,
-          }
-        } catch (err) {
-          if (err instanceof PaymentRequiredError) {
-            return { content: [{ type: 'text' as const, text: err.message }], isError: true }
-          }
-          return {
-            content: [
-              { type: 'text' as const, text: `Address risk failed: ${(err as Error).message}` },
-            ],
-            isError: true,
-          }
-        }
-      }
-    )
-  }
-
   // graph_expand, the one dedicated tool, for the view only (visibility
   // ["app"]): a node click is three anchored topology graph_query reads, a link
   // click one facts graph_query read, all sent through the remote client, the
@@ -1340,7 +1221,6 @@ export async function createProxy(): Promise<void> {
                 '- meta_network_capabilities: inspect supported networks and available tools.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
                 '- meta_subscription_status: check the caller CIA subscription window end, daily allowance, consumption, and tier.',
-                '- aml_address_risk: screen one blockchain address; optionally compare it with another address.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
                 '- graph_query_batch: run related read-only graph-language queries through one paid graph call.',
                 '',
@@ -1357,7 +1237,6 @@ export async function createProxy(): Promise<void> {
                 '- meta_network_capabilities: inspect supported networks and available tools.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
                 '- meta_subscription_status: check the caller CIA subscription window end, daily allowance, consumption, and tier.',
-                '- aml_address_risk: screen one blockchain address; optionally compare it with another address.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
                 '- graph_query_batch: run related read-only graph-language queries through one paid graph call.',
                 '',

@@ -6,14 +6,15 @@ Every statement here was verified against the source files it names.
 
 ## Public MCP Tool Surface
 
-- The canonical public tool surface is the prefixed set `aml_*` / `graph_*` /
+- The canonical public tool surface is the prefixed set `graph_*` /
   `meta_*` / `wallet_*`.
 - `visibleRemoteTools()` in `src/mcp/tool-visibility.ts` hides unprefixed
   backend names (`address_risk`, `trace_victim_funds`, `trace_suspect_funds`,
   `trace_deposit_sources`, `trace_funds`, `track_funds`,
   `network_capabilities`, `usage_status`, `balance`, `topup`, `help`,
   `address_connection_risk` and the retired exchange-flows tool) via
-  `HIDDEN_REMOTE_TOOL_NAMES`. They never surface publicly.
+  `HIDDEN_REMOTE_TOOL_NAMES`. They never surface publicly. So does
+  `aml_address_risk`, hidden until its verdict is fixed.
 - Local tools live in `src/mcp/proxy.ts`: `meta_network_capabilities`,
   `meta_usage_status`, `meta_help`, `wallet_balance`.
 - `meta_network_capabilities` repeats GraphRAG's advertised networks
@@ -29,7 +30,7 @@ Every statement here was verified against the source files it names.
 
 - `PUBLIC_MCP_TOOL_REQUIRED_ARGS` / `PUBLIC_MCP_TOOL_ALLOWED_ARGS` in
   `src/mcp/tool-visibility.ts` define the public arg contract. Examples:
-  `aml_address_risk` requires address + network; `graph_query_batch` allows
+  `graph_query` requires query + network; `graph_query_batch` allows
   `per_query_timeout_seconds`; `graph_query` allows `time_scope`.
 - An argument absent from the allowlist is silently stripped by
   `normalizeRemoteToolArguments`. Every new tunable arg must be added here
