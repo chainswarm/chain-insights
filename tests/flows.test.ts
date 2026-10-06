@@ -275,7 +275,9 @@ describe('money_flows', () => {
     expect(reads).toHaveLength(3)
     expect(lineCount(result.content[0].text)).toBeLessThanOrEqual(FLOWS_SUMMARY_MAX_LINES)
     expect(result.content[0].text).toContain('Showing senders 1 to 12 of')
-    expect(result.content[0].text).toContain('Next page: money_flows with in_offset=12 out_offset=1')
+    expect(result.content[0].text).toContain(
+      'Next page: money_flows with in_offset=12 out_offset=1'
+    )
     expect(result.content[0].text).toContain('cia mcp call money_flows network=robinhood')
     expect(result.content[0].text).not.toContain('loads the next page on click')
   })
@@ -599,11 +601,20 @@ describe('money_flows paging from the offsets', () => {
   it('refuses an offset over 10,000 before any read', async () => {
     let reads = 0
     const result = await handleMoneyFlows(
-      { network: 'robinhood', address: '0x04911a118f11c75667e4d0dfb8e640af5a353550', in_offset: 10_001 },
-      { graphQuery: async () => { reads++; throw new Error('no read expected') }, describeFailure: String } as never
+      {
+        network: 'robinhood',
+        address: '0x04911a118f11c75667e4d0dfb8e640af5a353550',
+        in_offset: 10_001,
+      },
+      {
+        graphQuery: async () => {
+          reads++
+          throw new Error('no read expected')
+        },
+        describeFailure: String,
+      } as never
     )
     expect(result.isError).toBe(true)
     expect(reads).toBe(0)
   })
 })
-

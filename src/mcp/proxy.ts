@@ -1303,7 +1303,9 @@ export async function createProxy(): Promise<void> {
           .min(0)
           .max(FLOWS_MAX_OFFSET)
           .optional()
-          .describe('Receivers to skip, for the next page: the out_offset the previous answer names.'),
+          .describe(
+            'Receivers to skip, for the next page: the out_offset the previous answer names.'
+          ),
       },
       annotations: VIEW_TOOL_ANNOTATIONS,
       _meta: VIEW_TOOL_META,
