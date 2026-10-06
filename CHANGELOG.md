@@ -3,6 +3,24 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.42.1] - 2026-10-06 — feat: cia config reset, and money_flows from the CLI
+
+### Added
+
+- `cia config reset` puts every setting back to its default: the production
+  Chain Insights Graph endpoint, paid mode, no test access key. The wallet
+  stays (`wallet.json` is not touched and its address is kept). The previous
+  settings are saved to `config.json.bak`; both files are owner-only. It also
+  replaces a settings file that is not valid JSON.
+- `cia mcp call money_flows network=robinhood address=0x…` runs the same tool
+  the MCP proxy gives Claude, and `cia mcp tools` lists it. `graph_expand`
+  stays out of the CLI: only the money-flow view calls it.
+
+### Changed
+
+- A money-flow line last seen under a day ago reads "less than a day ago",
+  not "today", so it never contradicts its UTC date.
+
 ## [0.42.0] - 2026-10-06 — feat: the swap route is a topology question, and TRANSFER lists internal transfers
 
 An agent that uses `cia` now learns two changes of the graph server's facts

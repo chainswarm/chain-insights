@@ -265,7 +265,7 @@ function formatFlowsAge(lastSeenMs: number, now: Date): string {
   if (lastSeenMs <= 0) return 'at an unknown time'
   const date = new Date(lastSeenMs).toISOString().slice(0, 10)
   const days = Math.trunc((now.getTime() - lastSeenMs) / 86_400_000)
-  if (days < 1) return `${date} (today)`
+  if (days < 1) return `${date} (less than a day ago)`
   if (days === 1) return `${date} (1 day ago)`
   return `${date} (${days} days ago)`
 }

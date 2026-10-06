@@ -26,6 +26,7 @@ export const PUBLIC_MCP_TOOL_REQUIRED_ARGS: Record<string, string[]> = {
   aml_address_risk: ['address', 'network'],
   graph_query: ['query', 'network'],
   graph_query_batch: ['network', 'queries'],
+  money_flows: ['address', 'network'],
 }
 
 // normalizeRemoteToolArguments FILTERS pass-through arguments to this list, so
@@ -40,6 +41,7 @@ export const PUBLIC_MCP_TOOL_ALLOWED_ARGS: Record<string, string[]> = {
   // `time_scope` narrows a `USE topology` query to a temporal-shard subset
   graph_query: ['query', 'network', 'time_scope'],
   graph_query_batch: ['network', 'queries', 'per_query_timeout_seconds', 'time_scope'],
+  money_flows: ['address', 'network'],
 }
 
 export function isHiddenRemoteToolName(name: string): boolean {

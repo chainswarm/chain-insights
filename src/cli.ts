@@ -583,6 +583,28 @@ program
       })
   )
   .addCommand(
+    createCliCommand('reset')
+      .description(
+        'Put every setting back to its default (production endpoint, paid mode, no test key); the wallet stays'
+      )
+      .action(async () => {
+        try {
+          const { resetConfig, loadConfig } = await import('./config/index.js')
+          const { backupPath } = await resetConfig()
+          const config = await loadConfig()
+          if (backupPath) console.log(`Previous settings saved to ${backupPath}`)
+          console.log('Settings reset to defaults.')
+          console.log(`Graph endpoint: ${config.graphMcpEndpoint}`)
+          console.log(`Mode:           ${config.graphMcpMode}`)
+          console.log('Test access key: removed')
+          console.log('Wallet:          unchanged (~/.chain-insights/wallet.json)')
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
+        }
+      })
+  )
+  .addCommand(
     createCliCommand('set')
       .description('Write one Chain Insights configuration value')
       .argument('<key>', 'Config key to write')
@@ -848,7 +870,9 @@ const mcpCommand = program
   )
   .addCommand(
     createCliCommand('tools')
-      .description('List remote GraphRAG MCP tools only (cached for 24 hours)')
+      .description(
+        'List the remote GraphRAG MCP tools (cached for 24 hours) and the local money_flows tool'
+      )
       .option('--refresh', 'Force refresh schema cache')
       .action(async (opts: { refresh?: boolean }) => {
         try {
@@ -878,7 +902,14 @@ const mcpCommand = program
               await client.close()
             }
           }
-          console.log(formatToolsTable(visibleRemoteTools(tools)))
+          const { MONEY_FLOWS_TOOL, MONEY_FLOWS_DESCRIPTION } = await import('./mcp/flows.js')
+          const listed = visibleRemoteTools(tools).filter((t) => t.name !== MONEY_FLOWS_TOOL)
+          console.log(
+            formatToolsTable([
+              ...listed,
+              { name: MONEY_FLOWS_TOOL, description: MONEY_FLOWS_DESCRIPTION },
+            ])
+          )
         } catch (err) {
           console.error((err as Error).message)
           process.exit(1)
@@ -914,6 +945,35 @@ mcpCommand.addCommand(
 
         if (tool === 'meta_network_capabilities') {
           await printNetworkCapabilities({ json: opts.json })
+          return
+        }
+
+        if (tool === 'graph_expand') {
+          throw new Error(
+            'graph_expand is used only by the money-flow view in Claude. Run `cia mcp call money_flows` instead.'
+          )
+        }
+
+        if (tool === 'money_flows') {
+          // The same code the MCP proxy runs: three anchored graph_query reads
+          // through the configured endpoint, each billed as a graph query.
+          await withGraphMcpClient('chain-insights-cli-call', async (client) => {
+            const { handleMoneyFlows } = await import('./mcp/flows.js')
+            const { graphToolRequestOptions } = await import('./mcp/request-timeout.js')
+            const result = await handleMoneyFlows(args, {
+              graphQuery: async (queryArgs) =>
+                (await client.callTool(
+                  { name: 'graph_query', arguments: queryArgs },
+                  undefined,
+                  graphToolRequestOptions('graph_query')
+                )) as Awaited<ReturnType<Parameters<typeof handleMoneyFlows>[1]['graphQuery']>>,
+              describeFailure: (err) => (err instanceof Error ? err.message : String(err)),
+            })
+            printMcpTextContent(
+              result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
+              { tool, json: opts.json }
+            )
+          })
           return
         }
 

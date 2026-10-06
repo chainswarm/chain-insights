@@ -311,6 +311,12 @@ add `/mcp`.
 cia config set graphMcpEndpoint https://mcp.chain-insights.ai/
 ```
 
+To undo every local override at once, after an upgrade or a test setup:
+
+```bash
+cia config reset   # production endpoint, paid mode, no test key; wallet kept; old file in config.json.bak
+```
+
 Optional one-shot override from the environment:
 
 ```bash
