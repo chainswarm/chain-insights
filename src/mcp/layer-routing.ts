@@ -29,7 +29,7 @@ export const ROUTING_RULE =
 /** The rule in three lines, one for each layer. */
 export const ROUTING_LINES = [
   'I do not know the thing yet: `USE topology`.',
-  'I know the pair and the day, or the `tx_id`, and want the indexed rows: `USE facts`.',
+  'I know the pair and the day, and want the indexed rows: `USE facts`.',
   "I want the chain's own record of a transaction by its `tx_id`, a block by its `block_height` or `block_hash`, an address at one block (`Address`), or the head: `USE chain`.",
 ] as const
 
@@ -39,7 +39,7 @@ export const ROUTING_ADDRESS_ON_CHAIN =
 
 /** What to do when two layers fit. */
 export const ROUTING_TWO_FIT =
-  'When two fit, as with a `tx_id`: ask `USE chain` first for the record and the result, then `USE facts` for the transfers it caused.'
+  'A transaction is a chain question: read it on `USE chain` by its `tx_id`. Chain gives its `block_date`; the transfers between a pair on that day are a `USE facts` read.'
 
 /** The key that each layer hands to the next. Each key keeps its name. */
 export const ROUTING_HANDOFF =

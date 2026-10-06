@@ -207,11 +207,11 @@ describe('no advice names a facts read the contract refuses as one that works', 
     }
   })
 
-  it('every surface says what a facts read names: a pair with one day, or a transaction hash', async () => {
+  it('every surface says what a facts read names: a pair with one day (a transaction is a chain read)', async () => {
     for (const [surface, text] of await advice()) {
       const plain = flat(text).replace(/\\?`/g, '').replace(/\*\*/g, '')
       expect(plain, `${surface} lacks the facts read contract`).toMatch(
-        /address pair with one day,? or (?:one |a )?(?:`?tx_id`?|transaction hash)/i
+        /address pair with one day/i
       )
     }
   })

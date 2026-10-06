@@ -105,13 +105,13 @@ describe('the skill and the served hints state the facts limits of the server', 
   ]
 
   it.each(surfaces)(
-    '%s names an address pair with one day, or one transaction hash',
+    '%s names an address pair with one day',
     (_n, text) => {
       expect(contract.anchors).toContain('pair')
       expect(contract.anchors).toContain('transaction')
       expect(text()).toMatch(
         new RegExp(
-          String.raw`address pair with ${numberWord(contract.window_days)} day,? or (?:one |a )?(?:tx_id|transaction hash)`,
+          String.raw`address pair with ${numberWord(contract.window_days)} day`,
           'i'
         )
       )

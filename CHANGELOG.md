@@ -3,6 +3,15 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.46.1] - 2026-10-06 — fix: a transaction is a chain question
+
+### Changed
+
+- Routing: a transaction is read on `USE chain` by its `tx_id`. `USE facts`
+  is taught for an address pair with one day only. The skill, the guide and
+  the served hints say the same; the skill no longer shows a facts read by
+  transaction hash.
+
 ## [0.46.0] - 2026-10-06 — feat: one address, one transaction and one name on topology, facts and chain
 
 ### Breaking
