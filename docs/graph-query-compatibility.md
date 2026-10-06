@@ -95,7 +95,7 @@ approvals, contract creations and smart accounts (`APPROVED`,
 and bridge totals (`SWAPPED`, `ADDED_LIQUIDITY` and `REMOVED_LIQUIDITY` around
 `:Pool` nodes, `BRIDGED` to `:Chain` nodes). Both DEX layers set `:Pool`, so a
 pool with liquidity and no swap carries it. A trace through a pool follows the
-pool trace rule in the `chain-insights-schema-evm` skill.
+pool trace rule in the `chain-insights-cypher` skill.
 
 ### `OPERATED_BY` — operator-mediated topology (topology only)
 
@@ -273,7 +273,7 @@ Every form above carries the pool guard and walks `SWAPPED` beside
 `FLOWS_TO`. `WHERE NOT a:Pool` keeps the walk from starting at a `:Pool`, the
 inner `WHERE NOT via:Pool` keeps each address in the middle of the walk off
 one, and `SWAPPED` crosses a swap from payer to recipient, per the
-[pool trace rule](../skills/chain-insights-schema-evm/SKILL.md#pool-trace-rule).
+[pool trace rule](../skills/chain-insights-cypher/SKILL.md#pool-trace-rule).
 Only the target end may be a pool. Up to 4 guarded hops plus the last hop is
 1 to 5 hops. Keep the guards inside the path pattern: a `WHERE` after a
 `SHORTEST` pattern runs after the shortest route is chosen, so it drops a
@@ -309,7 +309,7 @@ rejected with a typed contract error before execution.
 
 | Construct                                          | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `MATCH` on a mapped node / single relationship     | `(from:Address)-[t:TRANSFER]->(to:Address)` (bounded individual transfer rows from `facts_transfers_view`). Lifetime address metrics are node properties on `USE topology` (the facts `AddressFeature` surface is retired). `SWAP`, `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and `BRIDGE_CROSSING` are single-event rows on the same pattern, each with its own indexed predicate (see the `chain-insights-schema-evm` skill). Never serves `FLOWS_TO`, `OPERATED_BY`, `LINKED`, `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY` or `BRIDGED` — those are topology-only. Labels and per-label risk live on the topology address node, not on `facts`. |
+| `MATCH` on a mapped node / single relationship     | `(from:Address)-[t:TRANSFER]->(to:Address)` (bounded individual transfer rows from `facts_transfers_view`). Lifetime address metrics are node properties on `USE topology` (the facts `AddressFeature` surface is retired). `SWAP`, `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and `BRIDGE_CROSSING` are single-event rows on the same pattern, each with its own indexed predicate. Never serves `FLOWS_TO`, `OPERATED_BY`, `LINKED`, `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY` or `BRIDGED` — those are topology-only. Labels and per-label risk live on the topology address node, not on `facts`. |
 | Chained fixed-hop patterns                         | up to 5 hops                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | Bare `block_date` bound                            | `t.block_date >= ?` / `<`, `<=`, `>`, `=` — the caller's own day range, passed through. `BETWEEN` and `IN` are refused (`unsupported WHERE operator`): write a range as `>=` and `<`. The bound must be bare (no function around the column) and conjunctive (not inside an `OR` arm). An explicit full-range bound (`>= '1970-01-01'`) stays lifetime.                                                                                                                                                                                                                                                                                            |
 | `tx_id` equality                                   | `t.tx_id = "…"` — a point lookup on the `TRANSFER` edge's row-level key; on EVM networks the `0x` transaction hash, served from the indexed hash columns. Lifetime semantics. `IN` and `BETWEEN` are refused (`unsupported WHERE operator "IN"`): send one equality per transaction, several in one `graph_query_batch`.                                                                                                                                                                                                                                                                                                                           |
@@ -428,5 +428,4 @@ filter.
 ## Related documentation
 
 - `docs/graph-tools.md` — tool tiers, timeouts, and capability transparency
-- Skill `chain-insights-cypher` — ISO GQL dialect and layer rules
-- Skill `chain-insights-schema-evm` — EVM / Robinhood GraphRAG map
+- Skill `chain-insights-cypher` — ISO GQL dialect, layer rules, graph searches and how to find the fields

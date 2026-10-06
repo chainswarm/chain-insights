@@ -136,13 +136,9 @@ describe('the reader of a hydrated route reads the flag as a marker', () => {
 
 describe('the served skills and documents name the four role flags', () => {
   const root = process.cwd()
-  // The schema skill is the one home of the four flags. The cypher skill keeps one
-  // line on how to test a flag, and the last test reads it too.
-  const files = [
-    'skills/chain-insights-schema-evm/SKILL.md',
-    'docs/graph-query-compatibility.md',
-    'docs/graph-tools.md',
-  ]
+  // The two guides are the homes of the four flags. The cypher skill keeps one
+  // bullet on how to test a flag, and the tests below read it too.
+  const files = ['docs/graph-query-compatibility.md', 'docs/graph-tools.md']
 
   it.each(files)('%s names all four flags and says each is absent unless true', (file) => {
     const text = readFileSync(join(root, file), 'utf8')
@@ -156,6 +152,13 @@ describe('the served skills and documents name the four role flags', () => {
       /`:Exchange` is a node label/.test(text),
       `${file} does not say :Exchange is a node label`
     ).toBe(true)
+  })
+
+  it('the cypher skill names all four flags and says each is absent unless true', () => {
+    const text = readFileSync(join(root, 'skills/chain-insights-cypher/SKILL.md'), 'utf8')
+    for (const flag of ROLE_FLAGS)
+      expect(text.includes(flag), `the skill misses ${flag}`).toBe(true)
+    expect(/absent unless true/.test(text), 'the skill does not say absent unless true').toBe(true)
   })
 
   it('the dialect skill no longer forbids the :Exchange label', () => {

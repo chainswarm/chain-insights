@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 // Swap stamps are read from SWAPPED, never from FLOWS_TO. FLOWS_TO carries
 // value only. SWAPPED gives the aggregate (strength, pools, families), and the
-// facts graph SWAP row gives one route, without a route list. The two skills and the two documents
+// facts graph SWAP row gives one route, without a route list. The skill and the two documents
 // name no swap property on FLOWS_TO: no swap.kind, swap.family,
 // swap.deployment, swap.pool, swap.route_id, swap_envelope or assets_paired.
 // The served graph hints in src/mcp/proxy.ts are pinned the same way in
@@ -16,13 +16,9 @@ function read(path: string): string {
   return readFileSync(join(root, path), 'utf8')
 }
 
-// The schema skill is the one skill home of swap attribution. The cypher skill is
-// short and holds no swap section, so it only takes the stamp-name check below.
-const SKILLS_AND_DOCS = [
-  'skills/chain-insights-schema-evm/SKILL.md',
-  'docs/graph-tools.md',
-  'docs/graph-query-compatibility.md',
-]
+// The two documents are the homes of swap attribution. The cypher skill is short
+// and holds no swap section, so it only takes the stamp-name check below.
+const SKILLS_AND_DOCS = ['docs/graph-tools.md', 'docs/graph-query-compatibility.md']
 
 // The files the served hints come from, checked with the same stamp names.
 const SERVED_TEXT = [
@@ -35,15 +31,6 @@ const SERVED_TEXT = [
 const SWAP_STAMP = /swap\.(kind|family|deployment|pool|route_id|reason|interpreter_version)/
 const RETIRED_STAMP_NAMES = ['swap_envelope', 'assets_paired', 'generic_assets_paired']
 
-// One `## ` section of a Markdown file, up to the next `## ` heading.
-function section(markdown: string, heading: string): string {
-  const start = markdown.indexOf(`\n## ${heading}\n`)
-  expect(start, `no section ## ${heading}`).toBeGreaterThan(-1)
-  const rest = markdown.slice(start + 1)
-  const next = rest.indexOf('\n## ', 4)
-  return next === -1 ? rest : rest.slice(0, next)
-}
-
 describe('no swap property is named on FLOWS_TO', () => {
   it.each(SERVED_TEXT)('%s names no swap stamp', (file) => {
     const text = read(file)
@@ -51,18 +38,6 @@ describe('no swap property is named on FLOWS_TO', () => {
     for (const name of RETIRED_STAMP_NAMES) {
       expect(text.includes(name), `${file} names ${name}`).toBe(false)
     }
-  })
-
-  it('the FLOWS_TO properties table of the schema skill lists value fields only', () => {
-    const flows = section(read('skills/chain-insights-schema-evm/SKILL.md'), 'FLOWS_TO properties')
-    const rows = flows.split('\n').filter((line) => line.startsWith('| `'))
-    expect(rows.map((row) => row.split('|')[1]!.trim())).toEqual([
-      '`tx_count`',
-      '`amount_usd_sum`',
-      '`first_seen_timestamp` / `last_seen_timestamp`',
-    ])
-    expect(/swap/i.test(rows.join('\n'))).toBe(false)
-    expect(/first_tx_id|last_tx_id/.test(flows)).toBe(false)
   })
 })
 
@@ -82,23 +57,4 @@ describe('swap attribution is read from SWAPPED or the facts SWAP row', () => {
       ).toBe(true)
     }
   )
-
-  it('SWAPPED carries the aggregate: strength, pools and families', () => {
-    const swapped = section(read('skills/chain-insights-schema-evm/SKILL.md'), 'SWAPPED properties')
-    for (const property of ['`strength`', '`pools`', '`families`']) {
-      expect(swapped.includes(property), `SWAPPED lacks ${property}`).toBe(true)
-    }
-  })
-
-  it('the facts SWAP row carries one route: route_id and strength, and no pools list', () => {
-    const facts = read('skills/chain-insights-schema-evm/SKILL.md')
-    const swapRow = facts.slice(facts.indexOf('`SWAP` holds one row per route'))
-    for (const property of ['`route_id`', '`strength`']) {
-      expect(swapRow.includes(property), `facts SWAP lacks ${property}`).toBe(true)
-    }
-    // The route lists live on SWAPPED. tests/swap-route.test.ts holds the facts
-    // row to the columns the server maps.
-    const table = swapRow.slice(swapRow.indexOf('| Property group'))
-    expect(table.slice(0, table.indexOf('\n\n')).includes('`pools`')).toBe(false)
-  })
 })

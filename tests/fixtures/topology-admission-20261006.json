@@ -1,0 +1,9 @@
+{
+  "source": "The four topology_admission members that skills/chain-insights-cypher/SKILL.md states, as the public meta_network_capabilities reply for the robinhood network served them on 2026-10-06.",
+  "topology_admission": {
+    "max_hops_per_path": 5,
+    "max_hops_per_query": 8,
+    "max_limit": 5000,
+    "probe_max_limit": 100
+  }
+}

@@ -9,13 +9,13 @@
 // It also generates tests/fixtures/topology-shape-cases.json, the topology
 // rule table: the queries the graph server must admit (every USE topology
 // query of this corpus, of the documented recipes and of the fenced examples
-// of the two skills) and the queries it must refuse, each with the code and
+// of the skill) and the queries it must refuse, each with the code and
 // the rule word it must carry. tests/topology-shape-cases.test.ts keeps it
 // equal to a fresh run and keeps the skills inside the admit list.
 //
 // It also generates tests/fixtures/layer-routing.json: every query this package
 // teaches, with the layer it goes to and the anchor that layer asks for. The
-// queries are the documented recipes, the fenced queries of the two skills and
+// queries are the documented recipes, the fenced queries of the skill and
 // the queries of the graph hints the MCP proxy serves. tests/layer-routing.test.ts
 // keeps it equal to a fresh run and holds every entry to the rule of its layer.
 //
@@ -215,10 +215,7 @@ console.log(`wrote ${outPath} (${entries.length} entries)`)
 // ---------------------------------------------------------------------------
 const RULES_VERSION = '1'
 
-const SKILLS = [
-  'skills/chain-insights-cypher/SKILL.md',
-  'skills/chain-insights-schema-evm/SKILL.md',
-]
+const SKILLS = ['skills/chain-insights-cypher/SKILL.md']
 // A $name placeholder of a skill example reads as one fixed literal.
 const SKILL_PLACEHOLDER = '"corpus-address-a"'
 
@@ -276,7 +273,7 @@ const refuseCase = (id, code, rule, query, source = 'refuse-table') => ({
 })
 
 // Admit: every USE topology entry of the corpus (the builders and the
-// documented recipes), then every fenced example of the two skills.
+// documented recipes), then every fenced example of the skill.
 const admitCases = []
 const builderCount = new Map()
 for (const entry of entries) {
@@ -573,7 +570,7 @@ console.log(`wrote ${casesOutPath} (${topologyCases.cases.length} cases)`)
 // The routing table: tests/fixtures/layer-routing.json.
 //
 // One entry for each query this package teaches: a documented recipe, a fenced
-// query of one of the two skills, a query of the served graph hints. An entry
+// query of the skill, a query of the served graph hints. An entry
 // holds its layer (topology, facts or chain), the anchor that layer asks for, the
 // query with a USE prefix and where it came from. A refused recipe also holds
 // the code it must get. tests/layer-routing.test.ts holds each entry to the rule

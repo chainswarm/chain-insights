@@ -25,10 +25,9 @@ cloud cannot start it.
   `chain-insights` npm package, started over stdio with `npx`. It needs
   Node.js 22 or newer. It serves the Chain Insights tools and views on your
   computer and reads the Chain Insights Graph for the data.
-- **`chain-insights-cypher`**: the graph query dialect and the rules every
-  `graph_query` must follow.
-- **`chain-insights-schema-evm`**: the map of the robinhood graph: address
-  labels, links and their properties.
+- **`chain-insights-cypher`**: the graph query dialect, the rules every
+  `graph_query` must follow, one query for each kind of graph search, and how
+  to find the fields of the robinhood graph.
 
 ## Use it
 

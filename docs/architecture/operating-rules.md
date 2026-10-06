@@ -65,9 +65,8 @@ knowledge skill during the 2026-07-28 docs-layer rework.
 - Keep docs product-first and user-workflow-first: install → configure graph
   access → run AML tools.
 - Localhost endpoints are fine in debugging docs. Private paths are not.
-- The shipped product skills under `skills/` are
-  `chain-insights-cypher` and `chain-insights-schema-evm`.
-  They are a separate product surface
+- The shipped product skill under `skills/` is `chain-insights-cypher`.
+  It is a separate product surface
   packaged into the npm tarball and enforced by
   `tests/skills-contract.test.ts`. A capability no skill mentions is
-  invisible to agents — keep the relevant skill in step with any change.
+  invisible to agents — keep the skill in step with any change.

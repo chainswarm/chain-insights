@@ -34,23 +34,15 @@ const routing = (
 const surfaces: [string, () => string][] = [
   ['skills/chain-insights-cypher/SKILL.md', () => read('skills/chain-insights-cypher/SKILL.md')],
   [
-    'skills/chain-insights-schema-evm/SKILL.md',
-    () => read('skills/chain-insights-schema-evm/SKILL.md'),
-  ],
-  [
     'plugin/skills/chain-insights-cypher/SKILL.md',
     () => read('plugin/skills/chain-insights-cypher/SKILL.md'),
-  ],
-  [
-    'plugin/skills/chain-insights-schema-evm/SKILL.md',
-    () => read('plugin/skills/chain-insights-schema-evm/SKILL.md'),
   ],
   ['docs/graph-tools.md', () => read('docs/graph-tools.md')],
   ['src/mcp/proxy.ts graph hints', servedGraphHints],
 ]
 
-// The surfaces that teach the routing: they hold the routing lines word for word.
-const routingSurfaces = surfaces.filter(([name]) => !name.includes('schema-evm'))
+// Every surface teaches the routing: each holds the routing lines word for word.
+const routingSurfaces = surfaces
 
 describe('the pinned chain catalogue', () => {
   it('names the commit it was read from, and gives each label its keys and properties', () => {

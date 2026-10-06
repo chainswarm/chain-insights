@@ -98,8 +98,7 @@ by `height` or `hash`, and `Head`, which takes no key. No lookup takes an
 address: `:Address` is a topology and a facts label, never a chain one. A lookup
 is one node with literal keys in braces and a `RETURN` of `var.property` items.
 It takes no `WHERE`, no relationship and no range. The properties of each lookup
-are named in the refusal of an unknown property, and in the
-[`chain-insights-schema-evm` skill](../skills/chain-insights-schema-evm/SKILL.md#use-chain).
+are named in the refusal of an unknown property.
 
 A transaction, with its result and the day it was mined:
 
@@ -190,7 +189,7 @@ of truth.
 `:Pool` follows the pool trace rule:
 
 - The rule is stated once, in the
-  [`chain-insights-schema-evm` skill](../skills/chain-insights-schema-evm/SKILL.md#pool-trace-rule).
+  [`chain-insights-cypher` skill](../skills/chain-insights-cypher/SKILL.md#pool-trace-rule).
 - The MCP server instructions serve the same four steps, word for word,
   because an MCP client loads no skill. A test keeps the two equal.
 - It stops a trace from fanning out to every trader who used the pool, and
@@ -213,7 +212,8 @@ cia mcp call graph_query \
   'query=USE topology MATCH p = SHORTEST 1 (a:Address {address: "0x..."} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "0x..."}) RETURN [n IN nodes(p) | n.address] AS route LIMIT 5'
 ```
 
-Every property is listed in the `chain-insights-schema-evm` skill.
+The `chain-insights-cypher` skill shows how to read the properties of a link
+from a sample.
 
 Rug-pull check from a victim, under the rule:
 
@@ -261,7 +261,8 @@ and `:Sanctioned`. Each role also has a flag on the node.
 - Test a flag with `IS NOT NULL` or `IS NULL`. Do not test `= false`.
 - Only `is_exchange` ends a walk: exchange hot wallets are terminals, and a
   node with no `is_exchange` is walked through.
-- Every property is listed in the `chain-insights-schema-evm` skill.
+- The `chain-insights-cypher` skill shows how to read every property from a
+  sample.
 
 ## Query Rules
 
@@ -311,12 +312,13 @@ and `:Sanctioned`. Each role also has a flag on the node.
   `USE facts`). It can lower a limit. It cannot raise one.
 - Returned rows live in `structuredContent.facts`.
 
-Agent installers ship two skills:
+Agent installers ship one skill:
 
-- `chain-insights-cypher`: ISO GQL dialect, layer routing and the move for
-  every refusal, for `graph_query` and `graph_query_batch`. No query cookbook.
-- `chain-insights-schema-evm`: EVM / Robinhood GraphRAG labels,
-  relationships, and properties.
+- `chain-insights-cypher`: ISO GQL dialect, layer routing, one query for each
+  kind of graph search (routes, walks, shared counterparties, ownership
+  clusters, operators, swaps, pools and bridges), how to find the fields of
+  the graph, and the move for every refusal, for `graph_query` and
+  `graph_query_batch`.
 
 Check public-free usage:
 
@@ -496,7 +498,7 @@ traversal node must be non-exchange.
 
 Liquidity pools are the other trace boundary. At a `:Pool`, manual traversal
 follows the
-[pool trace rule](../skills/chain-insights-schema-evm/SKILL.md#pool-trace-rule),
+[pool trace rule](../skills/chain-insights-cypher/SKILL.md#pool-trace-rule),
 so a trace does not fan out to every trader who used the pool. The start and
 every address in the middle of a manual `FLOWS_TO` walk must satisfy
 `NOT src:Pool` and `NOT mid:Pool`, and the walk follows `SWAPPED` beside

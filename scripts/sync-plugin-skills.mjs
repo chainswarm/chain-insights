@@ -12,7 +12,7 @@ import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 // The skills the plugin carries: every skill that skills/ ships.
-export const PLUGIN_SKILLS = ['chain-insights-cypher', 'chain-insights-schema-evm']
+export const PLUGIN_SKILLS = ['chain-insights-cypher']
 
 const defaultRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 

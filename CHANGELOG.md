@@ -3,6 +3,55 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.44.1] - 2026-10-06 — feat: graph searches in the cypher skill; the EVM schema skill is retired
+
+### Added
+
+- `chain-insights-cypher` has a "Graph searches" section with one query for
+  each kind of search. Every query was run against the live Chain Insights
+  Graph and returned rows: a route between two addresses (`SHORTEST 1`), several
+  routes (up to 3 hops, no selector), where the money went and where it came
+  from (guarded walks, up to 3 hops out and in), the counterparties two
+  addresses share, an ownership cluster over `LINKED`, the operator view over
+  `OPERATED_BY`, the swaps an address paid for (`SWAPPED`), the pool trace
+  (`REMOVED_LIQUIDITY`) and the bridges an address used (`BRIDGED`). The server
+  serves `SHORTEST 1` and `ANY SHORTEST`, one path each: a count above 1 and the
+  match mode that asks for every shortest path are refused with
+  `route_search_refused`, so the skill shows several routes without a selector.
+- The skill states the topology limits once (at most 5,000 rows and 100 for a
+  probe, 5 hops in a path, 8 in a query) and the units (integer milliseconds in
+  UTC, `block_date` as a day, `*_usd` in US dollars, `*_raw` in the smallest unit
+  of the token). `tests/fixtures/topology-admission-20261006.json` pins the four
+  limits it states.
+- "Find the fields": two sampling reads that the server admits today
+  (`keys(a)` on addresses and `keys(r)` on a link), a line on how to read the
+  keys of another link type, a line on the `TRANSFER` columns and their `kind`,
+  and a line that names the catalog calls (`CALL db.labels()`,
+  `CALL db.relationshipTypes()`, `CALL db.propertyKeys()`,
+  `CALL db.schema.visualization()` and `SHOW INDEXES`) as being enabled on the
+  server. The server refuses them today (`unsupported_topology_dialect`), so
+  the skill tells agents not to send them yet.
+
+### Removed
+
+- The `chain-insights-schema-evm` skill, from `skills/` and from the Claude
+  plugin. The labels and properties it listed go stale, and the sampling reads
+  above read them from the graph itself. `cia setup` and `cia --claude` delete
+  an installed copy, as they do for every retired skill. The pool trace rule,
+  the units and the role-flag rule it held now live in `chain-insights-cypher`,
+  which is the rule's one home.
+
+### Changed
+
+- The README, the plugin README, the guides and the workspace notes name the
+  cypher skill alone. The corpus, the topology rule table and the routing table
+  fixtures are regenerated from the one skill.
+- `tests/skills-contract.test.ts` accepts three guarded walk shapes beside the
+  route shapes (several routes, outward, inward) and holds the skill to one
+  query for each kind of search, to full 42-character addresses, to the stated
+  units and limits, and to the two sampling reads. The tests that pinned only
+  the removed skill are gone.
+
 ## [0.44.0] - 2026-10-06 — fix: aml_address_risk hidden until its verdict is fixed; short ISO GQL skill; schema skill refreshed
 
 ### Removed

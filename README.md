@@ -52,10 +52,9 @@ cia mcp call --json graph_query \
 The `plugin/` folder is the Chain Insights plugin for Claude. It starts the
 local Chain Insights MCP proxy on your computer over stdio
 (`chain-insights-mcp-proxy` from the npm package, through `npx`), and brings the
-`chain-insights-cypher` and `chain-insights-schema-evm` skills. The proxy
-serves the views itself (a graph, a chart or a table, picked from the column
-names of a `graph_query` answer, and the balance), and reaches the Chain
-Insights Graph for the data.
+`chain-insights-cypher` skill. The proxy serves the views itself (a graph, a
+chart or a table, picked from the column names of a `graph_query` answer, and
+the balance), and reaches the Chain Insights Graph for the data.
 
 - **Runs in:** Claude Desktop, Cowork sessions on your computer, and Claude Code.
 - **Cannot start it:** claude.ai on the web, the Claude mobile apps and Cowork
@@ -189,8 +188,9 @@ on `:Address` without an exact address must scope itself with
 database and `Address` carries no `network` property at all. See
 [Graph query compatibility](docs/graph-query-compatibility.md).
 
-Agent installs include `chain-insights-cypher` for graph-query dialect rules
-and `chain-insights-schema-evm` for the EVM / Robinhood graph map.
+Agent installs include `chain-insights-cypher` for graph-query dialect rules,
+one query for each kind of graph search, and how to find the fields of the
+EVM / Robinhood graph.
 
 ## Billing: Billable Units
 

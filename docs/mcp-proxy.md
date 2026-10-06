@@ -203,9 +203,9 @@ address checks, sample address reads, sample flow reads, and the
 free-to-paid handoff, but bounded sample reads still returned topology data
 inside the same daily allowance.
 
-For graph reads, install `chain-insights-cypher` plus
-`chain-insights-schema-evm`. The cypher skill teaches ISO GQL and the three
-read layers. The schema skill holds the graph map.
+For graph reads, install `chain-insights-cypher`. It teaches ISO GQL, the
+three read layers, one query for each kind of graph search, and how to find
+the fields of the graph.
 
 Paid x402 mode:
 
@@ -246,8 +246,7 @@ cia --hermes
 The Hermes installer writes Chain Insights skills under the Hermes skills
 directory and registers the stdio MCP proxy in the Hermes config.
 
-For graph-language work, agents use `chain-insights-cypher` plus
-`chain-insights-schema-evm`.
+For graph-language work, agents use `chain-insights-cypher`.
 
 ## Supported Agent Setup
 

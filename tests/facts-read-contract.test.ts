@@ -163,10 +163,6 @@ describe('no advice names a facts read the contract refuses as one that works', 
 
   async function advice(): Promise<[string, string][]> {
     return [
-      [
-        'skills/chain-insights-schema-evm/SKILL.md',
-        read('skills/chain-insights-schema-evm/SKILL.md'),
-      ],
       ['skills/chain-insights-cypher/SKILL.md', read('skills/chain-insights-cypher/SKILL.md')],
       ['docs/graph-tools.md', read('docs/graph-tools.md')],
       ['src/mcp/proxy.ts graph hints', servedGraphHints()],
