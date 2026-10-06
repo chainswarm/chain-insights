@@ -21,7 +21,7 @@ describe('Claude plugin (plugin/)', () => {
   })
 
   it('carries the plugin skills exactly as skills/ holds them', () => {
-    expect(PLUGIN_SKILLS).toEqual(['chain-insights-cypher', 'chain-insights-schema-evm'])
+    expect(PLUGIN_SKILLS).toEqual(['chain-insights-cypher'])
     expect(pluginSkillDrift(root)).toEqual([])
   })
 

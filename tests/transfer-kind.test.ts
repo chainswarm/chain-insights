@@ -1,16 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { propertiesOf } from './support/facts-columns.js'
-import { factsReadViolations } from './support/facts-contract.js'
-import { markdownQueries } from './support/pool-walk-guard.js'
-import {
-  flat,
-  markdownFiles,
-  read,
-  runtimeSkill,
-  sectionWith,
-  servedGraphHints,
-} from './support/schema-text.js'
+import { flat, markdownFiles, read, runtimeSkill, servedGraphHints } from './support/schema-text.js'
 
 // A facts `TRANSFER` row has a `kind`: `token`, `native` or `internal`. An
 // internal transfer, ETH a contract sends while it runs a call, is a row now, so
@@ -33,14 +24,14 @@ const SUM_RULE =
 
 const plain = (text: string): string => flat(text).replace(/\\?`/g, '').replace(/\*\*/g, '')
 
-const GUIDE = 'skills/chain-insights-schema-evm/SKILL.md'
 const CYPHER = 'skills/chain-insights-cypher/SKILL.md'
 const TOOLS = 'docs/graph-tools.md'
 const COMPAT = 'docs/graph-query-compatibility.md'
 
-// The schema skill is the one skill home of the kind of a row. The cypher skill
-// is short and states the facts read, not the kinds.
-const GUIDE_HOMES = [GUIDE, `plugin/${GUIDE}`, TOOLS, COMPAT] as const
+// The two guides are the homes of the kind of a row. The cypher skill is short: it
+// lists the TRANSFER columns with the three kinds in one line, and the list is held
+// to the server's columns below.
+const GUIDE_HOMES = [TOOLS, COMPAT] as const
 
 // Every file a reader or an agent is shown.
 const SHIPPED_TEXT = [
@@ -82,16 +73,6 @@ describe('the kind of a TRANSFER row is taught in every home', () => {
 })
 
 describe('the link counts every transfer and the rows add up to it', () => {
-  it('the schema skill says TRANSFER lists all three and the rows are the link', () => {
-    const flows = plain(sectionWith(read(GUIDE), 'FLOWS_TO properties'))
-    expect(flows).toContain(
-      'tx_count counts token and native transfers and also internal native transfers.'
-    )
-    expect(flows).toContain(`USE facts TRANSFER lists all three, ${SUM_RULE}`)
-    expect(flows).toContain('A link covers all time, and a USE facts read covers one day')
-    expect(flows).toContain("read a pair's transfers one day at a time")
-  })
-
   it('the tools guide, the hints and the runtime notes say the same', async () => {
     const homes: [string, string][] = [
       [TOOLS, plain(read(TOOLS))],
@@ -131,36 +112,11 @@ describe('the link counts every transfer and the rows add up to it', () => {
   })
 })
 
-describe('an internal row, as the schema skill describes it', () => {
-  const facts = plain(sectionWith(read(GUIDE), 'Facts labels and relationships'))
-
-  it('is one call frame, with an event_index and an edge_index of 0', () => {
-    expect(facts).toContain('An internal row is one call frame.')
-    expect(facts).toContain("Its event_index is the frame's position in the transaction's calls")
-    expect(facts).toContain('its edge_index is 0')
-  })
-
-  it('has no raw amount, so a sum names amount or amount_usd', () => {
-    expect(facts).toContain('raw_amount and decimals read null')
-    expect(facts).toContain('a sum of raw_amount skips it: sum amount or amount_usd')
-  })
-
+describe('the pinned TRANSFER row', () => {
   it('serves no call tree', () => {
-    expect(facts).toContain('The call depth, the call type and the parent frame are not served.')
     for (const callTree of ['call_type', 'call_depth', 'parent_call_index']) {
       expect(propertiesOf('TRANSFER')).not.toContain(callTree)
     }
-  })
-
-  it('says a TRANSFER row is one of three kinds, in the relationship table', () => {
-    const row =
-      sectionWith(read(GUIDE), 'Facts labels and relationships')
-        .split('\n')
-        .find((line) => line.startsWith('| `TRANSFER`')) ?? ''
-    expect(plain(row)).toContain(
-      'One transfer row: a token, a native or an internal native transfer, told by kind.'
-    )
-    expect(plain(row)).not.toMatch(/lists no internal/i)
   })
 })
 
@@ -174,7 +130,11 @@ describe('every list of TRANSFER properties holds kind and only mapped propertie
   }
 
   const lists: [string, () => Promise<string>, RegExp][] = [
-    ['the schema skill', async () => read(GUIDE), /TRANSFER properties include ([^.]*)\./],
+    [
+      'the cypher skill',
+      async () => read(CYPHER),
+      /TRANSFER columns: ([^.]*)\. kind is token, native or internal/,
+    ],
     [
       'the served hints',
       async () => servedGraphHints(),
@@ -216,23 +176,6 @@ describe('the stale sentences are gone', () => {
     for (const [name, text] of homes) {
       const body = plain(text)
       for (const stale of STALE) expect(body, `${name} matches ${stale}`).not.toMatch(stale)
-    }
-  })
-})
-
-describe('the read of the internal rows is a read the server admits', () => {
-  it('the schema skill shows it, and it names a pair, one day and the kind', () => {
-    const queries = markdownQueries(read(GUIDE)).filter((query) => query.includes('t.kind'))
-    expect(queries.length, 'the schema skill shows no read of t.kind').toBeGreaterThan(0)
-    for (const raw of queries) {
-      const query = flat(raw)
-      expect(factsReadViolations(query), query).toEqual([])
-      expect(query).toMatch(
-        /\{address: "0x[0-9a-f]{40}"\}\)-\[t:TRANSFER\]->\(b:Address \{address: "0x[0-9a-f]{40}"\}\)/
-      )
-      expect(query).toMatch(/t\.block_date = "\d{4}-\d{2}-\d{2}"/)
-      expect(query).toContain('t.kind = "internal"')
-      expect(query).toMatch(/t\.kind AS kind/)
     }
   })
 })

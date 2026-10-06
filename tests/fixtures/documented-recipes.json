@@ -129,7 +129,7 @@
       "id": "recipe_topology_05",
       "query": "USE topology MATCH (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[flow:FLOWS_TO]->(dst:Address) WHERE NOT src:Pool RETURN dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.amount_usd_sum DESC LIMIT 50",
       "layer": "topology",
-      "description": "Top live outflows from one address ordered by amount_usd_sum descending. The start guard NOT src:Pool keeps the pool trace rule (skills/chain-insights-schema-evm, Pool trace rule): a walk never starts at a :Pool, so a pool never lists the traders it paid.",
+      "description": "Top live outflows from one address ordered by amount_usd_sum descending. The start guard NOT src:Pool keeps the pool trace rule (skills/chain-insights-cypher, Pool trace rule): a walk never starts at a :Pool, so a pool never lists the traders it paid.",
       "features": [
         "fixed-hop",
         "label-match",
@@ -144,7 +144,7 @@
       "id": "recipe_topology_06",
       "query": "USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"}) WHERE NOT dst:Pool RETURN src.address AS from_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.first_seen_timestamp AS first_seen_timestamp, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.amount_usd_sum DESC LIMIT 25",
       "layer": "topology",
-      "description": "Top live inflows to one address ordered by amount_usd_sum descending, with the first and last seen time of each link. recipe_topology_05 reads the outflows. The guard NOT dst:Pool keeps the pool trace rule (skills/chain-insights-schema-evm, Pool trace rule): a walk never starts at a :Pool.",
+      "description": "Top live inflows to one address ordered by amount_usd_sum descending, with the first and last seen time of each link. recipe_topology_05 reads the outflows. The guard NOT dst:Pool keeps the pool trace rule (skills/chain-insights-cypher, Pool trace rule): a walk never starts at a :Pool.",
       "features": [
         "fixed-hop",
         "label-match",
@@ -171,7 +171,7 @@
       "id": "recipe_topology_11",
       "query": "USE topology MATCH (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[r1:FLOWS_TO]->(dst:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) WHERE NOT src:Pool RETURN src.address AS from_address, dst.address AS to_address, 1 AS hops, r1.amount_usd_sum AS amount_usd_sum, r1.tx_count AS tx_count LIMIT 25",
       "layer": "topology",
-      "description": "Direct one-hop FLOWS_TO edge between two named identities (graph_query_batch hop_1). The start guard NOT src:Pool keeps the pool trace rule (skills/chain-insights-schema-evm, Pool trace rule): a walk never starts at a :Pool.",
+      "description": "Direct one-hop FLOWS_TO edge between two named identities (graph_query_batch hop_1). The start guard NOT src:Pool keeps the pool trace rule (skills/chain-insights-cypher, Pool trace rule): a walk never starts at a :Pool.",
       "features": [
         "fixed-hop",
         "label-match",
@@ -185,7 +185,7 @@
       "id": "recipe_topology_12",
       "query": "USE topology MATCH (src:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[r1:FLOWS_TO|SWAPPED]->(mid:Address)-[r2:FLOWS_TO|SWAPPED]->(dst:Address) WHERE NOT src:Pool AND NOT mid:Pool AND mid.is_exchange IS NULL RETURN src.address AS from_address, mid.address AS mid_address, dst.address AS to_address, 2 AS hops, type(r1) AS first_edge, type(r2) AS second_edge, coalesce(r1.amount_usd_sum, r1.bought_usd) AS first_amount_usd, coalesce(r2.amount_usd_sum, r2.bought_usd) AS second_amount_usd LIMIT 25",
       "layer": "topology",
-      "description": "Fixed two-hop trace from a source over FLOWS_TO and SWAPPED, skipping exchange and pool intermediates (graph_query_batch hop_2). It follows the pool trace rule (skills/chain-insights-schema-evm, Pool trace rule): the pool guards NOT src:Pool and NOT mid:Pool mean the walk never starts at or passes through a :Pool, so it never leaves one on FLOWS_TO, so it cannot fan out to every trader the pool paid, and SWAPPED carries the trace across a swap from payer to recipient. A SWAPPED hop reports bought_usd, the value the recipient received.",
+      "description": "Fixed two-hop trace from a source over FLOWS_TO and SWAPPED, skipping exchange and pool intermediates (graph_query_batch hop_2). It follows the pool trace rule (skills/chain-insights-cypher, Pool trace rule): the pool guards NOT src:Pool and NOT mid:Pool mean the walk never starts at or passes through a :Pool, so it never leaves one on FLOWS_TO, so it cannot fan out to every trader the pool paid, and SWAPPED carries the trace across a swap from payer to recipient. A SWAPPED hop reports bought_usd, the value the recipient received.",
       "features": [
         "fixed-hop",
         "label-match",
@@ -211,7 +211,7 @@
       "id": "recipe_topology_15",
       "query": "USE topology MATCH SHORTEST 1 (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address) RETURN b.address LIMIT 50",
       "layer": "topology",
-      "description": "ISO GQL open target: the addresses the shortest FLOWS_TO and SWAPPED walk (1-5 hops) reaches from one anchored address, the guarded open-target shape of the chain-insights-cypher skill with a literal address. WHERE NOT a:Pool on the start and WHERE NOT via:Pool inside the quantified path pattern keep the pool trace rule (skills/chain-insights-schema-evm, Pool trace rule): the walk never starts at or passes through a :Pool, and only the address it reaches may be one. SWAPPED carries the walk across a swap.",
+      "description": "ISO GQL open target: the addresses the shortest FLOWS_TO and SWAPPED walk (1-5 hops) reaches from one anchored address, the guarded open-target shape of the chain-insights-cypher skill with a literal address. WHERE NOT a:Pool on the start and WHERE NOT via:Pool inside the quantified path pattern keep the pool trace rule (skills/chain-insights-cypher, Pool trace rule): the walk never starts at or passes through a :Pool, and only the address it reaches may be one. SWAPPED carries the walk across a swap.",
       "features": [
         "gql-shortest",
         "shortest-path",
@@ -229,7 +229,7 @@
       "id": "recipe_topology_16",
       "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN p LIMIT 5",
       "layer": "topology",
-      "description": "ISO GQL shortest FLOWS_TO and SWAPPED path between two anchored addresses, in the guarded route shape. The start carries WHERE NOT a:Pool and the quantified path pattern carries WHERE NOT via:Pool, so the route never starts at or passes through a :Pool; only its target end may be one. Both guards sit inside the path pattern, so the selector picks among routes that obey the pool trace rule (skills/chain-insights-schema-evm, Pool trace rule), and SWAPPED carries a route across a swap; a WHERE after the pattern would run after the selection and drop the route instead.",
+      "description": "ISO GQL shortest FLOWS_TO and SWAPPED path between two anchored addresses, in the guarded route shape. The start carries WHERE NOT a:Pool and the quantified path pattern carries WHERE NOT via:Pool, so the route never starts at or passes through a :Pool; only its target end may be one. Both guards sit inside the path pattern, so the selector picks among routes that obey the pool trace rule (skills/chain-insights-cypher, Pool trace rule), and SWAPPED carries a route across a swap; a WHERE after the pattern would run after the selection and drop the route instead.",
       "features": [
         "gql-shortest",
         "quantified-path",
@@ -245,7 +245,7 @@
       "id": "recipe_topology_17",
       "query": "USE topology MATCH p = ANY SHORTEST (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN p LIMIT 5",
       "layer": "topology",
-      "description": "ISO GQL one-of-the-shortest FLOWS_TO and SWAPPED paths between two anchored addresses, in the guarded route shape. The start carries WHERE NOT a:Pool and the quantified path pattern carries WHERE NOT via:Pool, so the route never starts at or passes through a :Pool; only its target end may be one. Both guards sit inside the path pattern, so the selector picks among routes that obey the pool trace rule (skills/chain-insights-schema-evm, Pool trace rule), and SWAPPED carries a route across a swap; a WHERE after the pattern would run after the selection and drop the route instead.",
+      "description": "ISO GQL one-of-the-shortest FLOWS_TO and SWAPPED paths between two anchored addresses, in the guarded route shape. The start carries WHERE NOT a:Pool and the quantified path pattern carries WHERE NOT via:Pool, so the route never starts at or passes through a :Pool; only its target end may be one. Both guards sit inside the path pattern, so the selector picks among routes that obey the pool trace rule (skills/chain-insights-cypher, Pool trace rule), and SWAPPED carries a route across a swap; a WHERE after the pattern would run after the selection and drop the route instead.",
       "features": [
         "any-shortest",
         "shortest-path",
@@ -274,7 +274,7 @@
       "id": "recipe_topology_20",
       "query": "USE topology MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[l:LINKED]-(owned:Address)-[r:FLOWS_TO|SWAPPED]-(b:Address) WHERE NOT a:Pool AND NOT owned:Pool AND owned.address <> b.address AND a.address <> b.address RETURN a.address AS subject_address, owned.address AS linked_via_address, b.address AS counterparty_address, type(r) AS edge, coalesce(r.amount_usd_sum, r.bought_usd) AS amount_usd_sum, coalesce(r.tx_count, r.swap_count) AS tx_count LIMIT 25",
       "layer": "topology",
-      "description": "AC11: FLOWS_TO and SWAPPED reachability UNIONed over one LINKED hop \u2014 actor-level exposure surfaced through an ownership-linked address, not only the subject's own edges. The pool guards NOT a:Pool AND NOT owned:Pool keep the pool trace rule (skills/chain-insights-schema-evm, Pool trace rule): the walk never starts at a :Pool, the money hop never leaves one on FLOWS_TO, and SWAPPED counts a swap counterparty. A SWAPPED hop reports bought_usd and swap_count.",
+      "description": "AC11: FLOWS_TO and SWAPPED reachability UNIONed over one LINKED hop \u2014 actor-level exposure surfaced through an ownership-linked address, not only the subject's own edges. The pool guards NOT a:Pool AND NOT owned:Pool keep the pool trace rule (skills/chain-insights-cypher, Pool trace rule): the walk never starts at a :Pool, the money hop never leaves one on FLOWS_TO, and SWAPPED counts a swap counterparty. A SWAPPED hop reports bought_usd and swap_count.",
       "features": [
         "fixed-hop",
         "label-match",
@@ -311,7 +311,7 @@
       "id": "recipe_topology_pool_rug_pull_01",
       "query": "USE topology MATCH (victim:Address {address: \"0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24\"})-[paid:FLOWS_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE NOT victim:Pool AND receiver.address <> victim.address RETURN pool.address AS pool_address, receiver.address AS receiver_address, paid.amount_usd_sum AS paid_in_usd, removal.usd AS removed_usd, removal.receiver_added_usd AS receiver_added_usd, removal.usd - removal.receiver_added_usd AS receiver_profit_usd, removal.receiver_provided AS receiver_provided ORDER BY removed_usd DESC LIMIT 25",
       "layer": "topology",
-      "description": "Rug pull under the pool trace rule (skills/chain-insights-schema-evm, Pool trace rule): from a victim that is not itself a :Pool (NOT victim:Pool: a walk never starts at a pool), enter a :Pool on FLOWS_TO and leave it only on REMOVED_LIQUIDITY, to the address the liquidity was paid to. receiver_profit_usd is usd minus receiver_added_usd; receiver_provided true with a large profit is the creator's rug pull, false is a drain by a stranger. The victim's own removals are excluded. Zero rows is healthy: no pool the victim paid into has paid liquidity out.",
+      "description": "Rug pull under the pool trace rule (skills/chain-insights-cypher, Pool trace rule): from a victim that is not itself a :Pool (NOT victim:Pool: a walk never starts at a pool), enter a :Pool on FLOWS_TO and leave it only on REMOVED_LIQUIDITY, to the address the liquidity was paid to. receiver_profit_usd is usd minus receiver_added_usd; receiver_provided true with a large profit is the creator's rug pull, false is a drain by a stranger. The victim's own removals are excluded. Zero rows is healthy: no pool the victim paid into has paid liquidity out.",
       "features": [
         "fixed-hop",
         "label-match",
@@ -327,7 +327,7 @@
       "id": "recipe_topology_pool_no_fan_out_01",
       "query": "USE topology MATCH (src:Address {address: \"0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24\"})-[r1:FLOWS_TO|SWAPPED]->(mid:Address)-[r2:FLOWS_TO|SWAPPED]->(dst:Address) WHERE NOT src:Pool AND NOT mid:Pool AND mid.is_exchange IS NULL AND dst.address <> src.address RETURN mid.address AS via_address, type(r2) AS exit_edge, dst.address AS to_address, coalesce(r2.amount_usd_sum, r2.bought_usd) AS exit_usd LIMIT 25 UNION MATCH (src:Address {address: \"0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24\"})-[r1:FLOWS_TO|ADDED_LIQUIDITY]->(mid:Pool)-[r2:REMOVED_LIQUIDITY]->(dst:Address) WHERE NOT src:Pool AND dst.address <> src.address RETURN mid.address AS via_address, type(r2) AS exit_edge, dst.address AS to_address, r2.usd AS exit_usd LIMIT 25",
       "layer": "topology",
-      "description": "Two-hop trace that never fans out through a pool, under the pool trace rule (skills/chain-insights-schema-evm, Pool trace rule). The first branch walks FLOWS_TO and SWAPPED through ordinary, non-exchange intermediates and never starts from or passes a :Pool. The second branch starts from an address that is not a :Pool, enters a :Pool on FLOWS_TO or ADDED_LIQUIDITY and leaves it only on REMOVED_LIQUIDITY. No branch leaves a pool on FLOWS_TO, so the other traders a pool paid on their swaps are never reached.",
+      "description": "Two-hop trace that never fans out through a pool, under the pool trace rule (skills/chain-insights-cypher, Pool trace rule). The first branch walks FLOWS_TO and SWAPPED through ordinary, non-exchange intermediates and never starts from or passes a :Pool. The second branch starts from an address that is not a :Pool, enters a :Pool on FLOWS_TO or ADDED_LIQUIDITY and leaves it only on REMOVED_LIQUIDITY. No branch leaves a pool on FLOWS_TO, so the other traders a pool paid on their swaps are never reached.",
       "features": [
         "fixed-hop",
         "label-match",

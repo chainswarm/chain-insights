@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { queryBuilderContract } from '../src/investigation/public-tools.js'
 import { traceHopsWithoutSwapped, unguardedPoolWalks } from './support/pool-walk-guard.js'
 
-// Pool trace rule (skills/chain-insights-schema-evm, "Pool trace rule"), applied
+// Pool trace rule (skills/chain-insights-cypher, "Pool trace rule"), applied
 // to the query builders in src/investigation/public-tools.ts that
 // aml_address_risk serves: a FLOWS_TO walk never starts at a :Pool and never
 // passes through one, and it may end at one. Issue chainswarm/chain-insights#399,

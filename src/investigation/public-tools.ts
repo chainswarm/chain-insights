@@ -310,7 +310,7 @@ export function moneyTrailSummarySentence(block: MoneyTrailBlock): string {
     : `This address sits on a money trail (${block.class}, min hop ${block.min_hop}).`
 }
 
-// Pool guard (schema skill, "Pool trace rule"): a FLOWS_TO walk never starts
+// Pool guard (cypher skill, "Pool trace rule"): a FLOWS_TO walk never starts
 // at a :Pool and never passes through one, and each guard is its own AND term
 // (inside an OR it would guard nothing). Fixed-hop form of
 // skills/chain-insights-cypher: `WHERE NOT src:Pool AND NOT mid:Pool`.
@@ -479,7 +479,7 @@ function crossSpaceLinkedQuery(address: string): { id: string; query: string } {
 // Exchange intermediates on a returned route are DISCLOSED in the evidence,
 // never silently filtered out.
 //
-// Pool trace rule (schema skill, "Pool trace rule"): a route never starts at
+// Pool trace rule (cypher skill, "Pool trace rule"): a route never starts at
 // a :Pool and never passes through one, and it may end at one. It follows
 // FLOWS_TO and SWAPPED, so it crosses a swap from payer to recipient. The
 // guard sits inside the path pattern, so the search finds the shortest route

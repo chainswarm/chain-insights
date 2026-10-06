@@ -35,15 +35,10 @@ function plain(text: string): string {
   return flat(text).replace(/\\?`/g, '').replace(/\*\*/g, '')
 }
 
-// The schema skill is the one skill home of the swap route rule. The cypher skill
-// is short: it names no swap column, and the "no shipped recipe names a route
-// column" test below still reads it.
-const GUIDE_HOMES = [
-  'skills/chain-insights-schema-evm/SKILL.md',
-  'plugin/skills/chain-insights-schema-evm/SKILL.md',
-  'docs/graph-tools.md',
-  'docs/graph-query-compatibility.md',
-]
+// The guides are the homes of the swap route rule. The cypher skill is short: it
+// names the pools of a swap as `SWAPPED.pools` and no facts column, and the "no
+// shipped recipe names a route column" test below still reads it.
+const GUIDE_HOMES = ['docs/graph-tools.md', 'docs/graph-query-compatibility.md']
 
 // Every file a reader or an agent is shown.
 const SHIPPED_TEXT = [
@@ -110,33 +105,6 @@ describe('the stopgap is gone', () => {
 })
 
 describe('the facts SWAP row the texts describe is the row the server serves', () => {
-  // The property table of the schema skill: the rows between the line that holds
-  // "Property group" and the next blank line, after the SWAP paragraph.
-  function swapTable(): string {
-    const guide = read('skills/chain-insights-schema-evm/SKILL.md')
-    const from = guide.indexOf('`SWAP` holds one row per route')
-    expect(from, 'the schema skill has no SWAP paragraph').toBeGreaterThan(-1)
-    const rest = guide.slice(from)
-    const head = rest.indexOf('| Property group')
-    expect(head, 'the SWAP paragraph has no property table').toBeGreaterThan(-1)
-    const table = rest.slice(head)
-    const end = table.indexOf('\n\n')
-    return end === -1 ? table : table.slice(0, end)
-  }
-
-  it('the schema skill lists every column the server maps on SWAP', () => {
-    const table = swapTable()
-    const missing = propertiesOf('SWAP').filter((name) => !table.includes(`\`${name}\``))
-    expect(missing, 'the SWAP property table omits these columns').toEqual([])
-  })
-
-  it('the schema skill lists no route column on SWAP', () => {
-    const table = swapTable()
-    for (const route of ROUTE_COLUMNS) {
-      expect(table, `the SWAP property table lists ${route}`).not.toContain(`\`${route}\``)
-    }
-  })
-
   it('the served hints list no route column among the columns of a facts SWAP row', () => {
     const line =
       servedGraphHints()
@@ -153,11 +121,12 @@ describe('the facts SWAP row the texts describe is the row the server serves', (
     }
   })
 
-  it('the schema skill keeps route_id, strength and the two sides on the row', () => {
-    const table = swapTable()
-    for (const name of ['route_id', 'strength', 'payer', 'recipient']) {
-      expect(table).toContain(`\`${name}\``)
+  it('the pin maps no route column on SWAP, and the cypher skill sends a swap route to SWAPPED.pools', () => {
+    for (const route of ROUTE_COLUMNS) {
+      expect(propertiesOf('SWAP'), `the server maps ${route} on SWAP`).not.toContain(route)
     }
+    const cypher = plain(read('skills/chain-insights-cypher/SKILL.md'))
+    expect(cypher).toContain('A facts SWAP row has no route: the pools are SWAPPED.pools.')
   })
 })
 

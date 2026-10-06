@@ -31,10 +31,7 @@ type ShapeCase = {
 }
 type CasesFile = { rules_version: string; cases: ShapeCase[] }
 
-const SKILLS = [
-  'skills/chain-insights-cypher/SKILL.md',
-  'skills/chain-insights-schema-evm/SKILL.md',
-]
+const SKILLS = ['skills/chain-insights-cypher/SKILL.md']
 
 // The nine codes the shape rules can give, each with the rule words it may
 // carry.
@@ -82,7 +79,7 @@ describe('topology shape cases', () => {
     expect(readFileSync(casesOut, 'utf8')).toBe(readFileSync(casesPath, 'utf8'))
   })
 
-  it('every fenced USE topology query of the two skills is an admit case, and no refuse case is in a skill', () => {
+  it('every fenced USE topology query of the skill is an admit case, and no refuse case is in a skill', () => {
     const { cases } = readCases()
     const admitted = new Set(cases.filter((c) => c.expect === 'admit').map((c) => c.query))
     const refused = new Set(cases.filter((c) => c.expect === 'refuse').map((c) => c.query))

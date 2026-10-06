@@ -48,10 +48,26 @@ function routeContractShapes(): string[] {
   ]
 }
 
+// The guarded walks the cypher skill teaches beside the route (ruled 2026-10-06):
+// several routes between two addresses, and where the money went and where it
+// came from. Each is up to 3 hops (a guarded {0,2} and the last hop), carries the
+// guard on its start and on every address in its middle, and follows SWAPPED beside
+// FLOWS_TO. The variable names are fixed, as in the route shapes. No selector:
+// a count above 1 on SHORTEST is not served, so several routes drop it.
+function walkContractShapes(): string[] {
+  const via = '(via:Address) WHERE NOT via:Pool){0,2} ()'
+  const start = (address: string) => `(a:Address {address: ${address}} WHERE NOT a:Pool) (()`
+  return [
+    `MATCH p = ${start('$from')}-[:FLOWS_TO|SWAPPED]-${via}-[:FLOWS_TO|SWAPPED]-(b:Address {address: $to})`,
+    `MATCH p = ${start('$addr')}-[:FLOWS_TO|SWAPPED]->${via}-[:FLOWS_TO|SWAPPED]->(b:Address)`,
+    `MATCH p = ${start('$addr')}<-[:FLOWS_TO|SWAPPED]-${via}<-[:FLOWS_TO|SWAPPED]-(b:Address)`,
+  ]
+}
+
 // The contract shapes as patterns, with a literal address allowed in place of
 // a parameter.
-function contractShapePatterns(): RegExp[] {
-  return routeContractShapes().map(
+function contractShapePatterns(shapes: string[] = routeContractShapes()): RegExp[] {
+  return shapes.map(
     (shape) =>
       new RegExp(
         `^${shape
@@ -81,7 +97,7 @@ function routeWalk(query: string): string | null {
   return walk
 }
 
-const reviewedSkills = ['chain-insights-cypher', 'chain-insights-schema-evm']
+const reviewedSkills = ['chain-insights-cypher']
 
 describe('shipped Chain Insights skills contract', () => {
   it('ships exactly the reviewed public skill directories', () => {
@@ -93,40 +109,43 @@ describe('shipped Chain Insights skills contract', () => {
     expect(actual).toEqual(reviewedSkills)
   })
 
-  it('teaches schema plus ISO GQL and excludes stale product guidance', () => {
-    const evm = read('skills/chain-insights-schema-evm/SKILL.md')
+  it('teaches ISO GQL and how to find the fields, and excludes stale product guidance', () => {
     const cypher = read('skills/chain-insights-cypher/SKILL.md')
 
-    expect(evm).toMatch(/label|relationship|property/i)
     expect(cypher).toMatch(/ISO GQL/i)
     expect(cypher).toContain('graph_query')
     expect(cypher).toContain('cia mcp call graph_query')
+    // The schema skill is gone: the cypher skill reads the fields of the graph
+    // from a sample, and names the catalog calls as not served yet.
+    expect(cypher).toContain('## Find the fields')
 
-    const content = [evm, cypher].join('\n')
-    expect(content).not.toMatch(/workspace|debug MCP/i)
+    expect(cypher).not.toMatch(/workspace|debug MCP/i)
     // The risk screen is hidden until its verdict is fixed: no skill drives it,
     // and no skill sends an agent to a workflow command to find one.
-    expect(content).not.toContain('aml_address_risk')
-    expect(content).not.toContain('aml-address-risk')
+    expect(cypher).not.toContain('aml_address_risk')
+    expect(cypher).not.toContain('aml-address-risk')
   })
 
   it('documents the OPERATED_BY owner-to-operator topology edge as topology-only and never as an automatic risk label', () => {
-    const evmSkill = read('skills/chain-insights-schema-evm/SKILL.md')
+    const cypherSkill = read('skills/chain-insights-cypher/SKILL.md')
     const graphTools = read('docs/graph-tools.md')
     const compatibility = read('docs/graph-query-compatibility.md')
-    const combined = [evmSkill, graphTools, compatibility].join('\n')
+    const combined = [cypherSkill, graphTools, compatibility].join('\n')
 
     // The relationship is named across the shipped surfaces, including the
     // runtime MCP instructions and the dialect skill agents load first.
-    for (const surface of [evmSkill, graphTools, compatibility]) {
+    for (const surface of [cypherSkill, graphTools, compatibility]) {
       expect(surface).toContain('OPERATED_BY')
     }
     expect(read('src/mcp/proxy.ts')).toContain('(:Address)-[:OPERATED_BY]->(:Address)')
     expect(read('src/workspace/init.ts')).toContain('operated_by_sample')
     expect(read('src/workspace/init.ts')).toContain('OPERATED_BY]->(operator:Address {address:')
 
-    // The documented direction is owner to operator.
-    expect(evmSkill).toContain('(:Address)-[:OPERATED_BY]->(:Address)')
+    // The documented direction is owner to operator: the skill anchors the
+    // operator, the destination of the link.
+    expect(cypherSkill).toContain(
+      '(owner:Address)-[o:OPERATED_BY]->(operator:Address {address: "0x'
+    )
     expect(combined).toMatch(/source is the (transfer )?owner/i)
     expect(combined).toMatch(
       /destination is\s+the\s+transaction\s+sender\s+that\s+moved\s+the\s+owner's\s+tokens/i
@@ -136,7 +155,7 @@ describe('shipped Chain Insights skills contract', () => {
     // The relation is topology only — never served through USE facts, on any
     // variable spelling, and named in the facts-rejection enumerations.
     expect(combined).not.toMatch(/USE facts MATCH[^"\n]*OPERATED_BY/)
-    expect(evmSkill).toMatch(/Topology only\. Do not query `OPERATED_BY` on facts\./)
+    expect(cypherSkill).not.toMatch(/USE facts[^`]*OPERATED_BY/)
 
     // The canonical probe is pinned on the shipped recipe fixture: anchored
     // by an exact operator address, projecting the aggregate contract, and
@@ -170,7 +189,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(combined).not.toMatch(
       /OPERATED_BY[^.\n]{0,80}(risk (label|signal|verdict)|drainer|scam (label|signal))/i
     )
-    expect(evmSkill).toMatch(/not proof of malicious intent/i)
+    expect(cypherSkill).toMatch(/not proof of malicious intent/i)
     expect(read('src/mcp/proxy.ts')).toContain('not a risk label')
   })
 
@@ -178,8 +197,7 @@ describe('shipped Chain Insights skills contract', () => {
     const readme = read('README.md')
     const graphTools = read('docs/graph-tools.md')
     const cypherSkill = read('skills/chain-insights-cypher/SKILL.md')
-    const evmSkill = read('skills/chain-insights-schema-evm/SKILL.md')
-    const combined = [readme, graphTools, cypherSkill, evmSkill].join('\n')
+    const combined = [readme, graphTools, cypherSkill].join('\n')
 
     expect(combined).toContain('linked_sample')
     expect(combined).toContain('USE topology MATCH (a:Address)-[l:LINKED]-(b:Address)')
@@ -283,7 +301,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(development).toContain('docs/debugging.md')
   })
 
-  it('ships ISO GQL guidance without a query cookbook', () => {
+  it('ships ISO GQL guidance with one query for each kind of graph search', () => {
     const skill = read('skills/chain-insights-cypher/SKILL.md')
     const openai = read('skills/chain-insights-cypher/agents/openai.yaml')
     const graphTools = read('docs/graph-tools.md')
@@ -304,18 +322,15 @@ describe('shipped Chain Insights skills contract', () => {
     expect(openai).toContain('Chain Insights Cypher')
     expect(graphTools).toContain('chain-insights-cypher')
     expect(graphTools).not.toContain('chain-insights-address-risk')
-    expect(graphTools).toContain('chain-insights-schema-evm')
     expect(graphTools).not.toContain('chain-insights-bittensor-cypher')
     expect(graphTools).not.toContain('references/memgraph-examples.md')
     expect(mcpProxy).toContain('chain-insights-cypher')
     expect(mcpProxy).not.toContain('chain-insights-address-risk')
-    expect(mcpProxy).toContain('chain-insights-schema-evm')
     expect(mcpProxy).not.toContain('chain-insights-bittensor-cypher')
     expect(mcpProxy).not.toContain('Memgraph examples reference')
   })
 
   it('states the pool trace rule once and every shipped trace obeys it', () => {
-    const evmSkill = read('skills/chain-insights-schema-evm/SKILL.md')
     const cypherSkill = read('skills/chain-insights-cypher/SKILL.md')
     const graphTools = read('docs/graph-tools.md')
     const proxy = read('src/mcp/proxy.ts')
@@ -323,7 +338,7 @@ describe('shipped Chain Insights skills contract', () => {
     const squash = (text: string) => text.replace(/\s+/g, ' ').trim()
 
     // The rule's one home: four numbered steps under "## Pool trace rule".
-    const section = evmSkill.split('## Pool trace rule\n')[1]?.split('\n## ')[0] ?? ''
+    const section = cypherSkill.split('## Pool trace rule\n')[1]?.split('\n## ')[0] ?? ''
     const steps = section
       .split(/\n(?=\d\. )/)
       .filter((part) => /^\d\. /.test(part))
@@ -340,32 +355,30 @@ describe('shipped Chain Insights skills contract', () => {
 
     // Every other surface points at the rule and never restates it.
     const restated = /Leave a `:Pool` only on `REMOVED_LIQUIDITY`/
-    for (const surface of [cypherSkill, graphTools, runtimeSkill]) {
+    for (const surface of [graphTools, runtimeSkill]) {
       expect(surface).toMatch(/pool trace rule/i)
-      expect(surface).toContain('chain-insights-schema-evm')
+      expect(surface).toContain('chain-insights-cypher')
       expect(surface).not.toMatch(restated)
     }
-    expect(evmSkill.match(new RegExp(restated, 'g'))).toHaveLength(1)
+    expect(cypherSkill.match(new RegExp(restated, 'g'))).toHaveLength(1)
 
     // The graph tools guide says where the rule lives and that MCP clients get the same text.
     expect(squash(graphTools)).toContain(
-      'The rule is stated once, in the [`chain-insights-schema-evm` skill]'
+      'The rule is stated once, in the [`chain-insights-cypher` skill]'
     )
     expect(squash(graphTools)).toContain(
       'The MCP server instructions serve the same four steps, word for word, because an MCP client loads no skill. A test keeps the two equal.'
     )
 
     // The retired swap stamp and the retired DEX bookkeeping nodes are gone.
-    for (const surface of [evmSkill, cypherSkill, graphTools, proxy, runtimeSkill]) {
+    for (const surface of [cypherSkill, graphTools, proxy, runtimeSkill]) {
       expect(surface).not.toMatch(/swap\.(kind|family|deployment|pool|reason|route_id)/)
       expect(surface).not.toMatch(/Dex(Transaction|Route|PoolFact|PairContribution)/)
     }
-    expect(evmSkill).toContain('(:Pool)-[:REMOVED_LIQUIDITY]->(:Address)')
-    expect(evmSkill).toContain('(:Address)-[:SWAPPED]->(:Address)')
-    expect(evmSkill).toContain('(:Address)-[:BRIDGED]->(:Chain)')
-    for (const rel of ['SWAP', 'LIQUIDITY_ADD', 'LIQUIDITY_REMOVE', 'BRIDGE_CROSSING']) {
-      expect(evmSkill).toContain(`:${rel}]->`)
-    }
+    // The skill shows a swap, a pool trace and a bridge read, each on its own link.
+    expect(cypherSkill).toContain('-[r:REMOVED_LIQUIDITY]->(b:Address)')
+    expect(cypherSkill).toContain('-[s:SWAPPED]->(b:Address)')
+    expect(cypherSkill).toContain('-[x:BRIDGED]->(c:Chain)')
 
     const recipes = JSON.parse(read('tests/fixtures/documented-recipes.json')) as {
       recipes: { id: string; query: string; layer: string }[]
@@ -426,11 +439,13 @@ describe('shipped Chain Insights skills contract', () => {
     )
     expect(withoutSwapped).toEqual([])
 
-    // The guarded route contract: every served route and open-target walk (a
-    // quantified FLOWS_TO trace, see routeWalk) is exactly one of these
-    // shapes, with a literal address allowed in place of a parameter.
+    // The guarded route contract: every served route, open-target and walk (a
+    // quantified FLOWS_TO trace, see routeWalk) is exactly one of the route
+    // shapes or the walk shapes, with a literal address allowed in place of a
+    // parameter.
     const shapes = routeContractShapes()
     const shapePatterns = contractShapePatterns()
+    const walkPatterns = contractShapePatterns(walkContractShapes())
     const routeWalks = surfaces.flatMap(({ name, queries }) =>
       queries.flatMap((query) => {
         const walk = routeWalk(query)
@@ -438,7 +453,9 @@ describe('shipped Chain Insights skills contract', () => {
       })
     )
     const offContract = routeWalks
-      .filter(({ walk }) => !shapePatterns.some((pattern) => pattern.test(walk)))
+      .filter(
+        ({ walk }) => ![...shapePatterns, ...walkPatterns].some((pattern) => pattern.test(walk))
+      )
       .map(({ name, walk }) => `${name}: ${walk}`)
     expect(offContract).toEqual([])
     // Every contract shape is served: the cypher skill carries the route (with
@@ -459,6 +476,13 @@ describe('shipped Chain Insights skills contract', () => {
             name === 'tests/fixtures/documented-recipes.json' && pattern.test(walk)
         ),
         `no documented recipe serves ${shapes[i]}`
+      ).toBe(true)
+    }
+    // The cypher skill carries every walk shape, with full addresses.
+    for (const [i, pattern] of walkPatterns.entries()) {
+      expect(
+        skillWalks.some((walk) => pattern.test(walk)),
+        `the cypher skill shows no walk of the shape ${walkContractShapes()[i]}`
       ).toBe(true)
     }
   })
@@ -808,12 +832,16 @@ describe('shipped Chain Insights skills contract', () => {
     // The exact-shape net: every route or open target, however its start is
     // anchored, is read as one and must be a contract shape. Each of these
     // carries its guards, so only the shape check refuses it.
-    const shapePatterns = contractShapePatterns()
+    const shapePatterns = contractShapePatterns([...routeContractShapes(), ...walkContractShapes()])
+    const [severalRoutes, outward, inward] = walkContractShapes()
     const onContract = (query: string) => {
       const found = routeWalk(query)
       return found !== null && shapePatterns.some((pattern) => pattern.test(found))
     }
     const contract: Record<string, string> = {
+      several_routes: `${severalRoutes} RETURN [n IN nodes(p) | n.address] AS route, length(p) AS hops LIMIT 5`,
+      where_the_money_went: `${outward} RETURN b.address AS to_address, length(p) AS hops LIMIT 25`,
+      where_the_money_came_from: `${inward} RETURN b.address AS from_address, length(p) AS hops LIMIT 25`,
       route: `${route} RETURN [n IN nodes(p) | n.address] AS route`,
       any_shortest_route: `${anyRoute} RETURN p`,
       open_target: `${openTarget} RETURN b.address LIMIT 50`,
@@ -832,6 +860,9 @@ describe('shipped Chain Insights skills contract', () => {
       guarded_legacy_function:
         'MATCH p = shortestPath((a:Address {address: $from})-[:FLOWS_TO|SWAPPED*1..5]-(b:Address {address: $to})) WHERE NONE(n IN nodes(p) WHERE n:Pool AND n <> b) RETURN p',
       other_variable_names: `MATCH path = SHORTEST 1 (src:Address {address: $from} WHERE NOT src:Pool) (()-[:FLOWS_TO|SWAPPED]-(hop:Address) WHERE NOT hop:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(dst:Address {address: $to}) RETURN path`,
+      walk_over_the_hop_bound: `${outward.replace('{0,2}', '{0,4}')} RETURN b.address LIMIT 25`,
+      several_routes_with_a_selector: `${severalRoutes.replace('p = ', 'p = ANY SHORTEST ')} RETURN p LIMIT 5`,
+      walk_on_flows_to_only: `${outward.replaceAll('|SWAPPED', '')} RETURN b.address LIMIT 25`,
     }
     for (const [name, query] of Object.entries(offContract)) {
       expect(unguardedPoolWalks(query), name).toEqual([])
@@ -880,18 +911,147 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).not.toContain('eu_border')
   })
 
-  it('names the EVM schema skill in the README and both guides', () => {
+  it('names the cypher skill in the README and both guides', () => {
     const readme = read('README.md')
     const graphTools = read('docs/graph-tools.md')
     const mcpProxy = read('docs/mcp-proxy.md')
 
     expect(readme).not.toContain('chain-insights-address-risk')
-    expect(readme).toContain('chain-insights-schema-evm')
+    expect(readme).toContain('chain-insights-cypher')
     expect(readme).not.toContain('chain-insights-bittensor-cypher')
     expect(readme).toContain('linked')
     expect(readme).toContain('USE topology MATCH (a:Address)-[l:LINKED]-(b:Address)')
     expect(readme).not.toContain('USE facts MATCH (a:Address)-[l:LINKED]-(b:Address)')
-    expect(graphTools).toContain('chain-insights-schema-evm')
-    expect(mcpProxy).toContain('chain-insights-schema-evm')
+    expect(graphTools).toContain('chain-insights-cypher')
+    expect(mcpProxy).toContain('chain-insights-cypher')
+  })
+})
+
+// What the cypher skill teaches beyond the dialect (operator ruling 2026-10-06):
+// one query for each kind of graph search, the units, and how to find the fields
+// now that the schema skill is gone. Every query ran on the live server and
+// returned rows when it was written; tests/topology-shape-cases.test.ts holds each
+// one to the topology rules, and the pool-guard test above holds each walk to the
+// pool trace rule.
+describe('the cypher skill: graph searches, units and the field sampling reads', () => {
+  const skill = read('skills/chain-insights-cypher/SKILL.md')
+  const flatSkill = skill.replace(/\s+/g, ' ')
+  const squash = (text: string) => text.replace(/\s+/g, ' ').trim()
+  const fenced = [...skill.matchAll(/^```[\w-]*\n([\s\S]*?)^```/gm)].map((block) =>
+    squash(block[1] ?? '')
+  )
+  const topology = fenced.filter((query) => query.startsWith('USE topology'))
+
+  it('shows one query for each kind of graph search', () => {
+    const kinds: Record<string, RegExp> = {
+      route:
+        /SHORTEST 1 \(a:Address \{address: "0x[0-9a-f]{40}"\} WHERE NOT a:Pool\).*\(b:Address \{address: "0x[0-9a-f]{40}"\}\) RETURN \[n IN nodes\(p\) \| n\.address\] AS route LIMIT 5$/,
+      several_routes:
+        /^USE topology MATCH p = \(a:Address \{address: "0x[0-9a-f]{40}"\} WHERE NOT a:Pool\) .*\{0,2\} \(\)-\[:FLOWS_TO\|SWAPPED\]-\(b:Address \{address: "0x[0-9a-f]{40}"\}\) RETURN .* AS hops LIMIT 5$/,
+      where_the_money_went: /\{0,2\} \(\)-\[:FLOWS_TO\|SWAPPED\]->\(b:Address\) RETURN .*LIMIT 25$/,
+      where_the_money_came_from:
+        /\{0,2\} \(\)<-\[:FLOWS_TO\|SWAPPED\]-\(b:Address\) RETURN .*LIMIT 25$/,
+      shared_counterparties:
+        /\(c:Address\)-\[:FLOWS_TO\|SWAPPED\]-\(b:Address \{address: "0x[0-9a-f]{40}"\}\) WHERE NOT a:Pool AND NOT c:Pool RETURN DISTINCT c\.address/,
+      ownership_cluster: /-\[:LINKED\]-\{1,2\}\(b:Address\) RETURN/,
+      operator_view: /-\[o:OPERATED_BY\]->\(operator:Address \{address: "0x[0-9a-f]{40}"\}\)/,
+      swaps: /-\[s:SWAPPED\]->\(b:Address\)/,
+      pool_trace:
+        /-\[:FLOWS_TO\]->\(p:Pool\)-\[r:REMOVED_LIQUIDITY\]->\(b:Address\) WHERE NOT a:Pool/,
+      bridges: /-\[x:BRIDGED\]->\(c:Chain\)/,
+      newest_links: /ORDER BY f\.last_seen_timestamp DESC LIMIT 25$/,
+    }
+    for (const [kind, pattern] of Object.entries(kinds)) {
+      expect(
+        topology.some((query) => pattern.test(query)),
+        `the skill shows no ${kind} query`
+      ).toBe(true)
+    }
+    // Several routes carry no selector: SHORTEST with a count above 1 is refused.
+    const several = topology.find((query) => kinds['several_routes']?.test(query)) ?? ''
+    expect(several).not.toContain('SHORTEST')
+    // The skill does not teach the selectors the server refuses.
+    expect(skill).not.toMatch(/SHORTEST [2-9]|GROUPS|PATHS/)
+  })
+
+  it('writes every address of a query in full: 42 characters, lowercase', () => {
+    for (const query of fenced) {
+      for (const [, address] of query.matchAll(/\{(?:address|hash): "(0x[^"]*)"\}/g)) {
+        // A chain hash is 66 characters, an address 42.
+        expect([42, 66], `${address} in ${query}`).toContain(address?.length)
+        expect(address, query).toBe(address?.toLowerCase())
+      }
+    }
+  })
+
+  it('states the units: milliseconds in UTC, a block_date day, US dollars and raw amounts', () => {
+    expect(flatSkill).toContain('integer milliseconds since the epoch, UTC')
+    expect(flatSkill).toContain('`block_date` is the string `"YYYY-MM-DD"`')
+    expect(flatSkill).toContain('Every `*_usd` field is US dollars')
+    expect(flatSkill).toContain("`*_raw` is the token's smallest unit, not dollars")
+  })
+
+  it("states the topology limits once, and they are the server's published ones", () => {
+    const { topology_admission: admission } = JSON.parse(
+      read('tests/fixtures/topology-admission-20261006.json')
+    ) as { topology_admission: Record<string, number> }
+    const places = flatSkill.match(/at most 5,000 rows, 100 for a probe/g) ?? []
+    expect(places).toHaveLength(1)
+    expect(admission['max_limit']).toBe(5000)
+    expect(admission['probe_max_limit']).toBe(100)
+    expect(flatSkill).toContain('A path has at most 5 hops and a query at most 8.')
+    expect(admission['max_hops_per_path']).toBe(5)
+    expect(admission['max_hops_per_query']).toBe(8)
+    expect(flatSkill).toContain('`topology_admission`')
+  })
+
+  it('every walk stays inside the hop limits of the server', () => {
+    const { topology_admission: admission } = JSON.parse(
+      read('tests/fixtures/topology-admission-20261006.json')
+    ) as { topology_admission: Record<string, number> }
+    let walks = 0
+    for (const query of topology) {
+      // A guarded walk is its repeated part and a last hop. A quantified link is its bound.
+      const guarded = /\)\{\d+,(\d+)\} \(\)[<-]/.exec(query)
+      const link = /\]-\{\d+,(\d+)\}\(/.exec(query)
+      if (!guarded && !link) continue
+      walks += 1
+      const hops = guarded ? Number(guarded[1]) + 1 : Number(link?.[1])
+      expect(hops, query).toBeLessThanOrEqual(admission['max_hops_per_path'] ?? 0)
+      expect(hops, query).toBeLessThanOrEqual(admission['max_hops_per_query'] ?? 0)
+    }
+    expect(walks, 'the skill shows five walks').toBe(5)
+  })
+
+  it('finds the fields with two sampling reads the guard admits, and names the catalog calls as not served', () => {
+    const section = skill.split('## Find the fields\n')[1]?.split('\n## ')[0] ?? ''
+    const reads = [...section.matchAll(/^```[\w-]*\n([\s\S]*?)^```/gm)].map((block) =>
+      squash(block[1] ?? '')
+    )
+    expect(reads).toEqual([
+      'USE topology MATCH (a:Address) RETURN keys(a) AS keys LIMIT 20',
+      'USE topology MATCH ()-[r:FLOWS_TO]->() RETURN keys(r) AS keys LIMIT 5',
+    ])
+    // An unanchored probe takes a literal LIMIT of at most probe_max_limit rows.
+    const { topology_admission: admission } = JSON.parse(
+      read('tests/fixtures/topology-admission-20261006.json')
+    ) as { topology_admission: Record<string, number> }
+    for (const query of reads) {
+      expect(Number(/LIMIT (\d+)$/.exec(query)?.[1])).toBeLessThanOrEqual(
+        admission['probe_max_limit'] ?? 0
+      )
+    }
+    // The catalog calls are named as being enabled, never shown as a query: the
+    // server refuses CALL and SHOW today (unsupported_topology_dialect).
+    const catalog = [
+      'CALL db.labels()',
+      'CALL db.relationshipTypes()',
+      'CALL db.propertyKeys()',
+      'CALL db.schema.visualization()',
+      'SHOW INDEXES',
+    ]
+    for (const call of catalog) expect(flatSkill, call).toContain(`\`${call}\``)
+    expect(flatSkill).toContain('are being enabled on the server')
+    for (const query of fenced) expect(query).not.toMatch(/\bCALL\b|\bSHOW\b/)
   })
 })

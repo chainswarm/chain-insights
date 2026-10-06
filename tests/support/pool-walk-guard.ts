@@ -1,4 +1,4 @@
-// Test support for the pool trace rule (skills/chain-insights-schema-evm,
+// Test support for the pool trace rule (skills/chain-insights-cypher,
 // "Pool trace rule"): a served FLOWS_TO walk may end at a :Pool, but never
 // starts at one or passes through one, and a trace follows SWAPPED beside
 // FLOWS_TO.

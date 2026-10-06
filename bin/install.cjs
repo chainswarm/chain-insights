@@ -49,10 +49,7 @@ const homeDir = os.homedir()
 const dataDir = path.join(homeDir, '.chain-insights')
 const configPath = path.join(dataDir, 'config.json')
 const srcSkillsDir = path.join(__dirname, '..', 'skills')
-const PUBLIC_SKILL_NAMES = Object.freeze([
-  'chain-insights-cypher',
-  'chain-insights-schema-evm',
-])
+const PUBLIC_SKILL_NAMES = Object.freeze(['chain-insights-cypher'])
 const RETIRED_SKILL_NAMES = Object.freeze([
   'chain-insights-address-risk',
   'chain-insights-bittensor-cypher',
@@ -60,6 +57,7 @@ const RETIRED_SKILL_NAMES = Object.freeze([
   'chain-insights-investigation',
   'chain-insights-monitoring',
   'chain-insights-schema-bittensor',
+  'chain-insights-schema-evm',
   'ci-status',
   'test-chain-insights-graph',
 ])

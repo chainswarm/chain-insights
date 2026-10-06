@@ -136,10 +136,6 @@ describe('the number detector', () => {
 describe('no skill, guide or served hint writes a number that the capabilities reply publishes', () => {
   const surfaces: [string, () => string][] = [
     ['skills/chain-insights-cypher/SKILL.md', () => read('skills/chain-insights-cypher/SKILL.md')],
-    [
-      'skills/chain-insights-schema-evm/SKILL.md',
-      () => read('skills/chain-insights-schema-evm/SKILL.md'),
-    ],
     ['docs/graph-tools.md', () => read('docs/graph-tools.md')],
     ['src/mcp/proxy.ts graph hints', servedGraphHints],
   ]

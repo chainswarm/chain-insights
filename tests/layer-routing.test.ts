@@ -11,7 +11,7 @@ import { factsReadViolations } from './support/facts-contract.js'
 import { flat, read, servedGraphHints } from './support/schema-text.js'
 
 // Every query this package teaches sits on its layer. tests/fixtures/layer-routing.json
-// lists each documented recipe, each fenced query of the two skills and each query
+// lists each documented recipe, each fenced query of the skill and each query
 // of the served graph hints, with the layer it goes to. The generator writes it
 // (npm run corpus:generate). Each entry meets the rule of its layer:
 //
@@ -104,7 +104,6 @@ describe('the committed routing table', () => {
     for (const recipe of recipes) expect(ids.has(recipe.id), recipe.id).toBe(true)
     const sources = new Set(routing.entries.map((entry) => entry.source))
     expect(sources).toContain('skills/chain-insights-cypher/SKILL.md')
-    expect(sources).toContain('skills/chain-insights-schema-evm/SKILL.md')
     expect(sources).toContain('src/mcp/proxy.ts graph hints')
   })
 })
@@ -196,18 +195,12 @@ describe('the routing lines are one text in the skill, the guide and the served 
   })
 })
 
-describe('no third graph skill', () => {
-  it('skills/ holds the cypher and the schema skill only: the address risk skill is gone', () => {
-    expect(readdirSync(join(repoRoot, 'skills')).sort()).toEqual([
-      'chain-insights-cypher',
-      'chain-insights-schema-evm',
-    ])
+describe('no second graph skill', () => {
+  it('skills/ holds the cypher skill only: the address risk and the schema skills are gone', () => {
+    expect(readdirSync(join(repoRoot, 'skills')).sort()).toEqual(['chain-insights-cypher'])
   })
 
-  it('the plugin carries the cypher and the schema skill, equal to skills/', () => {
-    expect(readdirSync(join(repoRoot, 'plugin/skills')).sort()).toEqual([
-      'chain-insights-cypher',
-      'chain-insights-schema-evm',
-    ])
+  it('the plugin carries the cypher skill, equal to skills/', () => {
+    expect(readdirSync(join(repoRoot, 'plugin/skills')).sort()).toEqual(['chain-insights-cypher'])
   })
 })

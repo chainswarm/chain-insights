@@ -313,7 +313,7 @@ Rules:
   satisfy \`is_exchange IS NOT NULL\`. \`is_exchange\` is absent unless true, so
   a labelled node with no \`is_exchange\` is walked through.
 - When a trace reaches a \`:Pool\`, follow the pool trace rule in the
-  \`chain-insights-schema-evm\` skill.
+  \`chain-insights-cypher\` skill.
 - Keep analysis products separate from summary notes: graph JSON belongs under
   \`reports/graphs/\`, tabular extracts under \`reports/tables/\`, and analyst
   narrative under \`reports/\`.
