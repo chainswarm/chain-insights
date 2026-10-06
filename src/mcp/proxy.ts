@@ -21,7 +21,7 @@ import { PaymentRequiredError } from './client.js'
 import { primitiveBackendUsageStatus } from './usage-status.js'
 import { unavailableSubscriptionStatus } from './subscription-status.js'
 import { mirrorGraphNetworkCapabilities } from './capabilities.js'
-import { routingHintLines } from './layer-routing.js'
+import { ROUTING_NOT_SERVED, routingHead, routingHintLines } from './layer-routing.js'
 import {
   GraphSchemaError,
   META_SCHEMA_DESCRIPTION,
@@ -123,7 +123,7 @@ const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   meta_help: 'Show a short guide to Chain Insights tools and workflow.',
   wallet_balance:
     'Show the local Chain Insights payment wallet address, payment network, token, and amount.',
-  graph_query: `Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. ${GRAPH_LAYERS_TEXT} Preserve full addresses exactly.`,
+  graph_query: `Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. ${GRAPH_LAYERS_TEXT} ${ROUTING_NOT_SERVED} Preserve full addresses exactly.`,
   graph_query_batch:
     'Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads.',
 }
@@ -202,9 +202,14 @@ const GRAPH_SCHEMA_HINTS = [
   '- Use USE facts graph patterns for fact and enrichment reads. Do not query internal table namespaces directly.',
 ].join('\n')
 
+// The routing paragraph comes first: a host that keeps only the start of the
+// instructions must still show where each kind of question goes.
+const ROUTING_HEAD = routingHead()
+
 const SERVER_INSTRUCTIONS = [
   'Chain Insights is an AML and graph-analysis MCP server for AI agents.',
   CHAIN_INSIGHTS_WORKFLOW,
+  ROUTING_HEAD,
   PICTURE_RULES,
   GRAPH_SCHEMA_HINTS,
   'Presentation rules: preserve tool summaries as returned; never truncate blockchain addresses or identity_resolution audit mappings.',
@@ -213,6 +218,7 @@ const SERVER_INSTRUCTIONS = [
 const STATELESS_SERVER_INSTRUCTIONS = [
   'Chain Insights is running as a stateless AML proxy for a host application.',
   'Use meta_network_capabilities first when network support is unknown, then call graph_query or graph_query_batch as needed.',
+  ROUTING_HEAD,
   PICTURE_RULES,
   'Use wallet_balance to inspect the local payment wallet when payment setup is needed.',
   GRAPH_SCHEMA_HINTS,

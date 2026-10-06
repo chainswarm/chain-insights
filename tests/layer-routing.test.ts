@@ -214,11 +214,11 @@ describe('the routing lines are one text in the skill, the guide and the served 
 
   it('names the line that differs when one word of a routing line changes', () => {
     const body = flat(read('skills/chain-insights-cypher/SKILL.md')).replace(
-      'I do not know the thing yet',
-      'I do not know the thing now'
+      'I know an address and want its links',
+      'I know an address and want its link'
     )
     expect(routingLines().filter((line) => !body.includes(line))).toEqual([
-      'I do not know the thing yet: `USE topology`.',
+      'I know an address and want its links, senders, receivers, hops or a route: `USE topology`, anchored on that address.',
     ])
   })
 })
