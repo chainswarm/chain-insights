@@ -1,23 +1,29 @@
 /**
- * The money-flow view tools of the local proxy: money_flows and graph_expand.
+ * graph_expand, the one dedicated tool of the local proxy, called by the Chain
+ * Insights view (ui://chain-insights/view) when the investigator clicks. Its
+ * _meta says visibility ["app"], so a host keeps it away from the model: the
+ * model writes its own graph_query, and the view draws the rows by their column
+ * names.
  *
- * money_flows answers one robinhood address with its most recent senders and
- * receivers: a short text the model reads, and chain-insights.flows.v1 in
- * structuredContent, which the Chain Insights view (ui://chain-insights/view)
- * draws. graph_expand is the same answer for the next page of one address. The
- * view calls it when the investigator clicks an address; its _meta says
- * visibility ["app"], so a host keeps it away from the model.
+ * Two forms, told apart by the arguments:
  *
- * Both tools are composed on the client PC from three anchored graph_query
- * reads (the node, its outgoing FLOWS_TO and its incoming FLOWS_TO, newest
- * first), sent through the proxy's remote client, the same path and payment
- * wrapping a graph_query call takes. Each read is billed as a graph_query.
- * Every argument is checked before the first read, so a refused call reaches
- * no graph endpoint and costs nothing.
+ * - node, {network, address, in_offset?, out_offset?}: one address with its
+ *   newest senders and receivers, a text summary and chain-insights.flows.v1 in
+ *   structuredContent. Composed from three anchored graph_query reads on the
+ *   topology graph (the node, its outgoing FLOWS_TO and its incoming FLOWS_TO,
+ *   newest first).
+ * - link, {network, from, to, day}: the transfers between two known addresses
+ *   on one UTC day, newest first, at most 50, a short text summary and
+ *   chain-insights.transfers.v1 in structuredContent. One anchored USE facts
+ *   graph_query read.
+ *
+ * Every read goes through the proxy's remote client, the same path and payment
+ * wrapping a graph_query call takes, and is billed as a graph_query. Every
+ * argument is checked before the first read, so a refused call reaches no graph
+ * endpoint and costs nothing.
  */
 
 export const FLOWS_SCHEMA = 'chain-insights.flows.v1'
-export const MONEY_FLOWS_TOOL = 'money_flows'
 export const GRAPH_EXPAND_TOOL = 'graph_expand'
 export const FLOWS_NETWORK = 'robinhood'
 
@@ -27,10 +33,22 @@ export const FLOWS_PER_SIDE = 12
 export const FLOWS_MAX_NODES = 60
 /** ...and under this many characters of JSON. */
 export const FLOWS_MAX_CHARS = 40_000
-/** The text the model reads holds at most this many lines. */
+/** The text of a node answer holds at most this many lines. */
 export const FLOWS_SUMMARY_MAX_LINES = 20
 /** Where a graph_expand page may start on each side, at most. */
 export const FLOWS_MAX_OFFSET = 10_000
+
+export const TRANSFERS_SCHEMA = 'chain-insights.transfers.v1'
+/** A link answer lists at most this many transfers... */
+export const TRANSFERS_MAX = 50
+/**
+ * ...from the rows one read brings back. A facts read takes no ORDER BY and
+ * the server cuts a reply at 200 rows, so the read asks for the whole cap and
+ * the newest rows are picked here.
+ */
+export const TRANSFERS_READ_ROWS = 200
+/** The text of a link answer names at most this many transfers. */
+export const TRANSFERS_SUMMARY_ROWS = 5
 
 export type FlowNode = {
   address: string
@@ -102,7 +120,13 @@ export const OFFSET_TOO_LARGE_TEXT = `invalid_offset: in_offset and out_offset m
 export const OFFSET_NEGATIVE_TEXT =
   'invalid_offset: in_offset and out_offset must each be a whole number, 0 or more'
 
+export const INVALID_DAY_TEXT =
+  'invalid_day: day must be a calendar date written YYYY-MM-DD (UTC), for example 2026-07-10'
+export const BOTH_FORMS_TEXT =
+  'invalid_arguments: pass address (with in_offset and out_offset) to expand a node, or from, to and day to list the transfers of a link, not both'
+
 const ADDRESS_PATTERN = /^0x[0-9a-f]{40}$/
+const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const CODE_PREFIX = /^([a-z][a-z0-9_]*):\s*/
 
 /**
@@ -114,6 +138,35 @@ export function normalizeFlowsAddress(raw: unknown): string | null {
   if (typeof raw !== 'string') return null
   const address = raw.trim().toLowerCase()
   return ADDRESS_PATTERN.test(address) ? address : null
+}
+
+/**
+ * The day as YYYY-MM-DD when it is a real calendar date, or null. Only a day
+ * that passes is ever written into a read.
+ */
+export function normalizeFlowsDay(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null
+  const day = raw.trim()
+  if (!DAY_PATTERN.test(day)) return null
+  const time = Date.parse(`${day}T00:00:00Z`)
+  if (Number.isNaN(time) || new Date(time).toISOString().slice(0, 10) !== day) return null
+  return day
+}
+
+/**
+ * The one facts read of a link: the transfers from one address to another on
+ * one day. A facts read names the pair with one day, takes no ORDER BY and
+ * holds at most 200 rows, so the read asks for the whole cap and the order is
+ * made in buildTransfersView. Both addresses and the day have passed their
+ * checks, so they are written into the read as literals.
+ */
+export function transfersReadFor(from: string, to: string, day: string): string {
+  return (
+    `USE facts MATCH (a:Address {address: "${from}"})-[t:TRANSFER]->(b:Address {address: "${to}"}) ` +
+    `WHERE t.block_date = "${day}" ` +
+    'RETURN t.tx_id AS tx_id, t.block_timestamp AS block_timestamp, t.amount AS amount, ' +
+    `t.asset_symbol AS asset_symbol, t.amount_usd AS amount_usd LIMIT ${TRANSFERS_READ_ROWS}`
+  )
 }
 
 const NODE_FIELDS =
@@ -290,7 +343,7 @@ function sideLines(title: string, parties: string[]): string[] {
 }
 
 /**
- * The text the model reads: the centre, its role and lifetime totals, then
+ * The text of a node answer: the centre, its role and lifetime totals, then
  * every counterparty of the view with its USD, transaction count and last-seen
  * date and age. At most FLOWS_SUMMARY_MAX_LINES lines.
  */
@@ -315,11 +368,7 @@ export function flowsSummary(view: FlowView, now: Date): string {
   return [...body, ...footer].join('\n')
 }
 
-/**
- * Where this page sits and how to read the next one. Written for every reader:
- * the model, a terminal (cia mcp call), and a person looking at the picture in
- * Claude Desktop, who clicks an address instead.
- */
+/** Where this page sits, and that the picture loads the rest when an address is clicked. */
 function pagingLines(
   view: FlowView,
   shownSenders: number,
@@ -333,10 +382,105 @@ function pagingLines(
     shown === 0 ? `none of ${total}` : `${next - shown + 1} to ${next} of ${total}`
   const where = `Showing senders ${range(shownSenders, nextIn, totalIn)} and receivers ${range(shownReceivers, nextOut, totalOut)}, newest first.`
   if (!view.truncated && nextIn >= totalIn && nextOut >= totalOut) return [where]
-  return [
-    where,
-    `Next page: money_flows with in_offset=${nextIn} out_offset=${nextOut} (terminal: cia mcp call money_flows network=${view.network} address=${view.center} in_offset=${nextIn} out_offset=${nextOut}); in Claude Desktop, click an address in the picture instead.`,
+  return [where, 'More senders and receivers load when an address in the picture is clicked.']
+}
+
+export type TransferRow = {
+  tx_id: string
+  block_timestamp: number | null
+  amount: number | string | null
+  asset_symbol: string | null
+  amount_usd: number | null
+}
+
+export type TransfersView = {
+  schema: typeof TRANSFERS_SCHEMA
+  network: string
+  from: string
+  to: string
+  day: string
+  transfers: TransferRow[]
+  truncated: boolean
+}
+
+/** A finite number, or a decimal string read as one, or null. */
+function flowsNumberOrNull(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+function transferOf(row: Row): TransferRow {
+  const amount =
+    typeof row.amount === 'number' && Number.isFinite(row.amount)
+      ? row.amount
+      : typeof row.amount === 'string' && row.amount.trim() !== ''
+        ? row.amount
+        : null
+  return {
+    tx_id: typeof row.tx_id === 'string' ? row.tx_id : '',
+    block_timestamp: flowsNumberOrNull(row.block_timestamp),
+    amount,
+    asset_symbol:
+      typeof row.asset_symbol === 'string' && row.asset_symbol !== '' ? row.asset_symbol : null,
+    amount_usd: flowsNumberOrNull(row.amount_usd),
+  }
+}
+
+/**
+ * chain-insights.transfers.v1 from the rows of one facts read: newest first,
+ * at most TRANSFERS_MAX, truncated when more rows than that came back. The
+ * facts layer takes no ORDER BY, so the order is made here.
+ */
+export function buildTransfersView(
+  network: string,
+  from: string,
+  to: string,
+  day: string,
+  rows: Row[]
+): TransfersView {
+  const newestFirst = rows
+    .map(transferOf)
+    .sort((a, b) => (b.block_timestamp ?? -Infinity) - (a.block_timestamp ?? -Infinity))
+  return {
+    schema: TRANSFERS_SCHEMA,
+    network,
+    from,
+    to,
+    day,
+    transfers: newestFirst.slice(0, TRANSFERS_MAX),
+    truncated: newestFirst.length > TRANSFERS_MAX,
+  }
+}
+
+function transferLine(transfer: TransferRow): string {
+  const time =
+    transfer.block_timestamp === null
+      ? 'at an unknown time'
+      : `${new Date(transfer.block_timestamp).toISOString().slice(0, 19).replace('T', ' ')} UTC`
+  const amount = transfer.amount === null ? 'an unknown amount' : String(transfer.amount)
+  const asset = transfer.asset_symbol ? ` ${transfer.asset_symbol}` : ''
+  const usd = transfer.amount_usd === null ? 'no USD price' : formatFlowsUsd(transfer.amount_usd)
+  return `- ${time}, ${amount}${asset}, ${usd}, tx ${transfer.tx_id}`
+}
+
+/** The short text of a link answer: the pair, the day, the count and the newest few transfers. */
+export function transfersSummary(view: TransfersView): string {
+  const head = `Transfers from ${view.from} to ${view.to} on ${view.day} (UTC) on ${view.network}`
+  if (view.transfers.length === 0) return `${head}: none.`
+  const count = view.truncated
+    ? `the newest ${view.transfers.length}, and the day holds more`
+    : `${view.transfers.length}`
+  const lines = [
+    `${head}: ${count}, newest first.`,
+    ...view.transfers.slice(0, TRANSFERS_SUMMARY_ROWS).map(transferLine),
   ]
+  const rest = view.transfers.length - TRANSFERS_SUMMARY_ROWS
+  if (rest > 0) lines.push(`- and ${rest} more in the picture.`)
+  return lines.join('\n')
 }
 
 function errorResult(text: string): FlowsToolResult {
@@ -380,22 +524,36 @@ function rowsOf(answer: GraphQueryAnswer): Row[] | null {
   return Array.isArray(results) ? results.filter(isRecord) : null
 }
 
-type Checked = { network: string; address: string } | { error: string }
+type Checked<T> = T | { error: string }
 
-function checkNetworkAndAddress(args: Record<string, unknown>): Checked {
+function checkNetwork(args: Record<string, unknown>): Checked<string> {
   const rawNetwork = typeof args.network === 'string' ? args.network.trim().toLowerCase() : ''
   if (!rawNetwork) return { error: 'invalid_network: network is required; pass robinhood' }
   if (rawNetwork !== FLOWS_NETWORK) {
     return {
-      error: `invalid_network: money flows read the robinhood topology graph only; got "${String(args.network).trim()}"`,
+      error: `invalid_network: graph_expand reads the robinhood graph only; got "${String(args.network).trim()}"`,
     }
   }
-  const address = normalizeFlowsAddress(args.address)
-  if (!address) return { error: INVALID_ADDRESS_TEXT }
-  return { network: FLOWS_NETWORK, address }
+  return FLOWS_NETWORK
 }
 
-function checkOffset(value: unknown): number | { error: string } {
+/** The address of a node or of one end of a link; `name` says which end in a link refusal. */
+function checkAddress(raw: unknown, name?: string): Checked<string> {
+  const address = normalizeFlowsAddress(raw)
+  if (address) return address
+  return {
+    error: name
+      ? INVALID_ADDRESS_TEXT.replace('invalid_address:', `invalid_address (${name}):`)
+      : INVALID_ADDRESS_TEXT,
+  }
+}
+
+function checkDay(raw: unknown): Checked<string> {
+  const day = normalizeFlowsDay(raw)
+  return day ?? { error: INVALID_DAY_TEXT }
+}
+
+function checkOffset(value: unknown): Checked<number> {
   if (value === undefined || value === null) return 0
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
     return { error: OFFSET_NEGATIVE_TEXT }
@@ -405,11 +563,12 @@ function checkOffset(value: unknown): number | { error: string } {
 }
 
 /**
- * Read and answer one page. The reads run one after another: the node first,
- * so an address the graph does not hold costs one read, not three; then the
- * receivers and the senders. The first read that does not answer ends the call.
+ * Read and answer one node page. The reads run one after another: the node
+ * first, so an address the graph does not hold costs one read, not three; then
+ * the receivers and the senders. The first read that does not answer ends the
+ * call.
  */
-async function runFlows(
+async function runNode(
   deps: FlowsDependencies,
   network: string,
   address: string,
@@ -453,48 +612,82 @@ async function runFlows(
   }
 }
 
-/** money_flows {address, network, in_offset?, out_offset?}: one page of one address, the first by default. */
-export async function handleMoneyFlows(
-  args: unknown,
-  deps: FlowsDependencies
+/** Read and answer the transfers of one link on one day: a single facts read. */
+async function runLink(
+  deps: FlowsDependencies,
+  network: string,
+  from: string,
+  to: string,
+  day: string
 ): Promise<FlowsToolResult> {
-  const record = isRecord(args) ? args : {}
-  const checked = checkNetworkAndAddress(record)
-  if ('error' in checked) return errorResult(checked.error)
-  const inOffset = checkOffset(record.in_offset)
-  if (typeof inOffset !== 'number') return errorResult(inOffset.error)
-  const outOffset = checkOffset(record.out_offset)
-  if (typeof outOffset !== 'number') return errorResult(outOffset.error)
-  return runFlows(deps, checked.network, checked.address, inOffset, outOffset)
+  const unavailable = deps.unavailable?.()
+  if (unavailable) return errorResult(unavailable)
+  let answer: GraphQueryAnswer
+  try {
+    answer = await deps.graphQuery({ network, query: transfersReadFor(from, to, day) })
+  } catch (err) {
+    return errorResult(deps.describeFailure(err))
+  }
+  if (answer.isError === true) return errorResult(refusalText(answer))
+  const rows = rowsOf(answer)
+  if (!rows) {
+    return errorResult(
+      'graph_query_failed: the graph endpoint answered without chain-insights.result.v1 rows'
+    )
+  }
+  const view = buildTransfersView(network, from, to, day, rows)
+  return {
+    content: [{ type: 'text', text: transfersSummary(view) }],
+    structuredContent: view as unknown as Record<string, unknown>,
+    isError: false,
+  }
 }
 
-/** graph_expand {network, address, in_offset, out_offset}: the next page of one address. */
+function given(record: Record<string, unknown>, keys: string[]): boolean {
+  return keys.some((key) => record[key] !== undefined && record[key] !== null)
+}
+
+/**
+ * graph_expand, the node form {network, address, in_offset?, out_offset?} or the
+ * link form {network, from, to, day}. Every argument is checked before the
+ * first read.
+ */
 export async function handleGraphExpand(
   args: unknown,
   deps: FlowsDependencies
 ): Promise<FlowsToolResult> {
   const record = isRecord(args) ? args : {}
-  const checked = checkNetworkAndAddress(record)
-  if ('error' in checked) return errorResult(checked.error)
+  const network = checkNetwork(record)
+  if (typeof network !== 'string') return errorResult(network.error)
+
+  const isLink = given(record, ['from', 'to', 'day'])
+  if (isLink && given(record, ['address', 'in_offset', 'out_offset']))
+    return errorResult(BOTH_FORMS_TEXT)
+
+  if (isLink) {
+    const from = checkAddress(record.from, 'from')
+    if (typeof from !== 'string') return errorResult(from.error)
+    const to = checkAddress(record.to, 'to')
+    if (typeof to !== 'string') return errorResult(to.error)
+    const day = checkDay(record.day)
+    if (typeof day !== 'string') return errorResult(day.error)
+    return runLink(deps, network, from, to, day)
+  }
+
+  const address = checkAddress(record.address)
+  if (typeof address !== 'string') return errorResult(address.error)
   const inOffset = checkOffset(record.in_offset)
   if (typeof inOffset !== 'number') return errorResult(inOffset.error)
   const outOffset = checkOffset(record.out_offset)
   if (typeof outOffset !== 'number') return errorResult(outOffset.error)
-  return runFlows(deps, checked.network, checked.address, inOffset, outOffset)
+  return runNode(deps, network, address, inOffset, outOffset)
 }
 
-export const MONEY_FLOWS_DESCRIPTION =
-  'Show the most recent money flows around one robinhood address, read from the Chain Insights topology graph: ' +
-  'the address with its role and lifetime USD totals, its 12 most recent senders and its 12 most recent receivers, ' +
-  'each link with its lifetime USD, transaction count and last-seen time. The answer is a text summary, and an ' +
-  'interactive graph in hosts that draw MCP apps. An address not in the graph is an error. Read-only; billed as ' +
-  'three graph_query topology reads, or one when the address is not in the graph.'
+export const GRAPH_EXPAND_TITLE = 'Expand a node or a link in the picture'
 
 export const GRAPH_EXPAND_DESCRIPTION =
-  'Load the next page of senders and receivers of one address into an open money-flow view. ' +
-  'Called by the view when the investigator clicks an address. Read-only; billed as three graph_query ' +
-  'topology reads, nothing when it is refused before a read.'
-
-/** The line of the server instructions that tells a model what money_flows answers. */
-export const MONEY_FLOWS_INSTRUCTION =
-  'Use money_flows to see who sent money to one robinhood address and where it went: its 12 most recent senders and receivers, each with lifetime USD, transaction count and last-seen time.'
+  'Expand an open Chain Insights picture. Called by the view when the investigator clicks, never by the model. ' +
+  'A node, {network, address, in_offset?, out_offset?}, loads the newest senders and receivers of one address ' +
+  '(12 a side, from the offsets); billed as three graph_query topology reads. A link, {network, from, to, day}, ' +
+  'lists the transfers between two addresses on one UTC day (YYYY-MM-DD), newest first, at most 50; billed as ' +
+  'one graph_query facts read. Read-only; an argument refused before a read costs nothing.'

@@ -299,7 +299,10 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     const staleVictim = ['aml_trace_victim', '_funds'].join('')
     const cachedTools = [
       { name: staleTrace, description: 'Stale fund tracing tool' },
-      { name: 'money_flows_between_exchanges', description: 'Deprecated exchange flow tool' },
+      {
+        name: retiredName('money', '_flows_between_exchanges'),
+        description: 'Deprecated exchange flow tool',
+      },
       { name: 'address_connection_risk', description: 'Deprecated connection risk tool' },
       { name: staleTrack, description: 'Legacy trace money flows' },
       { name: staleVictim, description: 'Trace victim funds' },
@@ -321,7 +324,10 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     const staleVictim = ['aml_trace_victim', '_funds'].join('')
     const remoteTools = [
       { name: staleTrace, description: 'Stale fund tracing tool' },
-      { name: 'money_flows_between_exchanges', description: 'Deprecated exchange flow tool' },
+      {
+        name: retiredName('money', '_flows_between_exchanges'),
+        description: 'Deprecated exchange flow tool',
+      },
       { name: 'address_connection_risk', description: 'Deprecated connection risk tool' },
       { name: staleTrack, description: 'Legacy trace money flows' },
       { name: staleVictim, description: 'Trace victim funds' },
@@ -987,6 +993,77 @@ describe('cia mcp call - a tool error is the server answering', () => {
     expect(printed).toContain('Could not reach the Chain Insights Graph endpoint')
     expect(printed).toContain('http://127.0.0.1:8012/mcp')
     expect(printed).toContain('connection refused')
+  })
+
+  it('money_flows is withdrawn: the command sends it to the endpoint like any tool and prints the unknown-tool refusal', async () => {
+    mockClientCallTool.mockRejectedValue(new Error('MCP error -32602: Tool money_flows not found'))
+
+    const printed = await runCiaToTheEnd(
+      'mcp',
+      'call',
+      'money_flows',
+      'network=robinhood',
+      'address=0x04911a118f11c75667e4d0dfb8e640af5a353550'
+    )
+
+    expect(exitSpy).toHaveBeenCalledWith(1)
+    expect(printed).toContain('Unknown MCP tool "money_flows"')
+    expect(printed).toContain('cia mcp tools --refresh')
+    // Nothing is composed on this computer: one call, to the endpoint, by that name.
+    expect(mockClientCallTool).toHaveBeenCalledTimes(1)
+    expect(mockClientCallTool.mock.calls[0]?.[0]).toEqual({
+      name: 'money_flows',
+      arguments: { network: 'robinhood', address: '0x04911a118f11c75667e4d0dfb8e640af5a353550' },
+    })
+  })
+
+  it('graph_expand stays refused at the terminal and points at graph_query', async () => {
+    const printed = await runCiaToTheEnd(
+      'mcp',
+      'call',
+      'graph_expand',
+      'network=robinhood',
+      'address=0x04911a118f11c75667e4d0dfb8e640af5a353550'
+    )
+
+    expect(exitSpy).toHaveBeenCalledWith(1)
+    expect(printed).toContain('cia mcp call graph_query')
+    expect(printed).not.toContain('money_flows')
+    expect(mockClientCallTool).not.toHaveBeenCalled()
+  })
+})
+
+describe('cia mcp tools — the real command', () => {
+  const savedArgv = process.argv
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockLoadConfig.mockResolvedValue({ graphMcpEndpoint: 'http://127.0.0.1:8012/mcp' })
+    mockFormatToolsTable.mockReturnValue('table')
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    process.argv = savedArgv
+    vi.restoreAllMocks()
+    vi.resetModules()
+  })
+
+  it('lists the endpoint tools the model may call, and no money_flows or app-only tool', async () => {
+    mockLoadSchema.mockResolvedValue([
+      { name: 'graph_query', description: 'Federated graph query' },
+      { name: 'graph_expand', description: 'app only', _meta: { ui: { visibility: ['app'] } } },
+    ])
+    process.argv = ['node', 'cia', 'mcp', 'tools']
+    vi.resetModules()
+    await import('../src/cli.js')
+    await vi.waitFor(() => expect(mockFormatToolsTable).toHaveBeenCalled())
+
+    expect(mockFormatToolsTable).toHaveBeenCalledWith([
+      { name: 'graph_query', description: 'Federated graph query' },
+    ])
+    expect(JSON.stringify(mockFormatToolsTable.mock.calls)).not.toContain('money_flows')
   })
 })
 

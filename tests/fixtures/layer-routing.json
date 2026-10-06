@@ -259,6 +259,20 @@
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
+   "id": "skill-cypher-9",
+   "layer": "topology",
+   "anchor": "address",
+   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[f:FLOWS_TO]->(b:Address) WHERE NOT a:Pool RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.last_seen_timestamp AS last_seen_timestamp ORDER BY f.last_seen_timestamp DESC LIMIT 25",
+   "source": "skills/chain-insights-cypher/SKILL.md"
+  },
+  {
+   "id": "skill-cypher-10",
+   "layer": "facts",
+   "anchor": "pair_day",
+   "query": "USE facts MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) WHERE t.block_date = \"YYYY-MM-DD\" RETURN t.block_timestamp AS block_timestamp, t.amount_usd AS amount_usd LIMIT 200",
+   "source": "skills/chain-insights-cypher/SKILL.md"
+  },
+  {
    "id": "skill-schema-evm-1",
    "layer": "topology",
    "anchor": "address",

@@ -870,9 +870,7 @@ const mcpCommand = program
   )
   .addCommand(
     createCliCommand('tools')
-      .description(
-        'List the remote GraphRAG MCP tools (cached for 24 hours) and the local money_flows tool'
-      )
+      .description('List the remote GraphRAG MCP tools (cached for 24 hours)')
       .option('--refresh', 'Force refresh schema cache')
       .action(async (opts: { refresh?: boolean }) => {
         try {
@@ -902,14 +900,7 @@ const mcpCommand = program
               await client.close()
             }
           }
-          const { MONEY_FLOWS_TOOL, MONEY_FLOWS_DESCRIPTION } = await import('./mcp/flows.js')
-          const listed = visibleRemoteTools(tools).filter((t) => t.name !== MONEY_FLOWS_TOOL)
-          console.log(
-            formatToolsTable([
-              ...listed,
-              { name: MONEY_FLOWS_TOOL, description: MONEY_FLOWS_DESCRIPTION },
-            ])
-          )
+          console.log(formatToolsTable(visibleRemoteTools(tools)))
         } catch (err) {
           console.error((err as Error).message)
           process.exit(1)
@@ -950,31 +941,8 @@ mcpCommand.addCommand(
 
         if (tool === 'graph_expand') {
           throw new Error(
-            'graph_expand is used only by the money-flow view in Claude. Run `cia mcp call money_flows` instead.'
+            'graph_expand is used only by the Chain Insights view in Claude. Run `cia mcp call graph_query` with your own query instead.'
           )
-        }
-
-        if (tool === 'money_flows') {
-          // The same code the MCP proxy runs: three anchored graph_query reads
-          // through the configured endpoint, each billed as a graph query.
-          await withGraphMcpClient('chain-insights-cli-call', async (client) => {
-            const { handleMoneyFlows } = await import('./mcp/flows.js')
-            const { graphToolRequestOptions } = await import('./mcp/request-timeout.js')
-            const result = await handleMoneyFlows(args, {
-              graphQuery: async (queryArgs) =>
-                (await client.callTool(
-                  { name: 'graph_query', arguments: queryArgs },
-                  undefined,
-                  graphToolRequestOptions('graph_query')
-                )) as Awaited<ReturnType<Parameters<typeof handleMoneyFlows>[1]['graphQuery']>>,
-              describeFailure: (err) => (err instanceof Error ? err.message : String(err)),
-            })
-            printMcpTextContent(
-              result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
-              { tool, json: opts.json }
-            )
-          })
-          return
         }
 
         if (tool === 'meta_help') {

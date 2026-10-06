@@ -8,8 +8,8 @@ export const HIDDEN_REMOTE_TOOL_NAMES = new Set([
   'trace_deposit_sources',
   'trace_funds',
   'track_funds',
-  // Retired AML trace tools: never exposed publicly. Built by concatenation
-  // so the retired names do not appear as literals in this file.
+  // Retired tools: never exposed publicly. Built by concatenation so the
+  // retired names do not appear as literals in this file.
   ['aml_trace_victim', '_funds'].join(''),
   ['aml_trace_suspect', '_funds'].join(''),
   ['aml_trace_deposit', '_sources'].join(''),
@@ -18,7 +18,7 @@ export const HIDDEN_REMOTE_TOOL_NAMES = new Set([
   'subscription_status',
   'balance',
   'help',
-  'money_flows_between_exchanges',
+  ['money', '_flows_between_exchanges'].join(''),
   'address_connection_risk',
 ])
 
@@ -26,7 +26,6 @@ export const PUBLIC_MCP_TOOL_REQUIRED_ARGS: Record<string, string[]> = {
   aml_address_risk: ['address', 'network'],
   graph_query: ['query', 'network'],
   graph_query_batch: ['network', 'queries'],
-  money_flows: ['address', 'network'],
 }
 
 // normalizeRemoteToolArguments FILTERS pass-through arguments to this list, so
@@ -41,7 +40,6 @@ export const PUBLIC_MCP_TOOL_ALLOWED_ARGS: Record<string, string[]> = {
   // `time_scope` narrows a `USE topology` query to a temporal-shard subset
   graph_query: ['query', 'network', 'time_scope'],
   graph_query_batch: ['network', 'queries', 'per_query_timeout_seconds', 'time_scope'],
-  money_flows: ['address', 'network', 'in_offset', 'out_offset'],
 }
 
 export function isHiddenRemoteToolName(name: string): boolean {

@@ -35,8 +35,9 @@ cloud cannot start it.
 1. Install the plugin from the Chain Insights marketplace.
 2. Ask Claude about an address, for example: "Show the recent money flows of
    0x04911a118f11c75667e4d0dfb8e640af5a353550 on robinhood."
-3. In Claude Desktop and Cowork, the answer comes with an interactive graph
-   or table. In Claude Code the same answer comes as text.
+3. In Claude Desktop and Cowork, the answer comes with an interactive graph,
+   chart or table, picked from the column names of the query Claude wrote. In
+   Claude Code the same answer comes as text.
 
 Every tool is read-only. The graph is never written.
 
