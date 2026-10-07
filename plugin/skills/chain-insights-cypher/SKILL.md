@@ -46,7 +46,7 @@ Route by what the question names: an address, a pair with a day, a transaction o
 `USE chain` with `Address` reads the balance, the nonce or the kind of one address, now or at a past block with `at_block`. A past block must be at least `chain_admission.at_block_min_depth` blocks below the tip. To find the counterparties of an address, search `USE topology`, then read the pair and one day on `USE facts`.
 A transaction is a chain question: read it on `USE chain` by its `tx_id`. Chain gives its `block_date`; the transfers between a pair on that day are a `USE facts` read.
 The layers hand each other keys, and each key keeps its name. Topology gives the pair and the first and last seen time. Facts gives the `tx_id` and the `block_height`. Chain takes an `address`, a `tx_id`, a `block_height` or a `block_hash`, and gives the `block_date` of a transaction or a block.
-A list, a range or a whole-chain question names no address, pair, transaction or block, so no layer serves it today. Say so in one line, ask the user for one of those, and send no workaround query.
+A question about the whole chain (recent activity, the biggest senders, a top list) is a `USE topology` search: bound it by time with `f.last_seen_timestamp >= <epoch ms>` on the `FLOWS_TO` link, then sort and `LIMIT`. A search has 10 s. If the server refuses it with `anchor_missing`, it does not serve searches yet: say so in one line and ask for an address.
 
 Find the question in this table. Send its first query, once, with the addresses the user gave.
 
@@ -63,9 +63,23 @@ Find the question in this table. Send its first query, once, with the addresses 
 | What happened in this transaction hash?                      | `chain`    | `Transaction {tx_id}`, see Chain                                       |
 | The latest block, block N, how far behind the graph is       | `chain`    | `Head`, or `Block {block_height}`                                      |
 | What fields does an Address have?                            | none       | Call `meta_schema {network}`. Send no query.                           |
-| Recent addresses, biggest senders, any top list of the chain | none today | Send no query. Say the line below.                                     |
+| Recent addresses, biggest senders, any top list of the chain | topology   | A search bounded by `f.last_seen_timestamp`, then sort and LIMIT (below). |
 
-For a question of the last row, do not probe, scan or try another layer: a probe returns arbitrary rows, never the newest or the biggest. Say: "The graph cannot list the whole chain yet. Give me an address, a pair with a day, or a transaction hash, and I will show its recent links and flows."
+For a question of the last row, compute the time bound first (epoch milliseconds, for example now minus 24 hours), then search. Never sort the whole graph without the time bound: it is stopped at 10 s.
+
+Recent activity, newest first:
+
+```cypher
+USE topology MATCH (a:Address)-[f:FLOWS_TO]->(b:Address) WHERE f.last_seen_timestamp >= 1791244800000 RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.last_seen_timestamp AS last_seen_timestamp ORDER BY f.last_seen_timestamp DESC LIMIT 25
+```
+
+The biggest senders of the period:
+
+```cypher
+USE topology MATCH (a:Address)-[f:FLOWS_TO]->(b:Address) WHERE f.last_seen_timestamp >= 1791244800000 RETURN a.address AS sender, sum(f.amount_usd_sum) AS sent_usd, count(*) AS links ORDER BY sent_usd DESC LIMIT 10
+```
+
+If the server answers `anchor_missing`, it does not serve searches yet. Say: "This server cannot search the whole chain yet. Give me an address, a pair with a day, or a transaction hash."
 
 ## One name on every layer
 

@@ -47,7 +47,7 @@ A transaction is a chain question: read it on `USE chain` by its `tx_id`. Chain 
 
 The layers hand each other keys, and each key keeps its name. Topology gives the pair and the first and last seen time. Facts gives the `tx_id` and the `block_height`. Chain takes an `address`, a `tx_id`, a `block_height` or a `block_hash`, and gives the `block_date` of a transaction or a block.
 
-A list, a range or a whole-chain question names no address, pair, transaction or block, so no layer serves it today. Say so in one line, ask the user for one of those, and send no workaround query.
+A question about the whole chain (recent activity, the biggest senders, a top list) is a `USE topology` search: bound it by time with `f.last_seen_timestamp >= <epoch ms>` on the `FLOWS_TO` link, then sort and `LIMIT`. A search has 10 s. If the server refuses it with `anchor_missing`, it does not serve searches yet: say so in one line and ask for an address.
 
 | The question                                               | Layer      | First query                                                                 |
 | ---------------------------------------------------------- | ---------- | --------------------------------------------------------------------------- |
@@ -62,7 +62,7 @@ A list, a range or a whole-chain question names no address, pair, transaction or
 | Which day is block N?                                      | `chain`    | `Block {block_height}`, and return `block_date`.                            |
 | Does this address hold a balance? Is it a contract?        | `chain`    | `Address {address}`, with `at_block` for a past block.                      |
 | How far behind are the graph and the warehouse?            | `chain`    | `Head`.                                                                     |
-| Recent addresses, biggest senders, a top list of the chain | none       | A list of the whole chain. Say so. Do not retry.                            |
+| Recent addresses, biggest senders, a top list of the chain | topology   | A search bounded by `f.last_seen_timestamp`, then sort and LIMIT.           |
 
 The server publishes the limits of a layer in `meta_network_capabilities`
 (`cia network robinhood --json` prints the same reply): the `chain_admission`

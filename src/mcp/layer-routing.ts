@@ -48,9 +48,9 @@ export const ROUTING_TWO_FIT =
 export const ROUTING_HANDOFF =
   'The layers hand each other keys, and each key keeps its name. Topology gives the pair and the first and last seen time. Facts gives the `tx_id` and the `block_height`. Chain takes an `address`, a `tx_id`, a `block_height` or a `block_hash`, and gives the `block_date` of a transaction or a block.'
 
-/** A question that no layer serves today. The agent says so once and asks for an anchor. */
+/** A whole-chain question is a time-bounded topology search; a server without search mode refuses it once. */
 export const ROUTING_NOT_SERVED =
-  'A list, a range or a whole-chain question names no address, pair, transaction or block, so no layer serves it today. Say so in one line, ask the user for one of those, and send no workaround query.'
+  'A question about the whole chain (recent activity, the biggest senders, a top list) is a `USE topology` search: bound it by time with `f.last_seen_timestamp >= <epoch ms>` on the `FLOWS_TO` link, then sort and `LIMIT`. A search has 10 s. If the server refuses it with `anchor_missing`, it does not serve searches yet: say so in one line and ask for an address.'
 
 /** What a refusal carries, and which part of it decides the move. */
 export const MOVE_INTRO =

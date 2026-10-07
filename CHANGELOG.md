@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.46.3] - 2026-10-07 — fix: whole-chain questions are topology searches
+
+### Changed
+
+- The `chain-insights-cypher` skill, the routing lines and the guide teach a
+  whole-chain question (recent activity, the biggest senders, a top list) as a
+  `USE topology` search bounded by `f.last_seen_timestamp`, with two checked
+  examples. A server without search mode refuses it with `anchor_missing`, and
+  the agent then says so in one line. The "not served today" advice is gone.
+
 ## [0.46.2] - 2026-10-06 — fix: the question picks the layer
 
 ### Changed
