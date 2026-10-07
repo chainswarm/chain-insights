@@ -3,6 +3,22 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.46.5] - 2026-10-07 — fix: answers keep full addresses, tokens are not dollars, no query text
+
+### Changed
+
+- `chain-insights-cypher`: answers write every address in full, 42 characters,
+  in a table or a sentence too. Answers do not print the query, its `USE`
+  line, its `LIMIT`, computed epoch numbers or a `Ref:` line. Answers do not
+  draw the graph in ASCII or Mermaid: Claude Desktop draws it from the column
+  names.
+- `chain-insights-cypher`: a transfer moves tokens. Its `amount_usd` is the
+  value at the day's average price, so an answer says "tokens worth about X
+  USD on DAY". The assets of one day come from `USE facts`, and a row with
+  `price_missing` says that no price exists.
+- `chain-insights-cypher`: a row that names its ends `src`, `dst` or `address`
+  draws no graph. Alias them `from_address` and `to_address`.
+
 ## [0.46.4] - 2026-10-07 — fix: three gaps a weak model fell into
 
 ### Changed

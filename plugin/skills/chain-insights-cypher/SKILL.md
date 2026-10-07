@@ -1,6 +1,6 @@
 ---
 name: chain-insights-cypher
-description: Load this before the first graph_query or graph_query_batch call: without it, most queries are refused. Use when answering any question about addresses, money flows, transfers, transactions or blocks with Chain Insights, when tracing where money went or came from, when writing or reviewing graph_query or graph_query_batch ISO GQL, when choosing between USE topology, USE facts and USE chain, or when a graph query is refused. Address, unit, layer, graph search and refusal rules, with one query for each kind of search.
+description: Load this before the first graph_query or graph_query_batch call: without it, most queries are refused. Use when answering any question about addresses, money flows, transfers, transactions or blocks with Chain Insights, when tracing where money went or came from, when writing or reviewing graph_query or graph_query_batch ISO GQL, when choosing between USE topology, USE facts and USE chain, or when a graph query is refused. Address, unit, layer, graph search, refusal and answer rules (full addresses, no query text in replies, tokens are not dollars), with one query for each kind of search.
 ---
 
 # Chain Insights Cypher
@@ -18,9 +18,10 @@ Always pass `network` and your own `LIMIT`. These two commands, and
 ## Rules that stop most failures
 
 1. Write every address in full, in lowercase: `0x` plus 40 hex characters, 42
-   in all. Never shorten one with `...` or `…`, in a query or in an answer.
-   Copy addresses from results exactly. The network is `robinhood`, the
-   Robinhood Chain: use it without asking the user which network.
+   in all. Never shorten one with `...` or `…`, in a query, a table, a sentence
+   or a summary. Copy addresses from results exactly, all 42 characters, every
+   time. The network is `robinhood`, the Robinhood Chain: use it without asking
+   the user which network.
 2. Timestamps on every layer are integer milliseconds since the epoch, UTC,
    and `USE chain` is no exception. Compute them from the current date: a day
    is 86,400,000 ms. Write the number as a literal: the server has no `now()`,
@@ -36,6 +37,16 @@ Always pass `network` and your own `LIMIT`. These two commands, and
 6. After a refusal, fix the query once from `fix` and `example`. A second
    refusal ends it: tell the user plainly what cannot be asked and what can.
    Never send variations in a loop.
+7. Answer in plain text. Do not print the query, its `USE` line, its `LIMIT`,
+   the epoch numbers you computed, or a `Ref:` line. The user does not need
+   them. Show them only when the user asks how a number was found.
+8. Never draw the graph yourself, in ASCII art or in Mermaid. Claude Desktop
+   draws the picture from the column names (see Name the columns for a
+   picture). Write a short text answer beside it.
+9. Tokens are not dollars. A transfer moves tokens, and its `amount_usd` is
+   their value at the day's average price. Say "tokens worth about 183 USD on
+   2026-10-06", never "sent 183 USD". For the assets behind a flow, use the
+   facts read in Value of one day's flow.
 
 ## Pick the layer first
 
@@ -280,6 +291,16 @@ MATCH (a:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c"})-[t:TRA
 RETURN t.tx_id AS tx_id, t.block_timestamp AS block_timestamp, t.asset_symbol AS asset_symbol, t.amount AS amount, t.amount_usd AS amount_usd, t.kind AS kind LIMIT 50
 ```
 
+### Value of one day's flow
+
+A topology link gives the pair's lifetime total, not the day's. To say what a
+pair moved on one day, read its `TRANSFER` rows for that day, then:
+
+1. List each row's `asset_symbol` and `amount`. Show the assets, not only a total.
+2. Add the `amount_usd` values for the USD figure, after you convert the text to numbers. `amount_usd` is each row's value at the day's average price.
+3. If a row's `price_missing` is true, show its amount and say no price exists for that asset. Never guess a USD value.
+4. Say "tokens worth about X USD on DAY", because the row moved tokens.
+
 ## Chain: one key, one node
 
 `USE chain` asks the chain node for one known thing: `Transaction` by `tx_id`, `Block` by `block_height` or `block_hash` (exactly one), `Address` by `address` (with an optional `at_block`), or `Head`. One node, literal keys in braces, a `RETURN` of `var.property` items, no `WHERE`, no range. Read its limits in `chain_admission` (`cia network robinhood --json`).
@@ -345,3 +366,5 @@ Claude Desktop draws a `graph_query` answer from its column names. Alias the
 A graph also reads these optional columns: `amount_usd_sum`, `tx_count`, `first_seen_timestamp`, `last_seen_timestamp`, `link_kind`, `from_labels` and `to_labels`. In `graph_query_batch`, each query draws its own tab. Claude Code draws nothing and shows the rows as text.
 
 A graph is the newest-links read of one address, receivers or senders, in Graph searches. A chart is the facts read of one pair over one day above, with `block_timestamp` and `amount_usd` in the `RETURN`.
+
+A row that names its ends `src`, `dst` or `address` draws no graph. Alias them `from_address` and `to_address`.
