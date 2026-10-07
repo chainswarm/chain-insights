@@ -3,6 +3,21 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.46.6] - 2026-10-07 — fix: a rate-limited call waits and is sent once more
+
+### Fixed
+
+- A call the graph endpoint refuses for its request limit ("too many requests
+  from this address; retry after 3 seconds") was shown as "MCP call failed",
+  with no class, so the agent could not tell it apart from an outage. The
+  proxy now waits the time the endpoint names, from 1 to 10 seconds, and sends
+  the call once more. Every proxied tool only reads, and a refused call is not
+  billed, so the second send is safe. `graph_expand` reads do the same.
+- When the second send is refused too, or the endpoint asks for a wait longer
+  than 10 seconds, the reply carries the `capacity` envelope
+  (`error_detail.code` `rate_limited`, `class` `capacity`, a `fix` naming the
+  wait), as the graph server does for its other limits.
+
 ## [0.46.5] - 2026-10-07 — fix: answers keep full addresses, tokens are not dollars, no query text
 
 ### Changed
