@@ -11,6 +11,7 @@ import * as z from 'zod'
 import type { InvestigatorConfig } from '../config/schema.js'
 import { PACKAGE_VERSION } from '../version.js'
 import type { McpTool } from './schema-cache.js'
+import { rateLimitedResult, withRateLimitRetry } from './rate-limit.js'
 import {
   HIDDEN_REMOTE_TOOL_NAMES,
   PUBLIC_MCP_TOOL_ALLOWED_ARGS,
@@ -1230,10 +1231,8 @@ export async function createProxy(): Promise<void> {
   const flowsDependencies: FlowsDependencies = {
     graphQuery: async (args) => {
       const options = remoteToolRequestOptions('graph_query')
-      return (await remoteClient.callTool(
-        { name: 'graph_query', arguments: args },
-        undefined,
-        options
+      return (await withRateLimitRetry(() =>
+        remoteClient.callTool({ name: 'graph_query', arguments: args }, undefined, options)
       )) as GraphQueryAnswer
     },
     describeFailure: (err) => remoteCallFailureText('graph_query', err),
@@ -1351,11 +1350,15 @@ export async function createProxy(): Promise<void> {
           arguments: normalizedArgs,
         }
         const requestOptions = remoteToolRequestOptions(tool.name)
-        const result = requestOptions
-          ? await remoteClient.callTool(request, undefined, requestOptions)
-          : await remoteClient.callTool(request)
+        const result = await withRateLimitRetry(() =>
+          requestOptions
+            ? remoteClient.callTool(request, undefined, requestOptions)
+            : remoteClient.callTool(request)
+        )
         return normalizeRemoteToolResult(tool.name, result as RemoteToolResult)
       } catch (err) {
+        const limited = rateLimitedResult(tool.name, err)
+        if (limited) return limited
         return {
           content: [{ type: 'text' as const, text: remoteCallFailureText(tool.name, err) }],
           isError: true,

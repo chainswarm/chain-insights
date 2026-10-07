@@ -862,6 +862,76 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(JSON.stringify(entries)).toContain('[redacted]')
   })
 
+  it('graph_query waits out a one-second rate limit and answers from the second send', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    clientInstance.callTool
+      .mockRejectedValueOnce(
+        new Error(
+          'Streamable HTTP error: Error POSTing to endpoint: {"error":"too many requests from this address; retry after 1 seconds"}'
+        )
+      )
+      .mockResolvedValueOnce({
+        content: [{ type: 'text', text: 'rows' }],
+        structuredContent: { schema: 'chain-insights.result.v1', tool: 'graph_query', facts: {} },
+        isError: false,
+      })
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'graph_query')
+    const result = await handler({
+      network: 'robinhood',
+      query: 'USE topology MATCH (a:Address) RETURN a.address LIMIT 1',
+    })
+
+    expect(result.isError).toBe(false)
+    expect(result.content[0].text).toBe('rows')
+    expect(clientInstance.callTool).toHaveBeenCalledTimes(2)
+  })
+
+  it('graph_query answers a repeated rate limit with the capacity envelope', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    clientInstance.callTool.mockRejectedValueOnce(
+      new Error('{"error":"too many requests from this address; retry after 60 seconds"}')
+    )
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'graph_query')
+    const result = await handler({
+      network: 'robinhood',
+      query: 'USE topology MATCH (a:Address) RETURN a.address LIMIT 1',
+    })
+
+    expect(result.isError).toBe(true)
+    expect(result.content[0].text).not.toContain('MCP call failed')
+    expect(result.structuredContent.error_detail).toMatchObject({
+      class: 'capacity',
+      code: 'rate_limited',
+    })
+    expect(clientInstance.callTool).toHaveBeenCalledTimes(1)
+  })
+
   it('action log captures warnings and search_limits from a chain-insights.trace.v1 result', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce(null)
