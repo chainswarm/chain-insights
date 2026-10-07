@@ -19,10 +19,12 @@ Always pass `network` and your own `LIMIT`. These two commands, and
 
 1. Write every address in full, in lowercase: `0x` plus 40 hex characters, 42
    in all. Never shorten one with `...` or `…`, in a query or in an answer.
-   Copy addresses from results exactly.
+   Copy addresses from results exactly. The network is `robinhood`, the
+   Robinhood Chain: use it without asking the user which network.
 2. Timestamps on every layer are integer milliseconds since the epoch, UTC,
    and `USE chain` is no exception. Compute them from the current date: a day
-   is 86,400,000 ms. Never compare one with an ISO string. `block_date` is the
+   is 86,400,000 ms. Write the number as a literal: the server has no `now()`,
+   `timestamp()` or `duration()`. Never compare one with an ISO string. `block_date` is the
    string `"YYYY-MM-DD"`. Every `*_usd` field is US dollars. `*_raw` is the
    token's smallest unit, not dollars.
 3. A shortened address, a mixed-case address, or an ISO string against a
@@ -65,7 +67,9 @@ Find the question in this table. Send its first query, once, with the addresses 
 | What fields does an Address have?                            | none       | Call `meta_schema {network}`. Send no query.                           |
 | Recent addresses, biggest senders, any top list of the chain | topology   | A search bounded by `f.last_seen_timestamp`, then sort and LIMIT (below). |
 
-For a question of the last row, compute the time bound first (epoch milliseconds, for example now minus 24 hours), then search. Never sort the whole graph without the time bound: it is stopped at 10 s.
+For a question of the last row, compute the time bound first as a literal number (epoch milliseconds of now minus 24 hours: take today's date, not a remembered year), then search. Never sort the whole graph without the time bound: it is stopped at 10 s.
+
+A link's `amount_usd_sum` and `tx_count` are the pair's lifetime totals. The time bound only picks links active in the window; it does not cut their totals to the window. Say "lifetime total of pairs active in the last day", never "volume in the last day". For the money of one day, read the pair's transfers on `USE facts` for that day.
 
 Recent activity, newest first:
 

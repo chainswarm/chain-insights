@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.46.4] - 2026-10-07 — fix: three gaps a weak model fell into
+
+### Changed
+
+- `chain-insights-cypher`: the network is `robinhood`, used without asking;
+  time bounds are literal epoch milliseconds (the server has no `now()`); a
+  link's `amount_usd_sum` and `tx_count` are lifetime totals, so a time-bounded
+  search reports "lifetime total of pairs active in the window", and one day's
+  money is read on `USE facts`. Found by a Haiku 4.5 test against staging.
+
 ## [0.46.3] - 2026-10-07 — fix: whole-chain questions are topology searches
 
 ### Changed
