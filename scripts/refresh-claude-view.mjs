@@ -18,7 +18,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const BUDGET_BYTES = 400 * 1024
+const BUDGET_BYTES = 600 * 1024
 const commit = process.argv[2] ?? ''
 if (!/^[0-9a-f]{40}$/.test(commit)) {
   process.stderr.write(

@@ -125,5 +125,9 @@
   "in_offset": 5,
   "out_offset": 1
  },
- "truncated": false
+ "truncated": false,
+ "remaining": {
+  "senders": 0,
+  "receivers": 0
+ }
 }

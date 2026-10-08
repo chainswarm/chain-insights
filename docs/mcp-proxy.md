@@ -121,7 +121,11 @@ Graph endpoint serves data only:
   to the first answer. Outside the drawing, addresses are shown in full.
 - `graph_expand` runs on your computer and answers the clicks in a picture. It
   takes `{network, address, in_offset?, out_offset?}` to load the newest senders
-  and receivers of one address (three anchored topology `graph_query` reads), or
+  and receivers of one address, up to 250 a side. That is at most five anchored
+  topology `graph_query` reads: the node, then two reads a side, because one
+  reply holds at most 200 rows. A side that ends early skips its second read.
+  A busy address shows fewer, so the answer stays under 140,000 characters.
+  The answer says how many senders and receivers are not loaded yet. Or it takes
   `{network, from, to, day}` to list the transfers between two addresses on one
   UTC day, newest first, at most 50 (one `USE facts` `graph_query` read). Each
   read is billed as a graph query. A malformed address, a malformed day or an
