@@ -21,7 +21,8 @@ Always pass `network` and your own `LIMIT`. These two commands, and
    in all. Never shorten one with `...` or `…`, in a query, a table, a sentence
    or a summary. Copy addresses from results exactly, all 42 characters, every
    time. The network is `robinhood`, the Robinhood Chain: use it without asking
-   the user which network.
+   the user which network. `meta_network_capabilities` takes no arguments:
+   send `{}`, never `network`.
 2. Timestamps on every layer are integer milliseconds since the epoch, UTC,
    and `USE chain` is no exception. Compute them from the current date: a day
    is 86,400,000 ms. Write the number as a literal: the server has no `now()`,
@@ -41,8 +42,10 @@ Always pass `network` and your own `LIMIT`. These two commands, and
    the epoch numbers you computed, or a `Ref:` line. The user does not need
    them. Show them only when the user asks how a number was found.
 8. Never draw the graph yourself, in ASCII art or in Mermaid. Claude Desktop
-   draws the picture from the column names (see Name the columns for a
-   picture). Write a short text answer beside it.
+   and the Codex app draw the picture from the column names (see Name the
+   columns for a picture). Write a short text answer beside it. Any query whose
+   rows are pairs of addresses names them `from_address` and `to_address`,
+   never `sender` and `receiver`, `src` and `dst`, or `from` and `to`.
 9. Tokens are not dollars. A transfer moves tokens, and its `amount_usd` is
    their value at the day's average price. Say "tokens worth about 183 USD on
    2026-10-06", never "sent 183 USD". For the assets behind a flow, use the

@@ -1,7 +1,7 @@
 {
   "name": "chain-insights",
   "displayName": "Chain Insights",
-  "version": "0.47.0",
+  "version": "0.47.1",
   "description": "AML investigation on the robinhood chain: query the Chain Insights Graph and trace money flows through the local Chain Insights MCP proxy.",
   "author": {
     "name": "Chainswarm Technology",
