@@ -7,11 +7,12 @@
  *
  * Two forms, told apart by the arguments:
  *
- * - node, {network, address, in_offset?, out_offset?}: one address with its
- *   newest senders and receivers, a text summary and chain-insights.flows.v1 in
- *   structuredContent. Composed from three anchored graph_query reads on the
- *   topology graph (the node, its outgoing FLOWS_TO and its incoming FLOWS_TO,
- *   newest first).
+ * - node, {network, address, in_offset?, out_offset?}: one address with up to
+ *   250 newest senders and 250 newest receivers, a text summary and
+ *   chain-insights.flows.v1 in structuredContent. Composed from at most five
+ *   anchored graph_query reads on the topology graph: the node, then its
+ *   outgoing and its incoming FLOWS_TO, newest first, two reads a side because
+ *   a reply holds at most 200 rows.
  * - link, {network, from, to, day}: the transfers between two known addresses
  *   on one UTC day, newest first, at most 50, a short text summary and
  *   chain-insights.transfers.v1 in structuredContent. One anchored USE facts
@@ -27,12 +28,20 @@ export const FLOWS_SCHEMA = 'chain-insights.flows.v1'
 export const GRAPH_EXPAND_TOOL = 'graph_expand'
 export const FLOWS_NETWORK = 'robinhood'
 
-/** How many senders and how many receivers one page shows. */
-export const FLOWS_PER_SIDE = 12
-/** The view data of one answer: at most this many addresses... */
-export const FLOWS_MAX_NODES = 60
-/** ...and under this many characters of JSON. */
-export const FLOWS_MAX_CHARS = 40_000
+/** How many senders and how many receivers one page shows, at most. */
+export const FLOWS_PER_SIDE = 250
+/** The view data of one answer: at most this many addresses, the centre included... */
+export const FLOWS_MAX_NODES = 500
+/**
+ * ...and under this many characters of JSON. Hosts drop an app tool result
+ * over about 150,000 characters.
+ */
+export const FLOWS_MAX_CHARS = 140_000
+/**
+ * The graph endpoint cuts a reply at 200 rows, whatever the LIMIT, so one side
+ * of a page is read in reads of at most this many rows.
+ */
+export const FLOWS_READ_ROWS = 200
 /** The text of a node answer holds at most this many lines. */
 export const FLOWS_SUMMARY_MAX_LINES = 20
 /** Where a graph_expand page may start on each side, at most. */
@@ -71,6 +80,9 @@ export type FlowEdge = {
 
 export type FlowCursor = { in_offset: number; out_offset: number }
 
+/** The links of the centre not loaded yet, past the cursor, on each side. */
+export type FlowRemaining = { senders: number; receivers: number }
+
 export type FlowView = {
   schema: typeof FLOWS_SCHEMA
   network: string
@@ -79,6 +91,8 @@ export type FlowView = {
   edges: FlowEdge[]
   cursor: FlowCursor
   truncated: boolean
+  /** Set on every node page. A view that does not know it ignores it. */
+  remaining?: FlowRemaining
 }
 
 type Row = Record<string, unknown>
@@ -181,28 +195,39 @@ const PARTY_FIELDS =
 // never share or skip a link.
 const PAGE_ORDER = ' ORDER BY f.last_seen_timestamp DESC, b.address'
 
-export type FlowsRead = { id: 'node' | 'out' | 'in'; query: string }
+/** One anchored read of a page, with the SKIP and LIMIT it carries. */
+export type FlowsRead = { id: 'node' | 'out' | 'in'; query: string; skip: number; limit: number }
 
 /**
- * The three anchored reads of one page. Each side asks for one row more than
- * it shows: the extra row says another page exists.
+ * The anchored reads of one page: the node, then the receivers, then the
+ * senders. Each side asks for one row more than it shows: the extra row says
+ * another page exists. A reply holds at most FLOWS_READ_ROWS rows, so a side
+ * is read in chunks on the same order, each starting where the last one ends.
  */
 export function flowsReadsFor(address: string, inOffset: number, outOffset: number): FlowsRead[] {
-  const page = (offset: number) =>
-    `${PAGE_ORDER}${offset > 0 ? ` SKIP ${offset}` : ''} LIMIT ${FLOWS_PER_SIDE + 1}`
+  const side = (id: 'out' | 'in', offset: number, match: string): FlowsRead[] => {
+    const reads: FlowsRead[] = []
+    for (let done = 0; done < FLOWS_PER_SIDE + 1; done += FLOWS_READ_ROWS) {
+      const skip = offset + done
+      const limit = Math.min(FLOWS_READ_ROWS, FLOWS_PER_SIDE + 1 - done)
+      reads.push({
+        id,
+        query: `USE topology MATCH ${match} RETURN ${PARTY_FIELDS}${PAGE_ORDER}${skip > 0 ? ` SKIP ${skip}` : ''} LIMIT ${limit}`,
+        skip,
+        limit,
+      })
+    }
+    return reads
+  }
   return [
     {
       id: 'node',
       query: `USE topology MATCH (b:Address {address: '${address}'}) RETURN ${NODE_FIELDS} LIMIT 1`,
+      skip: 0,
+      limit: 1,
     },
-    {
-      id: 'out',
-      query: `USE topology MATCH (a:Address {address: '${address}'})-[f:FLOWS_TO]->(b:Address) RETURN ${PARTY_FIELDS}${page(outOffset)}`,
-    },
-    {
-      id: 'in',
-      query: `USE topology MATCH (b:Address)-[f:FLOWS_TO]->(a:Address {address: '${address}'}) RETURN ${PARTY_FIELDS}${page(inOffset)}`,
-    },
+    ...side('out', outOffset, `(a:Address {address: '${address}'})-[f:FLOWS_TO]->(b:Address)`),
+    ...side('in', inOffset, `(b:Address)-[f:FLOWS_TO]->(a:Address {address: '${address}'})`),
   ]
 }
 
@@ -247,17 +272,22 @@ function assembleFlowView(
   truncated: boolean
 ): FlowView {
   const center = flowsNodeOf(page.center)
+  const cursor = {
+    in_offset: page.inOffset + senders.length,
+    out_offset: page.outOffset + receivers.length,
+  }
   const view: FlowView = {
     schema: FLOWS_SCHEMA,
     network,
     center: center.address,
     nodes: [center],
     edges: [],
-    cursor: {
-      in_offset: page.inOffset + senders.length,
-      out_offset: page.outOffset + receivers.length,
-    },
+    cursor,
     truncated,
+    remaining: {
+      senders: Math.max(0, center.degree_in - cursor.in_offset),
+      receivers: Math.max(0, center.degree_out - cursor.out_offset),
+    },
   }
   const seen = new Set([center.address])
   const add = (row: Row, incoming: boolean) => {
@@ -285,23 +315,54 @@ function fitsFlowBudget(view: FlowView): boolean {
 }
 
 /**
+ * How many senders and receivers stay after `drops` of the oldest links go,
+ * one at a time from the longer side, the senders first on a tie.
+ */
+function keptAfterDrops(senders: number, receivers: number, drops: number): [number, number] {
+  let s = senders
+  let r = receivers
+  for (let left = Math.min(drops, s + r); left > 0; left -= 1) {
+    if (s >= r) s -= 1
+    else r -= 1
+  }
+  return [s, r]
+}
+
+/**
  * flows.v1 from one page: the centre first, then the senders and the
  * receivers, each newest first, at most FLOWS_PER_SIDE a side. When the view
  * data would hold more than FLOWS_MAX_NODES addresses or reach FLOWS_MAX_CHARS
  * characters, the oldest links go first, the view is marked truncated, and the
  * cursor still says where the next page starts.
+ *
+ * Each dropped link only makes the view smaller, so the fewest drops that fit
+ * are found by halving: about ten views are measured for a full page, not one
+ * per dropped link.
  */
 export function buildFlowView(network: string, page: FlowsPage): FlowView {
-  let truncated = page.senders.length > FLOWS_PER_SIDE || page.receivers.length > FLOWS_PER_SIDE
-  let senders = page.senders.slice(0, FLOWS_PER_SIDE)
-  let receivers = page.receivers.slice(0, FLOWS_PER_SIDE)
-  for (;;) {
-    const view = assembleFlowView(network, page, senders, receivers, truncated)
-    if (fitsFlowBudget(view) || senders.length + receivers.length === 0) return view
-    truncated = true
-    if (senders.length >= receivers.length) senders = senders.slice(0, -1)
-    else receivers = receivers.slice(0, -1)
+  const overflow = page.senders.length > FLOWS_PER_SIDE || page.receivers.length > FLOWS_PER_SIDE
+  const senders = page.senders.slice(0, FLOWS_PER_SIDE)
+  const receivers = page.receivers.slice(0, FLOWS_PER_SIDE)
+  const viewAfter = (drops: number) => {
+    const [s, r] = keptAfterDrops(senders.length, receivers.length, drops)
+    return assembleFlowView(
+      network,
+      page,
+      senders.slice(0, s),
+      receivers.slice(0, r),
+      overflow || drops > 0
+    )
   }
+  // Dropping every link is the floor: that view is answered even when it does
+  // not fit.
+  let low = 0
+  let high = senders.length + receivers.length
+  while (low < high) {
+    const mid = (low + high) >> 1
+    if (fitsFlowBudget(viewAfter(mid))) high = mid
+    else low = mid + 1
+  }
+  return viewAfter(low)
 }
 
 export function formatFlowsUsd(value: number): string {
@@ -382,7 +443,10 @@ function pagingLines(
     shown === 0 ? `none of ${total}` : `${next - shown + 1} to ${next} of ${total}`
   const where = `Showing senders ${range(shownSenders, nextIn, totalIn)} and receivers ${range(shownReceivers, nextOut, totalOut)}, newest first.`
   if (!view.truncated && nextIn >= totalIn && nextOut >= totalOut) return [where]
-  return [where, 'More senders and receivers load when an address in the picture is double-clicked.']
+  return [
+    where,
+    'More senders and receivers load when an address in the picture is double-clicked.',
+  ]
 }
 
 export type TransferRow = {
@@ -517,6 +581,13 @@ export function refusalText(answer: GraphQueryAnswer): string {
   return rest ? `${code}: ${rest}` : `${code}: the graph endpoint refused the read`
 }
 
+/** The endpoint says it cut the reply short (facts.query.truncated). */
+function cutByEndpoint(answer: GraphQueryAnswer): boolean {
+  const facts = isRecord(answer.structuredContent) ? answer.structuredContent.facts : undefined
+  const query = isRecord(facts) ? facts.query : undefined
+  return isRecord(query) && query.truncated === true
+}
+
 function rowsOf(answer: GraphQueryAnswer): Row[] | null {
   const facts = isRecord(answer.structuredContent) ? answer.structuredContent.facts : undefined
   const query = isRecord(facts) ? facts.query : undefined
@@ -564,9 +635,11 @@ function checkOffset(value: unknown): Checked<number> {
 
 /**
  * Read and answer one node page. The reads run one after another: the node
- * first, so an address the graph does not hold costs one read, not three; then
- * the receivers and the senders. The first read that does not answer ends the
- * call.
+ * first, so an address the graph does not hold costs one read; then the
+ * receivers and the senders, the chunks of a side joined in order. A chunk that
+ * comes back short, and not cut by the endpoint, ends its side, so the next
+ * chunk of that side is not read or billed. The first read that does not
+ * answer ends the call.
  */
 async function runNode(
   deps: FlowsDependencies,
@@ -577,8 +650,10 @@ async function runNode(
 ): Promise<FlowsToolResult> {
   const unavailable = deps.unavailable?.()
   if (unavailable) return errorResult(unavailable)
-  const rows: Partial<Record<FlowsRead['id'], Row[]>> = {}
+  const rows: Record<FlowsRead['id'], Row[]> = { node: [], out: [], in: [] }
+  const ended = new Set<FlowsRead['id']>()
   for (const read of flowsReadsFor(address, inOffset, outOffset)) {
+    if (ended.has(read.id)) continue
     let answer: GraphQueryAnswer
     try {
       answer = await deps.graphQuery({ network, query: read.query })
@@ -592,15 +667,16 @@ async function runNode(
         'graph_query_failed: the graph endpoint answered without chain-insights.result.v1 rows'
       )
     }
-    rows[read.id] = found
+    rows[read.id].push(...found)
     if (read.id === 'node' && found.length === 0) {
       return errorResult(`${address} is not in the ${network} topology graph`)
     }
+    if (found.length < read.limit && !cutByEndpoint(answer)) ended.add(read.id)
   }
   const view = buildFlowView(network, {
-    center: rows.node?.[0] ?? {},
-    senders: rows.in ?? [],
-    receivers: rows.out ?? [],
+    center: rows.node[0] ?? {},
+    senders: rows.in,
+    receivers: rows.out,
     inOffset,
     outOffset,
   })
@@ -688,6 +764,6 @@ export const GRAPH_EXPAND_TITLE = 'Expand a node or a link in the picture'
 export const GRAPH_EXPAND_DESCRIPTION =
   'Expand an open Chain Insights picture. Called by the view when the investigator clicks, never by the model. ' +
   'A node, {network, address, in_offset?, out_offset?}, loads the newest senders and receivers of one address ' +
-  '(12 a side, from the offsets); billed as three graph_query topology reads. A link, {network, from, to, day}, ' +
+  '(up to 250 a side, from the offsets); billed as at most five graph_query topology reads. A link, {network, from, to, day}, ' +
   'lists the transfers between two addresses on one UTC day (YYYY-MM-DD), newest first, at most 50; billed as ' +
   'one graph_query facts read. Read-only; an argument refused before a read costs nothing.'

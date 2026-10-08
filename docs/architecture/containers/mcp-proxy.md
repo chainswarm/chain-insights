@@ -12,7 +12,7 @@ Exposes Chain Insights investigation tools to AI agents through stdio MCP transp
 - **Local MCP Server:** Stdio transport, tool registration, and prompt registration
 - **Remote MCP Client:** HTTP/SSE transport to Chain Insights Graph, tool listing, tool invocation with payment wrapping
 - **Tool Orchestration:** Argument validation, normalization, and error translation (402 → guidance)
-- **View Clicks:** the view-only `graph_expand` (`src/mcp/flows.ts`), composed on the client PC from `graph_query` reads: three anchored topology reads for a node click, one `USE facts` read of a pair and one day for a link click
+- **View Clicks:** the view-only `graph_expand` (`src/mcp/flows.ts`), composed on the client PC from `graph_query` reads: at most five anchored topology reads for a node click (the node, then two reads a side of up to 250 links), one `USE facts` read of a pair and one day for a link click
 - **View Resource:** `ui://chain-insights/view`, one HTML file shipped in the package and served by the proxy; the graph endpoint's own views are never forwarded
 - **Schema Cache:** Remote tool catalog cached per endpoint, refreshed on cache miss
 - **Logger:** Structured JSONL logging for tool.start/tool.end/topology.start/topology.end/cypher.throw

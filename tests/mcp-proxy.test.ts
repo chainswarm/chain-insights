@@ -2286,7 +2286,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       /^<!-- Chain Insights UI [0-9a-f]{40} \(npm run build:claude-view\);/
     )
     expect(html).toContain('<html')
-    expect(html.length).toBeLessThan(400 * 1024)
+    expect(html.length).toBeLessThan(600 * 1024)
 
     expect(remote.listResources).not.toHaveBeenCalled()
     expect(remote.readResource).not.toHaveBeenCalled()

@@ -1225,8 +1225,9 @@ export async function createProxy(): Promise<void> {
     }
   )
   // graph_expand, the one dedicated tool, for the view only (visibility
-  // ["app"]): a node click is three anchored topology graph_query reads, a link
-  // click one facts graph_query read, all sent through the remote client, the
+  // ["app"]): a node click is at most five anchored topology graph_query reads
+  // (the node, then two chunks a side), a link click one facts graph_query
+  // read, all sent through the remote client, the
   // path and payment wrapping a graph_query call takes, so each read is billed
   // as a graph query.
   const flowsDependencies: FlowsDependencies = {

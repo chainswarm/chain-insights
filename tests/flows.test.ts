@@ -11,10 +11,14 @@
  *
  * - graph-query-answers.json: every graph_query answer the node tests read,
  *   keyed by the exact read text, as the graph endpoint returned it
- *   (elapsed_ms set to 0).
+ *   (elapsed_ms set to 0). The recording read 13 rows a side; on 2026-10-08
+ *   the pages became 250 a side, and the recorded rows of each side were
+ *   joined in their recorded order and keyed by the new reads. No row was
+ *   changed or added.
  * - flows-0x0491.json and flows-0x7e37.json: the node answers the Chain
  *   Insights view is tested against. The proxy's answers must be those, value
- *   for value.
+ *   for value. flows-0x7e37.json is one page that holds all 50 links: the
+ *   three 12-a-side pages of the first recording, joined.
  *
  * The link tests answer from a USE facts reply built here in the shape of the
  * recorded answers (the transaction hashes are generated, so no hash is written
@@ -31,6 +35,7 @@ import {
   FLOWS_MAX_CHARS,
   FLOWS_MAX_NODES,
   FLOWS_PER_SIDE,
+  FLOWS_READ_ROWS,
   FLOWS_SUMMARY_MAX_LINES,
   TRANSFERS_MAX,
   buildFlowView,
@@ -136,10 +141,13 @@ describe('graph_expand, node form', () => {
       false,
     ])
 
-    // Three anchored graph_query reads on robinhood, the node first.
+    // Three anchored graph_query reads on robinhood, the node first. Each side
+    // came back short of its first chunk, so its second chunk is not read.
     expect(reads.map((read) => read.network)).toEqual(['robinhood', 'robinhood', 'robinhood'])
     expect(reads.map((read) => read.query)).toEqual(
-      flowsReadsFor(SCAM, 0, 0).map((read) => read.query)
+      flowsReadsFor(SCAM, 0, 0)
+        .filter((read) => read.skip === 0)
+        .map((read) => read.query)
     )
     for (const read of reads) {
       expect(read.query).toContain(`{address: '${SCAM}'}`)
@@ -224,101 +232,145 @@ describe('graph_expand, node form', () => {
     expect(reads).toHaveLength(0)
   })
 
-  it('cuts a hub with 10,001 senders to one page: at most 60 addresses, under 40,000 characters, truncated', async () => {
-    // Sender i was last seen at 1780000000000 + i seconds, so the newest is
-    // sender 10001. The in read asks for 13 rows and gets the 13 newest.
-    const sender = (i: number) => ({
-      address: `0xa0${String(i).padStart(38, '0')}`,
-      labels: [],
-      total_in_usd: 0,
-      total_out_usd: 100,
-      degree_in: 0,
-      degree_out: 1,
-      pool: false,
-      usd: 100,
-      tx_count: 1,
-      first_seen: 1_780_000_000_000 + i * 1000,
-      last_seen: 1_780_000_000_000 + i * 1000,
-    })
-    const { reads, deps } = endpoint((read) => {
-      if (read.query.includes('LIMIT 1') && !read.query.includes('FLOWS_TO')) {
-        return rowsAnswer([
-          {
-            address: HUB,
-            labels: ['Exchange'],
-            is_exchange: true,
-            pool: false,
-            total_in_usd: 1_000_000,
-            total_out_usd: 999_000,
-            degree_in: 10_001,
-            degree_out: 1,
-          },
-        ])
-      }
-      if (read.query.startsWith(`USE topology MATCH (a:Address {address: '${HUB}'})`)) {
-        return rowsAnswer([
-          {
-            address: '0xc0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0',
-            labels: [],
-            pool: false,
-            total_in_usd: 999_000,
-            total_out_usd: 0,
-            degree_in: 1,
-            degree_out: 0,
-            usd: 999_000,
-            tx_count: 7,
-            first_seen: 1_780_000_000_000,
-            last_seen: 1_790_000_000_000,
-          },
-        ])
-      }
-      const limit = Number(/LIMIT (\d+)$/.exec(read.query)?.[1])
-      return rowsAnswer(Array.from({ length: limit }, (_, index) => sender(10_001 - index)))
-    })
-
-    const result = await expandNode(deps, HUB)
-    const view = viewOf(result)
-    const { senders, receivers } = sides(view)
-    expect(view.nodes.length).toBeLessThanOrEqual(FLOWS_MAX_NODES)
-    expect(JSON.stringify(view).length).toBeLessThan(FLOWS_MAX_CHARS)
-    expect(view.truncated).toBe(true)
-    expect([senders.length, receivers.length]).toEqual([FLOWS_PER_SIDE, 1])
-    expect(view.cursor).toEqual({ in_offset: 12, out_offset: 1 })
-    expect(view.nodes[0].role).toBe('exchange')
-    expect(senders[0].from).toBe(sender(10_001).address)
-    expect(reads).toHaveLength(3)
-    expect(lineCount(result.content[0].text)).toBeLessThanOrEqual(FLOWS_SUMMARY_MAX_LINES)
-    expect(result.content[0].text).toContain('Showing senders 1 to 12 of')
-    expect(result.content[0].text).toContain(
-      'More senders and receivers load when an address in the picture is double-clicked.'
-    )
-    expect(result.content[0].text).not.toMatch(/Next page|cia mcp call/)
+  // A hub in the shape of the recorded answers: every sender and receiver row
+  // carries the recorded columns, with non-round USD totals. The double answers
+  // a read by finding it in flowsReadsFor, and refuses a read over the 200-row
+  // reply cap, as the graph endpoint would cut it.
+  const HUB_DEGREE_IN = 120_000
+  const HUB_DEGREE_OUT = 80_000
+  const hubParty = (prefix: string, rank: number) => ({
+    address: `0x${prefix}${String(rank).padStart(36, '0')}`,
+    degree_in: 3 + (rank % 17),
+    degree_out: 1 + (rank % 5),
+    first_seen: 1_781_822_282_000 - rank * 61_000,
+    is_exchange: null,
+    is_sanctioned: null,
+    is_scam: null,
+    is_victim: null,
+    labels: [],
+    last_seen: 1_791_822_282_000 - rank * 60_000,
+    pool: false,
+    total_in_usd: 41_877.6222842 + rank / 7,
+    total_out_usd: 41_857.44128530001 + rank / 9,
+    tx_count: 1 + (rank % 23),
+    usd: 20.96810681 + rank / 3,
   })
+  const hubCenter = {
+    address: HUB,
+    degree_in: HUB_DEGREE_IN,
+    degree_out: HUB_DEGREE_OUT,
+    is_exchange: true,
+    is_sanctioned: null,
+    is_scam: null,
+    is_victim: null,
+    labels: ['Exchange', 'Binance'],
+    pool: false,
+    total_in_usd: 912_345_678.9012345,
+    total_out_usd: 911_234_567.8901234,
+  }
+  const topologyTemplate = Object.values(recordedAnswers)[0].structuredContent
+  function topologyAnswer(results: Record<string, unknown>[]): GraphQueryAnswer {
+    const structuredContent = structuredClone(topologyTemplate) as {
+      facts: { query: Record<string, unknown> & { units: Record<string, number> } }
+    }
+    const query = structuredContent.facts.query
+    query.results = results
+    query.count = results.length
+    query.billable_units = results.length
+    query.units.rows = results.length
+    return {
+      content: [{ type: 'text', text: JSON.stringify(structuredContent) }],
+      structuredContent,
+    }
+  }
 
-  it('pages through every link of 0x7e37…0662 with the cursor each answer gives, as the view does', async () => {
+  it.each([
+    // name, in_offset, out_offset, senders past in_offset, receivers past out_offset, reads made
+    ['the first page of a full hub', 0, 0, 120_000, 80_000, 5],
+    ['a later page of a full hub', 250, 9_750, 119_750, 70_250, 5],
+    ['a hub whose receivers end inside the first chunk', 0, 0, 120_000, 130, 4],
+    ['a hub whose senders end one row past the page', 0, 0, 251, 80_000, 5],
+  ])(
+    'loads %s: at most 500 addresses, under 140,000 characters, the cursor and what remains',
+    async (_name, inOffset, outOffset, sendersLeft, receiversLeft, readsMade) => {
+      const { reads, deps } = endpoint((asked) => {
+        const read = flowsReadsFor(HUB, inOffset, outOffset).find((r) => r.query === asked.query)
+        if (!read) throw new Error(`not a read of this page: ${asked.query}`)
+        if (read.limit > FLOWS_READ_ROWS) throw new Error('over the 200-row reply cap')
+        if (read.id === 'node') return topologyAnswer([hubCenter])
+        const [prefix, offset, left] =
+          read.id === 'in' ? ['a0a0', inOffset, sendersLeft] : ['c0c0', outOffset, receiversLeft]
+        const first = read.skip - offset
+        const count = Math.max(0, Math.min(read.limit, left - first))
+        return topologyAnswer(
+          Array.from({ length: count }, (_, index) => hubParty(prefix, read.skip + index))
+        )
+      })
+
+      // The reads of a page: the node, then two chunks a side on the same order.
+      expect(
+        flowsReadsFor(HUB, inOffset, outOffset).map(({ id, skip, limit }) => ({ id, skip, limit }))
+      ).toEqual([
+        { id: 'node', skip: 0, limit: 1 },
+        { id: 'out', skip: outOffset, limit: 200 },
+        { id: 'out', skip: outOffset + 200, limit: 51 },
+        { id: 'in', skip: inOffset, limit: 200 },
+        { id: 'in', skip: inOffset + 200, limit: 51 },
+      ])
+
+      const result = await expandNode(deps, HUB, { in_offset: inOffset, out_offset: outOffset })
+      const view = viewOf(result)
+      const { senders, receivers } = sides(view)
+      expect(reads).toHaveLength(readsMade)
+      expect(reads.map((read) => read.network).every((network) => network === 'robinhood')).toBe(
+        true
+      )
+      expect(view.nodes.length).toBeLessThanOrEqual(FLOWS_MAX_NODES)
+      expect(FLOWS_MAX_NODES).toBe(500)
+      expect(JSON.stringify(view).length).toBeLessThan(FLOWS_MAX_CHARS)
+      expect(FLOWS_MAX_CHARS).toBe(140_000)
+      expect(view.truncated).toBe(true)
+      expect(view.nodes[0]).toMatchObject({ address: HUB, role: 'exchange' })
+      expect(view.cursor).toEqual({
+        in_offset: inOffset + senders.length,
+        out_offset: outOffset + receivers.length,
+      })
+      expect(view.remaining).toEqual({
+        senders: HUB_DEGREE_IN - view.cursor.in_offset,
+        receivers: HUB_DEGREE_OUT - view.cursor.out_offset,
+      })
+      // Newest first from the offset, with no gap: the shown links are the
+      // first rows of each side.
+      expect(senders.map((edge) => edge.from)).toEqual(
+        senders.map((_, index) => hubParty('a0a0', inOffset + index).address)
+      )
+      expect(receivers.map((edge) => edge.to)).toEqual(
+        receivers.map((_, index) => hubParty('c0c0', outOffset + index).address)
+      )
+      expect(senders.length).toBeLessThanOrEqual(FLOWS_PER_SIDE)
+      expect(receivers.length).toBeLessThanOrEqual(Math.min(FLOWS_PER_SIDE, receiversLeft))
+      expect(lineCount(result.content[0].text)).toBeLessThanOrEqual(FLOWS_SUMMARY_MAX_LINES)
+      expect(result.content[0].text).toContain(
+        'More senders and receivers load when an address in the picture is double-clicked.'
+      )
+      expect(result.content[0].text).not.toMatch(/Next page|cia mcp call/)
+    }
+  )
+
+  it('loads every link of 0x7e37…0662 in one page, each once, with nothing remaining', async () => {
     const { reads, deps } = sceneEndpoint()
-    const first = viewOf(await expandNode(deps, RECEIVER, { in_offset: 0, out_offset: 0 }))
-    expect(first).toEqual(readJson('flows-0x7e37.json'))
-    expect(first.edges.some((edge) => edge.from === SCAM && edge.to === RECEIVER)).toBe(true)
-
-    const pages: FlowView[] = [first]
-    for (let view = first; view.truncated;) {
-      view = viewOf(await expandNode(deps, RECEIVER, view.cursor))
-      pages.push(view)
-      if (pages.length > 5) throw new Error('more than five pages for 50 links')
-    }
-    expect(pages).toHaveLength(3)
-    expect(pages.at(-1)?.cursor).toEqual({ in_offset: 33, out_offset: 17 })
-    const links = new Map<string, number>()
-    for (const page of pages) {
-      for (const edge of page.edges) {
-        const key = `${edge.from}>${edge.to}`
-        links.set(key, (links.get(key) ?? 0) + 1)
-      }
-    }
-    expect(links.size).toBe(50)
-    expect([...links.values()].every((count) => count === 1)).toBe(true)
-    expect(reads).toHaveLength(9)
+    const view = viewOf(await expandNode(deps, RECEIVER, { in_offset: 0, out_offset: 0 }))
+    expect(view).toEqual(readJson('flows-0x7e37.json'))
+    expect(view.edges.some((edge) => edge.from === SCAM && edge.to === RECEIVER)).toBe(true)
+    expect([view.truncated, view.cursor, view.remaining]).toEqual([
+      false,
+      { in_offset: 33, out_offset: 17 },
+      { senders: 0, receivers: 0 },
+    ])
+    const links = new Set(view.edges.map((edge) => `${edge.from}>${edge.to}`))
+    expect([links.size, view.edges.length]).toEqual([50, 50])
+    // Both sides came back short of the first chunk: three reads, not five.
+    expect(reads).toHaveLength(3)
   })
 
   it('answers the page the offsets name, which is not the first page', async () => {
@@ -803,24 +855,25 @@ describe('flows.v1 page budget and summary', () => {
     Array.from({ length: count }, (_, index) => party(prefix, index, labelBytes))
   const center = { address: `0x${'b'.repeat(40)}`, labels: [], is_exchange: true }
 
-  it('reads thirteen a side and shows twelve, with the cursor past the twelve', () => {
+  it('reads 251 a side and shows 250, with the cursor past the 250', () => {
     const view = buildFlowView('robinhood', {
       center,
-      senders: rows('aaaa', 13, 8),
+      senders: rows('aaaa', 251, 8),
       receivers: rows('cccc', 2, 8),
       inOffset: 24,
       outOffset: 0,
     })
-    expect([view.nodes.length, view.edges.length, view.truncated]).toEqual([15, 14, true])
-    expect(view.cursor).toEqual({ in_offset: 36, out_offset: 2 })
+    expect([view.nodes.length, view.edges.length, view.truncated]).toEqual([253, 252, true])
+    expect(view.cursor).toEqual({ in_offset: 274, out_offset: 2 })
+    expect(view.remaining).toEqual({ senders: 0, receivers: 0 })
     expect(view.nodes[0]).toMatchObject({ address: view.center, role: 'exchange' })
   })
 
-  it('cuts the oldest links first to stay under 40,000 characters', () => {
+  it('cuts the oldest links first to stay under 140,000 characters', () => {
     const view = buildFlowView('robinhood', {
       center,
-      senders: rows('aaaa', 12, 2000),
-      receivers: rows('cccc', 12, 2000),
+      senders: rows('aaaa', 250, 2000),
+      receivers: rows('cccc', 250, 2000),
       inOffset: 0,
       outOffset: 0,
     })
@@ -830,6 +883,59 @@ describe('flows.v1 page budget and summary', () => {
     const { senders, receivers } = sides(view)
     expect(view.cursor).toEqual({ in_offset: senders.length, out_offset: receivers.length })
     expect(view.edges[0].last_seen_ms).toBe(1_790_000_000_000)
+  })
+
+  // The cut drops the oldest link of the longer side, the senders first on a
+  // tie, and stops at the first view that fits: one link fewer dropped would
+  // not fit.
+  it.each([
+    // Over 330 characters a link with short labels: 500 links never fit
+    // 140,000 characters, so the character cap cuts a full page first.
+    ['a full page of 250 a side with short labels', 250, 250, 0, 84],
+    ['the character cap with long labels', 250, 120, 900, -1],
+    ['an uneven page under both caps', 30, 250, 40, 0],
+    ['no links at all', 0, 0, 8, 0],
+  ])('cuts at the first view that fits: %s', (_name, sent, received, labelBytes, wantDrops) => {
+    const page = {
+      center,
+      senders: rows('aaaa', sent, labelBytes),
+      receivers: rows('cccc', received, labelBytes),
+      inOffset: 0,
+      outOffset: 0,
+    }
+    // Where the cut stands after a number of drops, one at a time.
+    const after = (drops: number) => {
+      let s = sent
+      let r = received
+      for (let left = drops; left > 0; left -= 1) {
+        if (s >= r) s -= 1
+        else r -= 1
+      }
+      return [s, r]
+    }
+    const shownOf = (view: FlowView) => {
+      const { senders, receivers } = sides(view)
+      return [senders.length, receivers.length]
+    }
+    const view = buildFlowView('robinhood', page)
+    const shown = shownOf(view)
+    const drops = sent + received - shown[0] - shown[1]
+    if (wantDrops >= 0) expect(drops).toBe(wantDrops)
+    else expect(drops).toBeGreaterThan(0)
+    expect(shown).toEqual(after(drops))
+    expect(view.nodes.length).toBeLessThanOrEqual(FLOWS_MAX_NODES)
+    expect(JSON.stringify(view).length).toBeLessThan(FLOWS_MAX_CHARS)
+    expect(view.truncated).toBe(drops > 0)
+    if (drops > 0) {
+      // The page one drop earlier, given whole, does not fit: it is cut again.
+      const [s, r] = after(drops - 1)
+      const earlier = buildFlowView('robinhood', {
+        ...page,
+        senders: page.senders.slice(0, s),
+        receivers: page.receivers.slice(0, r),
+      })
+      expect(shownOf(earlier)).not.toEqual([s, r])
+    }
   })
 
   it.each([
