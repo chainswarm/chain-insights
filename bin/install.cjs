@@ -33,7 +33,7 @@ if (!hasClaude && !hasCodex && !hasHermes && !hasClaudeDesktop && !hasLocal) {
     `  ${cyan}--claude-desktop${reset} Register MCP in Claude Desktop (draws the money-flow views)`
   )
   console.log(
-    `  ${cyan}--codex${reset}   Install Codex skills globally to ~/.codex/skills/ and register MCP`
+    `  ${cyan}--codex${reset}   Install Codex skills to ~/.codex/skills/ and the Chain Insights Codex plugin (draws views)`
   )
   console.log(
     `  ${cyan}--hermes${reset}  Install Hermes skills globally to ~/.hermes/skills/chain-insights/ and register MCP`
@@ -170,36 +170,128 @@ function tomlQuoted(value) {
   return JSON.stringify(value)
 }
 
-function installCodexMcp(configFile, proxyPath) {
+// Codex draws an MCP app view only for a server that a Codex plugin provides:
+// the desktop app needs both the view's ui:// address and a plugin id on the
+// tool call. A plain [mcp_servers] entry has no plugin id, so its graph_query
+// answers stay text. setup codex therefore installs a local one-plugin
+// marketplace and removes the plain entry earlier versions wrote.
+const CODEX_MARKETPLACE = 'chain-insights'
+const CODEX_PLUGIN = 'chain-insights'
+const CODEX_PLUGIN_REF = `${CODEX_PLUGIN}@${CODEX_MARKETPLACE}`
+const LEGACY_CODEX_MCP_HEADING = '[mcp_servers.chain-insights]'
+
+function packageVersion() {
+  return JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version
+}
+
+function writeJson(file, value) {
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, 'utf8')
+}
+
+function writeCodexMarketplace(root, proxyPath, version) {
+  writeJson(path.join(root, '.agents', 'plugins', 'marketplace.json'), {
+    name: CODEX_MARKETPLACE,
+    interface: { displayName: 'Chain Insights' },
+    plugins: [
+      {
+        name: CODEX_PLUGIN,
+        source: { source: 'local', path: `./plugins/${CODEX_PLUGIN}` },
+        policy: { installation: 'AVAILABLE', authentication: 'ON_INSTALL' },
+        category: 'Developer Tools',
+      },
+    ],
+  })
+  const pluginDir = path.join(root, 'plugins', CODEX_PLUGIN)
+  writeJson(path.join(pluginDir, '.codex-plugin', 'plugin.json'), {
+    name: CODEX_PLUGIN,
+    version,
+    description: 'Chain Insights graph queries, with money-flow, chart and table views.',
+    author: { name: 'Chain Insights' },
+    license: 'MIT',
+    mcpServers: './.mcp.json',
+    interface: { displayName: 'Chain Insights', shortDescription: 'Money flows and graph queries' },
+  })
+  // The installing Node's absolute path, as setup claude-desktop does: a
+  // desktop app does not inherit the shell's PATH.
+  writeJson(path.join(pluginDir, '.mcp.json'), {
+    mcpServers: { 'chain-insights': { command: process.execPath, args: [proxyPath] } },
+  })
+}
+
+// The [heading] section of a TOML file, from its heading to the next heading.
+function tomlSectionRange(content, heading) {
+  const lines = content.split('\n')
+  const start = lines.findIndex((line) => line.trim() === heading)
+  if (start < 0) return null
+  let end = start + 1
+  while (end < lines.length && !/^\s*\[/.test(lines[end])) end++
+  return { lines, start, end }
+}
+
+function removeTomlSection(content, heading) {
+  const range = tomlSectionRange(content, heading)
+  if (!range) return content
+  const { lines, start, end } = range
+  return [...lines.slice(0, start), ...lines.slice(end)].join('\n').replace(/\n{3,}/g, '\n\n')
+}
+
+function setTomlSection(content, heading, body) {
+  const block = [heading, ...body, '']
+  const range = tomlSectionRange(content, heading)
+  if (range) {
+    const { lines, start, end } = range
+    return [...lines.slice(0, start), ...block, ...lines.slice(end)].join('\n')
+  }
+  const separator = content.endsWith('\n') || content.length === 0 ? '' : '\n'
+  return `${content}${separator}\n${block.join('\n')}`
+}
+
+function installCodexPlugin(configFile, marketplaceRoot) {
   fs.mkdirSync(path.dirname(configFile), { recursive: true })
   let content = fs.existsSync(configFile) ? fs.readFileSync(configFile, 'utf8') : ''
-  const block = [
-    '[mcp_servers.chain-insights]',
-    'command = "node"',
-    `args = [${tomlQuoted(proxyPath)}]`,
-    '',
-  ].join('\n')
-
-  const heading = '[mcp_servers.chain-insights]'
-  const start = content.indexOf(heading)
-  if (start >= 0) {
-    let end = content.length
-    const rest = content.slice(start + heading.length)
-    const nextSection = rest.search(/\n\[/)
-    if (nextSection >= 0) end = start + heading.length + nextSection + 1
-    content = `${content.slice(0, start)}${block}${content.slice(end)}`
-  } else {
-    const separator = content.endsWith('\n') || content.length === 0 ? '' : '\n'
-    content = `${content}${separator}\n${block}`
-  }
-
+  content = removeTomlSection(content, LEGACY_CODEX_MCP_HEADING)
+  content = setTomlSection(content, `[marketplaces.${CODEX_MARKETPLACE}]`, [
+    'source_type = "local"',
+    `source = ${tomlQuoted(marketplaceRoot)}`,
+  ])
+  content = setTomlSection(content, `[plugins.${tomlQuoted(CODEX_PLUGIN_REF)}]`, ['enabled = true'])
   fs.writeFileSync(configFile, content, 'utf8')
+}
+
+// Codex copies a plugin into its own cache on `codex plugin add`. Without the
+// codex command the config entries above are enough for the next start; with
+// it, the cache is refreshed now, so an upgrade takes the new version.
+function cacheCodexPlugin() {
+  try {
+    execFileSync('codex', ['plugin', 'remove', CODEX_PLUGIN_REF], {
+      stdio: 'ignore',
+      timeout: 30000,
+    })
+  } catch {
+    // Not installed yet, or no codex command: the add below decides.
+  }
+  try {
+    execFileSync('codex', ['plugin', 'add', CODEX_PLUGIN_REF], { stdio: 'ignore', timeout: 30000 })
+    return true
+  } catch {
+    return false
+  }
 }
 
 if (hasCodex) {
   const codexConfig = path.join(homeDir, '.codex', 'config.toml')
-  installCodexMcp(codexConfig, proxyBinPath)
-  console.log(`  ${cyan}Codex MCP:${reset} registered in ${codexConfig}`)
+  const marketplaceRoot = path.join(dataDir, 'codex-marketplace')
+  writeCodexMarketplace(marketplaceRoot, proxyBinPath, packageVersion())
+  installCodexPlugin(codexConfig, marketplaceRoot)
+  console.log(`  ${cyan}Codex plugin:${reset} ${CODEX_PLUGIN_REF} registered in ${codexConfig}`)
+  if (cacheCodexPlugin()) {
+    console.log(`  ${cyan}Codex plugin:${reset} installed; restart the Codex app to load it`)
+  } else {
+    console.log(
+      `  ${dim}Codex plugin:${reset} run once: codex plugin add ${CODEX_PLUGIN_REF}, then restart the Codex app`
+    )
+  }
 }
 
 function yamlQuoted(value) {
@@ -280,7 +372,13 @@ if (hasHermes) {
 // absolute path. Skills reach Claude Desktop through the plugin, not this file.
 function claudeDesktopConfigPath() {
   if (process.platform === 'darwin') {
-    return path.join(homeDir, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json')
+    return path.join(
+      homeDir,
+      'Library',
+      'Application Support',
+      'Claude',
+      'claude_desktop_config.json'
+    )
   }
   if (process.platform === 'win32') {
     const appData = process.env['APPDATA'] || path.join(homeDir, 'AppData', 'Roaming')
@@ -302,7 +400,9 @@ function installClaudeDesktopMcp(configFile, proxyPath) {
         throw new Error(`${configFile} is not valid JSON; fix it, then run the setup again`)
       }
       if (config === null || typeof config !== 'object' || Array.isArray(config)) {
-        throw new Error(`${configFile} does not hold a JSON object; fix it, then run the setup again`)
+        throw new Error(
+          `${configFile} does not hold a JSON object; fix it, then run the setup again`
+        )
       }
     }
     fs.copyFileSync(configFile, `${configFile}.bak`)
@@ -322,10 +422,13 @@ function claudeDesktopRunning() {
   const { spawnSync } = require('child_process')
   try {
     if (process.platform === 'win32') {
-      const out = spawnSync('tasklist', ['/FI', 'IMAGENAME eq Claude.exe', '/NH'], { encoding: 'utf8' })
+      const out = spawnSync('tasklist', ['/FI', 'IMAGENAME eq Claude.exe', '/NH'], {
+        encoding: 'utf8',
+      })
       return /claude\.exe/i.test(out.stdout || '')
     }
-    const pgrepArgs = process.platform === 'darwin' ? ['-x', 'Claude'] : ['-f', '(^|/)claude-desktop( |$)']
+    const pgrepArgs =
+      process.platform === 'darwin' ? ['-x', 'Claude'] : ['-f', '(^|/)claude-desktop( |$)']
     return spawnSync('pgrep', pgrepArgs, { encoding: 'utf8' }).status === 0
   } catch {
     return false
@@ -341,8 +444,12 @@ function quitClaudeDesktopHint() {
 if (hasClaudeDesktop) {
   const desktopConfig = claudeDesktopConfigPath()
   if (claudeDesktopRunning()) {
-    console.log(`  ${bold}Claude Desktop is running.${reset} It can overwrite the new entry when it saves its own settings.`)
-    console.log(`  Quit it fully (${quitClaudeDesktopHint()}), run ${cyan}cia setup claude-desktop${reset} again, then start Claude Desktop.`)
+    console.log(
+      `  ${bold}Claude Desktop is running.${reset} It can overwrite the new entry when it saves its own settings.`
+    )
+    console.log(
+      `  Quit it fully (${quitClaudeDesktopHint()}), run ${cyan}cia setup claude-desktop${reset} again, then start Claude Desktop.`
+    )
   }
   try {
     installClaudeDesktopMcp(desktopConfig, proxyBinPath)

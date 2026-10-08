@@ -279,6 +279,18 @@ Desktop's `claude_desktop_config.json`, keeps every other entry, saves a
 `.bak` copy, and refuses a file that is not valid JSON. Restart Claude
 Desktop afterwards.
 
+`cia setup codex` installs the Chain Insights Codex plugin: a local
+one-plugin marketplace under `~/.chain-insights/codex-marketplace`, registered
+in `~/.codex/config.toml` as `chain-insights@chain-insights`, with the skills
+copied to `~/.codex/skills`. The Codex app draws the graph, chart and table
+views only for a server that a plugin provides, so the plain
+`[mcp_servers.chain-insights]` entry that earlier versions wrote is removed.
+Every other entry in `config.toml` is kept. When the `codex` command is on
+`PATH`, setup also runs `codex plugin add chain-insights@chain-insights`;
+otherwise run it once yourself. Restart the Codex app afterwards. To remove
+the plugin: `codex plugin remove chain-insights@chain-insights`, then
+`codex plugin marketplace remove chain-insights`.
+
 Current MCP prompts exposed by the local proxy:
 
 - `meta-network-capabilities`

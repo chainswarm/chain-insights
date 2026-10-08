@@ -106,6 +106,66 @@ describe('Installer (FOUND-01)', () => {
     })
   }
 
+  it('--codex installs the Chain Insights Codex plugin and removes the plain MCP entry', () => {
+    const configFile = join(fakeHome, '.codex', 'config.toml')
+    mkdirSync(join(fakeHome, '.codex'), { recursive: true })
+    writeFileSync(
+      configFile,
+      [
+        'model = "gpt-5"',
+        '',
+        '[mcp_servers.other]',
+        'command = "other"',
+        '',
+        '[mcp_servers.chain-insights]',
+        'command = "node"',
+        'args = ["/old/bin/mcp-proxy.cjs"]',
+        '',
+        '[plugins."slack@openai-curated"]',
+        'enabled = true',
+        '',
+      ].join('\n'),
+      'utf8'
+    )
+    // No codex command on PATH: the config entries alone must be complete.
+    const nodeDir = process.execPath.slice(0, process.execPath.lastIndexOf('/'))
+    const run = () =>
+      execSync(`HOME=${fakeHome} PATH=${nodeDir}:/usr/bin:/bin node bin/install.cjs --codex`, {
+        stdio: 'pipe',
+      }).toString()
+    run()
+    const output = run()
+
+    const config = readFileSync(configFile, 'utf8')
+    const root = join(fakeHome, '.chain-insights', 'codex-marketplace')
+    expect(config).not.toContain('[mcp_servers.chain-insights]')
+    expect(config).not.toContain('/old/bin/mcp-proxy.cjs')
+    expect(config).toContain('[mcp_servers.other]')
+    expect(config).toContain('[plugins."slack@openai-curated"]')
+    expect(config.split('[marketplaces.chain-insights]').length).toBe(2)
+    expect(config).toContain(`source = ${JSON.stringify(root)}`)
+    expect(config.split('[plugins."chain-insights@chain-insights"]').length).toBe(2)
+    expect(output).toContain('codex plugin add chain-insights@chain-insights')
+
+    const marketplace = JSON.parse(
+      readFileSync(join(root, '.agents', 'plugins', 'marketplace.json'), 'utf8')
+    ) as { name: string; plugins: { name: string; source: { path: string } }[] }
+    expect(marketplace.name).toBe('chain-insights')
+    expect(marketplace.plugins[0]?.source.path).toBe('./plugins/chain-insights')
+    const pluginDir = join(root, 'plugins', 'chain-insights')
+    const manifest = JSON.parse(
+      readFileSync(join(pluginDir, '.codex-plugin', 'plugin.json'), 'utf8')
+    ) as { version: string; mcpServers: string }
+    const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as { version: string }
+    expect(manifest.version).toBe(pkg.version)
+    expect(manifest.mcpServers).toBe('./.mcp.json')
+    const servers = JSON.parse(readFileSync(join(pluginDir, '.mcp.json'), 'utf8')) as {
+      mcpServers: Record<string, { command: string; args: string[] }>
+    }
+    expect(servers.mcpServers['chain-insights']?.command).toBe(process.execPath)
+    expect(servers.mcpServers['chain-insights']?.args[0]).toMatch(/bin\/mcp-proxy\.cjs$/)
+  })
+
   it('--claude does not throw even when claude CLI registration step fails', () => {
     // The installer must complete successfully even when claude mcp add fails
     // (claude CLI may not be on PATH in CI environments)

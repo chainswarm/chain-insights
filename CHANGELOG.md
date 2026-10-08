@@ -3,6 +3,22 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.47.0] - 2026-10-08 — feat: setup codex installs a Codex plugin, so Codex can draw the views
+
+### Changed
+
+- `cia setup codex` (and `cia --codex`) now installs the Chain Insights Codex
+  plugin instead of a plain `[mcp_servers.chain-insights]` entry. The Codex app
+  draws an MCP app view only for a server that a plugin provides: the tool call
+  must carry both the view's `ui://chain-insights/view` address and a plugin
+  id. Setup writes a local one-plugin marketplace under
+  `~/.chain-insights/codex-marketplace`, registers it and the plugin
+  `chain-insights@chain-insights` in `~/.codex/config.toml`, removes the plain
+  entry earlier versions wrote, and keeps every other entry. With the `codex`
+  command on `PATH` it also runs `codex plugin add`; otherwise it prints that
+  command. The proxy starts with the installing Node's absolute path, as
+  `setup claude-desktop` does. Skills still go to `~/.codex/skills`.
+
 ## [0.46.6] - 2026-10-07 — fix: a rate-limited call waits and is sent once more
 
 ### Fixed
