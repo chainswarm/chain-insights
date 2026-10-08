@@ -3,6 +3,27 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.49.0] - 2026-10-08 — feat: the money flow graph draws on the GPU, thousands of addresses
+
+### Changed
+
+- The Claude and Codex view (Chain Insights UI `b991448`) draws the graph
+  with WebGL (sigma.js 3) whenever the browser gives a WebGL context, and as
+  SVG when it gives none or loses it for 2 seconds. On a Radeon iGPU, 3,000
+  addresses pan and zoom at 60 frames a second (16.7 ms a frame; 83 ms with
+  SVG), the first draw takes under half a second, and folding a hub that
+  loaded 4,500 of 5,000 addresses takes about 15 ms. Past 500 links, links
+  are straight arrows.
+- The picture holds up to 5,000 addresses (was 60). A page that would pass
+  that is not loaded; the status line says how to make room.
+- `graph_expand` loads up to 500 links of an address a page (was 24), read in
+  chunks of 200 rows, at most five graph_query reads a page, and cut to fit
+  140,000 characters: a busy address shows about 360 to 420 links a page. Each
+  page carries `remaining`: the senders and receivers still not loaded. The
+  side panel shows them and offers More flows.
+- A hidden list of the drawn addresses takes the keyboard: Down and Up move
+  and highlight, Enter shows the details, Shift+Enter expands or folds.
+
 ## [0.48.1] - 2026-10-08 — perf: the money flow graph pans, zooms and drags smoothly
 
 ### Fixed
