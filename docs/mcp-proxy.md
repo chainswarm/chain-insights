@@ -114,6 +114,11 @@ Graph endpoint serves data only:
   draws the balance for `meta_usage_status` and `meta_subscription_status`.
   Nothing is fetched at run time. The proxy has no tool that composes a picture
   for the model: the model writes its own `graph_query`.
+- In the money flow graph, one click on an address shows its details in the
+  side panel; a double click (or Shift+Enter) loads its senders and receivers
+  and rings the address, and a second double click folds them back. A click on
+  a link shows its details and its transfers in the same panel. Reset returns
+  to the first answer. Outside the drawing, addresses are shown in full.
 - `graph_expand` runs on your computer and answers the clicks in a picture. It
   takes `{network, address, in_offset?, out_offset?}` to load the newest senders
   and receivers of one address (three anchored topology `graph_query` reads), or
