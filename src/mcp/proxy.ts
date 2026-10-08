@@ -125,9 +125,9 @@ const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   meta_help: 'Show a short guide to Chain Insights tools and workflow.',
   wallet_balance:
     'Show the local Chain Insights payment wallet address, payment network, token, and amount.',
-  graph_query: `Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. ${GRAPH_LAYERS_TEXT} ${ROUTING_NOT_SERVED} Preserve full addresses exactly.`,
+  graph_query: `Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. ${GRAPH_LAYERS_TEXT} ${ROUTING_NOT_SERVED} Preserve full addresses exactly, and write every address in full, all 42 characters, in your answer: never shorten one with ... or ….`,
   graph_query_batch:
-    'Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads.',
+    'Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads. For a time series across days, send one USE facts total per day with the query id set to the day, "YYYY-MM-DD": the view joins them into one series. Write every address in full in your answer, all 42 characters.',
 }
 // Titles for proxied tools whose graph endpoint definition carries none.
 const KNOWN_PUBLIC_TOOL_TITLES: Record<string, string> = {
@@ -153,15 +153,26 @@ const REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS = 15 * 60 * 1000
 // What the Chain Insights view draws from a graph_query answer, told by column
 // name. The same rules are in skills/chain-insights-cypher/SKILL.md.
 const PICTURE_RULES = [
-  'Pictures: hosts that draw views, such as Claude Desktop, draw a graph_query answer from its column names. No other tool is needed.',
-  '- Rows with from_address and to_address columns draw a graph of at most 60 addresses. Optional columns: amount_usd_sum, tx_count, first_seen_timestamp, last_seen_timestamp, link_kind, from_labels, to_labels. Example: USE topology MATCH (a:Address {address: $addr})-[f:FLOWS_TO]->(b:Address) WHERE NOT a:Pool RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.last_seen_timestamp AS last_seen_timestamp ORDER BY f.last_seen_timestamp DESC LIMIT 25',
-  '- Rows with a day, date or *_timestamp column and number columns draw a chart. Example, the transfers of a known pair on one day: USE facts MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) WHERE t.block_date = "YYYY-MM-DD" RETURN t.block_timestamp AS block_timestamp, t.amount_usd AS amount_usd LIMIT 200',
+  'Pictures: hosts that draw views, such as Claude Desktop and the Codex app, draw a graph_query answer from its column names. No other tool is needed. Choose the picture by the question: who sent to whom, flows and routes are a graph; how something changed over time is a time series; a list, a lookup or the details of one thing is a table.',
+  '- Rows with from_address and to_address columns draw a graph of at most 5,000 addresses. Optional columns: amount_usd_sum, tx_count, first_seen_timestamp, last_seen_timestamp, link_kind, from_labels, to_labels. Example: USE topology MATCH (a:Address {address: $addr})-[f:FLOWS_TO]->(b:Address) WHERE NOT a:Pool RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.last_seen_timestamp AS last_seen_timestamp ORDER BY f.last_seen_timestamp DESC LIMIT 25',
+  '- Rows with a day, date, hour, week, month or *_timestamp column, number columns, no address in any value and at least 3 distinct times draw a time series. Within one day, the transfers of a known pair: USE facts MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) WHERE t.block_date = "YYYY-MM-DD" RETURN t.block_timestamp AS block_timestamp, t.amount_usd AS amount_usd LIMIT 200',
+  '- Across days: facts reads one day at a time, so send graph_query_batch with one query per day (3 to 20 days), each query id the day as "YYYY-MM-DD", each returning one total row: USE facts MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) WHERE t.block_date = "YYYY-MM-DD" RETURN count(t) AS tx_count, sum(t.amount_usd) AS amount_usd_sum. The view joins the days into one time series. Do not group by day or name several days in one read: both are refused.',
   '- Any other rows draw a table.',
 ].join('\n')
 
 // The same rule in one sentence, for meta_help.
 const PICTURE_HELP_LINE =
-  'In hosts that draw views, a graph_query answer with from_address and to_address columns draws a graph, a day or time column with numbers draws a chart, and any other rows draw a table.'
+  'In hosts that draw views, a graph_query answer with from_address and to_address columns draws a graph, a day or time column with numbers draws a time series (across days: a graph_query_batch of one-day totals, each query id the day), and any other rows draw a table.'
+
+// What every reply to the user follows. First in the instructions, so a host
+// that keeps only their start still has them; the skill says the same.
+const ANSWER_RULES = [
+  'Answer rules, for every reply to the user:',
+  '1. Write every address in full: 0x plus 40 hex characters, 42 in all, in sentences, lists, tables and summaries. Never shorten one with ... or …. The drawn picture may shorten its labels; your text never does.',
+  '2. Do not print the query, its USE line, its LIMIT, the epoch numbers you computed, or a Ref: line, unless the user asks how a number was found.',
+  '3. Tokens are not dollars: a transfer moves tokens worth an amount at the day price. Say "tokens worth about 183 USD on 2026-10-06", never "sent 183 USD".',
+  '4. Never draw a graph or a chart in text, ASCII or Mermaid: the host draws the picture from the columns. Write a short answer beside it.',
+].join('\n')
 
 const CHAIN_INSIGHTS_WORKFLOW = [
   'Workflow:',
@@ -210,6 +221,7 @@ const ROUTING_HEAD = routingHead()
 
 const SERVER_INSTRUCTIONS = [
   'Chain Insights is an AML and graph-analysis MCP server for AI agents.',
+  ANSWER_RULES,
   CHAIN_INSIGHTS_WORKFLOW,
   ROUTING_HEAD,
   PICTURE_RULES,
@@ -219,6 +231,7 @@ const SERVER_INSTRUCTIONS = [
 
 const STATELESS_SERVER_INSTRUCTIONS = [
   'Chain Insights is running as a stateless AML proxy for a host application.',
+  ANSWER_RULES,
   'Call graph_query or graph_query_batch with network=robinhood. meta_network_capabilities takes no arguments (send {}); call it only to check which tools and layers are live.',
   ROUTING_HEAD,
   PICTURE_RULES,

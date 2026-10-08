@@ -18,8 +18,9 @@ Always pass `network` and your own `LIMIT`. These two commands, and
 ## Rules that stop most failures
 
 1. Write every address in full, in lowercase: `0x` plus 40 hex characters, 42
-   in all. Never shorten one with `...` or `…`, in a query, a table, a sentence
-   or a summary. Copy addresses from results exactly, all 42 characters, every
+   in all. Never shorten one with `...` or `…`, in a query, a table, a list, a
+   sentence or a summary: `0xdc63…858a` is wrong, every time. Only the drawn
+   picture shortens its own labels; your text never does. Copy addresses from results exactly, all 42 characters, every
    time. The network is `robinhood`, the Robinhood Chain: use it without asking
    the user which network. `meta_network_capabilities` takes no arguments:
    send `{}`, never `network`.
@@ -357,17 +358,51 @@ In a batch, send again only the members that came back `capacity`.
 
 ## Name the columns for a picture
 
-Claude Desktop draws a `graph_query` answer from its column names. Alias the
-`RETURN` columns to choose the picture.
+Claude Desktop and the Codex app draw a `graph_query` answer from its column
+names. Choose the picture by the question, then alias the `RETURN` columns.
 
-| Columns in every row                                        | Claude Desktop draws                      |
-| ----------------------------------------------------------- | ----------------------------------------- |
-| `from_address` and `to_address`                             | A graph of at most 60 addresses.          |
-| A `day`, `date` or `*_timestamp` column, and number columns | A chart, one line for each number column. |
-| Anything else                                               | A table.                                  |
+| The question                                         | Picture     | The columns                                                     |
+| ---------------------------------------------------- | ----------- | --------------------------------------------------------------- |
+| Who sent to whom, money flows, routes, counterparties | Graph       | `from_address` and `to_address` in every row                     |
+| How something changed over time                      | Time series | a `day`, `date`, `hour`, `week`, `month` or `*_timestamp` column, number columns, no address in any value, 3 or more times |
+| A list, a lookup, the details of one thing           | Table       | anything else                                                   |
 
-A graph also reads these optional columns: `amount_usd_sum`, `tx_count`, `first_seen_timestamp`, `last_seen_timestamp`, `link_kind`, `from_labels` and `to_labels`. In `graph_query_batch`, each query draws its own tab. Claude Code draws nothing and shows the rows as text.
+A graph holds up to 5,000 addresses, and the investigator can load more by
+double-clicking an address. It also reads these optional columns:
+`amount_usd_sum`, `tx_count`, `first_seen_timestamp`, `last_seen_timestamp`,
+`link_kind`, `from_labels` and `to_labels`. A graph is the newest-links read of
+one address, receivers or senders, in Graph searches. Claude Code draws
+nothing and shows the rows as text.
 
-A graph is the newest-links read of one address, receivers or senders, in Graph searches. A chart is the facts read of one pair over one day above, with `block_timestamp` and `amount_usd` in the `RETURN`.
+### Time series
+
+`USE facts` reads one pair on one day, and does not group. Two shapes are
+served.
+
+Within one day, the transfers of a known pair, one point per transfer:
+
+```gql
+USE facts
+MATCH (a:Address {address: "0xcaf681a66d020601342297493863e78c959e5cb2"})-[t:TRANSFER]->(b:Address {address: "0x97bf35f2603357d0be4dcd081ceccdbc9f9c2cc5"})
+WHERE t.block_date = "2026-10-07"
+RETURN t.block_timestamp AS block_timestamp, t.amount_usd AS amount_usd
+LIMIT 200
+```
+
+Across days, send `graph_query_batch` with one query per day, 3 to 20 days.
+Each query's `id` is its day, `"YYYY-MM-DD"`, and returns one total row. The
+view joins the days into one series; a refused day is a gap.
+
+```json
+{"network": "robinhood", "queries": [
+  {"id": "2026-10-05", "query": "USE facts MATCH (a:Address {address: \"<from>\"})-[t:TRANSFER]->(b:Address {address: \"<to>\"}) WHERE t.block_date = \"2026-10-05\" RETURN count(t) AS tx_count, sum(t.amount_usd) AS amount_usd_sum"},
+  {"id": "2026-10-06", "query": "… the same, t.block_date = \"2026-10-06\" …"},
+  {"id": "2026-10-07", "query": "… the same, t.block_date = \"2026-10-07\" …"}
+]}
+```
+
+Never group by day (`RETURN t.block_date AS day, count(t)`) and never name
+several days in one read (`block_date IN [...]`): both are refused. A literal
+column such as `RETURN "2026-10-07" AS day` does not parse.
 
 A row that names its ends `src`, `dst` or `address` draws no graph. Alias them `from_address` and `to_address`.
