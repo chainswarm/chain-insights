@@ -371,6 +371,13 @@
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
+   "id": "skill-cypher-24",
+   "layer": "facts",
+   "anchor": "pair_day",
+   "query": "USE facts MATCH (a:Address {address: \"0xcaf681a66d020601342297493863e78c959e5cb2\"})-[t:TRANSFER]->(b:Address {address: \"0x97bf35f2603357d0be4dcd081ceccdbc9f9c2cc5\"}) WHERE t.block_date = \"2026-10-07\" RETURN t.block_timestamp AS block_timestamp, t.amount_usd AS amount_usd LIMIT 200",
+   "source": "skills/chain-insights-cypher/SKILL.md"
+  },
+  {
    "id": "hint-1",
    "layer": "topology",
    "anchor": "address",

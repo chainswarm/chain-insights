@@ -547,18 +547,28 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       expect(instructions).toContain(
         'amount_usd_sum, tx_count, first_seen_timestamp, last_seen_timestamp, link_kind, from_labels, to_labels'
       )
-      // The chart rule, and the table for the rest.
+      // The time-series rule (within a day, and across days as a batch of one-day totals), and the table for the rest.
       expect(instructions).toContain(
-        'a day, date or *_timestamp column and number columns draw a chart'
+        'a day, date, hour, week, month or *_timestamp column, number columns, no address in any value and at least 3 distinct times draw a time series'
       )
+      expect(instructions).toContain('each query id the day as "YYYY-MM-DD"')
+      // The answer rules come first, so a host that keeps only the start still has them.
+      expect(instructions.indexOf('Answer rules')).toBeLessThan(instructions.indexOf('Pictures:'))
+      expect(instructions).toContain('Write every address in full')
       expect(instructions).toContain('Any other rows draw a table')
       // One example each: a graph from an anchored address, a chart from one day of a known pair.
       expect(instructions).toContain(
         'RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum'
       )
-      const chartExample = /transfers of a known pair on one day: (USE facts [^\n]+)/.exec(
+      const chartExample = /Within one day, the transfers of a known pair: (USE facts [^\n]+)/.exec(
         instructions
       )?.[1]
+      // The across-days example: one total row per day, also a read the graph server accepts.
+      const dailyExample = /each returning one total row: (USE facts .+?RETURN count\(t\) AS tx_count, sum\(t\.amount_usd\) AS amount_usd_sum)/.exec(
+        instructions
+      )?.[1]
+      expect(dailyExample).toBeDefined()
+      expect(factsReadViolations(dailyExample ?? '')).toEqual([])
       expect(chartExample).toContain(
         't.block_timestamp AS block_timestamp, t.amount_usd AS amount_usd'
       )

@@ -3,6 +3,27 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.50.0] - 2026-10-08 — feat: time series, and the answer rules reach every host
+
+### Added
+
+- The view (Chain Insights UI `290788b`) draws a time series: a summary line
+  with each series' total and peak, a read-out on hover and by keyboard, drag
+  to zoom, one toggle per series, light and dark. A series across days is a
+  `graph_query_batch` of one-day totals with each query id the day: the view
+  joins it into one line, and a refused day is a shaded gap.
+
+### Changed
+
+- The answer rules open the server instructions: every address in full, 42
+  characters, in every sentence, list and summary; no query text or `Ref:`
+  line; tokens worth X USD, never "sent X USD"; no graph drawn in text.
+  Claude Desktop reads no skill, so it never saw them and shortened addresses.
+  `graph_query` and `graph_query_batch` say the address rule too.
+- The picture is chosen by the question: who sent to whom is a graph, a change
+  over time is a time series, anything else a table. The skill and the server
+  instructions teach both served time-series shapes.
+
 ## [0.49.1] - 2026-10-08 — fix: no GPU, no WebGL: the graph draws as SVG
 
 ### Fixed
