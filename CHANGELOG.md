@@ -3,6 +3,15 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.49.1] - 2026-10-08 — fix: no GPU, no WebGL: the graph draws as SVG
+
+### Fixed
+
+- The view (Chain Insights UI `f7f3e90`) took WebGL even when the browser drew
+  it on the CPU (Claude Desktop with hardware acceleration off, a remote
+  desktop). That is slower than SVG: 66.6 ms a frame at 1,000 addresses
+  against 33.3 ms. Such a browser now draws the graph as SVG.
+
 ## [0.49.0] - 2026-10-08 — feat: the money flow graph draws on the GPU, thousands of addresses
 
 ### Changed
