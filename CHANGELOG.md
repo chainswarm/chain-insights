@@ -3,6 +3,18 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.48.1] - 2026-10-08 — perf: the money flow graph pans, zooms and drags smoothly
+
+### Fixed
+
+- The graph (Chain Insights UI `15e3514`) re-routed every link around every
+  address on each pan, zoom and drag step: 118 ms per step at 60 addresses,
+  6.5 s at 200. Pan and zoom now move the view only (0.1 ms per step at any
+  size measured), a drag moves only the dragged address and its links and
+  routes once on release, and past 120 addresses links are drawn as plain
+  curves. Measured in headless Chromium: 60 frames per second up to 200
+  addresses, 30 at 1,000, 12 at 3,000.
+
 ## [0.48.0] - 2026-10-08 — feat: the money flow graph: details on click, expand on double click, Reset
 
 ### Changed
