@@ -116,7 +116,8 @@ const GRAPH_LAYERS_TEXT =
   "Use USE topology for topology (address/FLOWS_TO/OPERATED_BY/LINKED graph with SWAPPED, ADDED_LIQUIDITY, REMOVED_LIQUIDITY, BRIDGED and the Pool label, unified recent+historical) and USE facts for bounded TRANSFER, SWAP, LIQUIDITY_ADD, LIQUIDITY_REMOVE and BRIDGE_CROSSING rows and enrichment, and USE chain for the chain node's own record of one known transaction, block, address or the head."
 
 const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
-  meta_network_capabilities: 'Return the current Chain Insights network and tool support matrix.',
+  meta_network_capabilities:
+    'Return the current Chain Insights network and tool support matrix. Takes no arguments: send {}.',
   meta_schema: META_SCHEMA_DESCRIPTION,
   meta_usage_status: "Return the caller's public free graph_query quota for the current UTC day.",
   meta_subscription_status:
@@ -143,7 +144,7 @@ type RemoteToolCaller = {
   callTool: Client['callTool']
 }
 const NETWORK_DESCRIPTION =
-  'Network to query. Call meta_network_capabilities first and pass a name GraphRAG advertised. CIA does not pick a default network.'
+  'Network to query: robinhood, the one public network. CIA does not pick a default network, so always pass it. meta_network_capabilities (no arguments) lists the live networks.'
 const NETWORK_SCHEMA = z.string().min(1).describe(NETWORK_DESCRIPTION)
 
 const EMPTY_INPUT_SCHEMA = z.strictObject({})
@@ -171,7 +172,7 @@ const CHAIN_INSIGHTS_WORKFLOW = [
 
 const GRAPH_SCHEMA_HINTS = [
   'Graph query hints:',
-  '- Call meta_network_capabilities first. Pass network= exactly as GraphRAG advertised it. CIA does not pick a default network.',
+  '- Pass network=robinhood, the one public network, on every graph tool call. CIA does not pick a default network. meta_network_capabilities takes no arguments (send {}); call it only to check which tools and layers are live.',
   ...routingHintLines(),
   '- Coverage is per kind of data. coverage.complete_through_block is the floor of USE facts: below it every raw relationship is indexed. graph_progress.complete_through_block is the floor of USE topology, and graph_progress.layers gives each link kind its own height. An empty answer above the floor may mean not indexed yet, not absent on chain. An absent chain_tip_block means the indexers are catching up: read freshness.max_data_age_seconds for the lag.',
   "- The graph is address-grain. The only topology money node label is Address, keyed by the raw chain-native H160 address on EVM networks, for example 0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24. There is no separate identity key. network is the query's network on every node and relationship, never stored, except on :Chain, where it names the remote chain.",
@@ -218,7 +219,7 @@ const SERVER_INSTRUCTIONS = [
 
 const STATELESS_SERVER_INSTRUCTIONS = [
   'Chain Insights is running as a stateless AML proxy for a host application.',
-  'Use meta_network_capabilities first when network support is unknown, then call graph_query or graph_query_batch as needed.',
+  'Call graph_query or graph_query_batch with network=robinhood. meta_network_capabilities takes no arguments (send {}); call it only to check which tools and layers are live.',
   ROUTING_HEAD,
   PICTURE_RULES,
   'Use wallet_balance to inspect the local payment wallet when payment setup is needed.',
@@ -1285,7 +1286,7 @@ export async function createProxy(): Promise<void> {
                 CHAIN_INSIGHTS_WORKFLOW,
                 '',
                 'Investigation tools:',
-                '- meta_network_capabilities: inspect supported networks and available tools.',
+                '- meta_network_capabilities: supported networks and available tools. Takes no arguments.',
                 '- meta_schema: read the live graph schema of one network: labels, link types and field names. Cached for 24 hours.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
                 '- meta_subscription_status: check the caller CIA subscription window end, daily allowance, consumption, and tier.',
@@ -1302,7 +1303,7 @@ export async function createProxy(): Promise<void> {
                 'Chain Insights stateless AML proxy for host applications.',
                 '',
                 'Available graph-backed tools:',
-                '- meta_network_capabilities: inspect supported networks and available tools.',
+                '- meta_network_capabilities: supported networks and available tools. Takes no arguments.',
                 '- meta_schema: read the live graph schema of one network: labels, link types and field names. Cached for 24 hours.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
                 '- meta_subscription_status: check the caller CIA subscription window end, daily allowance, consumption, and tier.',

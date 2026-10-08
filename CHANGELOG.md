@@ -3,6 +3,22 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.47.1] - 2026-10-08 — fix: no network argument on meta_network_capabilities; pairs keep the graph column names
+
+### Fixed
+
+- A Codex CLI run sent `meta_network_capabilities({network: "robinhood"})` and
+  got "Input validation error: Unrecognized key". The served instructions told
+  the model to call that tool first and pass a network everywhere, and never
+  said the tool takes no arguments. Its description, the served instructions,
+  the runtime notes and the `chain-insights-cypher` skill now say: pass
+  `network=robinhood` on graph tools; `meta_network_capabilities` takes no
+  arguments (send `{}`) and is needed only to check which tools and layers are
+  live. The input schema stays strict.
+- The same run named a sender and receiver pair `sender` and `receiver`, so a
+  host that draws views would show a table. The skill now says any query whose
+  rows are address pairs names them `from_address` and `to_address`.
+
 ## [0.47.0] - 2026-10-08 — feat: setup codex installs a Codex plugin, so Codex can draw the views
 
 ### Changed

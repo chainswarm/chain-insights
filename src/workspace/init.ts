@@ -185,8 +185,9 @@ property names for the active network.
 
 The address-grain graph schema:
 
-- Call \`meta_network_capabilities\` first. Pass \`network=\` exactly as
-  GraphRAG advertised it. CIA does not pick a default network.
+- Pass \`network=robinhood\`, the one public network, on every graph tool
+  call. CIA does not pick a default network. \`meta_network_capabilities\`
+  takes no arguments; call it only to check which tools and layers are live.
   Address format follows that network. Every topology node is
   \`(:Address {address})\`, keyed by the raw chain-native
   \`address\`. There is no separate identity key and no member-address
