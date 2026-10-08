@@ -290,7 +290,7 @@ describe('graph_expand, node form', () => {
     expect(lineCount(result.content[0].text)).toBeLessThanOrEqual(FLOWS_SUMMARY_MAX_LINES)
     expect(result.content[0].text).toContain('Showing senders 1 to 12 of')
     expect(result.content[0].text).toContain(
-      'More senders and receivers load when an address in the picture is clicked.'
+      'More senders and receivers load when an address in the picture is double-clicked.'
     )
     expect(result.content[0].text).not.toMatch(/Next page|cia mcp call/)
   })
@@ -893,7 +893,7 @@ describe('flows.v1 page budget and summary', () => {
       '$74,077.38 out',
       '5000 senders',
       'Showing senders 1 to 12 of 5000',
-      'More senders and receivers load when an address in the picture is clicked.',
+      'More senders and receivers load when an address in the picture is double-clicked.',
     ]) {
       expect(text).toContain(want)
     }

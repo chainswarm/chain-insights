@@ -382,7 +382,7 @@ function pagingLines(
     shown === 0 ? `none of ${total}` : `${next - shown + 1} to ${next} of ${total}`
   const where = `Showing senders ${range(shownSenders, nextIn, totalIn)} and receivers ${range(shownReceivers, nextOut, totalOut)}, newest first.`
   if (!view.truncated && nextIn >= totalIn && nextOut >= totalOut) return [where]
-  return [where, 'More senders and receivers load when an address in the picture is clicked.']
+  return [where, 'More senders and receivers load when an address in the picture is double-clicked.']
 }
 
 export type TransferRow = {

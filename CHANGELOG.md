@@ -3,6 +3,25 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.48.0] - 2026-10-08 — feat: the money flow graph: details on click, expand on double click, Reset
+
+### Changed
+
+- The Claude and Codex view (Chain Insights UI `9f7ac50`): one click on an
+  address shows its details in one side panel; a double click (or
+  Shift+Enter) loads its senders and receivers and gives the address a ring in
+  a colour no role uses, and a second double click folds them back. The panel
+  has Expand or Collapse and, for an expanded address with more pages, More
+  flows. A link click shows the link's details and its transfers in the same
+  panel. Reset, next to Fit, returns to the first answer.
+- The graph's title is "Money flow graph", and addresses outside the drawing
+  are shown in full; the drawing keeps short labels.
+- The inline card is up to 640 px tall (was 480), and Full screen is offered
+  unless the host lists display modes without it.
+- A failed expansion is marked "too busy" only when the graph was busy or
+  timed out; any other failure, such as a host that blocks the call, shows its
+  reason and can be tried again.
+
 ## [0.47.1] - 2026-10-08 — fix: no network argument on meta_network_capabilities; pairs keep the graph column names
 
 ### Fixed
