@@ -3,6 +3,19 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.53.0] - 2026-10-09 — feat: every host gets the latest rules, with no upload
+
+### Added
+
+- `meta_rules` returns the Chain Insights rules: the `chain-insights-cypher`
+  skill of the installed package. Claude Desktop chat reads skills only from
+  the user's claude.ai account, so it never had them: it split a money-flow
+  question into reads the view could not draw. The server instructions now
+  open with one line: when the skill is not loaded, call `meta_rules` once
+  before the first graph query. Claude Code and Codex keep the skill file
+  setup copies; they do not call it. An upgrade brings new rules to every
+  host with nothing to upload.
+
 ## [0.52.0] - 2026-10-09 — fix: Claude Desktop draws the graph again, every time
 
 ### Fixed

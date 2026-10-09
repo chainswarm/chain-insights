@@ -476,6 +476,12 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     )
     const instructions = vi.mocked(McpServer).mock.calls[0]?.[1]?.instructions
     expect(instructions).not.toContain('aml_address_risk')
+    // The rules come first: before the answer rules, so a host that keeps only
+    // the start of the instructions still sends a skill-less chat to meta_rules.
+    expect(instructions!.indexOf('call meta_rules once')).toBeGreaterThan(0)
+    expect(instructions!.indexOf('call meta_rules once')).toBeLessThan(
+      instructions!.indexOf('Answer rules')
+    )
     expect(instructions).not.toContain('single-address enrichment')
     expect(instructions).toContain('graph_query(_batch)')
     expect(instructions).toContain('Network is required')
@@ -564,9 +570,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         instructions
       )?.[1]
       // The across-days example: one total row per day, also a read the graph server accepts.
-      const dailyExample = /each returning one total row: (USE facts .+?RETURN count\(t\) AS tx_count, sum\(t\.amount_usd\) AS amount_usd_sum)/.exec(
-        instructions
-      )?.[1]
+      const dailyExample =
+        /each returning one total row: (USE facts .+?RETURN count\(t\) AS tx_count, sum\(t\.amount_usd\) AS amount_usd_sum)/.exec(
+          instructions
+        )?.[1]
       expect(dailyExample).toBeDefined()
       expect(factsReadViolations(dailyExample ?? '')).toEqual([])
       expect(chartExample).toContain(
@@ -2384,6 +2391,17 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(help.content[0].text).not.toContain('money_flows')
     expect(help.content[0].text).not.toContain('graph_expand')
     expect(help.content[0].text).toContain('from_address')
+
+    // meta_rules serves the packaged skill, without its front matter, so a host
+    // that loads no local skill (Claude Desktop chat) gets the same rules.
+    const skill = await readFile(
+      join(import.meta.dirname, '..', 'skills', 'chain-insights-cypher', 'SKILL.md'),
+      'utf8'
+    )
+    const body = skill.slice(skill.indexOf('\n---', 3) + 4).trim()
+    const rules = await findToolHandler(serverInstance, 'meta_rules')({})
+    expect(rules.content[0].text.trim()).toBe(body)
+    expect(rules.isError).toBe(false)
   })
 
   it('answers a graph_expand node click from three graph_query calls through the remote client', async () => {
