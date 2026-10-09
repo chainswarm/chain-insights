@@ -50,7 +50,7 @@ describe('the Claude Code copy steps aside inside Claude Desktop', () => {
     expect(defersToClaudeDesktop(env, configFile)).toBe(false)
   })
 
-  it('the built proxy lists no tools when it is the Claude Code copy in Claude Desktop', async () => {
+  it('the built proxy lists no tools and starts no view server when it is the Claude Code copy in Claude Desktop', async () => {
     desktopEntry({ 'chain-insights': {} })
     const child = spawn(process.execPath, [join(__dirname, '..', 'bin', 'mcp-proxy.cjs')], {
       env: {
@@ -60,8 +60,10 @@ describe('the Claude Code copy steps aside inside Claude Desktop', () => {
         CLAUDE_CODE_ENTRYPOINT: 'claude-desktop',
         CHAIN_INSIGHTS_SKILL_REFRESH: '0',
       },
-      stdio: ['pipe', 'pipe', 'ignore'],
+      stdio: ['pipe', 'pipe', 'pipe'],
     })
+    let stderr = ''
+    child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()))
     const replies = new Map<number, any>()
     let buffer = ''
     child.stdout.on('data', (chunk: Buffer) => {
@@ -98,6 +100,21 @@ describe('the Claude Code copy steps aside inside Claude Desktop', () => {
       // An McpServer with no tool answers tools/list with "method not found";
       // either way the host sees no Chain Insights tool from this copy.
       expect(tools.result?.tools ?? []).toEqual([])
+      // A graph call reaches no tool here, so this copy never opens the
+      // browser view server either: only the drawing copy serves the window.
+      send({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/call',
+        params: {
+          name: 'graph_query',
+          arguments: { network: 'robinhood', query: 'USE topology MATCH (a) RETURN a LIMIT 1' },
+        },
+      })
+      const call = await reply(2)
+      expect(call.error ?? call.result?.isError).toBeTruthy()
+      expect(JSON.stringify(call)).not.toContain('view_url')
+      expect(stderr).not.toContain('view.server')
     } finally {
       child.kill()
     }

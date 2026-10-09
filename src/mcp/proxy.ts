@@ -40,6 +40,7 @@ import {
   type FlowsDependencies,
   type GraphQueryAnswer,
 } from './flows.js'
+import { newViewId, startViewServer, type ViewServer } from './view-server.js'
 
 const LOCAL_TOOL_NAMES = new Set([
   'meta_network_capabilities',
@@ -77,6 +78,10 @@ const VIEW_RESOURCE_META = {
   ui: { prefersBorder: false, csp: { resourceDomains: ['https://assets.claude.ai'] } },
 }
 const VIEW_TOOL_ANNOTATIONS = { readOnlyHint: true }
+// The answers that also open as a browser window on the user's PC
+// (src/mcp/view-server.ts): each carries view_url.
+const BROWSER_VIEW_TOOL_NAMES = new Set(['graph_query', 'graph_query_batch', GRAPH_EXPAND_TOOL])
+const BROWSER_VIEW_LINE = 'Open the graph in a browser window:'
 const CLAUDE_VIEW_FILE = 'claude-view.html'
 
 let claudeViewHtml: string | undefined
@@ -116,6 +121,11 @@ export function resolveMcpProxyMode(env: NodeJS.ProcessEnv = process.env): McpPr
 const GRAPH_LAYERS_TEXT =
   "Use USE topology for topology (address/FLOWS_TO/OPERATED_BY/LINKED graph with SWAPPED, ADDED_LIQUIDITY, REMOVED_LIQUIDITY, BRIDGED and the Pool label, unified recent+historical) and USE facts for bounded TRANSFER, SWAP, LIQUIDITY_ADD, LIQUIDITY_REMOVE and BRIDGE_CROSSING rows and enrichment, and USE chain for the chain node's own record of one known transaction, block, address or the head."
 
+// The rules where every host reads them, the tool description: a host that
+// loads no skill and keeps no server instructions still sees this first.
+const TOOL_RULES_FIRST =
+  'Rules first: if the chain-insights-cypher skill is not loaded in this chat, call meta_rules once before this tool. For a graph, alias the columns from_address and to_address; the host draws the picture from the answer itself. Never draw it again with another tool, such as a visualize or widget tool.'
+
 const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   meta_network_capabilities:
     'Return the current Chain Insights network and tool support matrix. Takes no arguments: send {}.',
@@ -128,9 +138,8 @@ const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
     'Return the Chain Insights rules: how to write graph_query and graph_query_batch reads that are served, how to name columns so the answer is drawn as a graph, a time series or a table, and how to write the answer. Call it once per chat, before the first graph query, when the chain-insights-cypher skill is not loaded. Takes no arguments: send {}.',
   wallet_balance:
     'Show the local Chain Insights payment wallet address, payment network, token, and amount.',
-  graph_query: `Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. ${GRAPH_LAYERS_TEXT} ${ROUTING_NOT_SERVED} Preserve full addresses exactly, and write every address in full, all 42 characters, in your answer: never shorten one with ... or ….`,
-  graph_query_batch:
-    'Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads. For a time series across days, send one USE facts total per day with the query id set to the day, "YYYY-MM-DD": the view joins them into one series. Write every address in full in your answer, all 42 characters.',
+  graph_query: `${TOOL_RULES_FIRST} Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. ${GRAPH_LAYERS_TEXT} ${ROUTING_NOT_SERVED} Preserve full addresses exactly, and write every address in full, all 42 characters, in your answer: never shorten one with ... or ….`,
+  graph_query_batch: `${TOOL_RULES_FIRST} Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads. For a time series across days, send one USE facts total per day with the query id set to the day, "YYYY-MM-DD": the view joins them into one series. Write every address in full in your answer, all 42 characters.`,
 }
 // Titles for proxied tools whose graph endpoint definition carries none.
 const KNOWN_PUBLIC_TOOL_TITLES: Record<string, string> = {
@@ -162,6 +171,7 @@ const PICTURE_RULES = [
   '- Across days: facts reads one day at a time, so send graph_query_batch with one query per day (3 to 20 days), each query id the day as "YYYY-MM-DD", each returning one total row: USE facts MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) WHERE t.block_date = "YYYY-MM-DD" RETURN count(t) AS tx_count, sum(t.amount_usd) AS amount_usd_sum. The view joins the days into one time series. Do not group by day or name several days in one read: both are refused.',
   '- Any other rows draw a table.',
   '- The host draws the picture from the answer itself. Do not draw it again with another tool, such as a visualize or widget tool: the user would see the same answer drawn twice.',
+  "- Every drawn answer carries view_url, a page on the user's own PC. When the user asks to see the graph bigger, in a window, or full screen: if this host has a browser tool (Claude Desktop: the Claude_Browser navigate tool), open view_url there; otherwise give the user the view_url link as a plain link.",
 ].join('\n')
 
 // The same rule in one sentence, for meta_help.
@@ -1303,6 +1313,58 @@ export async function createProxy(): Promise<void> {
         ? undefined
         : `${remoteUnavailableMessage ?? `Chain Insights Graph is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`,
   }
+  // One function answers a click, from the host's view and from the browser
+  // page alike.
+  const runGraphExpand = (args: unknown) => handleGraphExpand(args, flowsDependencies)
+
+  // The browser window of a drawn answer (src/mcp/view-server.ts). Started on
+  // the first drawn answer, once per process. The deferred copy above returns
+  // before this point, so it never starts one.
+  let viewServerStart: Promise<ViewServer | null> | undefined
+  const viewServer = (): Promise<ViewServer | null> => {
+    viewServerStart ??= startViewServer({
+      html: readClaudeViewHtml,
+      runTool: async (name, args) => {
+        if (name === GRAPH_EXPAND_TOOL) return runGraphExpand(args)
+        throw new Error(`The browser page cannot call ${name}`)
+      },
+      log: (event, fields) => {
+        void logger.info(event, fields)
+        if (event === 'view.server.started') {
+          process.stderr.write(`[chain-insights] view.server.started port=${String(fields.port)}\n`)
+        }
+      },
+    }).catch(async (err: unknown) => {
+      await logger.error('view.server.failed', { error: errorForLog(err) })
+      process.stderr.write(
+        `[chain-insights] view.server.failed: ${(err as Error).message ?? String(err)}\n`
+      )
+      return null
+    })
+    return viewServerStart
+  }
+
+  // A drawn answer gets its browser link: view_url in structuredContent and one
+  // line of text. The stored answer is the one the host receives, view_url
+  // included. A refused answer, or one with nothing to draw, stays as it is.
+  async function withViewUrl<T>(toolName: string, args: unknown, result: T): Promise<T> {
+    if (!isRecord(result) || result.isError === true) return result
+    const structuredContent = result.structuredContent
+    if (!isRecord(structuredContent)) return result
+    const browser = await viewServer()
+    if (!browser) return result
+    const id = newViewId()
+    const url = browser.viewUrl(id)
+    const content = Array.isArray(result.content) ? result.content : []
+    const linked = {
+      ...result,
+      content: [...content, { type: 'text' as const, text: `${BROWSER_VIEW_LINE} ${url}` }],
+      structuredContent: { ...structuredContent, view_url: url },
+    }
+    browser.put({ toolName, arguments: args, result: linked }, id)
+    return linked as T
+  }
+
   server.registerTool(
     GRAPH_EXPAND_TOOL,
     {
@@ -1320,7 +1382,7 @@ export async function createProxy(): Promise<void> {
       annotations: VIEW_TOOL_ANNOTATIONS,
       _meta: APP_ONLY_TOOL_META,
     },
-    async (args) => handleGraphExpand(args, flowsDependencies)
+    async (args) => withViewUrl(GRAPH_EXPAND_TOOL, args, await runGraphExpand(args))
   )
 
   server.registerTool(
@@ -1441,7 +1503,10 @@ export async function createProxy(): Promise<void> {
             ? remoteClient.callTool(request, undefined, requestOptions)
             : remoteClient.callTool(request)
         )
-        return normalizeRemoteToolResult(tool.name, result as RemoteToolResult)
+        const answer = normalizeRemoteToolResult(tool.name, result as RemoteToolResult)
+        return BROWSER_VIEW_TOOL_NAMES.has(tool.name)
+          ? await withViewUrl(tool.name, normalizedArgs, answer)
+          : answer
       } catch (err) {
         const limited = rateLimitedResult(tool.name, err)
         if (limited) return limited

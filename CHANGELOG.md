@@ -3,6 +3,15 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.54.0] - 2026-10-09 — feat: the graph in a full browser window
+
+### Added
+
+- Every graph answer carries `view_url`: the same graph as a full browser
+  window on the user's PC, served by the proxy on 127.0.0.1. Claude Desktop
+  can open it in its browser pane. The `graph_query` descriptions carry the
+  rules for hosts that load no skill.
+
 ## [0.53.0] - 2026-10-09 — feat: every host gets the latest rules, with no upload
 
 ### Added
