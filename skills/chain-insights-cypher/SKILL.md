@@ -46,7 +46,8 @@ Always pass `network` and your own `LIMIT`. These two commands, and
    print the raw millisecond number.
 8. Never draw the graph yourself, in ASCII art or in Mermaid. Claude Desktop
    and the Codex app draw the picture from the column names (see Name the
-   columns for a picture). Write a short text answer beside it. Any query whose
+   columns for a picture). Write a short text answer beside it, and do not
+   tell the user who draws the picture or that you did not draw it. Any query whose
    rows are pairs of addresses names them `from_address` and `to_address`,
    never `sender` and `receiver`, `src` and `dst`, or `from` and `to`.
 9. Tokens are not dollars. A transfer moves tokens, and its `amount_usd` is
