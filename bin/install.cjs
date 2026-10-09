@@ -156,15 +156,35 @@ const { execFileSync } = require('child_process')
 
 if (hasClaude) {
   try {
+    // "add" refuses a name that exists, so an entry from an older install (or
+    // an old checkout) would stay in place. Replace it. The proxy is started
+    // with this Node's absolute path: Claude Desktop runs Claude Code without
+    // a shell's PATH.
+    try {
+      execFileSync('claude', ['mcp', 'remove', 'chain-insights-proxy', '--scope', 'user'], {
+        stdio: 'pipe',
+      })
+    } catch {
+      /* not registered yet */
+    }
     execFileSync(
       'claude',
-      ['mcp', 'add', 'chain-insights-proxy', '--scope', 'user', '--', 'node', proxyBinPath],
+      [
+        'mcp',
+        'add',
+        'chain-insights-proxy',
+        '--scope',
+        'user',
+        '--',
+        process.execPath,
+        proxyBinPath,
+      ],
       { stdio: 'pipe' }
     )
     console.log(`  ${cyan}Claude MCP:${reset} registered (chain-insights-proxy) at ${proxyBinPath}`)
   } catch {
     console.log(
-      `  ${dim}Claude MCP:${reset} run manually: claude mcp add chain-insights-proxy --scope user -- node ${proxyBinPath}`
+      `  ${dim}Claude MCP:${reset} run manually: claude mcp remove chain-insights-proxy --scope user; claude mcp add chain-insights-proxy --scope user -- ${process.execPath} ${proxyBinPath}`
     )
   }
 }
