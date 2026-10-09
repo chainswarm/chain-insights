@@ -41,6 +41,7 @@ import {
   type GraphQueryAnswer,
 } from './flows.js'
 import { newViewId, startViewServer, type ViewServer } from './view-server.js'
+import { GRAPH_OPTIONAL_COLUMNS, flowsRecipeReturn } from './graph-row-columns.js'
 
 const LOCAL_TOOL_NAMES = new Set([
   'meta_network_capabilities',
@@ -164,9 +165,9 @@ const REMOTE_GRAPH_TOOL_REQUEST_TIMEOUT_MS = 15 * 60 * 1000
 
 // What the Chain Insights view draws from a graph_query answer, told by column
 // name. The same rules are in skills/chain-insights-cypher/SKILL.md.
-const PICTURE_RULES = [
+export const PICTURE_RULES = [
   'Pictures: hosts that draw views, such as Claude Desktop and the Codex app, draw a graph_query answer from its column names. No other tool is needed. Choose the picture by the question: who sent to whom, flows and routes are a graph; how something changed over time is a time series; a list, a lookup or the details of one thing is a table.',
-  '- Rows with from_address and to_address columns draw a graph of at most 5,000 addresses. Optional columns: amount_usd_sum, tx_count, first_seen_timestamp, last_seen_timestamp, link_kind, from_labels, to_labels. Example: USE topology MATCH (a:Address {address: $addr})-[f:FLOWS_TO]->(b:Address) WHERE NOT a:Pool RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp ORDER BY f.last_seen_timestamp DESC LIMIT 25',
+  `- Rows with from_address and to_address columns draw a graph of at most 5,000 addresses. Optional columns: ${GRAPH_OPTIONAL_COLUMNS.join(', ')}. A recipe that draws a graph returns all of them; a column it leaves out shows as Unavailable in the drawn link. Example: USE topology MATCH (a:Address {address: $addr})-[f:FLOWS_TO]->(b:Address) WHERE NOT a:Pool RETURN ${flowsRecipeReturn('a', 'b')} ORDER BY f.last_seen_timestamp DESC LIMIT 25`,
   '- Rows with a day, date, hour, week, month or *_timestamp column, number columns, no address in any value and at least 3 distinct times draw a time series. Within one day, the transfers of a known pair: USE facts MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) WHERE t.block_date = "YYYY-MM-DD" RETURN t.block_timestamp AS block_timestamp, t.amount_usd AS amount_usd LIMIT 200',
   '- Across days: facts reads one day at a time, so send graph_query_batch with one query per day (3 to 20 days), each query id the day as "YYYY-MM-DD", each returning one total row: USE facts MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) WHERE t.block_date = "YYYY-MM-DD" RETURN count(t) AS tx_count, sum(t.amount_usd) AS amount_usd_sum. The view joins the days into one time series. Do not group by day or name several days in one read: both are refused.',
   '- Any other rows draw a table.',
