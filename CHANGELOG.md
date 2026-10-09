@@ -3,6 +3,23 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.54.1] - 2026-10-09 — fix: the browser page draws inside Claude Desktop's pane
+
+### Fixed
+
+- The local view page carries its answer inside the page. Claude Desktop's
+  browser pane loads `http://127.0.0.1:<port>/view?view=<id>` but blocks
+  every request the page then makes to that host, so the page read "This
+  graph is no longer available". The proxy now writes the stored answer
+  into the page it serves; the page reads it first and asks `/api/view/<id>`
+  only when it carries none. A double-click the pane cannot send says so and
+  keeps the drawing.
+- "Open in browser" on the card writes the link under the card, selectable.
+  Claude Desktop opens no http link from the button and says nothing; the
+  user can copy the link, or ask Claude to open it in its browser pane. The
+  picture rule says so to the model.
+- View page refreshed from Chain Insights UI b40ca381.
+
 ## [0.54.0] - 2026-10-09 — feat: the graph in a full browser window
 
 ### Added

@@ -8,15 +8,17 @@ import * as z from 'zod'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import {
+  EMBEDDED_VIEW_ATTR,
   VIEW_STORE_LIMIT,
   ViewStore,
   newViewId,
+  pageWithEntry,
   startViewServer,
   type ViewServer,
 } from '../src/mcp/view-server.js'
 
 const VIEW_URL = /^http:\/\/127\.0\.0\.1:\d+\/view\?view=[A-Za-z0-9_-]+$/
-const HTML = '<!doctype html><html><body>view</body></html>'
+const HTML = '<!doctype html><html><head><title>v</title></head><body>view</body></html>'
 
 /** One raw request, so the Host and Origin headers are exactly what a test names. */
 function raw(
@@ -72,11 +74,24 @@ describe('the view server', () => {
     expect(server.viewUrl(newViewId())).toMatch(VIEW_URL)
   })
 
-  it('serves the view file at /view, whatever the query', async () => {
-    const id = server.put({ toolName: 'graph_query', arguments: {}, result: {} })
+  it('serves the view file at /view with the held answer written in; plain for an unknown or no id', async () => {
+    const result = { content: [{ type: 'text', text: 'a</script><b>' }], structuredContent: { rows: 1 } }
+    const id = server.put({ toolName: 'graph_query', arguments: { query: 'MATCH' }, result })
     const page = await raw(server.port, 'GET', `/view?view=${id}`)
     expect(page.status).toBe(200)
-    expect(page.body).toBe(HTML)
+    const tag = `<script type="application/json" ${EMBEDDED_VIEW_ATTR}="${id}">`
+    const start = page.body.indexOf(tag)
+    expect(start).toBeGreaterThan(0)
+    const end = page.body.indexOf('</script>', start)
+    const json = page.body.slice(start + tag.length, end)
+    expect(json).not.toContain('</')
+    expect(JSON.parse(json)).toEqual({ arguments: { query: 'MATCH' }, result })
+    expect(page.body.indexOf('</head>')).toBeGreaterThan(start)
+    expect(page.body.replace(`${tag}${json}</script>\n`, '')).toBe(HTML)
+    expect((await raw(server.port, 'GET', '/view?view=unknown')).body).toBe(HTML)
+    expect((await raw(server.port, 'GET', '/view?view=..%2F')).body).toBe(HTML)
+    expect((await raw(server.port, 'GET', '/view')).body).toBe(HTML)
+    expect(pageWithEntry('<p>no head</p>', 'x', { toolName: 't', arguments: null, result: {} }).startsWith(tag.replace(id, 'x'))).toBe(true)
     expect(page.headers['content-type']).toMatch(/^text\/html/)
     expect(page.headers['cache-control']).toBe('no-store')
     expect(page.headers['x-content-type-options']).toBe('nosniff')
