@@ -216,6 +216,16 @@ function findToolHandler(
   return call[2] as Function
 }
 
+// The browser link every drawn answer carries (src/mcp/view-server.ts).
+const VIEW_URL = /^http:\/\/127\.0\.0\.1:\d+\/view\?view=[A-Za-z0-9_-]+$/
+
+/** structuredContent as the graph endpoint or the click answered it, view_url apart. */
+function withoutViewUrl(structuredContent: Record<string, unknown>): Record<string, unknown> {
+  const { view_url: viewUrl, ...rest } = structuredContent
+  expect(viewUrl).toMatch(VIEW_URL)
+  return rest
+}
+
 function findToolConfig(
   serverInstance: { registerTool: ReturnType<typeof vi.fn> },
   name: string
@@ -2379,9 +2389,15 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       serverInstance,
       'graph_query'
     )({ query: 'USE topology MATCH (a:Address) RETURN a LIMIT 1', network: 'robinhood' })
+    // graph_query answers as the graph endpoint returned it, plus its browser link.
+    const viewUrl = answer.structuredContent.view_url as string
+    expect(viewUrl).toMatch(VIEW_URL)
     expect(answer).toEqual({
-      content: [{ type: 'text', text: 'rows' }],
-      structuredContent: queryResult,
+      content: [
+        { type: 'text', text: 'rows' },
+        { type: 'text', text: `Open the graph in a browser window: ${viewUrl}` },
+      ],
+      structuredContent: { ...queryResult, view_url: viewUrl },
       _meta: { 'ai.chain-insights/billing': { queries: 1 } },
       isError: false,
     })
@@ -2444,7 +2460,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       network: 'robinhood',
     })
     expect(result.isError).toBe(false)
-    expect(result.structuredContent).toEqual(want)
+    expect(withoutViewUrl(result.structuredContent)).toEqual(want)
     expect(callTool).toHaveBeenCalledTimes(3)
     for (const call of callTool.mock.calls as unknown as Array<
       [{ name: string; arguments: Record<string, unknown> }, undefined, { timeout: number }]
@@ -2511,7 +2527,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     const result = await expand({ network: 'robinhood', from, to, day: '2026-07-10' })
     expect(result.isError).toBe(false)
-    expect(result.structuredContent).toEqual({
+    expect(withoutViewUrl(result.structuredContent)).toEqual({
       schema: 'chain-insights.transfers.v1',
       network: 'robinhood',
       from,
@@ -3014,11 +3030,134 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       network: 'robinhood',
     })
 
-    expect(result.content).toEqual([{ type: 'text', text: '## Risk Report' }])
+    expect(result.content[0]).toEqual({ type: 'text', text: '## Risk Report' })
+    expect(result.content).toHaveLength(2)
     expect(result.structuredContent.facts.risk.level).toBe('critical')
     expect(result.structuredContent).not.toHaveProperty('app_data')
     expect(result._meta).toBeUndefined()
     expect(result.structuredContent).not.toHaveProperty('app_data')
+  })
+
+  it('starts graph_query and graph_query_batch with the rules, for hosts that load no skill', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'graph_query', description: 'Federated graph query' },
+      { name: 'graph_query_batch', description: 'Federated graph query batch' },
+    ])
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    await createProxy()
+    const serverInstance = vi.mocked(McpServer).mock.results.at(-1)?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    for (const name of ['graph_query', 'graph_query_batch']) {
+      const description = findToolConfig(serverInstance, name).description as string
+      expect(description, name).toMatch(/^Rules first: /)
+      expect(description, name).toContain('call meta_rules once before this tool')
+      expect(description, name).toContain('from_address and to_address')
+    }
+  })
+
+  it('gives every drawn answer a browser window: view_url, served back by the proxy, and clicks through the same graph_expand', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'graph_query', description: 'Federated graph query' },
+      { name: 'graph_query_batch', description: 'Federated graph query batch' },
+      { name: 'trace_address', description: 'Trace' },
+    ])
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    await createProxy()
+    const clientInstance = vi.mocked(Client).mock.results.at(-1)?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    const serverInstance = vi.mocked(McpServer).mock.results.at(-1)?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const from = '0xc4a21f9d6485fc5893dd4a491b320a83daf4da1d'
+    const to = '0x7e3702e9dfaa847f9829a258f1e26fa431160662'
+    clientInstance.callTool.mockResolvedValue({
+      content: [{ type: 'text', text: 'rows' }],
+      structuredContent: {
+        schema: 'chain-insights.result.v1',
+        tool: 'graph_query',
+        hint: null,
+        facts: { query: { results: [{ from_address: from, to_address: to }], count: 1 } },
+      },
+      isError: false,
+    })
+
+    const args = {
+      query:
+        'USE topology MATCH (a:Address)-[f:FLOWS_TO]->(b:Address) RETURN a.address AS from_address, b.address AS to_address LIMIT 1',
+      network: 'robinhood',
+    }
+    const answer = await findToolHandler(serverInstance, 'graph_query')(args)
+    const viewUrl = answer.structuredContent.view_url as string
+    expect(viewUrl).toMatch(VIEW_URL)
+    expect(answer.content.at(-1)).toEqual({
+      type: 'text',
+      text: `Open the graph in a browser window: ${viewUrl}`,
+    })
+
+    // The page is the view file; the answer comes back as the host received it.
+    const page = await fetch(viewUrl)
+    expect(page.status).toBe(200)
+    expect(page.headers.get('content-type')).toMatch(/^text\/html/)
+    expect(page.headers.get('cache-control')).toBe('no-store')
+    expect(page.headers.get('access-control-allow-origin')).toBeNull()
+    expect(await page.text()).toContain('<html')
+    const url = new URL(viewUrl)
+    const id = url.searchParams.get('view')!
+    const stored = await fetch(`${url.origin}/api/view/${id}`)
+    expect(stored.status).toBe(200)
+    expect(await stored.json()).toEqual({ arguments: args, result: answer })
+
+    // A batch answer gets its own window; another tool's answer and a refusal get none.
+    const batch = await findToolHandler(
+      serverInstance,
+      'graph_query_batch'
+    )({ network: 'robinhood', queries: [{ id: 'q1', query: args.query }] })
+    expect(batch.structuredContent.view_url).toMatch(VIEW_URL)
+    expect(batch.structuredContent.view_url).not.toBe(viewUrl)
+    const trace = await findToolHandler(serverInstance, 'trace_address')({ address: from })
+    expect(trace.structuredContent).not.toHaveProperty('view_url')
+    clientInstance.callTool.mockResolvedValueOnce({
+      content: [{ type: 'text', text: 'refused' }],
+      structuredContent: { schema: 'chain-insights.result.v1', error: 'bad query' },
+      isError: true,
+    })
+    const refused = await findToolHandler(serverInstance, 'graph_query')(args)
+    expect(refused.structuredContent).not.toHaveProperty('view_url')
+    expect(refused.content).toHaveLength(1)
+
+    // A click in the browser runs the click handler the host's view uses.
+    clientInstance.callTool.mockClear()
+    const click = await fetch(`${url.origin}/api/tools/graph_expand`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ arguments: { network: 'robinhood', from, to, day: '2026-07-10' } }),
+    })
+    expect(click.status).toBe(200)
+    const clicked = (await click.json()) as { structuredContent: Record<string, unknown> }
+    expect(clicked.structuredContent.schema).toBe('chain-insights.transfers.v1')
+    expect(clicked.structuredContent).not.toHaveProperty('view_url')
+    expect(clientInstance.callTool).toHaveBeenCalledTimes(1)
+    expect(clientInstance.callTool.mock.calls[0][0].name).toBe('graph_query')
+    const viaHost = await findToolHandler(
+      serverInstance,
+      'graph_expand'
+    )({ network: 'robinhood', from, to, day: '2026-07-10' })
+    expect(withoutViewUrl(viaHost.structuredContent)).toEqual(clicked.structuredContent)
+
+    // The page may call graph_expand only.
+    const other = await fetch(`${url.origin}/api/tools/graph_query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ arguments: args }),
+    })
+    expect(other.status).toBe(404)
   })
 
   // No aml_* tool is served today (the risk screen is hidden), so a neutral name
