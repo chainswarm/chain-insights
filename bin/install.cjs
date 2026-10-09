@@ -50,6 +50,7 @@ const dataDir = path.join(homeDir, '.chain-insights')
 const configPath = path.join(dataDir, 'config.json')
 const srcSkillsDir = path.join(__dirname, '..', 'skills')
 const PUBLIC_SKILL_NAMES = Object.freeze(['chain-insights-cypher'])
+const SKILL_VERSION_FILE = '.chain-insights-version'
 const RETIRED_SKILL_NAMES = Object.freeze([
   'chain-insights-address-risk',
   'chain-insights-bittensor-cypher',
@@ -117,6 +118,8 @@ function copyCommandsAsClaudeSkills(srcDir, targetDir) {
     }
     fs.rmSync(skillDest, { recursive: true, force: true })
     copyTree(skillSrc, skillDest)
+    // The proxy refreshes a copy whose stamp is older than itself (src/skill-refresh.ts).
+    fs.writeFileSync(path.join(skillDest, SKILL_VERSION_FILE), `${packageVersion()}\n`, 'utf8')
   }
 }
 

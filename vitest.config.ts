@@ -7,6 +7,9 @@ export default defineConfig({
       {
         test: {
           name: 'unit',
+          // The proxy refreshes the skill copies in the real home when it
+          // starts; a test run must never write there.
+          env: { CHAIN_INSIGHTS_SKILL_REFRESH: '0' },
           include: ['tests/**/*.test.ts'],
           exclude: ['tests/**/*.integration.test.ts'],
         },
@@ -14,6 +17,9 @@ export default defineConfig({
       {
         test: {
           name: 'integration',
+          // The proxy refreshes the skill copies in the real home when it
+          // starts; a test run must never write there.
+          env: { CHAIN_INSIGHTS_SKILL_REFRESH: '0' },
           include: ['tests/**/*.integration.test.ts'],
           testTimeout: 30_000,
         },

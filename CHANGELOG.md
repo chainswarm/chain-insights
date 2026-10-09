@@ -3,6 +3,19 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.51.0] - 2026-10-09 — fix: an upgrade brings the new skill to every host
+
+### Fixed
+
+- `npm i -g chain-insights@X` updated the server but left each host reading
+  the skill of the release it was set up with, until `cia setup` ran again.
+  The MCP proxy now refreshes, when it starts, every skill copy setup
+  installed for Claude Code, Codex and Hermes. It installs nothing new, never
+  touches a symlinked skill, and never replaces a copy a newer release wrote.
+  Setup stamps each copy with its version for this.
+- The time-series scale writes tiny token amounts, never 0 (Chain Insights UI
+  `c5f72b3`).
+
 ## [0.50.0] - 2026-10-08 — feat: time series, and the answer rules reach every host
 
 ### Added

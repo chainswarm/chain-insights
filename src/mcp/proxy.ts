@@ -878,6 +878,24 @@ export async function createProxy(): Promise<void> {
   })
   const graphMcpEndpoint = resolveGraphMcpEndpoint(config)
 
+  // npm runs no setup step on upgrade: bring the skill copies setup installed
+  // up to this release. A failure here never stops the proxy.
+  // CHAIN_INSIGHTS_SKILL_REFRESH=0 turns it off for people who manage the skill themselves.
+  if (process.env['CHAIN_INSIGHTS_SKILL_REFRESH'] !== '0') {
+    try {
+      const { refreshInstalledSkills } = await import('../skill-refresh.js')
+      const refresh = refreshInstalledSkills(PACKAGE_VERSION)
+      if (refresh.refreshed.length > 0 || refresh.failed.length > 0) {
+        await logger.info('skills.refresh', { version: PACKAGE_VERSION, ...refresh })
+      }
+    } catch (error) {
+      await logger.info('skills.refresh', {
+        version: PACKAGE_VERSION,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+
   // Build remote MCP client. The local Chain Insights MCP surface must still
   // start when the graph endpoint is temporarily unavailable so agents can use
   // help and wallet tools.
