@@ -3,6 +3,34 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.55.0] - 2026-10-10 — a busy graph endpoint no longer kills the proxy; skill rules from a 60-conversation test loop
+
+### Fixed
+
+- A `429` from the graph endpoint at connect time made the proxy fall back
+  to SSE, get `405`, and answer every graph query "Graph unreachable" for
+  its whole life. The proxy now waits through a busy endpoint (Retry-After
+  or a doubling backoff, five tries), never falls to SSE when the endpoint
+  is busy, names the cause as class `capacity`, and connects again on the
+  next graph call. `src/mcp/remote-connect.ts`, with unit tests.
+
+### Changed
+
+- Skill: a `query_timeout` on a search bounded only by time is handled like
+  `anchor_missing`: one line, ask for an address, no narrower retry. The
+  same sentence in the routing hint and `docs/graph-tools.md`.
+- Skill: `asset_symbol` holding a token contract address is named "the
+  token at <address>", never an invented ticker.
+- Skill: every timestamp in an answer is a UTC date and time, never the raw
+  millisecond number.
+- Skill: the answer does not narrate who draws the picture.
+
+Measured on 60 scripted analyst conversations (topology, facts, chain and
+adversarial turns) against the live robinhood endpoint: before the connect
+fix, 5 of 13 conversations lost the graph; after it, 0 of 47.
+
+---
+
 ## [0.54.3] - 2026-10-09 — fix: drawn links carry labels and the exchange mark; one column contract
 
 ### Fixed
