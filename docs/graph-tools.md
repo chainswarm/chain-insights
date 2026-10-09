@@ -47,7 +47,7 @@ A transaction is a chain question: read it on `USE chain` by its `tx_id`. Chain 
 
 The layers hand each other keys, and each key keeps its name. Topology gives the pair and the first and last seen time. Facts gives the `tx_id` and the `block_height`. Chain takes an `address`, a `tx_id`, a `block_height` or a `block_hash`, and gives the `block_date` of a transaction or a block.
 
-A question about the whole chain (recent activity, the biggest senders, a top list) is a `USE topology` search: bound it by time with `f.last_seen_timestamp >= <epoch ms>` on the `FLOWS_TO` link, then sort and `LIMIT`. A search has 10 s. If the server refuses it with `anchor_missing`, it does not serve searches yet: say so in one line and ask for an address.
+A question about the whole chain (recent activity, the biggest senders, a top list) is a `USE topology` search: bound it by time with `f.last_seen_timestamp >= <epoch ms>` on the `FLOWS_TO` link, then sort and `LIMIT`. A search has 10 s. If the server refuses it with `anchor_missing`, or stops it with `query_timeout`, it cannot search the whole chain now: say so in one line and ask for an address. A narrower window times out the same way, so do not send it again.
 
 | The question                                               | Layer      | First query                                                                 |
 | ---------------------------------------------------------- | ---------- | --------------------------------------------------------------------------- |

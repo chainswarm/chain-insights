@@ -41,10 +41,13 @@ Always pass `network` and your own `LIMIT`. These two commands, and
    Never send variations in a loop.
 7. Answer in plain text. Do not print the query, its `USE` line, its `LIMIT`,
    the epoch numbers you computed, or a `Ref:` line. The user does not need
-   them. Show them only when the user asks how a number was found.
+   them. Show them only when the user asks how a number was found. Write
+   every timestamp as a UTC date and time, `2026-08-05 09:05 UTC`; never
+   print the raw millisecond number.
 8. Never draw the graph yourself, in ASCII art or in Mermaid. Claude Desktop
    and the Codex app draw the picture from the column names (see Name the
-   columns for a picture). Write a short text answer beside it. Any query whose
+   columns for a picture). Write a short text answer beside it, and do not
+   tell the user who draws the picture or that you did not draw it. Any query whose
    rows are pairs of addresses names them `from_address` and `to_address`,
    never `sender` and `receiver`, `src` and `dst`, or `from` and `to`.
 9. Tokens are not dollars. A transfer moves tokens, and its `amount_usd` is
@@ -63,7 +66,7 @@ Route by what the question names: an address, a pair with a day, a transaction o
 `USE chain` with `Address` reads the balance, the nonce or the kind of one address, now or at a past block with `at_block`. A past block must be at least `chain_admission.at_block_min_depth` blocks below the tip. To find the counterparties of an address, search `USE topology`, then read the pair and one day on `USE facts`.
 A transaction is a chain question: read it on `USE chain` by its `tx_id`. Chain gives its `block_date`; the transfers between a pair on that day are a `USE facts` read.
 The layers hand each other keys, and each key keeps its name. Topology gives the pair and the first and last seen time. Facts gives the `tx_id` and the `block_height`. Chain takes an `address`, a `tx_id`, a `block_height` or a `block_hash`, and gives the `block_date` of a transaction or a block.
-A question about the whole chain (recent activity, the biggest senders, a top list) is a `USE topology` search: bound it by time with `f.last_seen_timestamp >= <epoch ms>` on the `FLOWS_TO` link, then sort and `LIMIT`. A search has 10 s. If the server refuses it with `anchor_missing`, it does not serve searches yet: say so in one line and ask for an address.
+A question about the whole chain (recent activity, the biggest senders, a top list) is a `USE topology` search: bound it by time with `f.last_seen_timestamp >= <epoch ms>` on the `FLOWS_TO` link, then sort and `LIMIT`. A search has 10 s. If the server refuses it with `anchor_missing`, or stops it with `query_timeout`, it cannot search the whole chain now: say so in one line and ask for an address. A narrower window times out the same way, so do not send it again.
 
 Find the question in this table. Send its first query, once, with the addresses the user gave.
 
@@ -98,7 +101,7 @@ The biggest senders of the period:
 USE topology MATCH (a:Address)-[f:FLOWS_TO]->(b:Address) WHERE f.last_seen_timestamp >= 1791244800000 RETURN a.address AS sender, sum(f.amount_usd_sum) AS sent_usd, count(*) AS links ORDER BY sent_usd DESC LIMIT 10
 ```
 
-If the server answers `anchor_missing`, it does not serve searches yet. Say: "This server cannot search the whole chain yet. Give me an address, a pair with a day, or a transaction hash."
+If the server answers `anchor_missing`, or `query_timeout` on a search bounded only by time, it cannot search the whole chain now. Say: "This server cannot search the whole chain right now. Give me an address, a pair with a day, or a transaction hash." Send no narrower window: it times out the same way, and each try costs the user 10 seconds.
 
 ## One name on every layer
 
@@ -300,7 +303,7 @@ RETURN t.tx_id AS tx_id, t.block_timestamp AS block_timestamp, t.asset_symbol AS
 A topology link gives the pair's lifetime total, not the day's. To say what a
 pair moved on one day, read its `TRANSFER` rows for that day, then:
 
-1. List each row's `asset_symbol` and `amount`. Show the assets, not only a total.
+1. List each row's `asset_symbol` and `amount`. Show the assets, not only a total. When `asset_symbol` is a 42-character address, the token has no known symbol: call it "the token at <address>", in full, and never invent a ticker.
 2. Add the `amount_usd` values for the USD figure, after you convert the text to numbers. `amount_usd` is each row's value at the day's average price.
 3. If a row's `price_missing` is true, show its amount and say no price exists for that asset. Never guess a USD value.
 4. Say "tokens worth about X USD on DAY", because the row moved tokens.
