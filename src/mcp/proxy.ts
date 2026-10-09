@@ -42,7 +42,7 @@ import {
 } from './flows.js'
 import { newViewId, startViewServer, type ViewServer } from './view-server.js'
 import { GRAPH_OPTIONAL_COLUMNS, flowsRecipeReturn } from './graph-row-columns.js'
-import { connectRemote } from './remote-connect.js'
+import { connectFresh, connectRemote } from './remote-connect.js'
 
 const LOCAL_TOOL_NAMES = new Set([
   'meta_network_capabilities',
@@ -192,7 +192,7 @@ const RULES_FIRST =
 // that keeps only their start still has them; the skill says the same.
 const ANSWER_RULES = [
   'Answer rules, for every reply to the user:',
-  '1. Write every address in full: 0x plus 40 hex characters, 42 in all, in sentences, lists, tables and summaries. Never shorten one with ... or …. The drawn picture may shorten its labels; your text never does.',
+  '1. Write every address in full: 0x plus 40 hex characters, 42 in all, in sentences, lists, tables and summaries. Never shorten one with ... or …, not even a repeat mention of an address named earlier. The drawn picture may shorten its labels; your text never does.',
   '2. Do not print the query, its USE line, its LIMIT, the epoch numbers you computed, or a Ref: line, unless the user asks how a number was found.',
   '3. Tokens are not dollars: a transfer moves tokens worth an amount at the day price. Say "tokens worth about 183 USD on 2026-10-06", never "sent 183 USD".',
   '4. Never draw a graph or a chart in text, ASCII or Mermaid: the host draws the picture from the columns. Write a short answer beside it.',
@@ -968,10 +968,10 @@ export async function createProxy(): Promise<void> {
     const result = await connectRemote({
       endpoint: graphMcpEndpoint,
       connectStreamable: () =>
-        remoteClient.connect(new StreamableHTTPClientTransport(new URL(graphMcpEndpoint), { fetch: fetchForRemote })),
+        connectFresh(remoteClient, new StreamableHTTPClientTransport(new URL(graphMcpEndpoint), { fetch: fetchForRemote })),
       connectSse: async () => {
         const { SSEClientTransport } = await import('@modelcontextprotocol/sdk/client/sse.js')
-        await remoteClient.connect(new SSEClientTransport(new URL(graphMcpEndpoint), { fetch: fetchForRemote }))
+        await connectFresh(remoteClient, new SSEClientTransport(new URL(graphMcpEndpoint), { fetch: fetchForRemote }))
       },
       log: (event, fields) => (event === 'remote.connect' ? logger.info(event, fields) : logger.error(event, fields)),
     })

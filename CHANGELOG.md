@@ -3,6 +3,27 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.55.1] - 2026-10-10 — the connect retry works after a failed initialize; two skill rules
+
+### Fixed
+
+- The 0.55.0 retry threw "Already connected to a transport" when the first
+  connect failed after the transport had started (an initialize answered
+  429): the SDK keeps the transport attached. Every try now closes the
+  client first (`connectFresh`), proven against the real SDK client.
+- `proxy-addr` pinned to 2.0.8 through express in the MCP SDK (critical
+  advisory, IP spoofing via an IPv4-mapped IPv6 trust subnet).
+
+### Changed
+
+- Skill: a repeat mention of an address is written in full; the server
+  answer rule says the same. Round 70 of the test loop shortened five
+  back-references in one long answer.
+- Skill: a shortened address the user types resolves to the one full match
+  already in the conversation, with a note; otherwise ask.
+
+---
+
 ## [0.55.0] - 2026-10-10 — a busy graph endpoint no longer kills the proxy; skill rules from a 60-conversation test loop
 
 ### Fixed

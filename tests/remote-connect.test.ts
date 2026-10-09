@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { busyDelayMs, connectRemote, httpStatusOf } from '../src/mcp/remote-connect.js'
+import { busyDelayMs, connectFresh, connectRemote, httpStatusOf } from '../src/mcp/remote-connect.js'
 
 class HttpError extends Error {
   constructor(public code: number, message: string) {
@@ -77,5 +77,24 @@ describe('connectRemote', () => {
     expect(busyDelayMs({ retryAfter: 1 }, 1)).toBe(1000)
     expect(busyDelayMs(new Error('x'), 4)).toBe(8000)
     expect(busyDelayMs(new Error('x'), 9)).toBe(8000)
+  })
+})
+
+describe('connectFresh', () => {
+  it('closes what a failed connect left attached, so the next try reaches the endpoint again', async () => {
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const client = new Client({ name: 'test', version: '0' })
+    // The SDK's own transports call onclose from close(); the fake does the same.
+    const failing = () => {
+      const t = {
+        start: async () => { throw new HttpError(429, 'Error POSTing to endpoint: service is at capacity') },
+        close: async () => { t.onclose?.() }, send: async () => undefined,
+        onclose: undefined as (() => void) | undefined, onerror: undefined, onmessage: undefined,
+      }
+      return t
+    }
+    await expect(connectFresh(client, failing())).rejects.toThrow('at capacity')
+    // Without the close, the SDK answers "Already connected to a transport".
+    await expect(connectFresh(client, failing())).rejects.toThrow('at capacity')
   })
 })
