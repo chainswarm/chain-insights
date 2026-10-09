@@ -3,7 +3,7 @@
     "chain-insights": {
       "type": "stdio",
       "command": "npx",
-      "args": ["--yes", "--package=chain-insights@0.54.0", "chain-insights-mcp-proxy"]
+      "args": ["--yes", "--package=chain-insights@0.54.1", "chain-insights-mcp-proxy"]
     }
   }
 }

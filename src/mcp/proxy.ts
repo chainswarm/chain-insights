@@ -171,7 +171,7 @@ const PICTURE_RULES = [
   '- Across days: facts reads one day at a time, so send graph_query_batch with one query per day (3 to 20 days), each query id the day as "YYYY-MM-DD", each returning one total row: USE facts MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) WHERE t.block_date = "YYYY-MM-DD" RETURN count(t) AS tx_count, sum(t.amount_usd) AS amount_usd_sum. The view joins the days into one time series. Do not group by day or name several days in one read: both are refused.',
   '- Any other rows draw a table.',
   '- The host draws the picture from the answer itself. Do not draw it again with another tool, such as a visualize or widget tool: the user would see the same answer drawn twice.',
-  "- Every drawn answer carries view_url, a page on the user's own PC. When the user asks to see the graph bigger, in a window, or full screen: if this host has a browser tool (Claude Desktop: the Claude_Browser navigate tool), open view_url there; otherwise give the user the view_url link as a plain link.",
+  "- Every drawn answer carries view_url, a page on the user's own PC. When the user asks to see the graph bigger, in a window, or full screen, or says the Open in browser button did nothing: if this host has a browser tool (Claude Desktop: the Claude_Browser navigate tool), open view_url there; otherwise give the user the view_url link as a plain link. Claude Desktop opens no local link from the button itself, only from its browser tool.",
 ].join('\n')
 
 // The same rule in one sentence, for meta_help.

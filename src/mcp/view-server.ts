@@ -11,7 +11,12 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
  * through it, so a click in the browser costs what a click in the host costs.
  *
  * Routes, all same-origin, no CORS:
- *   GET  /view?view=<id>          the view file, unchanged
+ *   GET  /view?view=<id>          the view file; when the id is held, the answer
+ *                                 is written into it as
+ *                                 <script type="application/json" data-chain-insights-view="<id>">
+ *                                 so a window that may load the page but not call
+ *                                 back to it (Claude Desktop's browser pane blocks
+ *                                 requests to local hosts) still draws
  *   GET  /api/view/<id>           {"arguments": ..., "result": ...}, or 404
  *   POST /api/tools/graph_expand  {"arguments": {...}} -> the CallToolResult
  *
@@ -61,8 +66,30 @@ export class ViewStore {
   }
 }
 
+/** The attribute the page reads the written-in answer from; the view (chain-insights-ui browser.ts) names the same one. */
+export const EMBEDDED_VIEW_ATTR = 'data-chain-insights-view'
+
+/** JSON safe inside a script element: no sequence that could close it, no line separators. */
+function scriptJson(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, '\\u003c')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029')
+}
+
+/**
+ * The view file with the answer written in: one JSON script element before
+ * </head> (else at the top). The id is URL-safe base64, attribute-safe as is.
+ */
+export function pageWithEntry(html: string, id: string, entry: ViewEntry): string {
+  const script = `<script type="application/json" ${EMBEDDED_VIEW_ATTR}="${id}">${scriptJson({ arguments: entry.arguments, result: entry.result })}</script>`
+  const head = html.indexOf('</head>')
+  if (head >= 0) return `${html.slice(0, head)}${script}\n${html.slice(head)}`
+  return `${script}\n${html}`
+}
+
 export interface ViewServerOptions {
-  /** The view file, served unchanged. */
+  /** The view file; the held answer of ?view=<id> is written into it. */
   html: () => string
   /** Runs a page tool (graph_expand only) and returns its CallToolResult. */
   runTool: (name: string, args: Record<string, unknown>) => Promise<unknown>
@@ -153,7 +180,9 @@ export async function startViewServer(options: ViewServerOptions): Promise<ViewS
     const pathname = url.pathname
 
     if (method === 'GET' && pathname === '/view') {
-      send(res, 200, 'text/html; charset=utf-8', options.html())
+      const id = url.searchParams.get('view') ?? ''
+      const entry = /^[A-Za-z0-9_-]+$/.test(id) ? store.get(id) : undefined
+      send(res, 200, 'text/html; charset=utf-8', entry ? pageWithEntry(options.html(), id, entry) : options.html())
       return
     }
 
