@@ -109,7 +109,9 @@ Graph endpoint serves data only:
   a `graph_query` answer from its column names: rows with `from_address` and
   `to_address` columns draw a graph (optional columns: `amount_usd_sum`,
   `tx_count`, `first_seen_timestamp`, `last_seen_timestamp`, `link_kind`,
-  `from_labels`, `to_labels`), rows with a `day`, `date` or `*_timestamp` column
+  `from_labels`, `to_labels`, `from_is_exchange`, `to_is_exchange`; the list is
+  `src/mcp/graph-row-columns.ts`, and `tests/graph-row-columns.test.ts` holds
+  the view, the hint and the recipes to it), rows with a `day`, `date` or `*_timestamp` column
   and number columns draw a chart, and any other rows draw a table. It also
   draws the balance for `meta_usage_status` and `meta_subscription_status`.
   Nothing is fetched at run time. The proxy has no tool that composes a picture

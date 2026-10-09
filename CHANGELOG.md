@@ -3,6 +3,28 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.54.3] - 2026-10-09 — fix: drawn links carry labels and the exchange mark; one column contract
+
+### Fixed
+
+- Every FLOWS_TO recipe the skill teaches, and the picture hint's example,
+  now return the address labels and the exchange mark of both ends
+  (`from_labels`, `to_labels`, `from_is_exchange`, `to_is_exchange`) beside
+  the four link columns. The view drew labels only when a row carried them,
+  and no recipe did, so a Claude Desktop graph never showed an exchange or a
+  label badge.
+
+### Changed
+
+- The columns the view reads from a row are one list,
+  `src/mcp/graph-row-columns.ts`. The picture hint and its example are built
+  from it. `tests/graph-row-columns.test.ts` proves the bundled view reads
+  every column, the hint and the skill name every column, and every
+  graph-drawing recipe returns every column. 0.54.2's missing first seen
+  fails that test.
+
+---
+
 ## [0.54.2] - 2026-10-09 — fix: the link recipes return first seen
 
 ### Fixed
