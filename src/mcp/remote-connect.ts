@@ -22,6 +22,23 @@
 
 export type RemoteTransport = 'streamable_http' | 'sse'
 
+/** The least of an MCP client this module needs: connect, and close what a failed connect left attached. */
+export interface ConnectableClient {
+  connect(transport: unknown): Promise<void>
+  close?: () => Promise<void>
+}
+
+/**
+ * Connects a client to a fresh transport. The SDK leaves a transport attached
+ * when `connect` fails after `start` (an initialize answered 429), and the
+ * next `connect` then throws "Already connected to a transport", so every try
+ * closes first. Seen in round 83 of the 2026-10-10 test loop.
+ */
+export async function connectFresh(client: ConnectableClient, transport: unknown): Promise<void> {
+  if (typeof client.close === 'function') await client.close().catch(() => undefined)
+  await client.connect(transport)
+}
+
 export interface RemoteConnectResult {
   connected: boolean
   transport: RemoteTransport | null

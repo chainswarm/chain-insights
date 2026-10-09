@@ -42,7 +42,7 @@ import {
 } from './flows.js'
 import { newViewId, startViewServer, type ViewServer } from './view-server.js'
 import { GRAPH_OPTIONAL_COLUMNS, flowsRecipeReturn } from './graph-row-columns.js'
-import { connectRemote } from './remote-connect.js'
+import { connectFresh, connectRemote } from './remote-connect.js'
 
 const LOCAL_TOOL_NAMES = new Set([
   'meta_network_capabilities',
@@ -968,10 +968,10 @@ export async function createProxy(): Promise<void> {
     const result = await connectRemote({
       endpoint: graphMcpEndpoint,
       connectStreamable: () =>
-        remoteClient.connect(new StreamableHTTPClientTransport(new URL(graphMcpEndpoint), { fetch: fetchForRemote })),
+        connectFresh(remoteClient, new StreamableHTTPClientTransport(new URL(graphMcpEndpoint), { fetch: fetchForRemote })),
       connectSse: async () => {
         const { SSEClientTransport } = await import('@modelcontextprotocol/sdk/client/sse.js')
-        await remoteClient.connect(new SSEClientTransport(new URL(graphMcpEndpoint), { fetch: fetchForRemote }))
+        await connectFresh(remoteClient, new SSEClientTransport(new URL(graphMcpEndpoint), { fetch: fetchForRemote }))
       },
       log: (event, fields) => (event === 'remote.connect' ? logger.info(event, fields) : logger.error(event, fields)),
     })
