@@ -589,6 +589,18 @@ program
       })
   )
   .addCommand(
+    createCliCommand('chatgpt')
+      .description('Set up the ChatGPT desktop app: its Codex chats run Chain Insights')
+      .action(() => {
+        runInstaller('--codex')
+        // The ChatGPT chat itself runs in the cloud and cannot reach a server on
+        // this computer. Only the app's Codex chats can.
+        console.log(
+          '\n  In the ChatGPT app, ask in a Codex chat (Codex in the sidebar), not in a ChatGPT chat.\n'
+        )
+      })
+  )
+  .addCommand(
     createCliCommand('hermes')
       .description('Install Hermes skills and register the MCP proxy')
       .action(() => {

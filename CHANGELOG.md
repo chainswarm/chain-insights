@@ -3,6 +3,28 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.52.0] - 2026-10-09 — fix: Claude Desktop draws the graph again, every time
+
+### Fixed
+
+- Claude Desktop chat runs its conversations on the Claude Code engine, which
+  starts Chain Insights twice: the copy from Claude Desktop's own settings,
+  which draws the graph and the time series, and the copy from the Claude Code
+  settings, which answers in text. With both present the model could pick the
+  copy that cannot draw. Inside Claude Desktop the Claude Code copy now lists
+  no tools when the drawing copy is configured, so each tool appears once.
+- `cia setup claude-code` replaces an existing `chain-insights-proxy` entry
+  instead of leaving it: an entry from an old install or an old checkout kept
+  running an old version. It starts the proxy with Node's absolute path, which
+  Claude Desktop needs.
+- The server instructions tell the model not to draw the answer a second time
+  with another drawing tool: the host draws it from the answer.
+
+### Added
+
+- `cia setup chatgpt`: sets up the ChatGPT desktop app, whose Codex chats run
+  Chain Insights, and says to ask in a Codex chat, not a ChatGPT chat.
+
 ## [0.51.0] - 2026-10-09 — fix: an upgrade brings the new skill to every host
 
 ### Fixed

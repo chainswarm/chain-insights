@@ -158,6 +158,7 @@ const PICTURE_RULES = [
   '- Rows with a day, date, hour, week, month or *_timestamp column, number columns, no address in any value and at least 3 distinct times draw a time series. Within one day, the transfers of a known pair: USE facts MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) WHERE t.block_date = "YYYY-MM-DD" RETURN t.block_timestamp AS block_timestamp, t.amount_usd AS amount_usd LIMIT 200',
   '- Across days: facts reads one day at a time, so send graph_query_batch with one query per day (3 to 20 days), each query id the day as "YYYY-MM-DD", each returning one total row: USE facts MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) WHERE t.block_date = "YYYY-MM-DD" RETURN count(t) AS tx_count, sum(t.amount_usd) AS amount_usd_sum. The view joins the days into one time series. Do not group by day or name several days in one read: both are refused.',
   '- Any other rows draw a table.',
+  '- The host draws the picture from the answer itself. Do not draw it again with another tool, such as a visualize or widget tool: the user would see the same answer drawn twice.',
 ].join('\n')
 
 // The same rule in one sentence, for meta_help.
@@ -877,6 +878,21 @@ export async function createProxy(): Promise<void> {
     log_path: logger.filePath,
   })
   const graphMcpEndpoint = resolveGraphMcpEndpoint(config)
+
+  // Inside Claude Desktop the Claude Code copy cannot draw the views. When
+  // Claude Desktop's own drawing copy is configured, this copy lists no tools
+  // so that each tool appears once (src/mcp/claude-desktop.ts).
+  const { defersToClaudeDesktop, DEFERRED_SERVER_INSTRUCTIONS } =
+    await import('./claude-desktop.js')
+  if (defersToClaudeDesktop()) {
+    await logger.info('proxy.deferred_to_claude_desktop', { version: PACKAGE_VERSION })
+    const deferred = new McpServer(
+      { name: 'chain-insights', version: PACKAGE_VERSION },
+      { instructions: DEFERRED_SERVER_INSTRUCTIONS }
+    )
+    await deferred.connect(new StdioServerTransport())
+    return
+  }
 
   // npm runs no setup step on upgrade: bring the skill copies setup installed
   // up to this release. A failure here never stops the proxy.
