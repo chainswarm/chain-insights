@@ -42,6 +42,7 @@ import {
 } from './flows.js'
 import { newViewId, startViewServer, type ViewServer } from './view-server.js'
 import { GRAPH_OPTIONAL_COLUMNS, flowsRecipeReturn } from './graph-row-columns.js'
+import { connectRemote } from './remote-connect.js'
 
 const LOCAL_TOOL_NAMES = new Set([
   'meta_network_capabilities',
@@ -957,47 +958,41 @@ export async function createProxy(): Promise<void> {
     )
   }
 
-  if (mcpFetch) {
-    try {
-      await remoteClient.connect(
-        new StreamableHTTPClientTransport(new URL(graphMcpEndpoint), { fetch: mcpFetch })
-      )
-      remoteConnected = true
-      await logger.info('remote.connect', {
-        transport: 'streamable_http',
-        endpoint: graphMcpEndpoint,
-      })
-    } catch {
-      await logger.error('remote.connect_failed', {
-        transport: 'streamable_http',
-        endpoint: graphMcpEndpoint,
-      })
-      // StreamableHTTP failed — try SSE fallback (assumption A1 from RESEARCH.md)
-      try {
+  let remoteRetryable = false
+  // Connect to the graph endpoint: a busy endpoint (429) is waited for, a
+  // non-streamable one gets the SSE fallback, and a busy failure leaves the
+  // proxy able to connect again on the next graph call (src/mcp/remote-connect.ts).
+  const connectRemoteOnce = async (): Promise<void> => {
+    if (!mcpFetch) return
+    const fetchForRemote = mcpFetch
+    const result = await connectRemote({
+      endpoint: graphMcpEndpoint,
+      connectStreamable: () =>
+        remoteClient.connect(new StreamableHTTPClientTransport(new URL(graphMcpEndpoint), { fetch: fetchForRemote })),
+      connectSse: async () => {
         const { SSEClientTransport } = await import('@modelcontextprotocol/sdk/client/sse.js')
-        await remoteClient.connect(
-          new SSEClientTransport(new URL(graphMcpEndpoint), { fetch: mcpFetch })
-        )
-        remoteConnected = true
-        await logger.info('remote.connect', {
-          transport: 'sse',
-          endpoint: graphMcpEndpoint,
-        })
-      } catch (err2) {
-        await logger.error('remote.connect_failed', {
-          transport: 'sse',
-          endpoint: graphMcpEndpoint,
-          error: errorForLog(err2),
-        })
-        remoteUnavailableMessage = `Chain Insights Graph unreachable at ${graphMcpEndpoint}: ${(err2 as Error).message}`
-        process.stderr.write(
-          `Chain Insights MCP graph tools unavailable: ${remoteUnavailableMessage}. Local Chain Insights tools are still available.\n`
-        )
-      }
+        await remoteClient.connect(new SSEClientTransport(new URL(graphMcpEndpoint), { fetch: fetchForRemote }))
+      },
+      log: (event, fields) => (event === 'remote.connect' ? logger.info(event, fields) : logger.error(event, fields)),
+    })
+    remoteConnected = result.connected
+    remoteRetryable = result.retryable
+    if (result.connected) {
+      remoteUnavailableMessage = undefined
+      installRemoteCypherLogging(remoteClient as unknown as RemoteToolCaller, logger)
+    } else {
+      remoteUnavailableMessage = result.message
+      process.stderr.write(
+        `Chain Insights MCP graph tools unavailable: ${remoteUnavailableMessage}. Local Chain Insights tools are still available.\n`
+      )
     }
   }
-  if (remoteConnected)
-    installRemoteCypherLogging(remoteClient as unknown as RemoteToolCaller, logger)
+  await connectRemoteOnce()
+  /** A graph call on a proxy that lost the endpoint to a busy signal tries to connect again, once. */
+  const ensureRemote = async (): Promise<void> => {
+    if (remoteConnected || !remoteRetryable) return
+    await connectRemoteOnce()
+  }
 
   // Schema cache check — skip remote listTools call on cache hit
   let tools: McpTool[] | null = await loadSchema(graphMcpEndpoint)
@@ -1093,6 +1088,7 @@ export async function createProxy(): Promise<void> {
   const schemaDependencies: GraphSchemaDependencies = {
     endpoint: graphMcpEndpoint,
     withClient: async (fn) => {
+      await ensureRemote()
       if (!remoteConnected) {
         throw new GraphSchemaError(
           `${remoteUnavailableMessage ?? `Chain Insights Graph is not connected at ${graphMcpEndpoint}`}. Restart the Chain Insights MCP proxy after the endpoint is reachable.`
@@ -1140,6 +1136,7 @@ export async function createProxy(): Promise<void> {
     },
     async () => {
       try {
+        await ensureRemote()
         if (!remoteConnected) {
           return {
             content: [
@@ -1199,6 +1196,7 @@ export async function createProxy(): Promise<void> {
       // throws. When the server tool is absent or errors, the facts explain
       // the unavailability.
       try {
+        await ensureRemote()
         if (!remoteConnected) {
           return jsonTextResult(
             unavailableSubscriptionStatus(
@@ -1475,6 +1473,7 @@ export async function createProxy(): Promise<void> {
     const inputSchema = knownPublicToolInputSchema(tool.name) ?? z.object({}).passthrough()
     const handler = async (args: unknown) => {
       try {
+        await ensureRemote()
         if (!remoteConnected) {
           return {
             content: [

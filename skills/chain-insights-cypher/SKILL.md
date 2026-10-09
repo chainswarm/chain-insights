@@ -41,7 +41,9 @@ Always pass `network` and your own `LIMIT`. These two commands, and
    Never send variations in a loop.
 7. Answer in plain text. Do not print the query, its `USE` line, its `LIMIT`,
    the epoch numbers you computed, or a `Ref:` line. The user does not need
-   them. Show them only when the user asks how a number was found.
+   them. Show them only when the user asks how a number was found. Write
+   every timestamp as a UTC date and time, `2026-08-05 09:05 UTC`; never
+   print the raw millisecond number.
 8. Never draw the graph yourself, in ASCII art or in Mermaid. Claude Desktop
    and the Codex app draw the picture from the column names (see Name the
    columns for a picture). Write a short text answer beside it. Any query whose
