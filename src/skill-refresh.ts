@@ -54,6 +54,16 @@ export function packagedSkillsDir(): string {
   return fileURLToPath(new URL('../skills', import.meta.url))
 }
 
+/**
+ * The rules of the packaged skill, for hosts that cannot load a local skill:
+ * SKILL.md without its front matter, which only says when to load it.
+ */
+export function readPackagedSkillRules(sourceDir: string = packagedSkillsDir()): string {
+  const text = readFileSync(path.join(sourceDir, PUBLIC_SKILL_NAMES[0]!, 'SKILL.md'), 'utf8')
+  const frontMatter = /^---\n[\s\S]*?\n---\n+/
+  return text.replace(frontMatter, '').trimEnd() + '\n'
+}
+
 /** Compares two x.y.z versions; a pre-release suffix is ignored. */
 export function compareVersions(a: string, b: string): number {
   const parts = (v: string) =>

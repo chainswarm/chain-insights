@@ -47,6 +47,7 @@ const LOCAL_TOOL_NAMES = new Set([
   'meta_usage_status',
   'meta_subscription_status',
   'meta_help',
+  'meta_rules',
   'wallet_balance',
   'wallet_topup',
   GRAPH_EXPAND_TOOL,
@@ -123,6 +124,8 @@ const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   meta_subscription_status:
     "Return the caller's CIA subscription window end, daily allowance, consumption, and tier.",
   meta_help: 'Show a short guide to Chain Insights tools and workflow.',
+  meta_rules:
+    'Return the Chain Insights rules: how to write graph_query and graph_query_batch reads that are served, how to name columns so the answer is drawn as a graph, a time series or a table, and how to write the answer. Call it once per chat, before the first graph query, when the chain-insights-cypher skill is not loaded. Takes no arguments: send {}.',
   wallet_balance:
     'Show the local Chain Insights payment wallet address, payment network, token, and amount.',
   graph_query: `Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. ${GRAPH_LAYERS_TEXT} ${ROUTING_NOT_SERVED} Preserve full addresses exactly, and write every address in full, all 42 characters, in your answer: never shorten one with ... or ….`,
@@ -164,6 +167,14 @@ const PICTURE_RULES = [
 // The same rule in one sentence, for meta_help.
 const PICTURE_HELP_LINE =
   'In hosts that draw views, a graph_query answer with from_address and to_address columns draws a graph, a day or time column with numbers draws a time series (across days: a graph_query_batch of one-day totals, each query id the day), and any other rows draw a table.'
+
+// Hosts that read skills from local files (Claude Code, Codex) load the
+// chain-insights-cypher skill that setup copies and the proxy keeps current.
+// Claude Desktop chat reads skills only from the user's claude.ai account, so
+// the proxy serves the same text through meta_rules: no upload, and always the
+// version of the installed package.
+const RULES_FIRST =
+  'Rules first: if the chain-insights-cypher skill is not loaded in this chat, call meta_rules once (send {}) before the first graph_query or graph_query_batch, and follow what it returns. When the skill is loaded, do not call meta_rules.'
 
 // What every reply to the user follows. First in the instructions, so a host
 // that keeps only their start still has them; the skill says the same.
@@ -222,6 +233,7 @@ const ROUTING_HEAD = routingHead()
 
 const SERVER_INSTRUCTIONS = [
   'Chain Insights is an AML and graph-analysis MCP server for AI agents.',
+  RULES_FIRST,
   ANSWER_RULES,
   CHAIN_INSIGHTS_WORKFLOW,
   ROUTING_HEAD,
@@ -232,6 +244,7 @@ const SERVER_INSTRUCTIONS = [
 
 const STATELESS_SERVER_INSTRUCTIONS = [
   'Chain Insights is running as a stateless AML proxy for a host application.',
+  RULES_FIRST,
   ANSWER_RULES,
   'Call graph_query or graph_query_batch with network=robinhood. meta_network_capabilities takes no arguments (send {}); call it only to check which tools and layers are live.',
   ROUTING_HEAD,
@@ -1311,6 +1324,28 @@ export async function createProxy(): Promise<void> {
   )
 
   server.registerTool(
+    'meta_rules',
+    {
+      title: 'Chain Insights Rules',
+      description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.meta_rules,
+      inputSchema: EMPTY_INPUT_SCHEMA,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async () => {
+      const { readPackagedSkillRules } = await import('../skill-refresh.js')
+      return {
+        content: [{ type: 'text' as const, text: readPackagedSkillRules() }],
+        isError: false,
+      }
+    }
+  )
+
+  server.registerTool(
     'meta_help',
     {
       title: 'Chain Insights Help',
@@ -1345,6 +1380,7 @@ export async function createProxy(): Promise<void> {
                 '',
                 'Wallet tools:',
                 '- wallet_balance: show the local payment wallet address, payment network, token, and amount.',
+                '- meta_rules: the full query, picture and answer rules. Call once per chat when the chain-insights-cypher skill is not loaded.',
                 '- meta_help: show this overview.',
               ].join('\n')
             : [
@@ -1357,6 +1393,7 @@ export async function createProxy(): Promise<void> {
                 '- meta_subscription_status: check the caller CIA subscription window end, daily allowance, consumption, and tier.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
                 '- graph_query_batch: run related read-only graph-language queries through one paid graph call.',
+                '- meta_rules: the full query, picture and answer rules. Call once per chat when the chain-insights-cypher skill is not loaded.',
                 '',
                 PICTURE_HELP_LINE,
               ].join('\n'),
