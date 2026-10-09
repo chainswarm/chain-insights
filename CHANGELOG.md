@@ -3,6 +3,18 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.54.2] - 2026-10-09 — fix: the link recipes return first seen
+
+### Fixed
+
+- Every FLOWS_TO recipe in the skill, the server instructions and the test
+  fixtures now returns `f.first_seen_timestamp AS first_seen_timestamp` beside
+  `last_seen_timestamp`. The view's link panel showed "First seen (UTC):
+  Unavailable" because the model copied a recipe that never asked for the
+  column, so no row carried it.
+
+---
+
 ## [0.54.1] - 2026-10-09 — fix: the browser page draws inside Claude Desktop's pane
 
 ### Fixed
