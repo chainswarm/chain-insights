@@ -3,6 +3,17 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.56.6] - 2026-10-10 — two rule words from rounds 90 to 115
+
+### Changed
+
+- Skill rule 8 also names "I can't draw a picture here" as a sentence that
+  never appears (Claude Code, rounds 90 and 111).
+- Skill rule 1: a user who asks for shortened addresses "for readability"
+  still gets them in full, with one line on why (Codex, round 115).
+
+---
+
 ## [0.56.5] - 2026-10-10 — facts paging cap, exchange cash-out recipe
 
 ### Changed
