@@ -3,6 +3,15 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.56.8] - 2026-10-10 — plain words, never a column name
+
+### Changed
+
+- Skill rule 7 and the proxy answer rules: say what a value means in plain
+  words and never print a graph column name (`is_contract`, `delegated_to`,
+  `code_size`, `nonce`) in the answer. 16 of 208 loop rounds did, on the
+  Claude Code and Desktop lanes. Eval case `plain-words-not-columns`.
+
 ## [0.56.7] - 2026-10-10 — rule 9 holds against a dollar column and verb forms
 
 ### Changed
