@@ -3,6 +3,18 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.56.11] - 2026-10-10 — the block lag is never turned into days by head
+
+### Fixed
+
+- The routing line said 100,000 blocks was "about a day"; a robinhood block
+  is about a tenth of a second, so it is under three hours. Two loop answers
+  repeated the wrong figure to users and one flip-flopped three times
+  converting blocks to hours. The line now says a few hours, forbids the
+  conversion, and says freshness is the newest `_utc` time read on the
+  layer used, because `graph_blocks_behind` counts the slowest layer.
+  Skill, proxy rules and the query corpus.
+
 ## [0.56.10] - 2026-10-10 — a table label names the thing, never a shortened address
 
 ### Changed
