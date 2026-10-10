@@ -9,7 +9,7 @@
  */
 
 export const ANSWER_HINT =
-  'Answer: write every address in full (0x plus 40 characters), also when it repeats one named earlier; ' +
+  'Answer: write every address in full (0x plus 40 characters), also when it repeats one named earlier and also when the user asks for shorter ones (name them instead); ' +
   'a transfer moves tokens, so write "tokens worth about N USD", never "sent N USD" or a $ figure.'
 
 type TextBlock = { type: string; text?: string }

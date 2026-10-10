@@ -24,6 +24,7 @@ describe('the answer hint on every graph reply', () => {
   it('names the two rules and nothing else', () => {
     expect(ANSWER_HINT).toMatch(/every address in full/)
     expect(ANSWER_HINT).toMatch(/tokens worth about N USD/)
-    expect(ANSWER_HINT.length).toBeLessThan(260)
+    expect(ANSWER_HINT).toMatch(/asks for shorter ones/)
+    expect(ANSWER_HINT.length).toBeLessThan(320)
   })
 })

@@ -120,6 +120,7 @@ Find the question in this table. Send its first query, once, with the addresses 
 | What one address did in a month, since a date, in the last N days | topology, then facts | Links bounded by first and last seen, day reads only for the links that straddle an edge, see A window of days for one address |
 | What happened in this transaction hash?                      | `chain`    | `Transaction {tx_id}`, see Chain                                       |
 | The latest block, block N, how far behind the graph is       | `chain`    | `Head`, or `Block {block_height}`                                      |
+| Who transacted in block N, what happened in block N           | `chain`, then say the limit | `Block {block_height}` gives the hash, the time and the count; no layer lists a block's transactions or searches by block. Say so and offer the pair's day on facts. |
 | What fields does an Address have?                            | none       | Call `meta_schema {network}`. Send no query.                           |
 | Recent addresses, biggest senders, any top list of the chain | topology   | A search bounded by `f.last_seen_timestamp`, then sort and LIMIT (below). |
 

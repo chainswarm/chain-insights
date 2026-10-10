@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.56.20] - 2026-10-11 — the hint covers a shortening request; a block question states its limit
+
+### Changed
+
+- The reply hint also says addresses stay in full when the user asks for
+  shorter ones (Codex complied with the request in three loop rounds).
+- Skill routing table: "who transacted in block N" has no read beyond the
+  block's hash, time and count; the answer says so and offers the pair's
+  day on facts (two loop rounds scanned pairs for 50 seconds instead).
+
 ## [0.56.19] - 2026-10-11 — every graph reply carries the two answer rules in its hint
 
 ### Added
