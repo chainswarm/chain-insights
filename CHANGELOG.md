@@ -3,6 +3,19 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.56.4] - 2026-10-10 — a UTC text twin beside every timestamp
+
+### Added
+
+- Every `*_timestamp`, `*_seen`, `*_active`, `*_time` and `*_at` column of a
+  `graph_query` or `graph_query_batch` answer that holds epoch milliseconds
+  gets a `<column>_utc` twin, `2026-08-05 23:55:43 UTC`, in the structured
+  content and in the JSON text block. Four of twelve loop answers about one
+  block had converted the milliseconds by head and named the wrong hour. Rule
+  7 and server rule 2 say copy the twin, never convert by head.
+
+---
+
 ## [0.56.3] - 2026-10-10 — facts aggregates named
 
 ### Changed
