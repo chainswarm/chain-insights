@@ -3,6 +3,17 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.56.12] - 2026-10-10 — a window of days for one address is three reads, not a read per pair per day
+
+### Changed
+
+- Skill, facts section: "what did it do in September" and "only the last 7
+  days" start with one bounded topology read for the links active in the
+  window, take lifetime totals for the links that live inside it, and read
+  per-day totals only for the links that straddle an edge. Seven loop rounds
+  spent 40 to 189 seconds (one 72 reads) reading every pair on every day.
+  Eval case `window-of-days`.
+
 ## [0.56.11] - 2026-10-10 — the block lag is never turned into days by head
 
 ### Fixed
