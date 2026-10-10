@@ -7,7 +7,7 @@
 // Claude Code, always in a long answer. A hook that reads the text is the
 // only check that sees the answer itself.
 //
-// Input (stdin): the Stop hook JSON with transcript_path and stop_hook_active.
+// Input (stdin): the Stop hook JSON with last_assistant_message, transcript_path and stop_hook_active.
 // Output: {"decision":"block","reason":...} when the answer must be rewritten;
 // nothing when it is fine, or when this stop already follows a block.
 'use strict'
@@ -62,7 +62,13 @@ function main() {
     input = {}
   }
   if (input.stop_hook_active) return
-  const problems = answerProblems(lastAnswer(String(input.transcript_path || '')))
+  // The Stop input carries the answer as last_assistant_message; the transcript
+  // on disk may not hold it yet when the hook runs, so it is the fallback.
+  const answer =
+    typeof input.last_assistant_message === 'string' && input.last_assistant_message.trim()
+      ? input.last_assistant_message
+      : lastAnswer(String(input.transcript_path || ''))
+  const problems = answerProblems(answer)
   if (problems.length === 0) return
   process.stdout.write(
     JSON.stringify({

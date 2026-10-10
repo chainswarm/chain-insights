@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.56.16] - 2026-10-11 — the answer check reads the answer the host hands it
+
+### Fixed
+
+- The 0.56.15 Stop hook read the transcript on disk, which does not yet hold
+  the answer when Stop runs, so it never blocked. It now reads the
+  `last_assistant_message` the host passes in and falls back to the
+  transcript. Proven under `claude -p`: "sent about 25,931 USD" comes back as
+  "tokens worth about 25,931 USD" in a second turn.
+
 ## [0.56.15] - 2026-10-11 — the Claude plugin checks the answer before it stops
 
 ### Added
