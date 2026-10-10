@@ -82,7 +82,7 @@ Route by what the question names: an address, a pair with a day, a transaction o
 `USE chain` with `Address` reads the balance, the nonce or the kind of one address, now or at a past block with `at_block`. A past block must be at least `chain_admission.at_block_min_depth` blocks below the tip. To find the counterparties of an address, search `USE topology`, then read the pair and one day on `USE facts`.
 A transaction is a chain question: read it on `USE chain` by its `tx_id`. Chain gives its `block_date`; the transfers between a pair on that day are a `USE facts` read.
 The layers hand each other keys, and each key keeps its name. Topology gives the pair and the first and last seen time. Facts gives the `tx_id` and the `block_height`. Chain takes an `address`, a `tx_id`, a `block_height` or a `block_hash`, and gives the `block_date` of a transaction or a block.
-A question about the whole chain (recent activity, the biggest senders, a top list) is a `USE topology` search: bound it by time with `f.last_seen_timestamp >= <epoch ms>` on the `FLOWS_TO` link, then sort and `LIMIT`. A search has 10 s. If the server refuses it with `anchor_missing`, or stops it with `query_timeout`, it cannot search the whole chain now: say so in one line and ask for an address. A narrower window times out the same way, so do not send it again.
+A question about the whole chain (recent activity, the biggest senders, a top list) is a `USE topology` search: bound it by time with `f.last_seen_timestamp >= <epoch ms>` on the `FLOWS_TO` link, then sort and `LIMIT`. A search has 10 s. Read `Head` first (`USE chain MATCH (h:Head) RETURN h.graph_blocks_behind`, under a second): when `graph_blocks_behind` is above 100000, about a day of blocks, the search cannot finish, so do not send it; say the graph is that many blocks behind the head and ask for an address. If the server refuses the search with `anchor_missing`, or stops it with `query_timeout`, it cannot search the whole chain now: say so in one line and ask for an address. A narrower window times out the same way, so do not send it again.
 
 Find the question in this table. Send its first query, once, with the addresses the user gave.
 
@@ -326,7 +326,7 @@ pair moved on one day, read its `TRANSFER` rows for that day, then:
 
 ## Chain: one key, one node
 
-`USE chain` asks the chain node for one known thing: `Transaction` by `tx_id`, `Block` by `block_height` or `block_hash` (exactly one), `Address` by `address` (with an optional `at_block`), or `Head`. One node, literal keys in braces, a `RETURN` of `var.property` items, no `WHERE`, no range. Read its limits in `chain_admission` (`cia network robinhood --json`).
+`USE chain` asks the chain node for one known thing: `Transaction` by `tx_id`, `Block` by `block_height` or `block_hash` (exactly one), `Address` by `address` (with an optional `at_block`), or `Head`. One node, literal keys in braces, a `RETURN` of `var.property` items, no `WHERE`, no range. `RETURN t` of the whole node is refused (`chain_not_a_lookup`), and a property outside the node's list is refused (`chain_not_served`): a `Transaction` has `tx_id`, `status`, `block_height`, `block_hash`, `tx_index`, `block_timestamp`, `block_date`, `from_address`, `to_address`, `created_contract`, `value`, `nonce`, `gas_used`, `effective_gas_price`, `log_count` and `tx_type`, and no `type`. Read its limits in `chain_admission` (`cia network robinhood --json`).
 
 ```cypher
 USE chain

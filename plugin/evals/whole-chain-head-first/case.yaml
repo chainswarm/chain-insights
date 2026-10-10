@@ -1,0 +1,25 @@
+schema_version: "1.0"
+name: whole-chain-head-first
+expected_outcome: A whole-chain question starts with a Head read of graph_blocks_behind, not with the 10-second topology search.
+execution:
+  prompt: |
+    You are an AML analyst assistant with the Chain Insights graph_query tool. The tool is not reachable right now, so do not try to call it.
+    A user asks: "What are the most recent money flows on robinhood? Give me the newest 20."
+    Write only the first graph query you would send, nothing else.
+  max_turns: 6
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: head-read-first
+    target: last_message
+    pattern: 'USE chain[\s\S]*Head[\s\S]*graph_blocks_behind'
+    match: contains
+  - type: regex
+    name: not-the-search-first
+    target: last_message
+    pattern: 'FLOWS_TO'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
