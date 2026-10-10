@@ -3,6 +3,17 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.56.15] - 2026-10-11 — the Claude plugin checks the answer before it stops
+
+### Added
+
+- `plugin/hooks`: a Stop hook reads the last answer and blocks the stop once,
+  with the sentence to fix, when it finds "sent about N USD", a bare `$`
+  figure or a shortened `0x…` address. Rules 1 and 9 still slipped through
+  about one time in thirty on Claude Code in long answers (loop rounds 224,
+  225, 267); a hook that reads the text is the only check that sees the
+  answer itself. The npm skill and other hosts are unchanged.
+
 ## [0.56.14] - 2026-10-10 — a `_utc` column named in a query is served
 
 ### Fixed

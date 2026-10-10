@@ -50,3 +50,7 @@ on your computer.
 ## Licence
 
 MIT. See `LICENSE`.
+
+## Answer check
+
+A Stop hook (`hooks/answer-check.cjs`) reads the last answer and asks for one rewrite when it finds a dollars-sent phrase, a `$` figure or a shortened address. It never changes an answer itself.
