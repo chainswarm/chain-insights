@@ -47,5 +47,7 @@ describe('the Stop hook that reads the last answer', () => {
     expect(again).toBe('')
     const fine = execFileSync('node', [HOOK], { input: JSON.stringify({ transcript_path: transcript(['tokens worth about 42 USD']) }) }).toString()
     expect(fine).toBe('')
+    const direct = execFileSync('node', [HOOK], { input: JSON.stringify({ last_assistant_message: 'It paid $5 for gas.', transcript_path: '/nonexistent' }) }).toString()
+    expect(JSON.parse(direct)).toMatchObject({ decision: 'block' })
   })
 })
