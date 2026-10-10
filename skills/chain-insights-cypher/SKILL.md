@@ -186,7 +186,7 @@ Which exchange an address cashed out to: its receivers that carry the exchange f
 ```cypher
 USE topology
 MATCH (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"})-[f:FLOWS_TO]->(b:Address) WHERE NOT a:Pool AND b.is_exchange IS NOT NULL
-RETURN a.address AS from_address, b.address AS to_address, b.labels AS to_labels, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.last_seen_timestamp AS last_seen_timestamp ORDER BY f.amount_usd_sum DESC LIMIT 25
+RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, a.labels AS from_labels, b.labels AS to_labels, a.is_exchange AS from_is_exchange, b.is_exchange AS to_is_exchange ORDER BY f.last_seen_timestamp DESC ORDER BY f.amount_usd_sum DESC LIMIT 25
 ```
 
 When that is empty, one two-hop walk to an exchange at most (`{0,1}` in the route shape below, with `b.is_exchange IS NOT NULL` on the end and no address literal there). It can take the whole 60 s budget and end in `query_timeout` on a busy address: after one timeout, say no exchange was found within two hops and stop. Never widen to three or four hops, and never send the walk twice.
