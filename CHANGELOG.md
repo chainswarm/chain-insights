@@ -3,6 +3,15 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.56.21] - 2026-10-11 — the hint says never draw; a pool's traders need no swap check
+
+### Changed
+
+- The reply hint gains its third rule: never draw the flows in text, ASCII
+  or Mermaid (a Desktop answer drew a Mermaid loop with shortened labels).
+- Skill, pool recipe: the senders into the pool are the answer; a swap check
+  filtered on the pool list of a busy trader timed out twice more.
+
 ## [0.56.20] - 2026-10-11 — the hint covers a shortening request; a block question states its limit
 
 ### Changed
