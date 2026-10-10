@@ -47,7 +47,9 @@ The one case without the tool is at the end, Shell without the tool.
    the epoch numbers you computed, or a `Ref:` line. The user does not need
    them. Show them only when the user asks how a number was found. Write
    every timestamp as a UTC date and time, `2026-08-05 09:05 UTC`; never
-   print the raw millisecond number.
+   print the raw millisecond number. Every timestamp column in an answer
+   comes with a `<column>_utc` twin that holds that text: copy it, never
+   convert the milliseconds by head (one try in three gets the hour wrong).
 8. Never draw the graph yourself, in ASCII art or in Mermaid. Claude Desktop
    and the Codex app draw the picture from the column names (see Name the
    columns for a picture). Write a short text answer beside it, and do not
