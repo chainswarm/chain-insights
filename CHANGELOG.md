@@ -3,6 +3,17 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.56.3] - 2026-10-10 — facts aggregates named
+
+### Changed
+
+- Skill, facts section: a facts read aggregates with `count()` and `sum()`
+  only, over the whole page, no grouping key and no `min()`, `max()` or
+  `avg()`. Two loop rounds spent a refusal on a grouped count and a `min()`.
+  Eval case `facts-count-sum-only`.
+
+---
+
 ## [0.56.2] - 2026-10-10 — a whole-chain question reads Head first
 
 ### Changed

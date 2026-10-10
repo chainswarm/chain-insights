@@ -302,6 +302,7 @@ The server serves five read-only catalog calls: `CALL db.labels()`, `CALL db.rel
 - A reply holds at most 200 rows, whatever the `LIMIT`.
 - A facts read has one relationship and no hop. For a walk, go to topology.
 - A facts read takes no `ORDER BY`. Rows come in the server's own order. Sort the page yourself.
+- A facts read aggregates with `count()` and `sum()` only, over the whole page: no grouping key, no `min()`, `max()` or `avg()` (`unsupported facts query shape`). Read the rows and compute the rest yourself.
 - Every row and both endpoints carry `network`, the query's `network`. A filter on it is no anchor: it never replaces the pair and the day.
 - Facts serves no kind. A read that names `:Account` or `:Contract` is refused with `facts_no_anchor`: ask `USE topology` for the kind, or `USE chain` for `is_contract` and `nonce`.
 - A facts read covers one day. For more days, send one read for each day.
