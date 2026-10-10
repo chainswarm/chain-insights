@@ -3,6 +3,20 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.56.2] - 2026-10-10 — a whole-chain question reads Head first
+
+### Changed
+
+- Routing line, shared by the skill, the server instructions and
+  `docs/graph-tools.md`: a whole-chain question (newest flows, biggest
+  senders) reads `Head` first, under a second, and skips the search when
+  `graph_blocks_behind` is above 100000, saying how far behind the graph is.
+  Every such search timed out after 20 to 60 s in 8 of 37 loop rounds while
+  the graph was 16 million blocks behind. Eval case `whole-chain-head-first`
+  (1.00 with the skill, 0.50 without).
+
+---
+
 ## [0.56.1] - 2026-10-10 — the proxy lists its tools before the endpoint answers
 
 ### Fixed

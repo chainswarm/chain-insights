@@ -478,7 +478,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[l:LINKED]-(b:Address) RETURN b.address, b.network, l.basis, l.confidence LIMIT 25",
+   "query": "USE topology MATCH (h:Head) RETURN h.graph_blocks_behind`, under a second): when `graph_blocks_behind` is above 100000, about a day of blocks, the search cannot finish, so do not send it; say the graph is that many blocks behind the head and ask for an address",
    "source": "src/mcp/proxy.ts graph hints"
   },
   {
@@ -486,7 +486,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[:LINKED]-(owned:Address)-[r:FLOWS_TO|SWAPPED]-(b:Address) WHERE NOT a:Pool AND NOT owned:Pool AND owned.address <> b.address AND a.address <> b.address RETURN owned.address, b.address, type(r), coalesce(r.amount_usd_sum, r.bought_usd) LIMIT 50",
+   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[l:LINKED]-(b:Address) RETURN b.address, b.network, l.basis, l.confidence LIMIT 25",
    "source": "src/mcp/proxy.ts graph hints"
   },
   {
@@ -494,7 +494,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: \"corpus-address-a\"}) RETURN owner.address AS owner, operation.tx_count AS tx_count ORDER BY operation.tx_count DESC LIMIT 10",
+   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[:LINKED]-(owned:Address)-[r:FLOWS_TO|SWAPPED]-(b:Address) WHERE NOT a:Pool AND NOT owned:Pool AND owned.address <> b.address AND a.address <> b.address RETURN owned.address, b.address, type(r), coalesce(r.amount_usd_sum, r.bought_usd) LIMIT 50",
    "source": "src/mcp/proxy.ts graph hints"
   },
   {
@@ -502,7 +502,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (victim:Address {address: \"corpus-address-a\"})-[paid:FLOWS_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE NOT victim:Pool AND receiver.address <> victim.address RETURN pool.address AS pool_address, receiver.address AS receiver_address, removal.usd AS removed_usd, removal.receiver_added_usd AS receiver_added_usd, removal.receiver_provided AS receiver_provided LIMIT 25",
+   "query": "USE topology MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: \"corpus-address-a\"}) RETURN owner.address AS owner, operation.tx_count AS tx_count ORDER BY operation.tx_count DESC LIMIT 10",
    "source": "src/mcp/proxy.ts graph hints"
   },
   {
@@ -510,7 +510,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"corpus-address-a\"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: \"corpus-address-a\"}) RETURN [n IN nodes(p) | n.address] AS route LIMIT 5",
+   "query": "USE topology MATCH (victim:Address {address: \"corpus-address-a\"})-[paid:FLOWS_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE NOT victim:Pool AND receiver.address <> victim.address RETURN pool.address AS pool_address, receiver.address AS receiver_address, removal.usd AS removed_usd, removal.receiver_added_usd AS receiver_added_usd, removal.receiver_provided AS receiver_provided LIMIT 25",
    "source": "src/mcp/proxy.ts graph hints"
   },
   {
@@ -518,7 +518,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH SHORTEST 1 (a:Address {address: \"corpus-address-a\"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address) RETURN b.address LIMIT 50",
+   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"corpus-address-a\"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: \"corpus-address-a\"}) RETURN [n IN nodes(p) | n.address] AS route LIMIT 5",
    "source": "src/mcp/proxy.ts graph hints"
   },
   {
@@ -526,7 +526,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (n:Address) RETURN n.address AS address, n.network AS network, n.labels AS labels, n.last_activity_timestamp AS last_activity_timestamp LIMIT 20",
+   "query": "USE topology MATCH SHORTEST 1 (a:Address {address: \"corpus-address-a\"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address) RETURN b.address LIMIT 50",
    "source": "src/mcp/proxy.ts graph hints"
   },
   {
@@ -534,11 +534,19 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count LIMIT 20",
+   "query": "USE topology MATCH (n:Address) RETURN n.address AS address, n.network AS network, n.labels AS labels, n.last_activity_timestamp AS last_activity_timestamp LIMIT 20",
    "source": "src/mcp/proxy.ts graph hints"
   },
   {
    "id": "hint-9",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count LIMIT 20",
+   "source": "src/mcp/proxy.ts graph hints"
+  },
+  {
+   "id": "hint-10",
    "expect": "admit",
    "rule": null,
    "code": null,
