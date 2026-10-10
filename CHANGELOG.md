@@ -3,6 +3,19 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.56.5] - 2026-10-10 — facts paging cap, exchange cash-out recipe
+
+### Changed
+
+- Skill, facts section: above 200 rows give the count and one page, read on
+  only when the user asks for every row, never past five pages in one turn.
+  One loop round paged a 4,336-row day with 61 reads in 131 seconds.
+- Skill, graph searches: "which exchange did it cash out to" is one hop on
+  the exchange flag first, then one two-hop walk at most, and stops after a
+  timeout. Three loop rounds spent 72 to 159 seconds on open-target walks.
+
+---
+
 ## [0.56.4] - 2026-10-10 — a UTC text twin beside every timestamp
 
 ### Added
