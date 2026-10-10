@@ -351,6 +351,8 @@ pair moved on one day, read its `TRANSFER` rows for that day, then:
 
 `USE chain` asks the chain node for one known thing: `Transaction` by `tx_id`, `Block` by `block_height` or `block_hash` (exactly one), `Address` by `address` (with an optional `at_block`), or `Head`. One node, literal keys in braces, a `RETURN` of `var.property` items, no `WHERE`, no range. `RETURN t` of the whole node is refused (`chain_not_a_lookup`), and a property outside the node's list is refused (`chain_not_served`): a `Transaction` has `tx_id`, `status`, `block_height`, `block_hash`, `tx_index`, `block_timestamp`, `block_date`, `from_address`, `to_address`, `created_contract`, `value`, `nonce`, `gas_used`, `effective_gas_price`, `log_count` and `tx_type`, and no `type`. Read its limits in `chain_admission` (`cia network robinhood --json`).
 
+A chain read costs several node calls, and the server caps node calls per caller per second: a batch of several chain reads can answer some and refuse the rest with `chain_busy`. The proxy waits and resends the refused members for you, so a `chain_busy` that still reaches you means the node is busy: wait a few seconds and send that member alone. Never send the whole batch again.
+
 ```cypher
 USE chain
 MATCH (t:Transaction {tx_id: "0x044587122970de1e3c377a8ed7ab56a49c777a2b7441a2f5d9ca32dbab9fbe71"}) RETURN t.status, t.block_height, t.block_date

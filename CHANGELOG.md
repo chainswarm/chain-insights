@@ -3,6 +3,18 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.56.9] - 2026-10-10 — a batch's chain_busy members are resent by the proxy
+
+### Fixed
+
+- A `graph_query_batch` with several chain reads came back with one answer
+  and the rest refused `chain_busy` (an Address read costs four node calls,
+  the server caps node calls per caller per second): 9 of 216 loop rounds,
+  3 of the first 6 on the real-user prompt set. The proxy now waits 1.1 s
+  and resends only the busy members, up to three times, and merges the
+  answers back under their ids. Skill: what a `chain_busy` that still
+  arrives means.
+
 ## [0.56.8] - 2026-10-10 — plain words, never a column name
 
 ### Changed
