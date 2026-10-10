@@ -326,7 +326,7 @@ pair moved on one day, read its `TRANSFER` rows for that day, then:
 
 ## Chain: one key, one node
 
-`USE chain` asks the chain node for one known thing: `Transaction` by `tx_id`, `Block` by `block_height` or `block_hash` (exactly one), `Address` by `address` (with an optional `at_block`), or `Head`. One node, literal keys in braces, a `RETURN` of `var.property` items, no `WHERE`, no range. Read its limits in `chain_admission` (`cia network robinhood --json`).
+`USE chain` asks the chain node for one known thing: `Transaction` by `tx_id`, `Block` by `block_height` or `block_hash` (exactly one), `Address` by `address` (with an optional `at_block`), or `Head`. One node, literal keys in braces, a `RETURN` of `var.property` items, no `WHERE`, no range. `RETURN t` of the whole node is refused (`chain_not_a_lookup`), and a property outside the node's list is refused (`chain_not_served`): a `Transaction` has `tx_id`, `status`, `block_height`, `block_hash`, `tx_index`, `block_timestamp`, `block_date`, `from_address`, `to_address`, `created_contract`, `value`, `nonce`, `gas_used`, `effective_gas_price`, `log_count` and `tx_type`, and no `type`. Read its limits in `chain_admission` (`cia network robinhood --json`).
 
 ```cypher
 USE chain
