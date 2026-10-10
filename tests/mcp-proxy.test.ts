@@ -1106,6 +1106,57 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(clientInstance.listTools).not.toHaveBeenCalled()
   })
 
+  it('lists the cached tools before a busy endpoint answers, and the first graph call waits for the connect', async () => {
+    // Codex starts a fresh proxy on every resumed turn and lists tools about
+    // 10 s later; a 429 at connect is retried for up to 15 s. The host must
+    // see graph_query meanwhile, or it reports the connector unavailable.
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([{ name: 'graph_query', description: 'Cached' }])
+
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    let release: () => void = () => undefined
+    const connect = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve
+        })
+    )
+    const callTool = vi.fn().mockResolvedValue({ content: [{ type: 'text', text: '{"count":0,"results":[]}' }] })
+    vi.mocked(Client).mockImplementationOnce(function () {
+      return { connect, listTools: vi.fn(), listPrompts: vi.fn(), getPrompt: vi.fn(), callTool, close: vi.fn().mockResolvedValue(undefined) }
+    } as never)
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+
+    await createProxy()
+
+    const serverInstance = vi.mocked(McpServer).mock.results.at(-1)?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+      connect: ReturnType<typeof vi.fn>
+    }
+    // The stdio server is up and graph_query is registered while the remote connect is still pending.
+    expect(serverInstance.connect).toHaveBeenCalled()
+    expect(connect).toHaveBeenCalledOnce()
+    expect(serverInstance.registerTool.mock.calls.map((entry) => entry[0])).toContain('graph_query')
+
+    const handler = findToolHandler(serverInstance, 'graph_query')
+    let settled = false
+    const call = handler({ network: 'robinhood', query: 'USE chain MATCH (h:Head) RETURN h.block_height LIMIT 1' }).then(
+      (result: unknown) => {
+        settled = true
+        return result
+      }
+    )
+    await new Promise((resolve) => setTimeout(resolve, 25))
+    expect(settled).toBe(false)
+    expect(callTool).not.toHaveBeenCalled()
+
+    release()
+    await call
+    expect(callTool).toHaveBeenCalled()
+  })
+
   it('registers a local wallet_balance tool backed by the encrypted payment wallet', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce(null)

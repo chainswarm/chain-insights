@@ -3,6 +3,21 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.56.1] - 2026-10-10 — the proxy lists its tools before the endpoint answers
+
+### Fixed
+
+- With the tool list cached, the proxy now answers the host's initialize and
+  tools/list at once and connects to the graph endpoint in the background;
+  the first graph call waits for that connect. Before, a 429 at connect was
+  retried for up to 15 s before the proxy announced itself, and Codex, which
+  starts a fresh proxy on every resumed turn and lists tools about 10 s in,
+  saw no graph tools, told the user "the connector is unavailable" and ran
+  the CLI in its sandbox instead (rounds 13, 16, 19, 25 and 28 of the
+  2026-10-10 three-harness loop, every one at a 429).
+
+---
+
 ## [0.56.0] - 2026-10-10 — skill rules from the three-harness loop, and an eval suite
 
 ### Changed
