@@ -25,14 +25,46 @@ function isEpochMs(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= MIN_MS && value <= MAX_MS
 }
 
-/** One row with a `<key>_utc` string after every epoch-millisecond timestamp column. */
+/**
+ * One row with a `<key>_utc` string after every epoch-millisecond timestamp
+ * column. A column the model itself named `*_utc` (its query asked for the
+ * twin as a property, see stripUtcProperties) arrives as milliseconds and is
+ * rendered as UTC text in place: the model gets the column it asked for.
+ */
 export function addTimestampText(row: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(row)) {
-    out[key] = value
+    out[key] = key.endsWith('_utc') && isEpochMs(value) ? utcText(value) : value
     if (TIMESTAMP_KEY.test(key) && isEpochMs(value) && !(`${key}_utc` in row)) out[`${key}_utc`] = utcText(value)
   }
   return out
+}
+
+/**
+ * The `_utc` twin is added to a reply by the proxy; it is no graph property.
+ * Thirteen of 48 loop-5 rounds wrote `f.first_seen_timestamp_utc` into a
+ * query anyway: topology answers null, a SWAP read is refused. The property
+ * reference is rewritten to its millisecond column, `x.<column>_utc` to
+ * `x.<column>`; an alias after AS is not a property and stays as written, so
+ * `f.first_seen_timestamp_utc AS first_seen_utc` yields a `first_seen_utc`
+ * column that addTimestampText renders as text.
+ */
+export function stripUtcProperties(query: string): string {
+  return query.replace(/\.([A-Za-z_][A-Za-z0-9_]*?)_utc\b/g, '.$1')
+}
+
+/** graph_query and graph_query_batch arguments with stripUtcProperties applied to every query. */
+export function withoutUtcProperties(toolName: string, args: Record<string, unknown>): Record<string, unknown> {
+  if (toolName === 'graph_query' && typeof args.query === 'string') return { ...args, query: stripUtcProperties(args.query) }
+  if (toolName === 'graph_query_batch' && Array.isArray(args.queries)) {
+    return {
+      ...args,
+      queries: args.queries.map((entry) =>
+        isRecord(entry) && typeof entry.query === 'string' ? { ...entry, query: stripUtcProperties(entry.query) } : entry
+      ),
+    }
+  }
+  return args
 }
 
 function mapResults(holder: unknown): unknown {
