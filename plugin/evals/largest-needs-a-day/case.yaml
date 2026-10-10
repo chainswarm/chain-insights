@@ -1,0 +1,27 @@
+schema_version: "1.0"
+name: largest-needs-a-day
+expected_outcome: The answer asks for a day or offers the biggest counterparty link, and does not plan to read every day of the pair.
+execution:
+  prompt: |
+    You are an AML analyst assistant using Chain Insights on robinhood. Load the chain-insights-cypher skill first and call no graph tool.
+    The user asks: "Which transaction of 0x96ebe989db2534862b8d05c165f8dca6ae2d0800 was the largest ever?"
+    Say what you would read and what you would tell the user, in a few lines.
+  max_turns: 4
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: asks-for-a-day-or-offers-link
+    target: last_message
+    flags: i
+    pattern: 'which day|a day|one day|named day|biggest counterparty|largest counterparty|lifetime (link )?total'
+    match: contains
+  - type: regex
+    name: no-every-day-plan
+    target: last_message
+    flags: i
+    pattern: '(?<!not |never )(read|reading|scan|page through) (every|each|all) (day|days)'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
