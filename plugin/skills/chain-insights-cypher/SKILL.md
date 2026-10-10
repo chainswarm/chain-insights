@@ -274,6 +274,19 @@ MATCH (a:Address {address: "0x0168d9f5cac7d63eb75095cef316d68b0dc42bc6"})-[s:SWA
 RETURN b.address AS recipient, s.sold_usd AS sold_usd, s.bought_usd AS bought_usd, s.pools AS pools ORDER BY s.swap_count DESC LIMIT 25
 ```
 
+What a pool is, and who trades through it. A pool is the `:Pool` node label,
+read with `labels(p)`; the `labels` property is a different thing (named
+labels such as a vault), and a pool usually has none. The traders are the
+senders into the pool on `FLOWS_TO`, ranked by `tx_count`: one read, no swap
+search. A swap check is `SWAPPED` anchored on one trader, never on a list of
+traders and never on the pool, because both time out.
+
+```cypher
+USE topology
+MATCH (b:Address)-[f:FLOWS_TO]->(p:Address {address: "0xd42a491087a15e5afd51feb3606066cc152d2b09"}) WHERE NOT b:Pool
+RETURN b.address AS from_address, p.address AS to_address, labels(p) AS to_node_labels, f.tx_count AS tx_count, f.amount_usd_sum AS amount_usd_sum, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, b.labels AS from_labels, p.labels AS to_labels, b.is_exchange AS from_is_exchange, p.is_exchange AS to_is_exchange ORDER BY f.tx_count DESC LIMIT 25
+```
+
 Pool trace: who took liquidity out of the pools an address paid into.
 
 ```cypher

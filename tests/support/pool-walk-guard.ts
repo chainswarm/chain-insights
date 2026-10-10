@@ -986,7 +986,20 @@ function evaluate(walks: Walks, findings: Findings): void {
       )
       continue
     }
-    if (!guarded(root, node)) {
+    // A one-hop read that arrives at the anchor, `(b)-[:FLOWS_TO]->(p {address})`,
+    // reads the senders into p, a pool among them. The walk starts at b, so
+    // a guard on b satisfies the rule as well as one on p. The live server
+    // admits that shape and returns a pool's traders.
+    const guardedAtOpenEnd =
+      role === 'start' &&
+      exits.length === 1 &&
+      componentOf(root).size === 2 &&
+      !leavesAlong(root, exits[0] as Edge) &&
+      (() => {
+        const far = neighbour(root, exits[0] as Edge)
+        return far !== null && leavesAlong(far, exits[0] as Edge) && guarded(far, nodes.get(far) as GraphNode)
+      })()
+    if (!guarded(root, node) && !guardedAtOpenEnd) {
       findings.unguarded.push(
         role === 'start'
           ? `${describe(node)} starts a FLOWS_TO walk without the pool guard`
