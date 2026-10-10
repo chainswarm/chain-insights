@@ -281,9 +281,10 @@ RETURN b.address AS recipient, s.sold_usd AS sold_usd, s.bought_usd AS bought_us
 What a pool is, and who trades through it. A pool is the `:Pool` node label,
 read with `labels(p)`; the `labels` property is a different thing (named
 labels such as a vault), and a pool usually has none. The traders are the
-senders into the pool on `FLOWS_TO`, ranked by `tx_count`: one read, no swap
-search. A swap check is `SWAPPED` anchored on one trader, never on a list of
-traders and never on the pool, because both time out.
+senders into the pool on `FLOWS_TO`, ranked by `tx_count`: one read, and that
+is the answer. Add no swap check: `SWAPPED` filtered on `s.pools`, on a list
+of traders or on the pool times out, and a busy trader's swap links time out
+even anchored on that one trader (two answers lost 86 seconds that way).
 
 ```cypher
 USE topology
