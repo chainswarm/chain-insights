@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.56.17] - 2026-10-11 — a single chain read refused as chain_busy is sent again
+
+### Fixed
+
+- 0.56.9 resent the `chain_busy` members of a batch; a single `graph_query`
+  refused the same way still reached the model as an error, and seven of 100
+  loop rounds showed it giving up on the first refusal ("Chain Insights
+  returned chain busy"). The proxy now waits and sends the read again, up to
+  three times, before the model sees it.
+
 ## [0.56.16] - 2026-10-11 — the answer check reads the answer the host hands it
 
 ### Fixed

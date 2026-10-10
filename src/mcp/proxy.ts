@@ -12,7 +12,7 @@ import type { InvestigatorConfig } from '../config/schema.js'
 import { PACKAGE_VERSION } from '../version.js'
 import type { McpTool } from './schema-cache.js'
 import { rateLimitedResult, withRateLimitRetry } from './rate-limit.js'
-import { withBusyMemberRetry, type BatchResult } from './batch-busy-retry.js'
+import { withBusyMemberRetry, withBusyRetry, type BatchResult } from './batch-busy-retry.js'
 import {
   HIDDEN_REMOTE_TOOL_NAMES,
   PUBLIC_MCP_TOOL_ALLOWED_ARGS,
@@ -1540,7 +1540,9 @@ export async function createProxy(): Promise<void> {
         const result =
           tool.name === 'graph_query_batch'
             ? await withBusyMemberRetry(normalizedArgs, (a) => callRemote(a) as Promise<BatchResult>)
-            : await callRemote(request.arguments)
+            : tool.name === 'graph_query'
+              ? await withBusyRetry(normalizedArgs, (a) => callRemote(a) as Promise<BatchResult>)
+              : await callRemote(request.arguments)
         const answer = normalizeRemoteToolResult(tool.name, result as RemoteToolResult)
         return BROWSER_VIEW_TOOL_NAMES.has(tool.name)
           ? await withViewUrl(tool.name, normalizedArgs, answer)

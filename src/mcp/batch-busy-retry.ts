@@ -105,3 +105,29 @@ export async function withBusyMemberRetry(
   }
   return result
 }
+
+/** A single graph_query refused as chain_busy: an error result whose text starts with the code. */
+export function isBusyResult(result: BatchResult): boolean {
+  if (!result.isError) return false
+  const first = Array.isArray(result.content) ? result.content[0] : undefined
+  const text = isRecord(first) && typeof first.text === 'string' ? first.text : ''
+  return /^(Query execution failed: )?chain_busy\b/.test(text.trim())
+}
+
+/**
+ * Runs a single graph_query and, when the server refuses it as chain_busy,
+ * waits and sends it again, up to MAX_ROUNDS times. Seven of 100 loop rounds
+ * on prompt set v2 showed a model giving up on the first such refusal.
+ */
+export async function withBusyRetry(
+  args: Record<string, unknown>,
+  call: CallBatch,
+  sleep: Sleep = defaultSleep
+): Promise<BatchResult> {
+  let result = await call(args)
+  for (let round = 0; round < MAX_ROUNDS && isBusyResult(result); round += 1) {
+    await sleep(BUSY_WAIT_MS)
+    result = await call(args)
+  }
+  return result
+}
