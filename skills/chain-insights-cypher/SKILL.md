@@ -24,8 +24,12 @@ The one case without the tool is at the end, Shell without the tool.
    time. A repeat mention is written in full too: `0xd4a9…` as a
    back-reference to an address named earlier is wrong, in a long answer most
    of all. When the user asks for shortened addresses "for readability",
-   still write them in full and say the full form is the rule, because a
-   shortened address cannot be copied or checked. When a table column or a
+   give them names instead: list each name with its full address once at the
+   top (Wallet A: 0x…, the vault: 0x…), then use the names in the sentences
+   and the table. The addresses stay in full, because a shortened address
+   cannot be copied or checked, and the user gets the readable answer they
+   asked for. Codex once shortened every address for the rest of a
+   conversation after such a request: that is wrong. When a table column or a
    row needs a short label, name the thing instead (Pair A, Wallet Y, the
    vault) and list each name with its full address just above the table:
    `To 0x00862568… pair` as a column header is wrong. When the user types a shortened address, take it as the one full
@@ -111,6 +115,7 @@ Find the question in this table. Send its first query, once, with the addresses 
 | Biggest senders or receivers of one address                  | `topology` | Newest links of one address, `ORDER BY f.amount_usd_sum DESC LIMIT 10` |
 | How many, how much, first or last active, for one address    | `topology` | Profile of one address                                                 |
 | The transfers of a pair on one day                           | `facts`    | `TRANSFER` of the pair and the day, see Facts                          |
+| What one address did in a month, since a date, in the last N days | topology, then facts | Links bounded by first and last seen, day reads only for the links that straddle an edge, see A window of days for one address |
 | What happened in this transaction hash?                      | `chain`    | `Transaction {tx_id}`, see Chain                                       |
 | The latest block, block N, how far behind the graph is       | `chain`    | `Head`, or `Block {block_height}`                                      |
 | What fields does an Address have?                            | none       | Call `meta_schema {network}`. Send no query.                           |
@@ -330,7 +335,7 @@ The server serves five read-only catalog calls: `CALL db.labels()`, `CALL db.rel
 - A facts read aggregates with `count()` and `sum()` only, over the whole page: no grouping key, no `min()`, `max()` or `avg()` (`unsupported facts query shape`). Read the rows and compute the rest yourself.
 - Every row and both endpoints carry `network`, the query's `network`. A filter on it is no anchor: it never replaces the pair and the day.
 - Facts serves no kind. A read that names `:Account` or `:Contract` is refused with `facts_no_anchor`: ask `USE topology` for the kind, or `USE chain` for `is_contract` and `nonce`.
-- A facts read covers one day. For more days, send one read for each day.
+- A facts read covers one day. For more days, send one read for each day, and for a window of days around one address pick the pairs first (A window of days for one address, below): never every pair on every day.
 - Amounts and USD values come back as text, such as `"5.23661492"`. Convert them before you add them.
 - `TRANSFER` columns: `tx_id`, `block_date`, `block_height`, `block_timestamp`, `event_index`, `edge_index`, `kind`, `asset_contract`, `asset_symbol`, `amount`, `amount_usd`, `price_usd`, `price_missing`, `token_id`, `token_standard`, `operator_address`, `raw_amount` and `decimals`. `kind` is `token`, `native` or `internal`: an `internal` row is ETH a contract sends while it runs a call.
 
@@ -349,6 +354,40 @@ pair moved on one day, read its `TRANSFER` rows for that day, then:
 2. Add the `amount_usd` values for the USD figure, after you convert the text to numbers. `amount_usd` is each row's value at the day's average price.
 3. If a row's `price_missing` is true, show its amount and say no price exists for that asset. Never guess a USD value.
 4. Say "tokens worth about X USD on DAY", because the row moved tokens.
+
+### A window of days for one address
+
+"What did this address do in September", "everything it received since
+August 1", "only the last 7 days": never read every pair on every day. One
+answer once took 72 reads and 189 seconds. Three steps, in this order:
+
+1. One topology read, both directions, bounded by the window: a link is in
+   the window when `f.first_seen_timestamp <= <window end ms>` and
+   `f.last_seen_timestamp >= <window start ms>`. Return `from_address`,
+   `to_address`, `tx_count`, `amount_usd_sum`, `first_seen_timestamp` and
+   `last_seen_timestamp`. This is the list of counterparties active in the
+   window.
+2. A link whose first and last seen both fall inside the window needs no
+   facts read: its lifetime `tx_count` and `amount_usd_sum` are the window
+   totals. Only a link that straddles a window edge needs the per-day
+   totals: for that pair, one `graph_query_batch` of one `count()` and
+   `sum()` query per day, up to 20 days per call, over the days between the
+   later of its first seen and the window start, and the earlier of its last
+   seen and the window end.
+3. Answer with the totals per counterparty, and say which are exact and
+   which came from the day reads. Read rows only for the days the user asks
+   about. When more than ten links straddle an edge, give the window picture
+   from the link totals, name the straddling pairs as estimates, and offer
+   the exact read for one of them.
+
+The outgoing side, for September 2026; the incoming side is the same read
+with the arrow reversed, and both go in one `graph_query_batch`:
+
+```cypher
+USE topology
+MATCH (a:Address {address: "0x9f73873740c799d74741ad2d15cee7fb33572e4a"})-[f:FLOWS_TO]->(b:Address) WHERE NOT a:Pool AND f.first_seen_timestamp <= 1790812799000 AND f.last_seen_timestamp >= 1788220800000
+RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, a.labels AS from_labels, b.labels AS to_labels, a.is_exchange AS from_is_exchange, b.is_exchange AS to_is_exchange ORDER BY f.last_seen_timestamp DESC LIMIT 50
+```
 
 ## Chain: one key, one node
 

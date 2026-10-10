@@ -344,41 +344,48 @@
   },
   {
    "id": "skill-cypher-20",
-   "layer": "chain",
-   "anchor": "key",
-   "query": "USE chain MATCH (t:Transaction {tx_id: \"0x044587122970de1e3c377a8ed7ab56a49c777a2b7441a2f5d9ca32dbab9fbe71\"}) RETURN t.status, t.block_height, t.block_date",
+   "layer": "topology",
+   "anchor": "address",
+   "query": "USE topology MATCH (a:Address {address: \"0x9f73873740c799d74741ad2d15cee7fb33572e4a\"})-[f:FLOWS_TO]->(b:Address) WHERE NOT a:Pool AND f.first_seen_timestamp <= 1790812799000 AND f.last_seen_timestamp >= 1788220800000 RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, a.labels AS from_labels, b.labels AS to_labels, a.is_exchange AS from_is_exchange, b.is_exchange AS to_is_exchange ORDER BY f.last_seen_timestamp DESC LIMIT 50",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
    "id": "skill-cypher-21",
    "layer": "chain",
    "anchor": "key",
-   "query": "USE chain MATCH (b:Block {block_height: 79841521}) RETURN b.block_hash, b.block_date",
+   "query": "USE chain MATCH (t:Transaction {tx_id: \"0x044587122970de1e3c377a8ed7ab56a49c777a2b7441a2f5d9ca32dbab9fbe71\"}) RETURN t.status, t.block_height, t.block_date",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
    "id": "skill-cypher-22",
    "layer": "chain",
    "anchor": "key",
-   "query": "USE chain MATCH (a:Address {address: \"0x04911a118f11c75667e4d0dfb8e640af5a353550\"}) RETURN a.balance, a.nonce, a.is_contract",
+   "query": "USE chain MATCH (b:Block {block_height: 79841521}) RETURN b.block_hash, b.block_date",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
    "id": "skill-cypher-23",
    "layer": "chain",
    "anchor": "key",
-   "query": "USE chain MATCH (a:Address {address: \"0x04911a118f11c75667e4d0dfb8e640af5a353550\", at_block: 79000000}) RETURN a.balance, a.nonce, a.is_contract",
+   "query": "USE chain MATCH (a:Address {address: \"0x04911a118f11c75667e4d0dfb8e640af5a353550\"}) RETURN a.balance, a.nonce, a.is_contract",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
    "id": "skill-cypher-24",
+   "layer": "chain",
+   "anchor": "key",
+   "query": "USE chain MATCH (a:Address {address: \"0x04911a118f11c75667e4d0dfb8e640af5a353550\", at_block: 79000000}) RETURN a.balance, a.nonce, a.is_contract",
+   "source": "skills/chain-insights-cypher/SKILL.md"
+  },
+  {
+   "id": "skill-cypher-25",
    "layer": "chain",
    "anchor": "head",
    "query": "USE chain MATCH (h:Head) RETURN h.block_height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
-   "id": "skill-cypher-25",
+   "id": "skill-cypher-26",
    "layer": "facts",
    "anchor": "pair_day",
    "query": "USE facts MATCH (a:Address {address: \"0xcaf681a66d020601342297493863e78c959e5cb2\"})-[t:TRANSFER]->(b:Address {address: \"0x97bf35f2603357d0be4dcd081ceccdbc9f9c2cc5\"}) WHERE t.block_date = \"2026-10-07\" RETURN t.block_timestamp AS block_timestamp, t.amount_usd AS amount_usd LIMIT 200",

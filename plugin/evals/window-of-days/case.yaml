@@ -1,0 +1,33 @@
+schema_version: "1.0"
+name: window-of-days
+expected_outcome: The plan starts with one topology read bounded by first_seen and last_seen against the window, uses lifetime totals for links inside the window, and reads per-day totals only for links that straddle an edge.
+execution:
+  prompt: |
+    You are an AML analyst assistant using Chain Insights on robinhood. Load the chain-insights-cypher skill first and call no graph tool.
+    The user asks: "What did 0x9f73873740c799d74741ad2d15cee7fb33572e4a do in September 2026?"
+    Write the plan of reads you would send, in order, with the bound each read carries. Keep it short.
+  max_turns: 4
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: bounded-topology-first
+    target: last_message
+    flags: i
+    pattern: 'first[ _]seen[\s\S]*last[ _]seen|last[ _]seen[\s\S]*first[ _]seen'
+    match: contains
+  - type: regex
+    name: lifetime-totals-inside-window
+    target: last_message
+    flags: i
+    pattern: 'lifetime|inside the window|within the window|no facts read|without a facts read'
+    match: contains
+  - type: regex
+    name: straddle-only-day-reads
+    target: last_message
+    flags: i
+    pattern: 'straddl|cross(es|ing) (the|a) (window )?edge|overlap'
+    match: contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

@@ -482,6 +482,14 @@
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
+   "id": "skill-cypher-19",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address {address: \"0x9f73873740c799d74741ad2d15cee7fb33572e4a\"})-[f:FLOWS_TO]->(b:Address) WHERE NOT a:Pool AND f.first_seen_timestamp <= 1790812799000 AND f.last_seen_timestamp >= 1788220800000 RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, a.labels AS from_labels, b.labels AS to_labels, a.is_exchange AS from_is_exchange, b.is_exchange AS to_is_exchange ORDER BY f.last_seen_timestamp DESC LIMIT 50",
+   "source": "skills/chain-insights-cypher/SKILL.md"
+  },
+  {
    "id": "hint-1",
    "expect": "admit",
    "rule": null,
