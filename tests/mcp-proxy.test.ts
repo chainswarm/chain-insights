@@ -2440,15 +2440,16 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       serverInstance,
       'graph_query'
     )({ query: 'USE topology MATCH (a:Address) RETURN a LIMIT 1', network: 'robinhood' })
-    // graph_query answers as the graph endpoint returned it, plus its browser link.
+    // graph_query answers as the graph endpoint returned it, plus the answer hint and its browser link.
     const viewUrl = answer.structuredContent.view_url as string
     expect(viewUrl).toMatch(VIEW_URL)
+    const { ANSWER_HINT } = await import('../src/mcp/answer-hint.js')
     expect(answer).toEqual({
       content: [
         { type: 'text', text: 'rows' },
         { type: 'text', text: `Open the graph in a browser window: ${viewUrl}` },
       ],
-      structuredContent: { ...queryResult, view_url: viewUrl },
+      structuredContent: { ...queryResult, hint: ANSWER_HINT, view_url: viewUrl },
       _meta: { 'ai.chain-insights/billing': { queries: 1 } },
       isError: false,
     })

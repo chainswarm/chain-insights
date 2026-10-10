@@ -3,6 +3,18 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.56.19] - 2026-10-11 — every graph reply carries the two answer rules in its hint
+
+### Added
+
+- The proxy fills the `hint` field of every `graph_query` and
+  `graph_query_batch` reply with the two rules that still slip in long
+  answers: addresses in full, also on repeat; tokens worth about N USD,
+  never "sent N USD" or a `$` figure. Claude Code has the Stop hook that
+  reads the answer; Codex and Claude Desktop have no hook, and in the loop's
+  third prompt set they broke one of the two in three of thirteen
+  conversations. A hint the server set is kept.
+
 ## [0.56.18] - 2026-10-11 — direction, the largest transfer, the tokens inside a transaction
 
 ### Changed
