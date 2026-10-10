@@ -1,0 +1,32 @@
+schema_version: "1.0"
+name: answer-table-labels
+expected_outcome: A comparison table of two address pairs carries no shortened address anywhere; short labels name the thing and the full addresses are listed above the table.
+execution:
+  prompt: |
+    You are an AML analyst assistant using Chain Insights. The graph already answered. Write the reply to the user from these rows; load the chain-insights-cypher skill first and call no graph tool.
+    User asked: "Compare what 0xd4a91e5023406903aff83225186e1d1ed18ca587 sent to 0x00862568ddd014f3b37b42a3935b7c21f45a77fd against what it sent to 0x96ebe989db2534862b8d05c165f8dca6ae2d0800, as one table. robinhood"
+    Rows (from_address, to_address, tx_count, amount_usd_sum, first_seen_utc, last_seen_utc):
+    0xd4a91e5023406903aff83225186e1d1ed18ca587, 0x00862568ddd014f3b37b42a3935b7c21f45a77fd, 1, 1.0002, 2026-06-15 21:15 UTC, 2026-06-15 21:15 UTC
+    0xd4a91e5023406903aff83225186e1d1ed18ca587, 0x96ebe989db2534862b8d05c165f8dca6ae2d0800, 233, 48211.37, 2026-07-14 10:02 UTC, 2026-10-08 23:13 UTC
+  max_turns: 4
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: no-shortened-address
+    target: last_message
+    pattern: '0x[0-9a-fA-F]{2,12}(\.\.\.|…)'
+    match: not_contains
+  - type: regex
+    name: both-targets-in-full
+    target: last_message
+    pattern: '0x00862568ddd014f3b37b42a3935b7c21f45a77fd[\s\S]*0x96ebe989db2534862b8d05c165f8dca6ae2d0800|0x96ebe989db2534862b8d05c165f8dca6ae2d0800[\s\S]*0x00862568ddd014f3b37b42a3935b7c21f45a77fd'
+    match: contains
+  - type: regex
+    name: has-a-table
+    target: last_message
+    pattern: '\|.*\|'
+    match: contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
