@@ -65,9 +65,12 @@ The one case without the tool is at the end, Shell without the tool.
    never `sender` and `receiver`, `src` and `dst`, or `from` and `to`.
 9. Tokens are not dollars. A transfer moves tokens, and its `amount_usd` is
    their value at the day's average price. Say "tokens worth about 183 USD on
-   2026-10-06", never "sent 183 USD". Write the unit as `USD` after the
+   2026-10-06", never "sent 183 USD", and never "sent about 183 USD",
+   "received about", "moved about" or "paid about 183 USD" either: the
+   verb takes tokens, the USD figure takes "worth". Write the unit as `USD` after the
    number, never a `$` sign: `$183` reads as dollars sent. In a table, head
-   the column "Tokens worth (USD)", not "Value" or "Amount (USD)". For the
+   the column "Tokens worth (USD)", not "Value" or "Amount (USD)", also when
+   the user asks for "a $ column": the header says what the number is. For the
    assets behind a flow, use the facts read in Value of one day's flow.
 10. When `graph_query` is in your tool list, every read goes through that
    tool, a risk question included. Never run `cia` in a shell instead: a

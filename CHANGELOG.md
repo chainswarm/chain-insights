@@ -3,6 +3,17 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.56.7] - 2026-10-10 — rule 9 holds against a dollar column and verb forms
+
+### Changed
+
+- Skill rule 9: a user who asks for "a $ column" still gets "Tokens worth
+  (USD)" (Codex, round 130), and "sent about", "received about", "moved
+  about" and "paid about N USD" are named as wrong (Claude lanes, rounds
+  54, 77, 134, 146).
+
+---
+
 ## [0.56.6] - 2026-10-10 — two rule words from rounds 90 to 115
 
 ### Changed
