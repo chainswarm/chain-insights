@@ -45,6 +45,7 @@ import { newViewId, startViewServer, type ViewServer } from './view-server.js'
 import { GRAPH_OPTIONAL_COLUMNS, flowsRecipeReturn } from './graph-row-columns.js'
 import { connectFresh, connectRemote } from './remote-connect.js'
 import { withTimestampTextResult, withoutUtcProperties } from './timestamp-text.js'
+import { withAnswerHintResult } from './answer-hint.js'
 
 const LOCAL_TOOL_NAMES = new Set([
   'meta_network_capabilities',
@@ -846,9 +847,10 @@ function normalizeRemoteToolResult(toolName: string, result: RemoteToolResult) {
     _meta: sanitizeRemoteMeta(result._meta),
     isError: result.isError,
   }
-  // Every timestamp column gets its UTC text twin (src/mcp/timestamp-text.ts).
+  // Every graph reply carries the two answer rules in its hint (src/mcp/answer-hint.ts)
+  // and every timestamp column its UTC text twin (src/mcp/timestamp-text.ts).
   return toolName === 'graph_query' || toolName === 'graph_query_batch'
-    ? withTimestampTextResult(normalized)
+    ? withTimestampTextResult(withAnswerHintResult(normalized))
     : normalized
 }
 
