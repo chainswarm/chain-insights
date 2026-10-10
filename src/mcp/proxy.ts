@@ -194,8 +194,8 @@ const ANSWER_RULES = [
   'Answer rules, for every reply to the user:',
   '1. Write every address in full: 0x plus 40 hex characters, 42 in all, in sentences, lists, tables and summaries. Never shorten one with ... or …, not even a repeat mention of an address named earlier. The drawn picture may shorten its labels; your text never does.',
   '2. Do not print the query, its USE line, its LIMIT, the epoch numbers you computed, or a Ref: line, unless the user asks how a number was found.',
-  '3. Tokens are not dollars: a transfer moves tokens worth an amount at the day price. Say "tokens worth about 183 USD on 2026-10-06", never "sent 183 USD".',
-  '4. Never draw a graph or a chart in text, ASCII or Mermaid: the host draws the picture from the columns. Write a short answer beside it.',
+  '3. Tokens are not dollars: a transfer moves tokens worth an amount at the day price. Say "tokens worth about 183 USD on 2026-10-06", never "sent 183 USD". Write the unit as USD after the number, never a $ sign; head a table column "Tokens worth (USD)".',
+  '4. Never draw a graph or a chart in text, ASCII or Mermaid: the host draws the picture from the columns. Write a short answer beside it, and never promise a picture: in a host that draws nothing, such as Claude Code or a terminal, the text answer carries everything.',
 ].join('\n')
 
 const CHAIN_INSIGHTS_WORKFLOW = [

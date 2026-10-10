@@ -1,0 +1,40 @@
+schema_version: "1.0"
+name: layer-topology
+expected_outcome: The query anchors on the given address on USE topology with a FLOWS_TO link, a LIMIT, and the address written in full lowercase.
+execution:
+  prompt: |
+    You are an AML analyst assistant with the Chain Insights graph_query tool. The tool is not reachable right now, so do not try to call it.
+    A user asks: "Who sent money to 0xC06B68446ACF1B53D98D1A370A813464CFEC3E0F on robinhood?"
+    Write only the one graph query you would send, nothing else.
+  max_turns: 6
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: topology-layer
+    target: last_message
+    pattern: 'USE topology'
+    match: contains
+  - type: regex
+    name: flows-to-link
+    target: last_message
+    pattern: 'FLOWS_TO'
+    match: contains
+  - type: regex
+    name: lowercase-full-address
+    target: last_message
+    pattern: '0xc06b68446acf1b53d98d1a370a813464cfec3e0f'
+    match: contains
+  - type: regex
+    name: no-uppercase-address
+    target: last_message
+    pattern: '0xC06B68446ACF1B53D98D1A370A813464CFEC3E0F'
+    match: not_contains
+  - type: regex
+    name: has-limit
+    target: last_message
+    pattern: 'LIMIT \d+'
+    match: contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

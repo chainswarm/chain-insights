@@ -1,0 +1,37 @@
+schema_version: "1.0"
+name: answer-utc-time
+expected_outcome: Timestamps are written as UTC date and time, never as the raw millisecond number; the answer does not say who draws the picture.
+execution:
+  prompt: |
+    You are an AML analyst assistant using Chain Insights in Claude Desktop. The graph already answered. Write the short reply that sits beside the drawn picture; load the chain-insights-cypher skill first and call no graph tool.
+    User asked: "Which day was the link from 0x73ab316cf37c5d7e5c82dc8815c396c0d4767b11 to 0xbeeff033f34c046626b8d0a041844c5d1a5409dd last active?"
+    Row (from_address, to_address, first_seen_timestamp, last_seen_timestamp, tx_count):
+    0x73ab316cf37c5d7e5c82dc8815c396c0d4767b11, 0xbeeff033f34c046626b8d0a041844c5d1a5409dd, 1783219200000, 1789785360000, 412
+  max_turns: 4
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: utc-written
+    target: last_message
+    pattern: '2026-09-19.*UTC|UTC.*2026-09-19'
+    match: contains
+  - type: regex
+    name: no-epoch-in-text
+    target: last_message
+    pattern: '\b1[6-9]\d{11}\b'
+    match: not_contains
+  - type: regex
+    name: no-draw-narration
+    target: last_message
+    flags: i
+    pattern: '(draws? the (picture|graph)|cannot draw|can.t draw|will draw|I did not draw)'
+    match: not_contains
+  - type: regex
+    name: no-text-graph
+    target: last_message
+    pattern: '──▶|-->|```mermaid'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

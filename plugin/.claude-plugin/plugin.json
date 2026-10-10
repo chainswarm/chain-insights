@@ -1,7 +1,7 @@
 {
   "name": "chain-insights",
   "displayName": "Chain Insights",
-  "version": "0.55.1",
+  "version": "0.56.0",
   "description": "AML investigation on the robinhood chain: query the Chain Insights Graph and trace money flows through the local Chain Insights MCP proxy.",
   "author": {
     "name": "Chainswarm Technology",
@@ -10,5 +10,12 @@
   "homepage": "https://chain-insights.ai",
   "repository": "https://github.com/chainswarm/chain-insights",
   "license": "MIT",
-  "keywords": ["aml", "blockchain", "investigation", "graph", "mcp", "chain-insights"]
+  "keywords": [
+    "aml",
+    "blockchain",
+    "investigation",
+    "graph",
+    "mcp",
+    "chain-insights"
+  ]
 }

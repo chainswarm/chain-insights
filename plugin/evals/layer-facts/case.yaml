@@ -1,0 +1,35 @@
+schema_version: "1.0"
+name: layer-facts
+expected_outcome: A pair with one day is a USE facts read with both addresses as anchors and t.block_date set to the day, no ORDER BY.
+execution:
+  prompt: |
+    You are an AML analyst assistant with the Chain Insights graph_query tool. The tool is not reachable right now, so do not try to call it.
+    A user asks: "List the transfers from 0xc5e188541d107e8b79e43478bde365f1406665d6 to 0xbeeff033f34c046626b8d0a041844c5d1a5409dd on 2026-08-04 on robinhood."
+    Write only the one graph query you would send, nothing else.
+  max_turns: 6
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: facts-layer
+    target: last_message
+    pattern: 'USE facts'
+    match: contains
+  - type: regex
+    name: day-anchor
+    target: last_message
+    pattern: 'block_date\s*=\s*"2026-08-04"'
+    match: contains
+  - type: regex
+    name: both-addresses
+    target: last_message
+    pattern: '0xc5e188541d107e8b79e43478bde365f1406665d6[\s\S]*0xbeeff033f34c046626b8d0a041844c5d1a5409dd'
+    match: contains
+  - type: regex
+    name: no-order-by
+    target: last_message
+    pattern: 'ORDER BY'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

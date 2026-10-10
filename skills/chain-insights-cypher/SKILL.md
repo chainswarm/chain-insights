@@ -8,12 +8,12 @@ description: Load this before the first graph_query or graph_query_batch call: w
 Standard ISO GQL for `graph_query` and `graph_query_batch`. Read-only. No
 `CALL`, no procedures, no vendor syntax.
 
-In an MCP host, such as Claude Desktop, call the `graph_query` tool with `network` and `query`; `graph_query_batch` takes `queries`. There is no shell. In a shell, run a query with
-`cia mcp call graph_query network=robinhood "query=<query>"`.
-Send related reads in one call with `cia mcp call graph_query_batch network=robinhood 'queries=[{"id":"a","query":"<query>"}]'`.
-Always pass `network` and your own `LIMIT`. These two commands, and
-`cia network robinhood --schema` for field names, are all you need. Do not run
-`cia --help` to look for others.
+Call the `graph_query` tool with `network` and `query`; `graph_query_batch`
+takes `queries`. Always pass `network` and your own `LIMIT`. Every read goes
+through the tool, in every host (Claude Desktop, Claude Code, Codex, the
+ChatGPT app): never run `cia` from a shell when the tool is in your list,
+because a sandboxed shell has no network and the call fails with a DNS error.
+The one case without the tool is at the end, Shell without the tool.
 
 ## Rules that stop most failures
 
@@ -51,13 +51,25 @@ Always pass `network` and your own `LIMIT`. These two commands, and
 8. Never draw the graph yourself, in ASCII art or in Mermaid. Claude Desktop
    and the Codex app draw the picture from the column names (see Name the
    columns for a picture). Write a short text answer beside it, and do not
-   tell the user who draws the picture or that you did not draw it. Any query whose
+   tell the user who draws the picture or that you did not draw it: "the host
+   draws the picture", "I won't draw it" and "I did not draw it" are all
+   wrong. Never promise a picture: in a host that draws nothing, such as
+   Claude Code or a terminal, "the picture should appear beside this answer"
+   is false. When the user asks you to draw, answer with the flows as a list
+   or a table and say nothing about drawing. Any query whose
    rows are pairs of addresses names them `from_address` and `to_address`,
    never `sender` and `receiver`, `src` and `dst`, or `from` and `to`.
 9. Tokens are not dollars. A transfer moves tokens, and its `amount_usd` is
    their value at the day's average price. Say "tokens worth about 183 USD on
-   2026-10-06", never "sent 183 USD". For the assets behind a flow, use the
-   facts read in Value of one day's flow.
+   2026-10-06", never "sent 183 USD". Write the unit as `USD` after the
+   number, never a `$` sign: `$183` reads as dollars sent. In a table, head
+   the column "Tokens worth (USD)", not "Value" or "Amount (USD)". For the
+   assets behind a flow, use the facts read in Value of one day's flow.
+10. When `graph_query` is in your tool list, every read goes through that
+   tool, a risk question included. Never run `cia` in a shell instead: a
+   sandboxed shell (Codex, Claude Code) has no network, the call fails with
+   a DNS error, and the user is told the service is unreachable when it is
+   not.
 
 ## Pick the layer first
 
@@ -415,3 +427,11 @@ several days in one read (`block_date IN [...]`): both are refused. A literal
 column such as `RETURN "2026-10-07" AS day` does not parse.
 
 A row that names its ends `src`, `dst` or `address` draws no graph. Alias them `from_address` and `to_address`.
+
+## Shell without the tool
+
+Only in a plain shell with no `graph_query` tool, run a query with
+`cia mcp call graph_query network=robinhood "query=<query>"`.
+Send related reads in one call with `cia mcp call graph_query_batch network=robinhood 'queries=[{"id":"a","query":"<query>"}]'`.
+These two commands, and `cia network robinhood --schema` for field names, are
+all you need. Do not run `cia --help` to look for others.
