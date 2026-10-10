@@ -3,6 +3,32 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.56.0] - 2026-10-10 — skill rules from the three-harness loop, and an eval suite
+
+### Changed
+
+- Skill rule 9 and server answer rule 3: the unit is written as `USD` after
+  the number, never a `$` sign, and a table column is headed "Tokens worth
+  (USD)". Codex wrote `$1.00` and "Value (USD)" in every table.
+- Skill rule 8 and server answer rule 4: never promise a picture, and never
+  say who draws it. In Claude Code, a terminal, "the picture should appear
+  beside this answer" was false; the answer now carries the flows as a list
+  or a table.
+- Skill rule 10, new: when `graph_query` is in the tool list every read goes
+  through it; `cia mcp call` from a sandboxed shell has no network and told
+  the user the service was unreachable. The shell recipe moved from the
+  intro to a last section, "Shell without the tool".
+
+### Added
+
+- `plugin/evals/`: eight text-only eval cases for the skill (three layer
+  picks, four answer rules, the shell trap), run with
+  `claude plugin eval ./plugin --runs 3 --ablation with-without`. Baseline
+  with the skill 1.00 on every case, without 0.25 to 0.78. Not shipped to
+  npm.
+
+---
+
 ## [0.55.1] - 2026-10-10 — the connect retry works after a failed initialize; two skill rules
 
 ### Fixed

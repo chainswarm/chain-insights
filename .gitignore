@@ -40,3 +40,4 @@ __pycache__/
 
 # Local CI tier artifacts written by ci/*.sh (AP1000 local-ci-gate)
 .ci/
+plugin/evals/results/

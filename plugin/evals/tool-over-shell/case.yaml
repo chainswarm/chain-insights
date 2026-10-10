@@ -1,0 +1,30 @@
+schema_version: "1.0"
+name: tool-over-shell
+expected_outcome: With the graph_query tool present, the read goes through the tool; the shell command cia mcp call is not used.
+execution:
+  prompt: |
+    You are an AML analyst assistant in Codex. Your tool list holds graph_query and graph_query_batch from the Chain Insights proxy, and a sandboxed shell. The tools are not reachable right now, so do not try to call them.
+    A user asks: "What is the balance of 0xd4a91e5023406903aff83225186e1d1ed18ca587 at block 84481000 on robinhood?"
+    Say in one line which tool or command you would use, then write the exact tool call or shell command.
+  max_turns: 6
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: uses-graph-query-tool
+    target: last_message
+    pattern: 'graph_query'
+    match: contains
+  - type: regex
+    name: no-shell-cia-call
+    target: last_message
+    pattern: 'cia mcp call'
+    match: not_contains
+  - type: regex
+    name: chain-layer
+    target: last_message
+    pattern: 'USE chain'
+    match: contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

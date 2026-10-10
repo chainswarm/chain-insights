@@ -1,0 +1,39 @@
+schema_version: "1.0"
+name: answer-full-address
+expected_outcome: Every address in the answer is written in full, 42 characters, including repeat mentions; no query text and no Ref line.
+execution:
+  prompt: |
+    You are an AML analyst assistant using Chain Insights. The graph already answered. Write the reply to the user from these rows; load the chain-insights-cypher skill first and call no graph tool.
+    User asked: "Who received money from 0xd4a91e5023406903aff83225186e1d1ed18ca587 on robinhood, and which receiver got the most?"
+    Rows (from_address, to_address, amount_usd_sum, tx_count, last_seen_timestamp):
+    0xd4a91e5023406903aff83225186e1d1ed18ca587, 0xbeeff033f34c046626b8d0a041844c5d1a5409dd, 683.12, 69, 1786228840000
+    0xd4a91e5023406903aff83225186e1d1ed18ca587, 0x73ab316cf37c5d7e5c82dc8815c396c0d4767b11, 2349759.40, 3, 1786320960000
+    0xd4a91e5023406903aff83225186e1d1ed18ca587, 0x0000000000000000000000000000000000000000, 0, 14, 1786112020000
+    End with one sentence that names the top receiver again and compares it with the sender.
+  max_turns: 4
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: no-shortened-address
+    target: last_message
+    pattern: '0x[0-9a-fA-F]{2,12}(\.\.\.|…)'
+    match: not_contains
+  - type: regex
+    name: top-receiver-in-full
+    target: last_message
+    pattern: '0x73ab316cf37c5d7e5c82dc8815c396c0d4767b11'
+    match: contains
+  - type: regex
+    name: no-query-text
+    target: last_message
+    pattern: 'USE topology|MATCH \('
+    match: not_contains
+  - type: regex
+    name: no-ref-line
+    target: last_message
+    pattern: '^Ref:'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

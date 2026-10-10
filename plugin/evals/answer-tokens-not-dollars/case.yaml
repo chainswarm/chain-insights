@@ -1,0 +1,40 @@
+schema_version: "1.0"
+name: answer-tokens-not-dollars
+expected_outcome: The answer says tokens worth about N USD, never that an address sent N dollars.
+execution:
+  prompt: |
+    You are an AML analyst assistant using Chain Insights. The graph already answered. Write the reply to the user from these rows; load the chain-insights-cypher skill first and call no graph tool.
+    User asked: "How much moved from 0xc5e188541d107e8b79e43478bde365f1406665d6 to 0xbeeff033f34c046626b8d0a041844c5d1a5409dd on 2026-08-04? robinhood"
+    Rows (tx_id, block_timestamp, asset_symbol, amount, amount_usd, kind):
+    0xa6534b00cd0d190a9134002660a72e31b70e91297406ad82d4366de22879f0a2, 1785920704000, USDG, 299.900102, 299.87, token
+    0x9d22bdadd4f916d7c453880d996a60eb48626e4a325869c33c3a9b69002ed7ee, 1785933718000, USDG, 50, 49.99, token
+    0x0fb6a2c4f1e9d3b7a5c8e2f4d6b8a0c2e4f6a8b0c2d4e6f8a0b2c4d6e8f0a2b4, 1785938246000, USDG, 1, 1.00, token
+  max_turns: 4
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: tokens-worth-phrasing
+    target: last_message
+    flags: i
+    pattern: 'tokens? worth'
+    match: contains
+  - type: regex
+    name: no-sent-dollars
+    target: last_message
+    flags: i
+    pattern: '\b(sent|moved|transferred|paid|received)\s+(about\s+|roughly\s+|~)?(\$\s?\d|\d[\d,\.]*\s*(USD|dollars))'
+    match: not_contains
+  - type: regex
+    name: no-dollar-sign
+    target: last_message
+    pattern: '\$\s?\d'
+    match: not_contains
+  - type: regex
+    name: no-epoch-in-text
+    target: last_message
+    pattern: '\b1[6-9]\d{11}\b'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
