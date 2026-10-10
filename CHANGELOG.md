@@ -3,6 +3,17 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.56.14] - 2026-10-10 — a `_utc` column named in a query is served
+
+### Fixed
+
+- Thirteen of 48 loop rounds on the Claude lanes wrote the reply's `_utc`
+  twin into a query as a property: topology answered null, a `SWAP` read was
+  refused. The proxy now rewrites `x.<column>_utc` to `x.<column>` before the
+  call and renders the milliseconds that come back under a `*_utc` name as UTC
+  text in place, so the model gets the column it asked for. Rule 7 says the
+  twin lives in the reply only.
+
 ## [0.56.13] - 2026-10-10 — what a pool is, and who trades through it
 
 ### Changed

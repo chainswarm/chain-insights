@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { addTimestampText, utcText, withTimestampText, withTimestampTextResult } from '../src/mcp/timestamp-text.js'
+import {
+  addTimestampText,
+  stripUtcProperties,
+  utcText,
+  withTimestampText,
+  withTimestampTextResult,
+  withoutUtcProperties,
+} from '../src/mcp/timestamp-text.js'
 
 describe('timestamp text twins', () => {
   it('writes the UTC text of a block the loop saw mis-read four times', () => {
@@ -72,5 +79,37 @@ describe('timestamp text twins', () => {
     expect(out.content).toEqual([{ type: 'text', text: 'Rows: 1' }])
     const same = { content: [{ type: 'text', text: '{}' }], structuredContent: { facts: {} } }
     expect(withTimestampTextResult(same)).toBe(same)
+  })
+})
+
+describe('a _utc column named in a query', () => {
+  it('rewrites the property to its millisecond column and keeps the alias', () => {
+    expect(
+      stripUtcProperties(
+        'USE topology MATCH (a:Address {address: "0x1"})-[f:FLOWS_TO]->(b:Address) RETURN f.first_seen_timestamp_utc AS first_seen_utc, f.last_seen_timestamp AS last_seen_timestamp, f.last_seen_timestamp_utc'
+      )
+    ).toBe(
+      'USE topology MATCH (a:Address {address: "0x1"})-[f:FLOWS_TO]->(b:Address) RETURN f.first_seen_timestamp AS first_seen_utc, f.last_seen_timestamp AS last_seen_timestamp, f.last_seen_timestamp'
+    )
+  })
+
+  it('renders the milliseconds that come back under a *_utc name as UTC text in place', () => {
+    expect(addTimestampText({ first_seen_utc: 1785974143000, last_seen_timestamp: 1785974143000 })).toEqual({
+      first_seen_utc: '2026-08-05 23:55:43 UTC',
+      last_seen_timestamp: 1785974143000,
+      last_seen_timestamp_utc: '2026-08-05 23:55:43 UTC',
+    })
+  })
+
+  it('applies to graph_query and every graph_query_batch member, and leaves other tools alone', () => {
+    expect(withoutUtcProperties('graph_query', { network: 'robinhood', query: 'RETURN t.block_timestamp_utc' })).toEqual({
+      network: 'robinhood',
+      query: 'RETURN t.block_timestamp',
+    })
+    expect(
+      withoutUtcProperties('graph_query_batch', { network: 'robinhood', queries: [{ id: 'a', query: 'RETURN b.block_timestamp_utc AS t' }, 'raw'] })
+    ).toEqual({ network: 'robinhood', queries: [{ id: 'a', query: 'RETURN b.block_timestamp AS t' }, 'raw'] })
+    const other = { network: 'robinhood', query: 'RETURN t.block_timestamp_utc' }
+    expect(withoutUtcProperties('meta_schema', other)).toBe(other)
   })
 })

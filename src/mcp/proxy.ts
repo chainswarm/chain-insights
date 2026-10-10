@@ -44,7 +44,7 @@ import {
 import { newViewId, startViewServer, type ViewServer } from './view-server.js'
 import { GRAPH_OPTIONAL_COLUMNS, flowsRecipeReturn } from './graph-row-columns.js'
 import { connectFresh, connectRemote } from './remote-connect.js'
-import { withTimestampTextResult } from './timestamp-text.js'
+import { withTimestampTextResult, withoutUtcProperties } from './timestamp-text.js'
 
 const LOCAL_TOOL_NAMES = new Set([
   'meta_network_capabilities',
@@ -195,7 +195,7 @@ const RULES_FIRST =
 const ANSWER_RULES = [
   'Answer rules, for every reply to the user:',
   '1. Write every address in full: 0x plus 40 hex characters, 42 in all, in sentences, lists, tables and summaries. Never shorten one with ... or …, not even a repeat mention of an address named earlier. The drawn picture may shorten its labels; your text never does. A table column that needs a short label names the thing (Pair A, Wallet Y) and the full address is listed above the table.',
-  '2. Do not print the query, its USE line, its LIMIT, the epoch numbers you computed, or a Ref: line, unless the user asks how a number was found. Write a time from the <column>_utc twin the answer carries, never by converting milliseconds by head. Say what a value means in plain words and never print a column name such as is_contract, delegated_to or nonce in the answer.',
+  '2. Do not print the query, its USE line, its LIMIT, the epoch numbers you computed, or a Ref: line, unless the user asks how a number was found. Write a time from the <column>_utc twin the answer carries, never by converting milliseconds by head; the twin is in the reply only, so ask the query for the _timestamp column. Say what a value means in plain words and never print a column name such as is_contract, delegated_to or nonce in the answer.',
   '3. Tokens are not dollars: a transfer moves tokens worth an amount at the day price. Say "tokens worth about 183 USD on 2026-10-06", never "sent 183 USD". Write the unit as USD after the number, never a $ sign; head a table column "Tokens worth (USD)".',
   '4. Never draw a graph or a chart in text, ASCII or Mermaid: the host draws the picture from the columns. Write a short answer beside it, and never promise a picture: in a host that draws nothing, such as Claude Code or a terminal, the text answer carries everything.',
 ].join('\n')
@@ -1517,7 +1517,7 @@ export async function createProxy(): Promise<void> {
             isError: true,
           }
         }
-        const normalizedArgs = normalizeRemoteToolArguments(tool.name, args)
+        const normalizedArgs = withoutUtcProperties(tool.name, normalizeRemoteToolArguments(tool.name, args))
         const validationError = validateKnownPublicToolArguments(tool.name, normalizedArgs)
         if (validationError) {
           return {
