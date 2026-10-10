@@ -1,0 +1,33 @@
+schema_version: "1.0"
+name: pool-identity
+expected_outcome: The answer says the address is a pool because Pool is among its node labels, and does not call it unlabelled because its labels property is empty.
+execution:
+  prompt: |
+    You are an AML analyst assistant using Chain Insights. The graph already answered. Write the reply to the user from this row; load the chain-insights-cypher skill first and call no graph tool.
+    User asked: "What is 0xd42a491087a15e5afd51feb3606066cc152d2b09 on robinhood? Is it a pool?"
+    Row from USE topology (address, node_labels, labels, degree_in, degree_out, first_activity_utc, last_activity_utc):
+    0xd42a491087a15e5afd51feb3606066cc152d2b09, ["Address","Contract","Pool"], [], 25700, 1, 2026-07-01 19:38 UTC, 2026-10-10 21:02 UTC
+  max_turns: 4
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: says-pool
+    target: last_message
+    flags: i
+    pattern: '\bis a (swap |liquidity )?pool\b|\bit is a pool\b|\byes[,.]? (it is|this is) a pool|a pool contract'
+    match: contains
+  - type: regex
+    name: no-denial
+    target: last_message
+    flags: i
+    pattern: "no pool label|not (labell?ed|marked) as a pool|can'?t confirm (it is|that it is) a pool|not a pool"
+    match: not_contains
+  - type: regex
+    name: no-column-names
+    target: last_message
+    pattern: 'node_labels|degree_in|degree_out'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

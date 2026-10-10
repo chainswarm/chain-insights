@@ -3,6 +3,17 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.56.13] - 2026-10-10 — what a pool is, and who trades through it
+
+### Changed
+
+- Skill, topology: a pool is the `:Pool` node label read with `labels(p)`,
+  not the `labels` property; the traders are the senders into the pool on
+  `FLOWS_TO` ranked by `tx_count`, one read; a swap check is anchored on one
+  trader, never on a list or on the pool. Loop rounds 214 and 248 spent 39
+  to 86 seconds with timeouts, and one called a `:Pool` "no pool label".
+  Eval case `pool-identity`.
+
 ## [0.56.12] - 2026-10-10 — a window of days for one address is three reads, not a read per pair per day
 
 ### Changed
