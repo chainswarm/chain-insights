@@ -3,6 +3,15 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.56.10] - 2026-10-10 — a table label names the thing, never a shortened address
+
+### Changed
+
+- Skill rule 1 and the proxy answer rules: a table column or row that needs a
+  short label names the thing (Pair A, Wallet Y) and lists each name with its
+  full address above the table. Loop rounds 141 and 225 (Claude Code) headed
+  comparison columns with `0x00862568…`. Eval case `answer-table-labels`.
+
 ## [0.56.9] - 2026-10-10 — a batch's chain_busy members are resent by the proxy
 
 ### Fixed
