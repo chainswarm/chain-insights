@@ -987,15 +987,40 @@ export async function createProxy(): Promise<void> {
       )
     }
   }
-  await connectRemoteOnce()
-  /** A graph call on a proxy that lost the endpoint to a busy signal tries to connect again, once. */
-  const ensureRemote = async (): Promise<void> => {
-    if (remoteConnected || !remoteRetryable) return
-    await connectRemoteOnce()
-  }
-
   // Schema cache check — skip remote listTools call on cache hit
   let tools: McpTool[] | null = await loadSchema(graphMcpEndpoint)
+
+  // With the tool list cached, the proxy answers the host's initialize and
+  // tools/list at once and connects to the endpoint in the background. A busy
+  // endpoint (429) is retried for up to 15 s; a host that lists tools inside
+  // that window (Codex starts a fresh proxy on every resumed turn and lists in
+  // about 10 s) must still see graph_query, or it reports the connector
+  // unavailable and reaches for a shell. The first graph call waits for the
+  // connect in flight.
+  let connecting: Promise<void> | null = null
+  const startConnect = (): Promise<void> => {
+    if (!connecting) {
+      connecting = connectRemoteOnce().finally(() => {
+        connecting = null
+      })
+    }
+    return connecting
+  }
+  if (tools) {
+    void startConnect()
+  } else {
+    await startConnect()
+  }
+  /** A graph call waits for the connect in flight; one that lost the endpoint to a busy signal tries again, once. */
+  const ensureRemote = async (): Promise<void> => {
+    if (remoteConnected) return
+    if (connecting) {
+      await connecting
+      return
+    }
+    if (!remoteRetryable) return
+    await startConnect()
+  }
 
   if (!tools && remoteConnected) {
     // Cache miss — fetch tools from remote (client is already connected above)
@@ -1059,6 +1084,7 @@ export async function createProxy(): Promise<void> {
       },
     },
     async () => {
+      await ensureRemote()
       if (remoteConnected && remoteToolNames.has('network_capabilities')) {
         try {
           const result = await remoteClient.callTool({
