@@ -5,6 +5,8 @@ import {
   busyMemberIds,
   mergeBatchAnswers,
   withBusyMemberRetry,
+  withBusyRetry,
+  isBusyResult,
 } from '../src/mcp/batch-busy-retry.js'
 
 const ok = (id: string) => ({ id, ok: true, billable_units: 1, count: 1, results: [{ nonce: 1 }] })
@@ -71,5 +73,30 @@ describe('graph_query_batch chain_busy members', () => {
   it('merge keeps a result whose shape it does not know', () => {
     const odd = { content: [], structuredContent: { facts: { query: {} } } }
     expect(mergeBatchAnswers(odd, batch([ok('b')]))).toBe(odd)
+  })
+})
+
+describe('a single graph_query refused as chain_busy', () => {
+  const busyResult = { content: [{ type: 'text', text: 'chain_busy: this caller used its share of node calls this second. Retry after a short wait.' }], isError: true }
+  const okResult = { content: [{ type: 'text', text: '{}' }], structuredContent: { facts: { query: { results: [] } } }, isError: false }
+
+  it('recognises the refusal and no other error', () => {
+    expect(isBusyResult(busyResult)).toBe(true)
+    expect(isBusyResult({ content: [{ type: 'text', text: 'Query execution failed: chain_busy: ...' }], isError: true })).toBe(true)
+    expect(isBusyResult({ content: [{ type: 'text', text: 'query_timeout: ...' }], isError: true })).toBe(false)
+    expect(isBusyResult(okResult)).toBe(false)
+  })
+
+  it('waits and resends until the read is served, at most MAX_ROUNDS times', async () => {
+    let n = 0
+    const waits: number[] = []
+    const result = await withBusyRetry({ network: 'robinhood', query: 'USE chain' }, async () => { n += 1; return n < 3 ? busyResult : okResult }, async (ms) => { waits.push(ms) })
+    expect(n).toBe(3)
+    expect(waits).toEqual([BUSY_WAIT_MS, BUSY_WAIT_MS])
+    expect(result).toBe(okResult)
+    n = 0
+    const still = await withBusyRetry({ network: 'robinhood', query: 'USE chain' }, async () => { n += 1; return busyResult }, async () => {})
+    expect(n).toBe(1 + MAX_ROUNDS)
+    expect(still).toBe(busyResult)
   })
 })
