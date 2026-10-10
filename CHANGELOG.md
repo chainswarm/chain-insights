@@ -3,6 +3,17 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.56.18] - 2026-10-11 — direction, the largest transfer, the tokens inside a transaction
+
+### Changed
+
+- Skill: a `FLOWS_TO` read without an arrow gives no direction, so the answer
+  takes `startNode`/`endNode` or two directed reads before naming a sender
+  (one loop answer named the receiver as the sender). "The largest transfer"
+  needs a day: facts has no max and no sort (one answer read every day for
+  190 seconds). "Every token that moved inside this transaction" reads the
+  chain record, then the pair's day on facts filtered by the hash.
+
 ## [0.56.17] - 2026-10-11 — a single chain read refused as chain_busy is sent again
 
 ### Fixed
