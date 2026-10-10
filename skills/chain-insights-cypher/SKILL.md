@@ -52,6 +52,11 @@ The one case without the tool is at the end, Shell without the tool.
    print the raw millisecond number. Every timestamp column in an answer
    comes with a `<column>_utc` twin that holds that text: copy it, never
    convert the milliseconds by head (one try in three gets the hour wrong).
+   Say what a value means in plain words and never print a column name in
+   the answer: "it is a contract", "the account delegates to 0x…", "it has
+   sent one transaction", not "`is_contract`: true", "`delegated_to`:",
+   "`nonce`: 1" or "`code_size`: 23 bytes". The user did not write the
+   query and does not know the columns.
 8. Never draw the graph yourself, in ASCII art or in Mermaid. Claude Desktop
    and the Codex app draw the picture from the column names (see Name the
    columns for a picture). Write a short text answer beside it, and do not

@@ -1,0 +1,32 @@
+schema_version: "1.0"
+name: plain-words-not-columns
+expected_outcome: The answer says what the values mean in plain words and never prints a graph column name such as is_contract, delegated_to, code_size or nonce.
+execution:
+  prompt: |
+    You are an AML analyst assistant using Chain Insights. The graph already answered. Write the reply to the user from this row; load the chain-insights-cypher skill first and call no graph tool.
+    User asked: "What kind of address is 0xe3f614b828c5ac6ba24b8c06e2514b4e1ed80833 on robinhood, a wallet or a contract?"
+    Row from USE chain (address, balance, nonce, is_contract, code_size, delegated_to):
+    0xe3f614b828c5ac6ba24b8c06e2514b4e1ed80833, 0, 1, null, 23, 0x69007702764179f14f51cdce752f4f775d74e139
+  max_turns: 4
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: no-column-names
+    target: last_message
+    pattern: 'is_contract|delegated_to|code_size|`nonce`|`balance`'
+    match: not_contains
+  - type: regex
+    name: full-address
+    target: last_message
+    pattern: '0xe3f614b828c5ac6ba24b8c06e2514b4e1ed80833'
+    match: contains
+  - type: regex
+    name: says-wallet-or-account
+    target: last_message
+    flags: i
+    pattern: 'wallet|account'
+    match: contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
