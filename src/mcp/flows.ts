@@ -19,7 +19,7 @@
  *   graph_query read.
  * - link page, {network, from, to, day, limit, skip?, first_day?}: a page of
  *   `limit` transfers (1 to 50) newest first, read from `day` back one UTC day
- *   at a time, at most TRANSFERS_MAX_DAYS reads a call, never before
+ *   at a time, at most TRANSFERS_MAX_DAYS (a week of) reads a call, never before
  *   first_day. The answer carries `next` ({day, skip}, or null when every
  *   transfer back to first_day is listed) which the next call sends back as
  *   day and skip. The view's "More transfers".
@@ -68,8 +68,8 @@ export const TRANSFERS_MAX = 50
 export const TRANSFERS_READ_ROWS = 200
 /** The text of a link answer names at most this many transfers. */
 export const TRANSFERS_SUMMARY_ROWS = 5
-/** A paged link answer reads at most this many days in one call: a sparse link costs at most this many reads a page. */
-export const TRANSFERS_MAX_DAYS = 4
+/** A paged link answer reads at most this many days (a week) in one call: a sparse link costs at most this many reads a page, and a week of it comes back at once. */
+export const TRANSFERS_MAX_DAYS = 7
 /** Where a paged link answer stops reading back when the caller names no first_day. */
 export const TRANSFERS_FLOOR_DAY = '2015-01-01'
 
@@ -1025,5 +1025,5 @@ export const GRAPH_EXPAND_DESCRIPTION =
   'lists the transfers between two addresses on one UTC day (YYYY-MM-DD), newest first, at most 50; billed as ' +
   'one graph_query facts read. A link page, {network, from, to, day, limit, skip?, first_day?}, lists `limit` (1-50) ' +
   'transfers from `day` back across days, newest first, and answers a `next` cursor ({day, skip}) while older ones ' +
-  'remain; billed as at most four facts reads. Details, {network, address, details: true}, answer the lifetime totals, ' +
+  'remain; billed as at most seven facts reads (a week). Details, {network, address, details: true}, answer the lifetime totals, ' +
   'counts, role and labels of one address; billed as one topology read. Read-only; an argument refused before a read costs nothing.'

@@ -795,7 +795,7 @@ describe('graph_expand, link page form', () => {
     expect(result.content[0].text).not.toContain('earlier transfers remain')
   })
 
-  it('reads at most four days in one call and hands the rest to the next cursor', async () => {
+  it('reads at most a week of days in one call and hands the rest to the next cursor', async () => {
     const { reads, deps } = daysEndpoint({})
     const result = await handleGraphExpand({ ...page, limit: 10, first_day: '2026-01-01' }, deps)
     const view = result.structuredContent as unknown as TransfersView

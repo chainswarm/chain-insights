@@ -14,7 +14,7 @@ All notable changes to Chain Insights are recorded here.
   panel no longer says Unavailable for the rows of a query.
 - `graph_expand` link pages, `{network, from, to, day, limit, skip?,
   first_day?}`: a page of up to 50 transfers from that day back across days,
-  newest first, at most four facts reads a call, with a `next` cursor while
+  newest first, at most seven facts reads (a week) a call, with a `next` cursor while
   older transfers remain. The view lists 25 a page under one heading per UTC
   day with a "More transfers" control; the one-day form is unchanged.
 

@@ -137,7 +137,7 @@ Graph endpoint serves data only:
   UTC day, newest first, at most 50 (one `USE facts` `graph_query` read). With
   `limit` (1 to 50), and `skip` and `first_day` as the answer's `next` cursor
   hands them back, it lists a page of transfers from that day back across
-  days, at most four facts reads a call, never before `first_day`; the view's
+  days, at most seven facts reads (a week) a call, never before `first_day`; the view's
   "More transfers". With `{network, address, details: true}` it answers the
   lifetime totals, counts, role and labels of one address in one topology
   read; the view fills its panel with it when the rows of a query carried no
