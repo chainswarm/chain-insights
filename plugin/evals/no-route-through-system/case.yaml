@@ -1,0 +1,41 @@
+schema_version: "1.0"
+name: no-route-through-system
+expected_outcome: The shortest-path query carries the pool, protocol and system-address guard on its start and inside the quantified path pattern, so the route can never pass through the zero address, the dead address or a protocol contract such as the PoolManager. The answer never offers either address as a hop.
+execution:
+  prompt: |
+    You are an AML analyst assistant using Chain Insights on robinhood. Load the chain-insights-cypher skill first and call no graph tool.
+    The user asks: "on robinhood show me shortest path from 0xc7a71290a6348f2181ad5c5619959cf4c422cec7 to 0xfec870579811c3c6e13ab50fd0e65bbf6ca0eec9"
+    Write the one graph query you would send, in full, and one line on what the route answer will and will not contain.
+  max_turns: 4
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: shortest-one
+    target: last_message
+    pattern: 'SHORTEST 1'
+    match: contains
+  - type: regex
+    name: start-guard
+    target: last_message
+    pattern: 'address: \\?"0xc7a71290a6348f2181ad5c5619959cf4c422cec7\\?"\} WHERE NOT (\w+):Pool AND NOT \1:Protocol AND NOT \1:System AND NOT \1\.address IN \['
+    match: contains
+  - type: regex
+    name: protocol-guard-inside-walk
+    target: last_message
+    pattern: '\(\w+:Address\) WHERE NOT (\w+):Pool AND NOT \1:Protocol AND NOT \1:System AND NOT \1\.address IN \[[^\]]*\]\)\{0,4\}'
+    match: contains
+  - type: regex
+    name: system-address-list
+    target: last_message
+    pattern: 'NOT \w+\.address IN \[\s*\\?"0x0000000000000000000000000000000000000000\\?",\s*\\?"0x000000000000000000000000000000000000dead\\?"\s*\]'
+    match: contains
+  - type: regex
+    name: no-system-hop
+    target: last_message
+    flags: i
+    pattern: '(→|->|=>|⟶)\s*[`*"]{0,2}0x(0{40}|8366a39cc670b4001a1121b8f6a443a643e40951)|0x(0{40}|8366a39cc670b4001a1121b8f6a443a643e40951)[`*"]{0,2}\s*(→|->|=>|⟶)'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

@@ -1,0 +1,50 @@
+schema_version: "1.0"
+name: balance-timeseries
+expected_outcome: The plan reads the chain head and one block to fix the blocks per day, then sends one graph_query_batch of at most 5 USE chain Address reads at the end of each day, each query id the day, returning only the balance. No topology or facts read, no pair columns, no per-day graph_query loop.
+execution:
+  prompt: |
+    You are an AML analyst assistant using Chain Insights on robinhood. Load the chain-insights-cypher skill first and call no graph tool.
+    The user asks: "show a time series of balance changes for address 0x46be403c0633a482b706d5579b2d36a668991b44 on robinhood network"
+    Today is 2026-10-11. Write the reads you would send, in order, with each query in full. Keep it short.
+  max_turns: 4
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: chain-head-first
+    target: last_message
+    pattern: 'USE chain MATCH \(h:Head\)'
+    match: contains
+  - type: regex
+    name: block-for-the-rate
+    target: last_message
+    pattern: 'USE chain MATCH \(b:Block \{block_height: '
+    match: contains
+  - type: regex
+    name: one-batch
+    target: last_message
+    pattern: 'graph_query_batch'
+    match: contains
+  - type: regex
+    name: address-at-block
+    target: last_message
+    pattern: 'Address \{address: \\?"0x46be403c0633a482b706d5579b2d36a668991b44\\?", at_block: (\d+|<[^>]+>)\}\) RETURN a\.balance'
+    match: contains
+  - type: regex
+    name: day-as-query-id
+    target: last_message
+    pattern: '"?id"?\s*[:=]\s*\\?"20\d\d-\d\d-\d\d'
+    match: contains
+  - type: regex
+    name: no-topology-or-facts
+    target: last_message
+    pattern: 'USE (topology|facts)'
+    match: not_contains
+  - type: regex
+    name: no-graph-columns
+    target: last_message
+    pattern: 'from_address|to_address'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

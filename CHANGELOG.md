@@ -3,6 +3,48 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.57.2] - 2026-10-12 — gravity settles into a cloud; a balance over time draws one chart; routes never run through the mint address or a protocol
+
+### Added
+
+- The view from Chain Insights UI da4ebde: Gravity is a cooled force
+  simulation, not a grid. The first picture and every expansion run up to
+  300 cooled passes where every pair pushes apart, links pull to one
+  length and each address falls gently toward the centre or the address
+  that was opened. New addresses start on a jittered fan beside the opened
+  address, senders left and receivers right. The old picture read as a flat
+  schema (aphex5, 2026-10-11 evening).
+- Skill and server rules: the balance of one address over time. Read the
+  head, then one block to measure the blocks per day, then one
+  `graph_query_batch` of `USE chain` `Address` reads at the end of each UTC
+  day, each query id the day. The view draws the days as one time series.
+  A batch holds at most `chain_admission.batch_max` chain reads, so one chart
+  holds up to that many points. The balance is ETH in wei; no layer serves a
+  token balance, and the answer says so.
+- Skill and server rules: the system guard. A walk of two or more hops never
+  starts at, and never passes through, a `:Protocol` or a `:System` address.
+  System is the kind of the mint and burn addresses, the zero and the dead
+  address. Protocol is shared infrastructure such as a PoolManager, a router
+  or a bridge: the PoolManager `0x8366a39cc670b4001a1121b8f6a443a643e40951`
+  is no `:Pool`. Each links millions of unrelated wallets: a route "wallet A,
+  the zero address, wallet B" only said both held a minted token. Every
+  route, walk, shared-counterparty, pool-trace and linked-exposure recipe
+  carries `NOT x:Protocol AND NOT x:System AND NOT x.address IN [the zero
+  and the dead address]` beside `NOT x:Pool` on its start and every address
+  in its middle. The address test stays until the graph writes the System
+  kind. One-hop reads are unchanged.
+- Eval cases `balance-timeseries` and `no-route-through-system`.
+
+### Changed
+
+- `aml_address_risk`: the connection routes, the two- and three-hop exchange
+  walks and the linked-exposure walk carry the same system guard.
+- The documented recipes and the query corpus carry the guarded shapes. The
+  graph server's copy of the corpus must be refreshed in the same release.
+- Tests: the walk reader also reports a walk of two or more hops whose start
+  or middle lacks the system guard, and the route contract pins the guarded
+  shapes.
+
 ## [0.57.1] - 2026-10-11 — the picture reads at a glance: captions on links, a visible dim, one picture for both directions
 
 ### Added

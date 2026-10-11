@@ -526,15 +526,20 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).not.toContain('bittensor')
     expect(instructions).toContain('Pool trace rule, for every trace')
     expect(instructions).toContain(
-      'MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: $to})'
+      'MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: $to})'
     )
     expect(instructions).toContain(
-      'MATCH SHORTEST 1 (a:Address {address: $addr} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address)'
+      'MATCH SHORTEST 1 (a:Address {address: $addr} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address)'
     )
     expect(instructions).toContain('A walk may end at a Pool, but never starts at one')
-    expect(instructions).toContain('WHERE NOT victim:Pool AND receiver.address <> victim.address')
     expect(instructions).toContain(
-      '-[r:FLOWS_TO|SWAPPED]-(b:Address) WHERE NOT a:Pool AND NOT owned:Pool'
+      'NOT victim:Pool AND NOT victim:Protocol AND NOT victim:System AND NOT victim.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND receiver.address <> victim.address'
+    )
+    expect(instructions).toContain(
+      'A walk of two or more hops also never starts at or passes through a Protocol contract'
+    )
+    expect(instructions).toContain(
+      '-[r:FLOWS_TO|SWAPPED]-(b:Address) WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND NOT owned:Pool AND NOT owned:Protocol AND NOT owned:System AND NOT owned.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]'
     )
     expect(instructions).toContain('(:Pool)-[:REMOVED_LIQUIDITY]->(:Address)')
     expect(instructions).toContain('(:Address)-[:SWAPPED]->(:Address)')

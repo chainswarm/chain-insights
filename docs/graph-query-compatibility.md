@@ -263,17 +263,22 @@ has no link) and `last_height`, the block height of the newest owner action.
 
 | Form              | Syntax                                                                                                                                                                                    | Supported          |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| Quantified path   | `MATCH p = (a:Address WHERE NOT a:Pool) (()-[:FLOWS_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO\|SWAPPED]-(b:Address)`                                              | ✅ upper bound ≤ 5 |
-| One shortest path | `MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool) (()-[:FLOWS_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO\|SWAPPED]-(b:Address {address: $to})`   | ✅ upper bound ≤ 5 |
-| Any shortest path | `MATCH p = ANY SHORTEST (a:Address {address: $from} WHERE NOT a:Pool) (()-[:FLOWS_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO\|SWAPPED]-(b:Address {address: $to})` | ✅ upper bound ≤ 5 |
-| Open target       | `MATCH SHORTEST 1 (a:Address {address: $addr} WHERE NOT a:Pool) (()-[:FLOWS_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO\|SWAPPED]-(b:Address)`                      | ✅ upper bound ≤ 5 |
+| Quantified path   | `MATCH p = (a:Address WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWS_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWS_TO\|SWAPPED]-(b:Address)`                                              | ✅ upper bound ≤ 5 |
+| One shortest path | `MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWS_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWS_TO\|SWAPPED]-(b:Address {address: $to})`   | ✅ upper bound ≤ 5 |
+| Any shortest path | `MATCH p = ANY SHORTEST (a:Address {address: $from} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWS_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWS_TO\|SWAPPED]-(b:Address {address: $to})` | ✅ upper bound ≤ 5 |
+| Open target       | `MATCH SHORTEST 1 (a:Address {address: $addr} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWS_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWS_TO\|SWAPPED]-(b:Address)`                      | ✅ upper bound ≤ 5 |
 
 Every form above carries the pool guard and walks `SWAPPED` beside
 `FLOWS_TO`. `WHERE NOT a:Pool` keeps the walk from starting at a `:Pool`, the
 inner `WHERE NOT via:Pool` keeps each address in the middle of the walk off
 one, and `SWAPPED` crosses a swap from payer to recipient, per the
 [pool trace rule](../skills/chain-insights-cypher/SKILL.md#pool-trace-rule).
-Only the target end may be a pool. Up to 4 guarded hops plus the last hop is
+Only the target end may be a pool. The same start and middle also carry the
+system guard: `NOT x:Protocol` keeps the walk off shared infrastructure such
+as a PoolManager, a router or a bridge, and `NOT x:System` off the mint and
+burn addresses (the zero and the dead address), which link millions of
+unrelated wallets. Until the graph writes the `System` kind, `NOT x.address
+IN [...]` names the two addresses as well. Up to 4 guarded hops plus the last hop is
 1 to 5 hops. Keep the guards inside the path pattern: a `WHERE` after a
 `SHORTEST` pattern runs after the shortest route is chosen, so it drops a
 route that crosses a pool instead of finding the route that avoids it. Use

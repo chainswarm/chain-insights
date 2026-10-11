@@ -64,6 +64,20 @@
 // may not be left (along the arrow, or either way when the relationship has
 // no direction). An address labelled :Pool that a FLOWS_TO walk leaves on
 // anything but REMOVED_LIQUIDITY is always a violation.
+//
+// The system guard. A walk of two or more hops also never starts at, and
+// never passes through, a :Protocol contract (shared infrastructure such as a
+// PoolManager, a router or a bridge) or a :System address (the mint and burn
+// addresses, the zero and the dead address): each links millions of unrelated
+// wallets, so a route through one connects nothing. unguardedSystemWalks(query)
+// returns one line per such start and middle address without all three
+// conjuncts `NOT x:Protocol`, `NOT x:System` and
+// `NOT x.address IN [<two literals>]`, read in the same places and with the
+// same selector rule as the pool guard. The address test stays until every
+// graph writes the System kind (ruled 2026-10-11). A one-hop read
+// needs neither: the links of a protocol or of the zero address are facts.
+// The check reads blanked literals, so the two addresses themselves are held
+// by the contract tests, which read the query text.
 
 type Dir = 'out' | 'in' | 'both'
 type NodeEl = {
@@ -223,6 +237,28 @@ const ci = (keyword: string) =>
 function isPoolGuard(conjunct: string, name: string): boolean {
   return new RegExp(
     `^${ci('NOT')}(?=[\\s(])\\s*\\(?\\s*${escape(name)}\\s*:\\s*Pool\\s*\\)?$`
+  ).test(stripOuterParens(conjunct))
+}
+
+// `NOT name:Protocol`, with `Protocol` and the name in their exact case.
+function isProtocolGuard(conjunct: string, name: string): boolean {
+  return new RegExp(
+    `^${ci('NOT')}(?=[\\s(])\\s*\\(?\\s*${escape(name)}\\s*:\\s*Protocol\\s*\\)?$`
+  ).test(stripOuterParens(conjunct))
+}
+
+// `NOT name:System`, with `System` and the name in their exact case.
+function isSystemLabelGuard(conjunct: string, name: string): boolean {
+  return new RegExp(
+    `^${ci('NOT')}(?=[\\s(])\\s*\\(?\\s*${escape(name)}\\s*:\\s*System\\s*\\)?$`
+  ).test(stripOuterParens(conjunct))
+}
+
+// `NOT name.address IN ["…", "…"]`: a list of exactly two string literals,
+// blanked by the time the check reads them (the system addresses).
+function isSystemAddressGuard(conjunct: string, name: string): boolean {
+  return new RegExp(
+    `^${ci('NOT')}(?=[\\s(])\\s*\\(?\\s*${escape(name)}\\.address\\s+${ci('IN')}\\s*\\[\\s*(?:""|'')\\s*,\\s*(?:""|'')\\s*\\]\\s*\\)?$`
   ).test(stripOuterParens(conjunct))
 }
 
@@ -671,6 +707,9 @@ class Walks {
   readonly edges: Edge[] = []
   readonly patterns: PatternRecord[] = []
   readonly clauseGuarded = new Set<string>()
+  readonly clauseProtocol = new Set<string>()
+  readonly clauseSystem = new Set<string>()
+  readonly clauseSystemLabel = new Set<string>()
   readonly anchoredKeys = new Set<string>()
   readonly noneGuards: { pattern: number; inner: boolean; except: string | null }[] = []
 
@@ -817,6 +856,9 @@ function applyWhere(walks: Walks, scope: Map<string, string>, text: string): voi
     for (const [name, key] of scope) {
       if (name.startsWith('path:')) continue
       if (isPoolGuard(conjunct, name)) walks.clauseGuarded.add(key)
+      if (isProtocolGuard(conjunct, name)) walks.clauseProtocol.add(key)
+      if (isSystemAddressGuard(conjunct, name)) walks.clauseSystem.add(key)
+      if (isSystemLabelGuard(conjunct, name)) walks.clauseSystemLabel.add(key)
       if (anchorsName(conjunct, name)) walks.anchoredKeys.add(key)
     }
     const none = noneGuard(conjunct)
@@ -858,7 +900,12 @@ function buildWalks(clauses: Clause[], choice: Step[][]): Walks {
 
 // `trace` is whether the query holds a FLOWS_TO walk that is a trace: one
 // with an anchored address, or a shortest-path walk.
-type Findings = { unguarded: string[]; noSwapped: string[]; trace: boolean }
+type Findings = {
+  unguarded: string[]
+  noSwapped: string[]
+  noSystemGuard: string[]
+  trace: boolean
+}
 
 function describe(node: GraphNode): string {
   const names = [...node.names, ...node.localNames]
@@ -887,6 +934,9 @@ function evaluate(walks: Walks, findings: Findings): void {
     for (const key of keys) if (walks.find(key) !== except) noneGuarded.add(walks.find(key))
   }
   const clauseGuarded = new Set([...walks.clauseGuarded].map((k) => walks.find(k)))
+  const clauseProtocol = new Set([...walks.clauseProtocol].map((k) => walks.find(k)))
+  const clauseSystem = new Set([...walks.clauseSystem].map((k) => walks.find(k)))
+  const clauseSystemLabel = new Set([...walks.clauseSystemLabel].map((k) => walks.find(k)))
 
   const incidentOf = (root: string) => edges.filter((e) => (e.a === root) !== (e.b === root))
   const neighbour = (key: string, e: Edge) => (e.a === key ? e.b : e.b === key ? e.a : null)
@@ -927,6 +977,36 @@ function evaluate(walks: Walks, findings: Findings): void {
       node.labels.some(labelGuard) ||
       node.guards.some((g) => conjuncts(g).some((c) => names.some((n) => isPoolGuard(c, n)))) ||
       (!node.inSelector && (clauseGuarded.has(root) || noneGuarded.has(root)))
+    )
+  }
+
+  // How many addresses the whole walk through `root` holds, both sides of it.
+  const walkSize = (root: string): number => {
+    const seen = new Set([root])
+    const queue = [root]
+    while (queue.length) {
+      const key = queue.shift() as string
+      for (const e of edges) {
+        const next = neighbour(key, e)
+        if (next && !seen.has(next)) {
+          seen.add(next)
+          queue.push(next)
+        }
+      }
+    }
+    return seen.size
+  }
+
+  // The three system-guard conjuncts, inside the pattern or (with no selector) in a clause.
+  const systemGuarded = (root: string, node: GraphNode): boolean => {
+    const names = [...node.names, ...node.localNames]
+    const holds = (test: (c: string, n: string) => boolean, clause: Set<string>) =>
+      node.guards.some((g) => conjuncts(g).some((c) => names.some((n) => test(c, n)))) ||
+      (!node.inSelector && clause.has(root))
+    return (
+      holds(isProtocolGuard, clauseProtocol) &&
+      holds(isSystemLabelGuard, clauseSystemLabel) &&
+      holds(isSystemAddressGuard, clauseSystem)
     )
   }
 
@@ -999,6 +1079,14 @@ function evaluate(walks: Walks, findings: Findings): void {
         const far = neighbour(root, exits[0] as Edge)
         return far !== null && leavesAlong(far, exits[0] as Edge) && guarded(far, nodes.get(far) as GraphNode)
       })()
+    // A walk of two or more hops: its start and its middle carry the system guard.
+    if (walkSize(root) > 2 && !systemGuarded(root, node)) {
+      findings.noSystemGuard.push(
+        role === 'start'
+          ? `${describe(node)} starts a walk of two or more hops without the protocol and system guard`
+          : `${describe(node)} is in the middle of a walk without the protocol and system guard`
+      )
+    }
     if (!guarded(root, node) && !guardedAtOpenEnd) {
       findings.unguarded.push(
         role === 'start'
@@ -1056,17 +1144,25 @@ function analyse(text: string, findings: Findings): void {
 }
 
 function findings(query: string): Findings {
-  const out: Findings = { unguarded: [], noSwapped: [], trace: false }
+  const out: Findings = { unguarded: [], noSwapped: [], noSystemGuard: [], trace: false }
   analyse(blankLiteralsAndComments(query), out)
   return {
     unguarded: [...new Set(out.unguarded)],
     noSwapped: [...new Set(out.noSwapped)],
+    noSystemGuard: [...new Set(out.noSystemGuard)],
     trace: out.trace,
   }
 }
 
 export function unguardedPoolWalks(query: string): string[] {
   return findings(query).unguarded
+}
+
+// Every start and middle address of a walk of two or more hops that lacks the
+// system guard: `NOT x:Protocol`, `NOT x:System` and
+// `NOT x.address IN [the two system addresses]`.
+export function unguardedSystemWalks(query: string): string[] {
+  return findings(query).noSystemGuard
 }
 
 export function traceHopsWithoutSwapped(query: string): string[] {

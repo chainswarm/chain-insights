@@ -253,7 +253,7 @@ one path only:
 ```bash
 cia mcp call graph_query \
   network=robinhood \
-  'query=USE topology MATCH p = SHORTEST 1 (a:Address {address: "0x..."} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "0x..."}) RETURN [n IN nodes(p) | n.address] AS route LIMIT 5'
+  'query=USE topology MATCH p = SHORTEST 1 (a:Address {address: "0x..."} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "0x..."}) RETURN [n IN nodes(p) | n.address] AS route LIMIT 5'
 ```
 
 The `chain-insights-cypher` skill shows how to read the properties of a link
@@ -264,7 +264,7 @@ Rug-pull check from a victim, under the rule:
 ```bash
 cia mcp call graph_query \
   network=robinhood \
-  'query=USE topology MATCH (victim:Address {address: "0x..."})-[paid:FLOWS_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE NOT victim:Pool AND receiver.address <> victim.address RETURN pool.address AS pool_address, receiver.address AS receiver_address, paid.amount_usd_sum AS paid_in_usd, removal.usd AS removed_usd, removal.receiver_added_usd AS receiver_added_usd, removal.usd - removal.receiver_added_usd AS receiver_profit_usd, removal.receiver_provided AS receiver_provided ORDER BY removed_usd DESC LIMIT 25'
+  'query=USE topology MATCH (victim:Address {address: "0x..."})-[paid:FLOWS_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE NOT victim:Pool AND NOT victim:Protocol AND NOT victim:System AND NOT victim.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND receiver.address <> victim.address RETURN pool.address AS pool_address, receiver.address AS receiver_address, paid.amount_usd_sum AS paid_in_usd, removal.usd AS removed_usd, removal.receiver_added_usd AS receiver_added_usd, removal.usd - removal.receiver_added_usd AS receiver_profit_usd, removal.receiver_provided AS receiver_provided ORDER BY removed_usd DESC LIMIT 25'
 ```
 
 One transaction's swap routes, with their strength and the two sides:
@@ -546,7 +546,12 @@ follows the
 so a trace does not fan out to every trader who used the pool. The start and
 every address in the middle of a manual `FLOWS_TO` walk must satisfy
 `NOT src:Pool` and `NOT mid:Pool`, and the walk follows `SWAPPED` beside
-`FLOWS_TO` to cross a swap.
+`FLOWS_TO` to cross a swap. On a walk of two or more hops the same addresses
+also satisfy the system guard of the skill: `NOT x:Protocol`,
+`NOT x:System`, and `NOT x.address IN [...]` with the zero and the dead
+address until the graph writes the `System` kind. Shared infrastructure such
+as a PoolManager, a router or a bridge, and the mint and burn addresses, link
+millions of unrelated wallets, so a route through one connects nothing.
 
 These two rules are the only trace norms; role labels such as victim,
 suspect, or deposit are hypotheses for review, not automatic writes.
