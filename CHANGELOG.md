@@ -3,6 +3,24 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.57.1] - 2026-10-11 — the picture reads at a glance: captions on links, a visible dim, one picture for both directions
+
+### Added
+
+- Skill: both directions of one address in one read, the two directed patterns
+  joined with `UNION ALL`, each branch with its own `LIMIT`, so "show me X on
+  the graph" draws one picture (two reads drew two).
+
+### Changed
+
+- View (Chain Insights UI #19): dimmed links stay visible on the GPU renderer
+  (at a low alpha they vanished); in Tree an expansion lays the whole tree
+  out again, so the new addresses take their lanes; the picture zooms out to
+  a tenth; links carry a caption with their value in USD and the first and
+  last day seen while the picture holds at most 80 links; table headers read
+  as words (From address, Value (USD), Transfers, First seen (UTC)); the
+  legend names only roles that mean something; Reset explains itself.
+
 ## [0.57.0] - 2026-10-11 — the picture answers every click: totals, pages of transfers, gravity expansions
 
 ### Added

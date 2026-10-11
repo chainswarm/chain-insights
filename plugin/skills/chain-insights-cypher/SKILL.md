@@ -195,6 +195,21 @@ MATCH (b:Address)-[f:FLOWS_TO]->(a:Address {address: "0x7e3702e9dfaa847f9829a258
 RETURN b.address AS from_address, a.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, b.labels AS from_labels, a.labels AS to_labels, b.is_exchange AS from_is_exchange, a.is_exchange AS to_is_exchange ORDER BY f.last_seen_timestamp DESC LIMIT 25
 ```
 
+Both directions of one address in one picture: one read, the two directed
+patterns joined with `UNION ALL`, each branch with its own `LIMIT`. The host
+draws one graph from it, senders and receivers around the address. Two
+separate reads give two pictures, which is not what "show me X on the graph"
+asks for.
+
+```cypher
+USE topology
+MATCH (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"})-[f:FLOWS_TO]->(b:Address) WHERE NOT a:Pool
+RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, a.labels AS from_labels, b.labels AS to_labels, a.is_exchange AS from_is_exchange, b.is_exchange AS to_is_exchange ORDER BY f.last_seen_timestamp DESC LIMIT 25
+UNION ALL
+MATCH (c:Address)-[g:FLOWS_TO]->(d:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"}) WHERE NOT d:Pool
+RETURN c.address AS from_address, d.address AS to_address, g.amount_usd_sum AS amount_usd_sum, g.tx_count AS tx_count, g.first_seen_timestamp AS first_seen_timestamp, g.last_seen_timestamp AS last_seen_timestamp, c.labels AS from_labels, d.labels AS to_labels, c.is_exchange AS from_is_exchange, d.is_exchange AS to_is_exchange ORDER BY g.last_seen_timestamp DESC LIMIT 25
+```
+
 Profile of one address: counterparties, transactions, volume and the active window, all from the node. Timestamps are milliseconds.
 
 ```cypher
