@@ -7,6 +7,7 @@ import {
   proseQueries,
   traceHopsWithoutSwapped,
   unguardedPoolWalks,
+  unguardedSystemWalks,
 } from './support/pool-walk-guard.js'
 import { flat, servedGraphHints } from './support/schema-text.js'
 import { routingLines } from '../src/mcp/layer-routing.js'
@@ -34,18 +35,19 @@ function markdownFiles(dir: string): string[] {
   })
 }
 
-// The guarded route contract (ruled 2026-09-28): the only route and
-// open-target shapes served, with $from, $to and $addr the only variables. A
-// route search asks for one path, so ALL SHORTEST is not served.
+// The guarded route contract (ruled 2026-09-28, the system guard added
+// 2026-10-11): the only route and open-target shapes served, with $from, $to
+// and $addr the only variables. A route search asks for one path, so ALL
+// SHORTEST is not served. The start and every address in the middle carry the
+// pool guard and the system guard (walkGuard).
 function routeContractShapes(): string[] {
-  const walk =
-    '(()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-'
+  const walk = `(()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE ${walkGuard('via')}){0,4} ()-[:FLOWS_TO|SWAPPED]-`
   return [
     ...['SHORTEST 1', 'ANY SHORTEST'].map(
       (selector) =>
-        `MATCH p = ${selector} (a:Address {address: $from} WHERE NOT a:Pool) ${walk}(b:Address {address: $to})`
+        `MATCH p = ${selector} (a:Address {address: $from} WHERE ${walkGuard('a')}) ${walk}(b:Address {address: $to})`
     ),
-    `MATCH SHORTEST 1 (a:Address {address: $addr} WHERE NOT a:Pool) ${walk}(b:Address)`,
+    `MATCH SHORTEST 1 (a:Address {address: $addr} WHERE ${walkGuard('a')}) ${walk}(b:Address)`,
   ]
 }
 
@@ -56,8 +58,8 @@ function routeContractShapes(): string[] {
 // FLOWS_TO. The variable names are fixed, as in the route shapes. No selector:
 // a count above 1 on SHORTEST is not served, so several routes drop it.
 function walkContractShapes(): string[] {
-  const via = '(via:Address) WHERE NOT via:Pool){0,2} ()'
-  const start = (address: string) => `(a:Address {address: ${address}} WHERE NOT a:Pool) (()`
+  const via = `(via:Address) WHERE ${walkGuard('via')}){0,2} ()`
+  const start = (address: string) => `(a:Address {address: ${address}} WHERE ${walkGuard('a')}) (()`
   return [
     `MATCH p = ${start('$from')}-[:FLOWS_TO|SWAPPED]-${via}-[:FLOWS_TO|SWAPPED]-(b:Address {address: $to})`,
     `MATCH p = ${start('$addr')}-[:FLOWS_TO|SWAPPED]->${via}-[:FLOWS_TO|SWAPPED]->(b:Address)`,
@@ -99,6 +101,42 @@ function routeWalk(query: string): string | null {
 }
 
 const reviewedSkills = ['chain-insights-cypher']
+
+// The system addresses a walk of two or more hops never starts at or passes
+// through, besides a :Protocol contract (ruled 2026-10-11): the zero address
+// (every mint and burn) and the dead address (burns).
+const SYSTEM_ADDRESSES = [
+  '0x0000000000000000000000000000000000000000',
+  '0x000000000000000000000000000000000000dead',
+]
+const SYSTEM_ADDRESS_LIST = `[${SYSTEM_ADDRESSES.map((a) => `"${a}"`).join(', ')}]`
+
+// The guard of one address: the pool, the protocol and the system addresses.
+function walkGuard(name: string): string {
+  return `NOT ${name}:Pool AND NOT ${name}:Protocol AND NOT ${name}:System AND NOT ${name}.address IN ${SYSTEM_ADDRESS_LIST}`
+}
+
+// Every surface an agent or an MCP client reads a query from.
+function servedSurfaces(): { name: string; queries: string[] }[] {
+  const surfaces: { name: string; queries: string[] }[] = [
+    {
+      name: 'tests/fixtures/documented-recipes.json',
+      queries: (
+        JSON.parse(read('tests/fixtures/documented-recipes.json')) as {
+          recipes: { query: string }[]
+        }
+      ).recipes.map((r) => r.query),
+    },
+    { name: 'src/mcp/proxy.ts graph hints', queries: proseQueries(servedGraphHints()) },
+  ]
+  const markdown = [
+    'README.md',
+    ...readdirSync(join(root, 'skills')).map((skill) => `skills/${skill}/SKILL.md`),
+    ...markdownFiles('docs'),
+  ]
+  for (const path of markdown) surfaces.push({ name: path, queries: markdownQueries(read(path)) })
+  return surfaces
+}
 
 describe('shipped Chain Insights skills contract', () => {
   it('ships exactly the reviewed public skill directories', () => {
@@ -403,30 +441,93 @@ describe('shipped Chain Insights skills contract', () => {
     const noFanOut = recipes.recipes.find((r) => r.id === 'recipe_topology_pool_no_fan_out_01')
     expect(noFanOut?.layer).toBe('topology')
     const [walk, throughPool] = (noFanOut?.query ?? '').split(' UNION ')
-    expect(walk).toContain('NOT src:Pool AND NOT mid:Pool')
+    expect(walk).toContain(`${walkGuard('src')} AND ${walkGuard('mid')}`)
     expect(throughPool).toMatch(/\(mid:Pool\)-\[r2:REMOVED_LIQUIDITY\]->\(dst:Address\)/)
     expect(throughPool).toContain('WHERE NOT src:Pool AND')
   })
 
+  it('guards every served walk of two or more hops against protocols and system addresses', () => {
+    const surfaces = servedSurfaces()
+    const violations = surfaces.flatMap(({ name, queries }) =>
+      queries.flatMap((query) =>
+        unguardedSystemWalks(query).map((v) => `${name}: ${v}\n  ${query}`)
+      )
+    )
+    expect(violations).toEqual([])
+    // The check reads blanked literals, so the list itself is held here: every
+    // `NOT x.address IN [...]` a served query writes names the two system
+    // addresses, in this order.
+    const lists = surfaces.flatMap(({ name, queries }) =>
+      queries.flatMap((query) =>
+        [...query.matchAll(/NOT\s+\w+\.address\s+IN\s+(\[[^\]]*\])/g)].map((m) => ({
+          name,
+          list: m[1],
+        }))
+      )
+    )
+    expect(lists.length).toBeGreaterThan(0)
+    for (const { name, list } of lists) expect(list, name).toBe(SYSTEM_ADDRESS_LIST)
+  })
+
+  it('the system-guard check refuses a walk that misses a conjunct, and leaves one-hop reads alone', () => {
+    const route = (start: string, middle: string) =>
+      `MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE ${start}) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE ${middle}){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: $to}) RETURN p LIMIT 1`
+    expect(unguardedSystemWalks(route(walkGuard('a'), walkGuard('via')))).toEqual([])
+    const middle = '(via) is in the middle of a walk without the protocol and system guard'
+    const start = '(a) starts a walk of two or more hops without the protocol and system guard'
+    expect(unguardedSystemWalks(route(walkGuard('a'), 'NOT via:Pool'))).toEqual([middle])
+    expect(
+      unguardedSystemWalks(route(walkGuard('a'), 'NOT via:Pool AND NOT via:Protocol'))
+    ).toEqual([middle])
+    // Until every graph writes the System kind, the label alone is not enough,
+    // and the address test alone is not enough after it lands.
+    expect(
+      unguardedSystemWalks(
+        route(walkGuard('a'), 'NOT via:Pool AND NOT via:Protocol AND NOT via:System')
+      )
+    ).toEqual([middle])
+    expect(
+      unguardedSystemWalks(
+        route(walkGuard('a'), walkGuard('via').replace(' AND NOT via:System', ''))
+      )
+    ).toEqual([middle])
+    expect(
+      unguardedSystemWalks(
+        route(walkGuard('a'), `NOT via:Pool AND NOT via.address IN ${SYSTEM_ADDRESS_LIST}`)
+      )
+    ).toEqual([middle])
+    expect(unguardedSystemWalks(route('NOT a:Pool', walkGuard('via')))).toEqual([start])
+    // A guard inside an OR guards nothing.
+    expect(
+      unguardedSystemWalks(
+        route(
+          walkGuard('a'),
+          `NOT via:Pool AND (NOT via:Protocol OR via.is_exchange IS NULL) AND NOT via.address IN ${SYSTEM_ADDRESS_LIST}`
+        )
+      )
+    ).toEqual([middle])
+    // A clause-level WHERE after a SHORTEST pattern runs after the route is chosen.
+    expect(
+      unguardedSystemWalks(
+        `MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE ${walkGuard('a')}) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: $to}) WHERE NOT via:Protocol AND NOT via:System AND NOT via.address IN ${SYSTEM_ADDRESS_LIST} RETURN p LIMIT 1`
+      )
+    ).toContain(middle)
+    // A fixed two-hop walk guards its middle in the clause.
+    expect(
+      unguardedSystemWalks(
+        `MATCH (a:Address {address: $addr})-[:FLOWS_TO|SWAPPED]-(c:Address)-[:FLOWS_TO|SWAPPED]-(b:Address {address: $to}) WHERE ${walkGuard('a')} AND NOT c:Pool RETURN c.address LIMIT 25`
+      )
+    ).toEqual(['(c) is in the middle of a walk without the protocol and system guard'])
+    // One hop needs no system guard: the links of the zero address are facts.
+    expect(
+      unguardedSystemWalks(
+        'MATCH (a:Address {address: $addr})-[f:FLOWS_TO]->(b:Address) WHERE NOT a:Pool RETURN b.address LIMIT 25'
+      )
+    ).toEqual([])
+  })
+
   it('guards every served FLOWS_TO walk against pools: never from one, never through one', () => {
-    // Every surface an agent or an MCP client reads a query from.
-    const surfaces: { name: string; queries: string[] }[] = [
-      {
-        name: 'tests/fixtures/documented-recipes.json',
-        queries: (
-          JSON.parse(read('tests/fixtures/documented-recipes.json')) as {
-            recipes: { query: string }[]
-          }
-        ).recipes.map((r) => r.query),
-      },
-      { name: 'src/mcp/proxy.ts graph hints', queries: proseQueries(servedGraphHints()) },
-    ]
-    const markdown = [
-      'README.md',
-      ...readdirSync(join(root, 'skills')).map((skill) => `skills/${skill}/SKILL.md`),
-      ...markdownFiles('docs'),
-    ]
-    for (const path of markdown) surfaces.push({ name: path, queries: markdownQueries(read(path)) })
+    const surfaces = servedSurfaces()
 
     const violations = surfaces.flatMap(({ name, queries }) =>
       queries.flatMap((query) => unguardedPoolWalks(query).map((v) => `${name}: ${v}\n  ${query}`))
@@ -491,8 +592,8 @@ describe('shipped Chain Insights skills contract', () => {
   })
 
   it('the pool-guard check recognises every walk shape it must refuse', () => {
-    const walk =
-      '(()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-'
+    const walk = `(()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE ${walkGuard('via')}){0,4} ()-[:FLOWS_TO|SWAPPED]-`
+    const startGuard = walkGuard('a')
     const [route, anyRoute, openTarget] = routeContractShapes()
     const A = '"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"'
     const B = '"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"'
@@ -785,7 +886,7 @@ describe('shipped Chain Insights skills contract', () => {
       route: `${route} RETURN p`,
       any_shortest_route: `${anyRoute} RETURN p`,
       open_target: `${openTarget} RETURN b.address LIMIT 50`,
-      route_with_literal_addresses: `USE topology MATCH p = SHORTEST 1 (a:Address {address: ${A}} WHERE NOT a:Pool) ${walk}(b:Address {address: ${B}}) RETURN p LIMIT 5`,
+      route_with_literal_addresses: `USE topology MATCH p = SHORTEST 1 (a:Address {address: ${A}} WHERE ${startGuard}) ${walk}(b:Address {address: ${B}}) RETURN p LIMIT 5`,
       fixed_hop:
         'MATCH (src:Address {address: $addr})-[r1:FLOWS_TO]->(mid:Address)-[r2:FLOWS_TO]->(dst:Address) WHERE NOT src:Pool AND NOT mid:Pool RETURN dst.address LIMIT 25',
       label_expression:
@@ -848,18 +949,22 @@ describe('shipped Chain Insights skills contract', () => {
       route: `${route} RETURN [n IN nodes(p) | n.address] AS route`,
       any_shortest_route: `${anyRoute} RETURN p`,
       open_target: `${openTarget} RETURN b.address LIMIT 50`,
-      route_with_literal_addresses: `USE topology MATCH p = SHORTEST 1 (a:Address {address: ${A}} WHERE NOT a:Pool) ${walk}(b:Address {address: ${B}}) RETURN p LIMIT 5`,
+      route_with_literal_addresses: `USE topology MATCH p = SHORTEST 1 (a:Address {address: ${A}} WHERE ${startGuard}) ${walk}(b:Address {address: ${B}}) RETURN p LIMIT 5`,
     }
     for (const [name, query] of Object.entries(contract)) {
       expect(onContract(query), name).toBe(true)
     }
     const offContract: Record<string, string> = {
-      route_anchored_in_the_node_where: `MATCH p = SHORTEST 1 (a:Address WHERE a.address = $from AND NOT a:Pool) ${walk}(b:Address WHERE b.address = $to) RETURN p`,
-      open_target_anchored_in_the_node_where: `MATCH SHORTEST 1 (a:Address WHERE a.address = $addr AND NOT a:Pool) ${walk}(b:Address) RETURN b.address LIMIT 50`,
-      route_anchored_in_the_clause: `MATCH p = SHORTEST 1 (a:Address WHERE NOT a:Pool) ${walk}(b:Address) WHERE a.address = $from AND b.address = $to RETURN p`,
-      shortest_walk_with_no_anchor_the_check_reads: `MATCH SHORTEST 1 (a:Address WHERE NOT a:Pool AND a.is_exchange = true) ${walk}(b:Address) RETURN b.address LIMIT 50`,
-      lower_hop_bound: `MATCH SHORTEST 1 (a:Address {address: $addr} WHERE NOT a:Pool) ${walk.replace('{0,4}', '{0,3}')}(b:Address) RETURN b.address LIMIT 50`,
-      unbounded_quantifier: `MATCH SHORTEST 1 (a:Address {address: $addr} WHERE NOT a:Pool) ${walk.replace('{0,4}', '+')}(b:Address) RETURN b.address LIMIT 50`,
+      route_anchored_in_the_node_where: `MATCH p = SHORTEST 1 (a:Address WHERE a.address = $from AND ${startGuard}) ${walk}(b:Address WHERE b.address = $to) RETURN p`,
+      open_target_anchored_in_the_node_where: `MATCH SHORTEST 1 (a:Address WHERE a.address = $addr AND ${startGuard}) ${walk}(b:Address) RETURN b.address LIMIT 50`,
+      route_anchored_in_the_clause: `MATCH p = SHORTEST 1 (a:Address WHERE ${startGuard}) ${walk}(b:Address) WHERE a.address = $from AND b.address = $to RETURN p`,
+      shortest_walk_with_no_anchor_the_check_reads: `MATCH SHORTEST 1 (a:Address WHERE ${startGuard} AND a.is_exchange = true) ${walk}(b:Address) RETURN b.address LIMIT 50`,
+      lower_hop_bound: `MATCH SHORTEST 1 (a:Address {address: $addr} WHERE ${startGuard}) ${walk.replace('{0,4}', '{0,3}')}(b:Address) RETURN b.address LIMIT 50`,
+      unbounded_quantifier: `MATCH SHORTEST 1 (a:Address {address: $addr} WHERE ${startGuard}) ${walk.replace('{0,4}', '+')}(b:Address) RETURN b.address LIMIT 50`,
+      // The route as it stood before the system guard (ruled 2026-10-11): it
+      // passed through the zero address and the PoolManager.
+      route_with_the_pool_guard_only:
+        'MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: $to}) RETURN p',
       guarded_legacy_function:
         'MATCH p = shortestPath((a:Address {address: $from})-[:FLOWS_TO|SWAPPED*1..5]-(b:Address {address: $to})) WHERE NONE(n IN nodes(p) WHERE n:Pool AND n <> b) RETURN p',
       other_variable_names: `MATCH path = SHORTEST 1 (src:Address {address: $from} WHERE NOT src:Pool) (()-[:FLOWS_TO|SWAPPED]-(hop:Address) WHERE NOT hop:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(dst:Address {address: $to}) RETURN path`,
@@ -946,21 +1051,27 @@ describe('the cypher skill: graph searches, units and the field sampling reads',
   const topology = fenced.filter((query) => query.startsWith('USE topology'))
 
   it('shows one query for each kind of graph search', () => {
+    // The pool and system guard of one address, as a pattern.
+    const guard = (name: string) => walkGuard(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const kinds: Record<string, RegExp> = {
-      route:
-        /SHORTEST 1 \(a:Address \{address: "0x[0-9a-f]{40}"\} WHERE NOT a:Pool\).*\(b:Address \{address: "0x[0-9a-f]{40}"\}\) RETURN \[n IN nodes\(p\) \| n\.address\] AS route LIMIT 5$/,
-      several_routes:
-        /^USE topology MATCH p = \(a:Address \{address: "0x[0-9a-f]{40}"\} WHERE NOT a:Pool\) .*\{0,2\} \(\)-\[:FLOWS_TO\|SWAPPED\]-\(b:Address \{address: "0x[0-9a-f]{40}"\}\) RETURN .* AS hops LIMIT 5$/,
+      route: new RegExp(
+        `SHORTEST 1 \\(a:Address \\{address: "0x[0-9a-f]{40}"\\} WHERE ${guard('a')}\\).*\\(b:Address \\{address: "0x[0-9a-f]{40}"\\}\\) RETURN \\[n IN nodes\\(p\\) \\| n\\.address\\] AS route LIMIT 5$`
+      ),
+      several_routes: new RegExp(
+        `^USE topology MATCH p = \\(a:Address \\{address: "0x[0-9a-f]{40}"\\} WHERE ${guard('a')}\\) .*\\{0,2\\} \\(\\)-\\[:FLOWS_TO\\|SWAPPED\\]-\\(b:Address \\{address: "0x[0-9a-f]{40}"\\}\\) RETURN .* AS hops LIMIT 5$`
+      ),
       where_the_money_went: /\{0,2\} \(\)-\[:FLOWS_TO\|SWAPPED\]->\(b:Address\) RETURN .*LIMIT 25$/,
       where_the_money_came_from:
         /\{0,2\} \(\)<-\[:FLOWS_TO\|SWAPPED\]-\(b:Address\) RETURN .*LIMIT 25$/,
-      shared_counterparties:
-        /\(c:Address\)-\[:FLOWS_TO\|SWAPPED\]-\(b:Address \{address: "0x[0-9a-f]{40}"\}\) WHERE NOT a:Pool AND NOT c:Pool RETURN DISTINCT c\.address/,
+      shared_counterparties: new RegExp(
+        `\\(c:Address\\)-\\[:FLOWS_TO\\|SWAPPED\\]-\\(b:Address \\{address: "0x[0-9a-f]{40}"\\}\\) WHERE ${guard('a')} AND ${guard('c')} RETURN DISTINCT c\\.address`
+      ),
       ownership_cluster: /-\[:LINKED\]-\{1,2\}\(b:Address\) RETURN/,
       operator_view: /-\[o:OPERATED_BY\]->\(operator:Address \{address: "0x[0-9a-f]{40}"\}\)/,
       swaps: /-\[s:SWAPPED\]->\(b:Address\)/,
-      pool_trace:
-        /-\[:FLOWS_TO\]->\(p:Pool\)-\[r:REMOVED_LIQUIDITY\]->\(b:Address\) WHERE NOT a:Pool/,
+      pool_trace: new RegExp(
+        `-\\[:FLOWS_TO\\]->\\(p:Pool\\)-\\[r:REMOVED_LIQUIDITY\\]->\\(b:Address\\) WHERE ${guard('a')} AND`
+      ),
       bridges: /-\[x:BRIDGED\]->\(c:Chain\)/,
       newest_links: /ORDER BY f\.last_seen_timestamp DESC LIMIT 25$/,
     }

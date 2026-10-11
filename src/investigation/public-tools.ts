@@ -318,6 +318,39 @@ function poolGuardTerms(nodeVariables: string[]): string {
   return nodeVariables.map((nodeVariable) => `NOT ${nodeVariable}:Pool`).join(' AND ')
 }
 
+// System guard (cypher skill, "Pool trace rule"): a walk of two or more hops
+// also never starts at, and never passes through, a :Protocol contract (such
+// as a PoolManager) or a system address. Each links millions of unrelated
+// wallets, so a route through one connects nothing. One hop needs no guard:
+// the links of such an address are facts.
+export const SYSTEM_ADDRESSES = [
+  '0x0000000000000000000000000000000000000000',
+  '0x000000000000000000000000000000000000dead',
+] as const
+const SYSTEM_ADDRESS_LIST = `[${SYSTEM_ADDRESSES.map((address) => `"${address}"`).join(', ')}]`
+
+function systemGuardTerms(nodeVariables: string[]): string {
+  return nodeVariables
+    .map(
+      (nodeVariable) =>
+        `NOT ${nodeVariable}:Protocol AND NOT ${nodeVariable}:System AND NOT ${nodeVariable}.address IN ${SYSTEM_ADDRESS_LIST}`
+    )
+    .join(' AND ')
+}
+
+// The guard of every address a walk leaves: the pool guard, and on a walk of
+// two or more hops the system guard after it.
+function walkGuardTerms(nodeVariables: string[], hops: number): string {
+  return hops > 1
+    ? nodeVariables
+        .map(
+          (nodeVariable) =>
+            `${poolGuardTerms([nodeVariable])} AND ${systemGuardTerms([nodeVariable])}`
+        )
+        .join(' AND ')
+    : poolGuardTerms(nodeVariables)
+}
+
 function exchangeOutflowQueries(address: string): Array<{ id: string; query: string }> {
   return Array.from({ length: 3 }, (_, index) => exchangeOutflowQueryAtDepth(address, index + 1))
 }
@@ -343,9 +376,10 @@ function exchangeOutflowQueryAtDepth(
     (nodeVariable) => `${nodeVariable}.is_exchange IS NULL`
   )
   // Pool trace rule: the walk starts at the screened address and passes
-  // through the intermediates, so none of them may be a :Pool. The exchange
-  // end is the target, which may be one.
-  const poolGuards = poolGuardTerms(['a', ...intermediateVariables])
+  // through the intermediates, so none of them may be a :Pool, and on two or
+  // more hops none a :Protocol or a system address. The exchange end is the
+  // target, which may be one.
+  const poolGuards = walkGuardTerms(['a', ...intermediateVariables], depth)
   const depositVariable = nodeVariables[nodeVariables.length - 2]!
   const terminalEdgeVariable = edgeVariables[edgeVariables.length - 1]!
   return {
@@ -382,9 +416,10 @@ function exchangeInflowQueryAtDepth(address: string, depth: number): { id: strin
     (nodeVariable) => `${nodeVariable}.is_exchange IS NULL`
   )
   // Pool trace rule: the trace starts at the screened address `a` and walks
-  // back through the intermediates, so none of them may be a :Pool. The
-  // exchange end is the target, which may be one.
-  const poolGuards = poolGuardTerms(['a', ...intermediateVariables])
+  // back through the intermediates, so none of them may be a :Pool, and on
+  // two or more hops none a :Protocol or a system address. The exchange end
+  // is the target, which may be one.
+  const poolGuards = walkGuardTerms(['a', ...intermediateVariables], depth)
   const withdrawalVariable = nodeVariables[1]!
   const terminalEdgeVariable = edgeVariables[edgeVariables.length - 1]!
   return {
@@ -428,7 +463,8 @@ function compareAddressExistsQuery(address: string): { id: string; query: string
 }
 
 // Pool trace rule: the via_linked read is a two-hop walk through `owned`, so
-// `a` and `owned` carry the guard and the target `b` may be a pool. The direct
+// `a` and `owned` carry the pool and the system guard and the target `b` may
+// be a pool. The direct
 // read is a counterparty listing of one address, not a trace, and stays
 // unguarded (ruling: a pool's own counterparty list is a listing).
 // AC11: FLOWS_TO reachability UNIONed over one -[:LINKED]- hop, so an
@@ -449,7 +485,7 @@ function linkedExposureQueries(address: string): Array<{ id: string; query: stri
       id: 'linked_exposure_via_linked',
       query: [
         `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[l:LINKED]-(owned:Address)-[r:FLOWS_TO]-(b:Address)`,
-        'WHERE NOT a:Pool AND NOT owned:Pool AND owned.address <> b.address AND a.address <> b.address',
+        `WHERE ${walkGuardTerms(['a', 'owned'], 2)} AND owned.address <> b.address AND a.address <> b.address`,
         `RETURN a.address AS subject_address, b.address AS counterparty_address, b.network AS counterparty_network, "via_linked" AS exposure_basis, owned.address AS linked_via_address, l.basis AS link_basis, l.confidence AS link_confidence, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count`,
         'LIMIT 200',
       ].join(' '),
@@ -509,8 +545,8 @@ export function connectionRouteQueries(
 ): Array<{ id: string; query: string }> {
   const routeQuery = (fromAddress: string, toAddress: string): string =>
     [
-      `MATCH p = SHORTEST 1 (a:Address {address: "${escapeCypherString(fromAddress)}"} WHERE NOT a:Pool)`,
-      ` (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,${CONNECTION_ROUTE_DEPTH_BOUND}}`,
+      `MATCH p = SHORTEST 1 (a:Address {address: "${escapeCypherString(fromAddress)}"} WHERE ${walkGuardTerms(['a'], 2)})`,
+      ` (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE ${walkGuardTerms(['via'], 2)}){0,${CONNECTION_ROUTE_DEPTH_BOUND}}`,
       ` ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "${escapeCypherString(toAddress)}"}) RETURN p LIMIT 1`,
     ].join('')
   return [

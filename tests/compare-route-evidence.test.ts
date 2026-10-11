@@ -6,7 +6,13 @@ import {
   routeFromPathValue,
   shouldIncludeRouteQueries,
   isExchangeMarker,
+  SYSTEM_ADDRESSES,
 } from '../src/investigation/public-tools.js'
+
+// The pool and system guard of one address on a walk of two or more hops
+// (skills/chain-insights-cypher, "System guard").
+const GUARD = (name: string) =>
+  `NOT ${name}:Pool AND NOT ${name}:Protocol AND NOT ${name}:System AND NOT ${name}.address IN [${SYSTEM_ADDRESSES.map((a) => `"${a}"`).join(', ')}]`
 
 // Pairwise route evidence between two KNOWN endpoints via bounded ISO GQL
 // shortest paths. Exchange intermediates are DISCLOSED, never silently
@@ -18,13 +24,11 @@ describe('connectionRouteQueries', () => {
     expect(queries).toEqual([
       {
         id: 'connection_route_outbound',
-        query:
-          'MATCH p = SHORTEST 1 (a:Address {address: "idA"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "idB"}) RETURN p LIMIT 1',
+        query: `MATCH p = SHORTEST 1 (a:Address {address: "idA"} WHERE ${GUARD('a')}) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE ${GUARD('via')}){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "idB"}) RETURN p LIMIT 1`,
       },
       {
         id: 'connection_route_inbound',
-        query:
-          'MATCH p = SHORTEST 1 (a:Address {address: "idB"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "idA"}) RETURN p LIMIT 1',
+        query: `MATCH p = SHORTEST 1 (a:Address {address: "idB"} WHERE ${GUARD('a')}) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE ${GUARD('via')}){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "idA"}) RETURN p LIMIT 1`,
       },
     ])
   })
@@ -34,8 +38,8 @@ describe('connectionRouteQueries', () => {
       // The guard lives inside the parentheses, so the search skips a pool
       // instead of dropping the shortest route that crosses one.
       expect(query).toContain('(a:Address {address: "')
-      expect(query).toContain('WHERE NOT a:Pool)')
-      expect(query).toContain('(via:Address) WHERE NOT via:Pool){0,4}')
+      expect(query).toContain(`WHERE ${GUARD('a')})`)
+      expect(query).toContain(`(via:Address) WHERE ${GUARD('via')}){0,4}`)
       // The target end is the last hop and carries no guard: a route may end at a pool.
       expect(query).toMatch(/\(b:Address \{address: "[^"]*"\}\) RETURN p LIMIT 1$/)
       expect(query).not.toMatch(/b:Pool/)
@@ -43,7 +47,9 @@ describe('connectionRouteQueries', () => {
       // after the route is chosen.
       expect(query.match(/WHERE/g)).toHaveLength(2)
       expect(query.indexOf('RETURN')).toBeGreaterThan(query.lastIndexOf('WHERE'))
-      expect(query.slice(query.lastIndexOf('WHERE'))).toMatch(/^WHERE NOT via:Pool\)\{0,4\}/)
+      expect(query.slice(query.lastIndexOf('WHERE'))).toMatch(
+        /^WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via\.address IN \[[^\]]*\]\)\{0,4\}/
+      )
     }
   })
 

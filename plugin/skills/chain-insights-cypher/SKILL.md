@@ -120,6 +120,7 @@ Find the question in this table. Send its first query, once, with the addresses 
 | What one address did in a month, since a date, in the last N days | topology, then facts | Links bounded by first and last seen, day reads only for the links that straddle an edge, see A window of days for one address |
 | What happened in this transaction hash?                      | `chain`    | `Transaction {tx_id}`, see Chain                                       |
 | The latest block, block N, how far behind the graph is       | `chain`    | `Head`, or `Block {block_height}`                                      |
+| The balance of one address over time, its balance changes   | `chain`    | `Head`, one `Block`, then one batch of `Address` reads, see Balance over time of one address |
 | Who transacted in block N, what happened in block N           | `chain`, then say the limit | `Block {block_height}` gives the hash, the time and the count; no layer lists a block's transactions or searches by block. Say so and offer the pair's day on facts. |
 | What fields does an Address have?                            | none       | Call `meta_schema {network}`. Send no query.                           |
 | Recent addresses, biggest senders, any top list of the chain | topology   | A search bounded by `f.last_seen_timestamp`, then sort and LIMIT (below). |
@@ -179,7 +180,7 @@ bridges and the `LINKED` overlay. The server checks these before it runs:
 
 ## Graph searches
 
-Each query below is admitted by the live server. Change only the addresses and the `RETURN`. Keep the guards inside the pattern: they apply the [pool trace rule](#pool-trace-rule), and a `WHERE` after a `SHORTEST` pattern runs too late. A walk follows links, not coins: confirm a hop with a pair and a day on `USE facts`.
+Each query below is admitted by the live server. Change only the addresses and the `RETURN`. Keep the guards inside the pattern: they apply the [pool trace rule](#pool-trace-rule) and the system guard below it, and a `WHERE` after a `SHORTEST` pattern runs too late. A walk of two or more hops carries the long guard on its start and on every address in its middle. A walk follows links, not coins: confirm a hop with a pair and a day on `USE facts`.
 
 Newest links of one address, its receivers. Its newest senders are the same read with the arrow flipped:
 
@@ -232,7 +233,7 @@ Route between two addresses, one path. Only `MATCH SHORTEST 1` and `MATCH ANY SH
 
 ```cypher
 USE topology
-MATCH p = SHORTEST 1 (a:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "0x7e3702e9dfaa847f9829a258f1e26fa431160662"})
+MATCH p = SHORTEST 1 (a:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "0x7e3702e9dfaa847f9829a258f1e26fa431160662"})
 RETURN [n IN nodes(p) | n.address] AS route
 LIMIT 5
 ```
@@ -241,7 +242,7 @@ Several routes, up to 3 hops, in no set order. Add no `ORDER BY`: it can end in 
 
 ```cypher
 USE topology
-MATCH p = (a:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,2} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "0x7e3702e9dfaa847f9829a258f1e26fa431160662"})
+MATCH p = (a:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,2} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "0x7e3702e9dfaa847f9829a258f1e26fa431160662"})
 RETURN [n IN nodes(p) | n.address] AS route, length(p) AS hops LIMIT 5
 ```
 
@@ -249,7 +250,7 @@ Where the money went, up to 3 hops out:
 
 ```cypher
 USE topology
-MATCH p = (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]->(via:Address) WHERE NOT via:Pool){0,2} ()-[:FLOWS_TO|SWAPPED]->(b:Address)
+MATCH p = (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWS_TO|SWAPPED]->(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,2} ()-[:FLOWS_TO|SWAPPED]->(b:Address)
 RETURN b.address AS to_address, length(p) AS hops LIMIT 25
 ```
 
@@ -257,7 +258,7 @@ Where the money came from, up to 3 hops in:
 
 ```cypher
 USE topology
-MATCH p = (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"} WHERE NOT a:Pool) (()<-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,2} ()<-[:FLOWS_TO|SWAPPED]-(b:Address)
+MATCH p = (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()<-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,2} ()<-[:FLOWS_TO|SWAPPED]-(b:Address)
 RETURN b.address AS from_address, length(p) AS hops LIMIT 25
 ```
 
@@ -265,7 +266,7 @@ Counterparties that two addresses share:
 
 ```cypher
 USE topology
-MATCH (a:Address {address: "0x7e3702e9dfaa847f9829a258f1e26fa431160662"})-[:FLOWS_TO|SWAPPED]-(c:Address)-[:FLOWS_TO|SWAPPED]-(b:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c"}) WHERE NOT a:Pool AND NOT c:Pool
+MATCH (a:Address {address: "0x7e3702e9dfaa847f9829a258f1e26fa431160662"})-[:FLOWS_TO|SWAPPED]-(c:Address)-[:FLOWS_TO|SWAPPED]-(b:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c"}) WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND NOT c:Pool AND NOT c:Protocol AND NOT c:System AND NOT c.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]
 RETURN DISTINCT c.address AS shared_address LIMIT 25
 ```
 
@@ -311,7 +312,7 @@ Pool trace: who took liquidity out of the pools an address paid into.
 
 ```cypher
 USE topology
-MATCH (a:Address {address: "0x7a31dd32a880827477ab2bbeff47db188c896815"})-[:FLOWS_TO]->(p:Pool)-[r:REMOVED_LIQUIDITY]->(b:Address) WHERE NOT a:Pool AND b.address <> a.address
+MATCH (a:Address {address: "0x7a31dd32a880827477ab2bbeff47db188c896815"})-[:FLOWS_TO]->(p:Pool)-[r:REMOVED_LIQUIDITY]->(b:Address) WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND b.address <> a.address
 RETURN p.address AS pool, b.address AS receiver, r.usd AS removed_usd, r.receiver_provided AS receiver_provided LIMIT 25
 ```
 
@@ -337,6 +338,38 @@ trader who used it. Every trace follows this rule:
    different addresses. Do not walk through the pool.
 
 So a walk never starts at a pool and never passes through one. It may end at one. Guard the start with `WHERE NOT a:Pool` and each address in the middle with `WHERE NOT via:Pool`, and follow `FLOWS_TO|SWAPPED`, as above. Exchange hot wallets end a trace: pass through an address only when `is_exchange IS NULL`.
+
+### System guard
+
+A walk of two or more hops also never starts at, and never passes through,
+a `:Protocol` or a `:System` address.
+
+- System is the kind of the mint and burn addresses
+  0x0000000000000000000000000000000000000000 and
+  0x000000000000000000000000000000000000dead.
+- Protocol is shared infrastructure such as a PoolManager, a router or a
+  bridge. The PoolManager `0x8366a39cc670b4001a1121b8f6a443a643e40951` is
+  one. It settles the swaps of every pool, and it is no `:Pool`.
+
+Each one links hundreds of thousands to millions of wallets that never dealt
+with each other. A route through one connects nothing. "Wallet A, then the
+zero address, then wallet B" only says that both held a minted token.
+
+Guard the start and every address in the middle with these tests, each its
+own `AND` term:
+
+```text
+NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]
+```
+
+The graph does not write the `:System` kind yet, so the address test keeps
+the two system addresses out until it does. Keep both tests. The address
+test becomes redundant once every graph writes `:System`.
+
+A one-hop read of such an address needs no guard: its own links are facts.
+It may also end a walk, as a pool may. When the shortest route comes back
+empty with the guard, say that no route avoids these addresses within the
+hops. Never send the walk again without the guard.
 
 ## Find the fields
 
@@ -498,8 +531,9 @@ nothing and shows the rows as text.
 
 ### Time series
 
-`USE facts` reads one pair on one day, and does not group. Two shapes are
-served.
+`USE facts` reads one pair on one day, and does not group. Three shapes are
+served: two for a pair, on `USE facts`, and one for the balance of one
+address, on `USE chain`.
 
 Within one day, the transfers of a known pair, one point per transfer:
 
@@ -528,6 +562,86 @@ several days in one read (`block_date IN [...]`): both are refused. A literal
 column such as `RETURN "2026-10-07" AS day` does not parse.
 
 A row that names its ends `src`, `dst` or `address` draws no graph. Alias them `from_address` and `to_address`.
+
+#### Balance over time of one address
+
+"Show the balance of 0x… over time", "its balance changes": this is a
+`USE chain` read. Never use topology or facts for it, and never send
+`graph_query` once per day. One batch draws one chart.
+
+What the chain gives:
+
+- `a.balance` is the native coin, ETH, in wei: the smallest unit. One ETH is
+  10^18 wei. The value is decimal text.
+- No layer serves a token balance. When the user asks about tokens, say so.
+- A batch holds at most `chain_admission.batch_max` chain reads. More are
+  refused with `chain_batch_too_large`. So one chart holds at least 3
+  points and at most `chain_admission.batch_max`.
+- A second batch draws a second chart, not more points. Send one batch.
+
+Pick the days, the newest last, as many as `chain_admission.batch_max`:
+
+- The user names a window: spread the days across it, its last day last.
+- No window: one day a week back from today, today last.
+
+The steps:
+
+1. Read the head. Call its height `H` and its time `T`.
+
+```cypher
+USE chain MATCH (h:Head) RETURN h.block_height, h.block_timestamp
+```
+
+2. Read one block near the oldest day. A block is about a tenth of a
+   second, so guess `H - days back x 864000`. Call its height `h0` and its
+   time `T0`. The block time drifts by hours over a month, so never skip
+   this read.
+
+```cypher
+USE chain MATCH (b:Block {block_height: 61184414}) RETURN b.block_height, b.block_timestamp
+```
+
+3. Work out the blocks per day: `B = (H - h0) x 86400000 / (T - T0)`.
+4. For each day, take the last millisecond of that UTC day: midnight plus
+   86,399,999. Call it `E`. Its block is `H - (T - E) x B / 86400000`,
+   rounded to a whole block.
+5. For today, and for any block less than
+   `chain_admission.at_block_min_depth` blocks below `H`, leave `at_block`
+   out. That point reads the newest block.
+6. Send one `graph_query_batch`. Each query's `id` is its day,
+   `"YYYY-MM-DD"`. Each query returns `a.balance` and nothing else. An
+   address or a `day` column in the row breaks the chart into tabs.
+
+A worked batch, for one address over four weeks. Today is the last day,
+so it has no `at_block`.
+
+| `id`         | `query` |
+| ------------ | ------- |
+| `2026-09-13` | `USE chain MATCH (a:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c", at_block: 62367679}) RETURN a.balance` |
+| `2026-09-20` | `USE chain MATCH (a:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c", at_block: 68335414}) RETURN a.balance` |
+| `2026-09-27` | `USE chain MATCH (a:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c", at_block: 74303150}) RETURN a.balance` |
+| `2026-10-04` | `USE chain MATCH (a:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c", at_block: 80270885}) RETURN a.balance` |
+| `2026-10-11` | `USE chain MATCH (a:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c"}) RETURN a.balance` |
+
+Each row is one member of `queries`:
+
+```json
+{"network": "robinhood", "queries": [
+  {"id": "2026-09-13", "query": "<the query of 2026-09-13>"},
+  {"id": "2026-09-20", "query": "<the query of 2026-09-20>"},
+  {"id": "2026-09-27", "query": "<the query of 2026-09-27>"},
+  {"id": "2026-10-04", "query": "<the query of 2026-10-04>"},
+  {"id": "2026-10-11", "query": "<the query of 2026-10-11>"}
+]}
+```
+
+Each day answers one row, such as `{"balance": "9674936629657651"}`, in
+wei. The view joins the days into one series.
+
+Answer in ETH: divide the wei by 10^18. `9674936629657651` wei is about
+0.00967 ETH. Say each point is the ETH held at the end of that UTC day, and
+today's point is now. A flat line at zero is an answer: the address held no
+ETH on those days. Say that only ETH is shown.
 
 ## Shell without the tool
 
