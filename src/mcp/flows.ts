@@ -17,6 +17,16 @@
  *   on one UTC day, newest first, at most 50, a short text summary and
  *   chain-insights.transfers.v1 in structuredContent. One anchored USE facts
  *   graph_query read.
+ * - link page, {network, from, to, day, limit, skip?, first_day?}: a page of
+ *   `limit` transfers (1 to 50) newest first, read from `day` back one UTC day
+ *   at a time, at most TRANSFERS_MAX_DAYS reads a call, never before
+ *   first_day. The answer carries `next` ({day, skip}, or null when every
+ *   transfer back to first_day is listed) which the next call sends back as
+ *   day and skip. The view's "More transfers".
+ * - details, {network, address, details: true}: the lifetime totals, counts,
+ *   role and labels of one address, chain-insights.address.v1, one anchored
+ *   topology read. The view fills its panel with it when the rows of a query
+ *   carried no totals.
  *
  * Every read goes through the proxy's remote client, the same path and payment
  * wrapping a graph_query call takes, and is billed as a graph_query. Every
@@ -58,6 +68,12 @@ export const TRANSFERS_MAX = 50
 export const TRANSFERS_READ_ROWS = 200
 /** The text of a link answer names at most this many transfers. */
 export const TRANSFERS_SUMMARY_ROWS = 5
+/** A paged link answer reads at most this many days in one call: a sparse link costs at most this many reads a page. */
+export const TRANSFERS_MAX_DAYS = 4
+/** Where a paged link answer stops reading back when the caller names no first_day. */
+export const TRANSFERS_FLOOR_DAY = '2015-01-01'
+
+export const ADDRESS_SCHEMA = 'chain-insights.address.v1'
 
 export type FlowNode = {
   address: string
@@ -138,6 +154,12 @@ export const INVALID_DAY_TEXT =
   'invalid_day: day must be a calendar date written YYYY-MM-DD (UTC), for example 2026-07-10'
 export const BOTH_FORMS_TEXT =
   'invalid_arguments: pass address (with in_offset and out_offset) to expand a node, or from, to and day to list the transfers of a link, not both'
+export const INVALID_LIMIT_TEXT = 'invalid_limit: limit must be a whole number from 1 to 50'
+export const INVALID_SKIP_TEXT = 'invalid_skip: skip must be a whole number of 0 or more'
+export const INVALID_FIRST_DAY_TEXT =
+  'invalid_first_day: first_day must be a calendar date written YYYY-MM-DD (UTC), not after day'
+export const DETAILS_FORM_TEXT =
+  'invalid_arguments: details takes address alone; pass no from, to, day or offsets with it'
 
 const ADDRESS_PATTERN = /^0x[0-9a-f]{40}$/
 const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
@@ -180,6 +202,62 @@ export function transfersReadFor(from: string, to: string, day: string): string 
     `WHERE t.block_date = "${day}" ` +
     'RETURN t.tx_id AS tx_id, t.block_timestamp AS block_timestamp, t.amount AS amount, ' +
     `t.asset_symbol AS asset_symbol, t.amount_usd AS amount_usd LIMIT ${TRANSFERS_READ_ROWS}`
+  )
+}
+
+/** The UTC day before a YYYY-MM-DD day. */
+export function dayBefore(day: string): string {
+  return new Date(Date.parse(`${day}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10)
+}
+
+/**
+ * The one topology read of a details call: the address alone, with its
+ * lifetime rollups and activity span. The address has passed its check, so it
+ * is written into the read as a literal.
+ */
+export function detailsReadFor(address: string): string {
+  return (
+    `USE topology MATCH (b:Address {address: "${address}"}) RETURN ${NODE_FIELDS}, ` +
+    'b.first_activity_timestamp AS first_activity_timestamp, b.last_activity_timestamp AS last_activity_timestamp LIMIT 1'
+  )
+}
+
+export type AddressView = FlowNode & {
+  schema: typeof ADDRESS_SCHEMA
+  network: string
+  is_exchange: boolean
+  is_sanctioned: boolean
+  is_scam: boolean
+  is_victim: boolean
+  pool: boolean
+  first_activity_timestamp: number | null
+  last_activity_timestamp: number | null
+}
+
+/** chain-insights.address.v1 from the one row of a details read. */
+export function buildAddressView(network: string, address: string, row: Row): AddressView {
+  const node = flowsNodeOf({ ...row, address })
+  return {
+    schema: ADDRESS_SCHEMA,
+    network,
+    ...node,
+    is_exchange: row.is_exchange === true,
+    is_sanctioned: row.is_sanctioned === true,
+    is_scam: row.is_scam === true,
+    is_victim: row.is_victim === true,
+    pool: row.pool === true,
+    first_activity_timestamp: flowsNumberOrNull(row.first_activity_timestamp),
+    last_activity_timestamp: flowsNumberOrNull(row.last_activity_timestamp),
+  }
+}
+
+/** The one line of a details answer. */
+export function addressSummary(view: AddressView): string {
+  return (
+    `${view.address} on ${view.network}: ${view.role}; lifetime ${formatFlowsUsd(view.total_in_usd)} in, ` +
+    `${formatFlowsUsd(view.total_out_usd)} out; ${view.degree_in} senders and ${view.degree_out} receivers in the topology graph` +
+    (view.labels.length ? `; labels ${view.labels.join(', ')}` : '') +
+    '.'
   )
 }
 
@@ -457,6 +535,8 @@ export type TransferRow = {
   amount_usd: number | null
 }
 
+export type TransfersCursor = { day: string; skip: number }
+
 export type TransfersView = {
   schema: typeof TRANSFERS_SCHEMA
   network: string
@@ -465,7 +545,13 @@ export type TransfersView = {
   day: string
   transfers: TransferRow[]
   truncated: boolean
+  /** Paged answers only: the earliest day read, how many days the call read, and where the next page starts (null: every transfer back to first_day is listed). */
+  through_day?: string
+  days_read?: number
+  next?: TransfersCursor | null
 }
+
+export type TransfersPageRequest = { skip: number; firstDay: string | null; limit: number }
 
 /** A finite number, or a decimal string read as one, or null. */
 function flowsNumberOrNull(value: unknown): number | null {
@@ -533,10 +619,16 @@ function transferLine(transfer: TransferRow): string {
 
 /** The short text of a link answer: the pair, the day, the count and the newest few transfers. */
 export function transfersSummary(view: TransfersView): string {
-  const head = `Transfers from ${view.from} to ${view.to} on ${view.day} (UTC) on ${view.network}`
-  if (view.transfers.length === 0) return `${head}: none.`
+  const paged = view.through_day !== undefined
+  const span = paged && view.through_day !== view.day ? `${view.through_day} to ${view.day}` : view.day
+  const head = `Transfers from ${view.from} to ${view.to} on ${span} (UTC) on ${view.network}`
+  if (view.transfers.length === 0) {
+    return paged && view.next ? `${head}: none; earlier days remain before ${view.next.day}.` : `${head}: none.`
+  }
   const count = view.truncated
-    ? `the newest ${view.transfers.length}, and the day holds more`
+    ? paged
+      ? `${view.transfers.length}, and a day holds more than one read lists`
+      : `the newest ${view.transfers.length}, and the day holds more`
     : `${view.transfers.length}`
   const lines = [
     `${head}: ${count}, newest first.`,
@@ -544,6 +636,7 @@ export function transfersSummary(view: TransfersView): string {
   ]
   const rest = view.transfers.length - TRANSFERS_SUMMARY_ROWS
   if (rest > 0) lines.push(`- and ${rest} more in the picture.`)
+  if (paged && view.next) lines.push(`- earlier transfers remain, from ${view.next.day} back.`)
   return lines.join('\n')
 }
 
@@ -622,6 +715,26 @@ function checkAddress(raw: unknown, name?: string): Checked<string> {
 function checkDay(raw: unknown): Checked<string> {
   const day = normalizeFlowsDay(raw)
   return day ?? { error: INVALID_DAY_TEXT }
+}
+
+function checkLimit(value: unknown): Checked<number> {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > TRANSFERS_MAX) {
+    return { error: INVALID_LIMIT_TEXT }
+  }
+  return value
+}
+
+function checkSkip(value: unknown): Checked<number> {
+  if (value === undefined || value === null) return 0
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) return { error: INVALID_SKIP_TEXT }
+  return value
+}
+
+function checkFirstDay(value: unknown, day: string): Checked<string | null> {
+  if (value === undefined || value === null) return null
+  const first = normalizeFlowsDay(value)
+  if (!first || first > day) return { error: INVALID_FIRST_DAY_TEXT }
+  return first
 }
 
 function checkOffset(value: unknown): Checked<number> {
@@ -719,6 +832,132 @@ async function runLink(
   }
 }
 
+/** One facts read of a day, as the paged walk needs it: the rows newest first, or the error that ends the call. */
+async function readDay(
+  deps: FlowsDependencies,
+  network: string,
+  from: string,
+  to: string,
+  day: string
+): Promise<{ rows: TransferRow[]; cut: boolean } | { error: string }> {
+  let answer: GraphQueryAnswer
+  try {
+    answer = await deps.graphQuery({ network, query: transfersReadFor(from, to, day) })
+  } catch (err) {
+    return { error: deps.describeFailure(err) }
+  }
+  if (answer.isError === true) return { error: refusalText(answer) }
+  const rows = rowsOf(answer)
+  if (!rows) {
+    return { error: 'graph_query_failed: the graph endpoint answered without chain-insights.result.v1 rows' }
+  }
+  const newestFirst = rows
+    .map(transferOf)
+    .sort((a, b) => (b.block_timestamp ?? -Infinity) - (a.block_timestamp ?? -Infinity))
+  return { rows: newestFirst, cut: rows.length >= TRANSFERS_READ_ROWS }
+}
+
+/**
+ * Read and answer one page of a link's transfers: from `day` back, one day a
+ * read, until the page holds `limit` transfers, TRANSFERS_MAX_DAYS days were
+ * read, or the day before first_day is reached. `skip` passes over the
+ * transfers of `day` an earlier page listed. The first read that does not
+ * answer ends the call.
+ */
+async function runLinkPage(
+  deps: FlowsDependencies,
+  network: string,
+  from: string,
+  to: string,
+  day: string,
+  page: TransfersPageRequest
+): Promise<FlowsToolResult> {
+  const unavailable = deps.unavailable?.()
+  if (unavailable) return errorResult(unavailable)
+  const floor = page.firstDay ?? TRANSFERS_FLOOR_DAY
+  const transfers: TransferRow[] = []
+  let current = day
+  let skip = page.skip
+  let daysRead = 0
+  let through = day
+  let truncated = false
+  let next: TransfersCursor | null = null
+  for (;;) {
+    if (current < floor) break
+    if (daysRead >= TRANSFERS_MAX_DAYS) {
+      next = { day: current, skip }
+      break
+    }
+    const read = await readDay(deps, network, from, to, current)
+    if ('error' in read) return errorResult(read.error)
+    daysRead += 1
+    through = current
+    if (read.cut) truncated = true
+    const rest = read.rows.slice(skip)
+    const room = page.limit - transfers.length
+    if (rest.length > room) {
+      transfers.push(...rest.slice(0, room))
+      next = { day: current, skip: skip + room }
+      break
+    }
+    transfers.push(...rest)
+    const earlier = dayBefore(current)
+    if (transfers.length >= page.limit) {
+      next = earlier < floor ? null : { day: earlier, skip: 0 }
+      break
+    }
+    current = earlier
+    skip = 0
+  }
+  const view: TransfersView = {
+    schema: TRANSFERS_SCHEMA,
+    network,
+    from,
+    to,
+    day,
+    transfers,
+    truncated,
+    through_day: through,
+    days_read: daysRead,
+    next,
+  }
+  return {
+    content: [{ type: 'text', text: transfersSummary(view) }],
+    structuredContent: view as unknown as Record<string, unknown>,
+    isError: false,
+  }
+}
+
+/** Read and answer the details of one address: a single anchored topology read. */
+async function runDetails(
+  deps: FlowsDependencies,
+  network: string,
+  address: string
+): Promise<FlowsToolResult> {
+  const unavailable = deps.unavailable?.()
+  if (unavailable) return errorResult(unavailable)
+  let answer: GraphQueryAnswer
+  try {
+    answer = await deps.graphQuery({ network, query: detailsReadFor(address) })
+  } catch (err) {
+    return errorResult(deps.describeFailure(err))
+  }
+  if (answer.isError === true) return errorResult(refusalText(answer))
+  const rows = rowsOf(answer)
+  if (!rows) {
+    return errorResult(
+      'graph_query_failed: the graph endpoint answered without chain-insights.result.v1 rows'
+    )
+  }
+  if (rows.length === 0) return errorResult(`${address} is not in the ${network} topology graph`)
+  const view = buildAddressView(network, address, rows[0]!)
+  return {
+    content: [{ type: 'text', text: addressSummary(view) }],
+    structuredContent: view as unknown as Record<string, unknown>,
+    isError: false,
+  }
+}
+
 function given(record: Record<string, unknown>, keys: string[]): boolean {
   return keys.some((key) => record[key] !== undefined && record[key] !== null)
 }
@@ -737,7 +976,7 @@ export async function handleGraphExpand(
   if (typeof network !== 'string') return errorResult(network.error)
 
   const isLink = given(record, ['from', 'to', 'day'])
-  if (isLink && given(record, ['address', 'in_offset', 'out_offset']))
+  if (isLink && given(record, ['address', 'in_offset', 'out_offset', 'details']))
     return errorResult(BOTH_FORMS_TEXT)
 
   if (isLink) {
@@ -747,7 +986,25 @@ export async function handleGraphExpand(
     if (typeof to !== 'string') return errorResult(to.error)
     const day = checkDay(record.day)
     if (typeof day !== 'string') return errorResult(day.error)
+    // A limit, a skip or a first_day asks for a page across days; without them the call is the one-day read.
+    if (given(record, ['limit', 'skip', 'first_day'])) {
+      const limit = checkLimit(record.limit)
+      if (typeof limit !== 'number') return errorResult(limit.error)
+      const skip = checkSkip(record.skip)
+      if (typeof skip !== 'number') return errorResult(skip.error)
+      const firstDay = checkFirstDay(record.first_day, day)
+      if (firstDay !== null && typeof firstDay !== 'string') return errorResult(firstDay.error)
+      return runLinkPage(deps, network, from, to, day, { skip, firstDay, limit })
+    }
     return runLink(deps, network, from, to, day)
+  }
+
+  if (record.details !== undefined && record.details !== null) {
+    if (record.details !== true) return errorResult(DETAILS_FORM_TEXT)
+    if (given(record, ['in_offset', 'out_offset'])) return errorResult(DETAILS_FORM_TEXT)
+    const address = checkAddress(record.address)
+    if (typeof address !== 'string') return errorResult(address.error)
+    return runDetails(deps, network, address)
   }
 
   const address = checkAddress(record.address)
@@ -766,4 +1023,7 @@ export const GRAPH_EXPAND_DESCRIPTION =
   'A node, {network, address, in_offset?, out_offset?}, loads the newest senders and receivers of one address ' +
   '(up to 250 a side, from the offsets); billed as at most five graph_query topology reads. A link, {network, from, to, day}, ' +
   'lists the transfers between two addresses on one UTC day (YYYY-MM-DD), newest first, at most 50; billed as ' +
-  'one graph_query facts read. Read-only; an argument refused before a read costs nothing.'
+  'one graph_query facts read. A link page, {network, from, to, day, limit, skip?, first_day?}, lists `limit` (1-50) ' +
+  'transfers from `day` back across days, newest first, and answers a `next` cursor ({day, skip}) while older ones ' +
+  'remain; billed as at most four facts reads. Details, {network, address, details: true}, answer the lifetime totals, ' +
+  'counts, role and labels of one address; billed as one topology read. Read-only; an argument refused before a read costs nothing.'

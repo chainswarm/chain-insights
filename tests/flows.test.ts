@@ -37,8 +37,19 @@ import {
   FLOWS_PER_SIDE,
   FLOWS_READ_ROWS,
   FLOWS_SUMMARY_MAX_LINES,
+  ADDRESS_SCHEMA,
+  BOTH_FORMS_TEXT,
+  DETAILS_FORM_TEXT,
+  INVALID_FIRST_DAY_TEXT,
+  INVALID_ADDRESS_TEXT,
+  INVALID_LIMIT_TEXT,
+  INVALID_SKIP_TEXT,
+  TRANSFERS_FLOOR_DAY,
   TRANSFERS_MAX,
+  TRANSFERS_MAX_DAYS,
   buildFlowView,
+  dayBefore,
+  detailsReadFor,
   flowsReadsFor,
   flowsRole,
   flowsSummary,
@@ -740,6 +751,181 @@ describe('graph_expand, link form', () => {
       ],
       isError: true,
     })
+  })
+})
+
+describe('graph_expand, link page form', () => {
+  const page = { network: 'robinhood', from: SCAM, to: RECEIVER, day: DAY }
+  const dayOf = (query: string) => /block_date = "(\d{4}-\d{2}-\d{2})"/.exec(query)![1]!
+  /** Rows per day; a day not named is empty. */
+  const daysEndpoint = (byDay: Record<string, Record<string, unknown>[]>) =>
+    endpoint((read) => factsAnswer(byDay[dayOf(read.query)] ?? []))
+
+  it('answers a page of `limit` from the day, newest first, with a next cursor into the same day', async () => {
+    const { reads, deps } = daysEndpoint({ [DAY]: [transferRow(1), transferRow(3), transferRow(2)] })
+    const result = await handleGraphExpand({ ...page, limit: 2 }, deps)
+    expect(result.isError).toBe(false)
+    const view = result.structuredContent as unknown as TransfersView
+    expect(view.transfers.map((transfer) => transfer.tx_id)).toEqual([txHash(3), txHash(2)])
+    expect(view.next).toEqual({ day: DAY, skip: 2 })
+    expect(view.through_day).toBe(DAY)
+    expect(view.days_read).toBe(1)
+    expect(view.truncated).toBe(false)
+    expect(reads).toHaveLength(1)
+    expect(result.content[0].text).toContain(`Transfers from ${SCAM} to ${RECEIVER} on ${DAY} (UTC) on robinhood: 2, newest first.`)
+    expect(result.content[0].text).toContain(`- earlier transfers remain, from ${DAY} back.`)
+  })
+
+  it('the next call skips what was listed, walks to earlier days, and stops at first_day with next null', async () => {
+    const earlier = dayBefore(DAY)
+    const first = dayBefore(earlier)
+    const { reads, deps } = daysEndpoint({
+      [DAY]: [transferRow(1), transferRow(3), transferRow(2)],
+      [first]: [transferRow(7, { block_timestamp: Date.parse(`${first}T00:07:00Z`) })],
+    })
+    const result = await handleGraphExpand({ ...page, limit: 25, skip: 2, first_day: first }, deps)
+    const view = result.structuredContent as unknown as TransfersView
+    // The one left on the day, then the empty day between, then the first-seen day: three reads, three transfers... one, then one.
+    expect(reads.map((read) => dayOf(read.query))).toEqual([DAY, earlier, first])
+    expect(view.transfers.map((transfer) => transfer.tx_id)).toEqual([txHash(1), txHash(7)])
+    expect(view.next).toBeNull()
+    expect(view.through_day).toBe(first)
+    expect(view.days_read).toBe(3)
+    expect(result.content[0].text).toContain(`on ${first} to ${DAY} (UTC)`)
+    expect(result.content[0].text).not.toContain('earlier transfers remain')
+  })
+
+  it('reads at most four days in one call and hands the rest to the next cursor', async () => {
+    const { reads, deps } = daysEndpoint({})
+    const result = await handleGraphExpand({ ...page, limit: 10, first_day: '2026-01-01' }, deps)
+    const view = result.structuredContent as unknown as TransfersView
+    expect(reads).toHaveLength(TRANSFERS_MAX_DAYS)
+    expect(view.transfers).toEqual([])
+    let through = DAY
+    for (let step = 1; step < TRANSFERS_MAX_DAYS; step++) through = dayBefore(through)
+    const next = dayBefore(through)
+    expect(view.through_day).toBe(through)
+    expect(view.next).toEqual({ day: next, skip: 0 })
+    expect(result.content[0].text).toBe(
+      `Transfers from ${SCAM} to ${RECEIVER} on ${through} to ${DAY} (UTC) on robinhood: none; earlier days remain before ${next}.`
+    )
+  })
+
+  it('a page that ends exactly on a day boundary points the next cursor at the day before', async () => {
+    const { deps } = daysEndpoint({ [DAY]: [transferRow(1), transferRow(2)] })
+    const view = (await handleGraphExpand({ ...page, limit: 2, first_day: '2026-01-01' }, deps)).structuredContent as unknown as TransfersView
+    expect(view.transfers).toHaveLength(2)
+    expect(view.next).toEqual({ day: dayBefore(DAY), skip: 0 })
+  })
+
+  it('stops at the floor day when no first_day is given', async () => {
+    const { reads, deps } = daysEndpoint({})
+    const view = (await handleGraphExpand({ ...page, day: TRANSFERS_FLOOR_DAY, limit: 5 }, deps)).structuredContent as unknown as TransfersView
+    expect(reads).toHaveLength(1)
+    expect(view.next).toBeNull()
+  })
+
+  it('marks truncated when a day came back cut at 200 rows, and still pages what it has', async () => {
+    const rows = Array.from({ length: 200 }, (_, index) => transferRow(index + 1))
+    const { deps } = daysEndpoint({ [DAY]: rows })
+    const view = (await handleGraphExpand({ ...page, limit: 50, first_day: DAY }, deps)).structuredContent as unknown as TransfersView
+    expect(view.transfers).toHaveLength(50)
+    expect(view.truncated).toBe(true)
+    expect(view.next).toEqual({ day: DAY, skip: 50 })
+  })
+
+  it.each([
+    ['limit 0', { limit: 0 }, INVALID_LIMIT_TEXT],
+    ['limit 51', { limit: 51 }, INVALID_LIMIT_TEXT],
+    ['limit as text', { limit: '25' }, INVALID_LIMIT_TEXT],
+    ['a skip without a limit', { skip: 3 }, INVALID_LIMIT_TEXT],
+    ['a negative skip', { limit: 25, skip: -1 }, INVALID_SKIP_TEXT],
+    ['a first_day after the day', { limit: 25, first_day: '2026-07-11' }, INVALID_FIRST_DAY_TEXT],
+    ['a first_day that is not a day', { limit: 25, first_day: 'june' }, INVALID_FIRST_DAY_TEXT],
+  ])('refuses %s before any read', async (_name, extra, text) => {
+    const { reads, deps } = daysEndpoint({ [DAY]: [transferRow(1)] })
+    const result = await handleGraphExpand({ ...page, ...extra }, deps)
+    expect(result.isError).toBe(true)
+    expect(result.content[0].text).toBe(text)
+    expect(reads).toHaveLength(0)
+  })
+
+  it('the one-day form is unchanged: no limit, no skip, no first_day, no next', async () => {
+    const { reads, deps } = daysEndpoint({ [DAY]: [transferRow(1)] })
+    const view = (await handleGraphExpand(page, deps)).structuredContent as unknown as TransfersView
+    expect(reads).toHaveLength(1)
+    expect(Object.keys(view)).toEqual(['schema', 'network', 'from', 'to', 'day', 'transfers', 'truncated'])
+  })
+})
+
+describe('graph_expand, details form', () => {
+  const details = { network: 'robinhood', address: SCAM, details: true }
+  const row = {
+    address: SCAM,
+    labels: ['Scam', 'Phishing'],
+    is_exchange: false,
+    is_sanctioned: false,
+    is_scam: true,
+    is_victim: false,
+    pool: false,
+    total_in_usd: 1234.5,
+    total_out_usd: 1200,
+    degree_in: 5,
+    degree_out: 1,
+    first_activity_timestamp: 1781822282000,
+    last_activity_timestamp: 1783693032000,
+  }
+
+  it('reads the address alone with one anchored topology read and answers address.v1', async () => {
+    const { reads, deps } = endpoint(() => rowsAnswer([row]))
+    const result = await handleGraphExpand(details, deps)
+    expect(result.isError).toBe(false)
+    expect(reads).toHaveLength(1)
+    expect(reads[0].query).toBe(detailsReadFor(SCAM))
+    expect(reads[0].query).toMatch(/^USE topology MATCH \(b:Address \{address: "0x[0-9a-f]{40}"\}\) RETURN /)
+    expect(reads[0].query).toMatch(/LIMIT 1$/)
+    expect(result.structuredContent).toEqual({
+      schema: ADDRESS_SCHEMA,
+      network: 'robinhood',
+      address: SCAM,
+      role: 'scam',
+      labels: ['Scam', 'Phishing'],
+      total_in_usd: 1234.5,
+      total_out_usd: 1200,
+      degree_in: 5,
+      degree_out: 1,
+      is_exchange: false,
+      is_sanctioned: false,
+      is_scam: true,
+      is_victim: false,
+      pool: false,
+      first_activity_timestamp: 1781822282000,
+      last_activity_timestamp: 1783693032000,
+    })
+    expect(result.content[0].text).toBe(
+      `${SCAM} on robinhood: scam; lifetime $1,234.50 in, $1,200.00 out; 5 senders and 1 receivers in the topology graph; labels Scam, Phishing.`
+    )
+  })
+
+  it('answers an address the graph does not hold as an error, after one read', async () => {
+    const { reads, deps } = endpoint(() => rowsAnswer([]))
+    const result = await handleGraphExpand({ ...details, address: ABSENT }, deps)
+    expect(result.isError).toBe(true)
+    expect(result.content[0].text).toBe(`${ABSENT} is not in the robinhood topology graph`)
+    expect(reads).toHaveLength(1)
+  })
+
+  it.each([
+    ['details with a link', { ...details, from: SCAM, to: RECEIVER, day: DAY }, BOTH_FORMS_TEXT],
+    ['details with offsets', { ...details, in_offset: 0 }, DETAILS_FORM_TEXT],
+    ['details that is not true', { ...details, details: 'yes' }, DETAILS_FORM_TEXT],
+    ['details with no address', { network: 'robinhood', details: true }, INVALID_ADDRESS_TEXT],
+  ])('refuses %s before any read', async (_name, args, text) => {
+    const { reads, deps } = endpoint(() => rowsAnswer([row]))
+    const result = await handleGraphExpand(args, deps)
+    expect(result.isError).toBe(true)
+    expect(result.content[0].text).toBe(text)
+    expect(reads).toHaveLength(0)
   })
 })
 

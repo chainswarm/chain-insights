@@ -119,8 +119,13 @@ Graph endpoint serves data only:
 - In the money flow graph, one click on an address shows its details in the
   side panel; a double click (or Shift+Enter) loads its senders and receivers
   and rings the address, and a second double click folds them back. A click on
-  a link shows its details and its transfers in the same panel. Reset returns
-  to the first answer. Outside the drawing, addresses are shown in full.
+  a link shows its details and its transfers in pages of 25 in the same panel;
+  the other links dim and come back with a click on the empty canvas. Gravity
+  is the first layout, and an expansion settles around the address that was
+  opened; Tree (senders left, receivers right, newest activity first) is one
+  click away. The table follows the drawing, expansions included. Reset
+  returns to the first answer. Outside the drawing, addresses are shown in
+  full.
 - `graph_expand` runs on your computer and answers the clicks in a picture. It
   takes `{network, address, in_offset?, out_offset?}` to load the newest senders
   and receivers of one address, up to 250 a side. That is at most five anchored
@@ -129,9 +134,16 @@ Graph endpoint serves data only:
   A busy address shows fewer, so the answer stays under 140,000 characters.
   The answer says how many senders and receivers are not loaded yet. Or it takes
   `{network, from, to, day}` to list the transfers between two addresses on one
-  UTC day, newest first, at most 50 (one `USE facts` `graph_query` read). Each
-  read is billed as a graph query. A malformed address, a malformed day or an
-  offset over 10,000 is refused before any read and costs nothing.
+  UTC day, newest first, at most 50 (one `USE facts` `graph_query` read). With
+  `limit` (1 to 50), and `skip` and `first_day` as the answer's `next` cursor
+  hands them back, it lists a page of transfers from that day back across
+  days, at most four facts reads a call, never before `first_day`; the view's
+  "More transfers". With `{network, address, details: true}` it answers the
+  lifetime totals, counts, role and labels of one address in one topology
+  read; the view fills its panel with it when the rows of a query carried no
+  totals. Each read is billed as a graph query. A malformed address, a
+  malformed day, a limit outside 1 to 50 or an offset over 10,000 is refused
+  before any read and costs nothing.
 - `graph_expand` carries `_meta.ui.visibility` `["app"]`: the view calls it,
   and hosts keep it out of the model's tool list.
 - The endpoint's own `ui://` resources and `_meta.ui` are not forwarded.

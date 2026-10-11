@@ -5,6 +5,8 @@
 const NUMERIC_ARG_KEYS = new Set([
   'in_offset',
   'out_offset',
+  'limit',
+  'skip',
   'per_query_timeout_seconds',
   'incident_timestamp',
   'max_hops',
