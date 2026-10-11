@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.57.3] - 2026-10-12 — a balance over time reads in ETH
+
+### Changed
+
+- The view from Chain Insights UI fee8a5d: a chart column named `balance`,
+  `*_balance` or `*_wei` whose values are wei-sized is drawn divided by
+  10^18, named "balance (ETH)", with ticks of four significant digits and
+  never an exponent. A balance is a level, so its summary says the latest
+  point and the peak, never a total. The table keeps the raw wei.
+
 ## [0.57.2] - 2026-10-12 — gravity settles into a cloud; a balance over time draws one chart; routes never run through the mint address or a protocol
 
 ### Added
