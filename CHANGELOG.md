@@ -3,6 +3,32 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.57.0] - 2026-10-11 — the picture answers every click: totals, pages of transfers, gravity expansions
+
+### Added
+
+- `graph_expand` details form, `{network, address, details: true}`: the
+  lifetime totals, counts, role and labels of one address
+  (`chain-insights.address.v1`), one anchored topology read. The view reads
+  it on the first click of an address whose answer carried no totals, so the
+  panel no longer says Unavailable for the rows of a query.
+- `graph_expand` link pages, `{network, from, to, day, limit, skip?,
+  first_day?}`: a page of up to 50 transfers from that day back across days,
+  newest first, at most seven facts reads (a week) a call, with a `next` cursor while
+  older transfers remain. The view lists 25 a page under one heading per UTC
+  day with a "More transfers" control; the one-day form is unchanged.
+
+### Changed
+
+- View (Chain Insights UI #18): links unrelated to a selection dim to 0.25
+  instead of fading to 0.07; a click on the empty canvas clears the selection
+  instead of selecting the centre, so every link comes back after an
+  expansion; Gravity is the first layout and an expansion settles its senders
+  left and its receivers right of the address that was opened, with the
+  blocks sliding clear of what is drawn; Tree is one click away and orders
+  each lane by last activity; the table follows the drawing once an address
+  was expanded.
+
 ## [0.56.21] - 2026-10-11 — the hint says never draw; a pool's traders need no swap check
 
 ### Changed

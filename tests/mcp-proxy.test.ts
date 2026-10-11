@@ -2341,12 +2341,12 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       expect((tool.annotations as Record<string, unknown>).readOnlyHint).toBe(true)
       expect(typeof tool.title === 'string' && tool.title.length > 0).toBe(true)
     }
-    // Both forms of graph_expand are on the wire: a node, or a link with a day.
+    // Every form of graph_expand is on the wire: a node, a link with a day, a page of a link's transfers, an address's details.
     const expandProperties = Object.keys(
       (expand!.inputSchema as { properties: Record<string, unknown> }).properties
     ).sort()
     expect(expandProperties).toEqual(
-      ['address', 'day', 'from', 'in_offset', 'network', 'out_offset', 'to'].sort()
+      ['address', 'day', 'details', 'first_day', 'from', 'in_offset', 'limit', 'network', 'out_offset', 'skip', 'to'].sort()
     )
     expect(tools.get('graph_query_batch')?._meta).toBeUndefined()
 
