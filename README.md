@@ -206,7 +206,7 @@ Chain Insights Graph bills by **billable units**.
 | Door | Price | Limits |
 | --- | --- | --- |
 | Free demo | Free | 5,000 units a day per address, 30 requests a minute, resets at midnight UTC |
-| Pay as you go (x402 and the ACP offering) | One cent per 100 units, rounded up to the next cent, one cent minimum per call. A batch is one call. | No daily limit, no rate limit for paying agents |
+| Pay as you go (USDC per call, and the ACP offering) | One cent per 100 units, rounded up to the next cent, one cent minimum per call. A batch is one call. | No daily limit, no rate limit for paying agents |
 | Subscription in $CIA (not yet live) | Paid in $CIA | 100,000 units a day, 60 requests a minute |
 
 **Check your own count.** `src/lib/recount-units.ts` mirrors the server's
