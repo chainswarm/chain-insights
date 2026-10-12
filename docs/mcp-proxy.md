@@ -81,7 +81,7 @@ The proxy:
 | --------------------------- | ------------------------------------------------------------------------------------ |
 | `meta_network_capabilities` | Show the current Chain Insights network/tool support matrix                          |
 | `meta_schema`               | Show the live graph schema of a network: labels, link types, fields, indexes         |
-| `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                             |
+| `meta_usage_status`         | Check the caller's daily free-demo graph query allowance                             |
 | `meta_help`                 | Show Chain Insights tool and workflow guidance                                       |
 | `wallet_balance`            | Show the local payment wallet address, payment network, token, and amount            |
 | `wallet_topup`              | Show the local payment wallet address and its QR code, with a Claude view            |
@@ -198,7 +198,7 @@ cia access-key set ci_test_REDACTED --endpoint https://mcp.chain-insights.ai/
 cia access-key status
 ```
 
-Daily free-tier graph usage:
+Daily free-demo graph usage:
 
 ```bash
 cia mcp call meta_usage_status
@@ -207,17 +207,21 @@ cia mcp call graph_query \
   "query=USE topology MATCH (n) RETURN count(n) AS count LIMIT 1"
 ```
 
-Hosted Chain Insights Graph can allow anonymous `graph_query` calls before wallet
-setup. The default public free tier is 10 execution seconds per IP per UTC day,
-reset on the UTC calendar day. `meta_usage_status` returns only the current caller's
-allowance status. Wallet users receive the same daily free tier first; after it
-is exhausted, x402 payment continues automatically when `wallet ready` reports
-ready.
+Hosted Chain Insights Graph can allow anonymous `graph_query` and
+`graph_query_batch` calls before wallet setup. The free demo is 5,000 units a
+day per address (an IP address block), at 30 requests a minute, reset at
+midnight UTC. A unit is one returned row, node, edge or list element.
+Schema reads (`meta_schema`) cost nothing on every door.
+`meta_usage_status` returns only the current caller's allowance status.
+Wallet users receive the same free demo first; after it is exhausted, x402
+payment continues automatically when `wallet ready` reports ready.
 
-The daily free tier is intended for bounded single `graph_query` calls. It does
-not include `graph_query_batch`; use a tester access key or paid x402 mode for
-regular usage and batches. Use explicit LIMIT and pagination in your query when
-you want bounded result sets.
+The free demo includes `graph_query_batch`. Pay as you go on x402 (and the ACP
+offering) costs one cent per 100 units, rounded up to the next cent, with one
+cent minimum per call; a batch is one call. It has no daily limit and no rate
+limit for paying agents. A subscription in $CIA (not yet live) gives 100,000
+units a day at 60 requests a minute. Use explicit LIMIT and pagination in your
+query when you want bounded result sets.
 
 ### CLI Output And Tool Versions
 
@@ -234,7 +238,7 @@ cia mcp call --json graph_query \
   "query=USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 10"
 ```
 
-UAT on 2026-05-31 showed the 10-second free tier was enough for exact
+UAT on 2026-05-31 showed the earlier free tier was enough for exact
 address checks, sample address reads, sample flow reads, and the
 free-to-paid handoff, but bounded sample reads still returned topology data
 inside the same daily allowance.

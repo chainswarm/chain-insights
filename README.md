@@ -17,8 +17,8 @@ Chain Insights is open-source AML and forensics infrastructure for AI agents
 and analysts: a hosted Chain Insights Graph you reach over MCP, screened
 through one CLI. It screens blockchain addresses for risk, explores fund flows
 through read-only graph queries, and returns structured investigation facts.
-Every new account gets a free tier — a daily allowance
-of graph queries, no payment setup — so you can run a first screen in minutes.
+The hosted graph has a free demo — 5,000 units a day per address,
+no key and no payment setup — so you can run a first screen in minutes.
 
 ## Quickstart
 
@@ -119,7 +119,7 @@ Never touches:
 | `graph_query_batch`         | Run related read-only graph queries as one MCP call                                |
 | `meta_network_capabilities` | Check supported Chain Insights networks and graph tools                            |
 | `meta_schema`               | Read the live graph schema of a network: labels, link types, fields, indexes       |
-| `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                           |
+| `meta_usage_status`         | Check the caller's daily free-demo graph query allowance                           |
 | `meta_help`                 | Show Chain Insights tool and workflow guidance                                     |
 | `wallet_balance`            | Show the local payment wallet amount                                               |
 | `wallet_topup`              | Show the local payment wallet address and its QR code for a USDC top-up on Base    |
@@ -202,6 +202,12 @@ Chain Insights Graph bills by **billable units**.
 - A **billable unit** is one row, node, or edge in your returned payload.
 - Bigger responses cost more. Narrow queries cost less.
 - The server reports `billable_units` on every graph response.
+
+| Door | Price | Limits |
+| --- | --- | --- |
+| Free demo | Free | 5,000 units a day per address, 30 requests a minute, resets at midnight UTC |
+| Pay as you go (USDC per call, and the ACP offering) | One cent per 100 units, rounded up to the next cent, one cent minimum per call. A batch is one call. | No daily limit, no rate limit for paying agents |
+| Subscription in $CIA (not yet live) | Paid in $CIA | 100,000 units a day, 60 requests a minute |
 
 **Check your own count.** `src/lib/recount-units.ts` mirrors the server's
 counting logic. Use it client-side to recount units in a response and
@@ -334,11 +340,12 @@ a prepared wallet. For paid access, run `cia wallet ready` — it checks
 funding and finishes one-time payment setup. Setup commands live in
 [MCP proxy](docs/mcp-proxy.md).
 
-The hosted graph includes a small public free tier for `graph_query`
-(default: 10 execution seconds per IP per UTC day). Use
-`meta_usage_status` to see the current caller allowance. Prepared wallet
-users receive the free tier first, then paid access continues
-automatically.
+The hosted graph includes a free demo for `graph_query` and
+`graph_query_batch`: 5,000 units a day per address (an IP address block),
+no key, 30 requests a minute, reset at midnight UTC. Schema reads
+(`meta_schema`) cost nothing on every door. Use `meta_usage_status` to see
+the current caller allowance. Prepared wallet users receive the free demo
+first, then paid access continues automatically.
 
 ## Test
 

@@ -340,18 +340,25 @@ and `:Sanctioned`. Each role also has a flag on the node.
   `kind` is a column and a filter. Add `t.kind = "internal"` to the pair and the
   day to read only the internal rows.
 - Use `meta_usage_status` through Chain Insights before public hosted reads
-  when you need the caller's remaining free-tier allowance.
-- Hosted endpoints can expose a public free tier for graph_query. The default
-  is 10 execution seconds per IP per UTC day.
-- Prepared wallet users receive the daily free tier first; after it is used,
+  when you need the caller's remaining free-demo allowance.
+- Hosted endpoints expose a free demo for graph_query and graph_query_batch:
+  5,000 units a day per address (an IP address block), 30 requests a minute,
+  reset at midnight UTC. A unit is one returned row, node, edge or list
+  element. Schema reads (`meta_schema`) cost nothing on every door.
+- Pay as you go on x402 (and the ACP offering) costs one cent per 100 units,
+  rounded up to the next cent, one cent minimum per call. A batch is one call.
+  There is no daily limit and no rate limit for paying agents.
+- A subscription in $CIA (not yet live) gives 100,000 units a day at 60
+  requests a minute.
+- Prepared wallet users receive the daily free demo first; after it is used,
   x402 payment continues automatically from the configured wallet.
 - Use explicit LIMIT and pagination in your query when you want bounded result
   sets.
 - Chain Insights Graph does not append `LIMIT`; Chain Insights recipes own their
   own limits and pagination.
-- Use single bounded `graph_query` calls for public no-wallet free-tier usage. Use
-  `graph_query_batch` for related reads that should share one paid call; public
-  free-tier access does not include batches.
+- Use bounded `graph_query` calls for public no-wallet free-demo usage.
+  `graph_query_batch` is also included in the free demo; use it for related
+  reads that should share one call.
 - `per_query_timeout_seconds` is optional and capped at `60` by default (`30` for
   `USE facts`). It can lower a limit. It cannot raise one.
 - Returned rows live in `structuredContent.facts`.
@@ -398,9 +405,9 @@ cia mcp call graph_query_batch \
   'queries=[{"id":"count","query":"USE topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1"},{"id":"flows","query":"USE topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 3"},{"id":"linked","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 3"}]'
 ```
 
-Batch calls reserve worst-case execution time from their timeout settings. On
-public hosted endpoints, they can ask for paid x402 access even when a small
-free-tier allowance remains.
+A batch is one call and counts the units of all its returned rows. The free
+demo includes batches. On public hosted endpoints, a batch that would pass
+the remaining free-demo allowance can ask for paid x402 access.
 
 Batch result facts include:
 
@@ -413,8 +420,7 @@ Batch result facts include:
     "live_tier_timeout_seconds": 60,
     "starrocks_tier_timeout_seconds": 30,
     "total_query_elapsed_ms": 1345,
-    "billable_seconds": 2,
-    "estimated_usdc": "0.02"
+    "billable_units": 12
   }
 }
 ```
