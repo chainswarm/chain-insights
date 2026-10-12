@@ -174,7 +174,7 @@ acting.
 The whole-graph high-fan-in sweep — every operator grouped by distinct owner
 count — is a valid shape but a heavy one: at millions of edges it can exceed
 the per-query limit (60 seconds by default), and a sweep that times out can
-still consume the metered seconds. A `network` filter does not narrow it. Bound
+still return a large metered result. A `network` filter does not narrow it. Bound
 it by a recent `last_seen_timestamp` window — recompute the cutoff rather than
 copying a literal, for example now minus 7 days in Unix milliseconds — and
 prefer the point-anchored probe on metered endpoints:

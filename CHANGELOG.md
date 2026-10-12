@@ -3,6 +3,19 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.57.4] - 2026-10-13 — the free demo and the price rule in the docs
+
+### Changed
+
+- Docs: the hosted free tier and prices now read as the ruled ladder
+  (aphex5, 2026-10-13). Free demo: 5,000 units a day per address, no key,
+  `graph_query` and `graph_query_batch`, 30 requests a minute, reset at
+  midnight UTC. Pay as you go on x402 and ACP: one cent per 100 units,
+  rounded up, one cent minimum per call, a batch is one call. Subscription
+  in $CIA (not yet live): 100,000 units a day, 60 requests a minute. The
+  old "10 execution seconds per IP per UTC day" and per-second price text
+  is gone.
+
 ## [0.57.3] - 2026-10-12 — a balance over time reads in ETH
 
 ### Changed
