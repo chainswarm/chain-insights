@@ -390,36 +390,27 @@ interface ProgressRow {
   /** Text printed in the height column instead of a number. */
   note?: string
   behind?: number
-  slowest: boolean
 }
 
 const DETAIL_LABEL_WIDTH = 18
 const TABLE_LABEL_WIDTH = 30
 const HEIGHT_MIN_WIDTH = 10
 const LAG_HEADER = 'behind head'
-const SLOWEST_MARK = '◀ slowest'
 
 function progressRows(
   entries: { label: string; height: number | null }[],
   head: number | undefined
 ): ProgressRow[] {
-  const heights = entries
-    .map((entry) => entry.height)
-    .filter((height): height is number => height !== null)
-  const lowest = heights.length > 0 ? Math.min(...heights) : undefined
-  // A mark needs something faster beside it: one row, or rows all level, have no slowest.
-  const marks = lowest !== undefined && heights.some((height) => height > lowest)
   return entries.map(({ label, height }) => ({
     label,
     height,
     ...(height === null ? { note: 'not started' } : {}),
     ...(height !== null && head !== undefined ? { behind: Math.max(0, head - height) } : {}),
-    slowest: marks && height === lowest,
   }))
 }
 
 function notReportedRow(label: string): ProgressRow {
-  return { label, height: null, note: 'not reported', slowest: false }
+  return { label, height: null, note: 'not reported' }
 }
 
 function formatProgressTables(
@@ -454,7 +445,6 @@ function formatProgressTables(
         if (withLag && row.behind !== undefined) {
           line += '  ' + groupThousands(row.behind).padStart(lagWidth)
         }
-        if (row.slowest) line += `  ${SLOWEST_MARK}`
       }
       lines.push(line.trimEnd())
     }

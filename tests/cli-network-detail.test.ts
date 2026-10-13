@@ -55,15 +55,15 @@ Blockchain head   87,642,448  (1 s old)
 Indexing                      height      behind head
   receipts                    87,642,307          141
   traces                      87,641,751          697
-  dex                         11,959,694   75,682,754  ◀ slowest
+  dex                         11,959,694   75,682,754
   bridge                      87,641,751          697
   smart accounts              87,641,751          697
 
 Graph                         height      behind head
   flows                       87,641,751          697
   operated_by                 87,642,307          141
-  dex_swaps                   87,312,173      330,275  ◀ slowest
-  dex_liquidity               87,312,173      330,275  ◀ slowest
+  dex_swaps                   87,312,173      330,275
+  dex_liquidity               87,312,173      330,275
   bridged                     87,641,751          697
   approvals                   87,642,307          141
   sponsored                   87,641,703          745
@@ -141,27 +141,22 @@ describe('cia network <name>: the screen', () => {
     ]
     for (const [index, row] of [...indexing, ...graph].entries()) {
       const height = heights[index]!
-      const cells = row
-        .replace('◀ slowest', '')
-        .trim()
-        .split(/\s{2,}/)
+      const cells = row.trim().split(/\s{2,}/)
       expect(cells.slice(1)).toEqual([groupThousands(height), groupThousands(head - height)])
     }
   })
 
-  it('slowest rows: only dex in Indexing, every layer at the lowest position in Graph', () => {
-    const output = lines(recorded())
+  it('no row carries a mark: the public screen says nothing beyond heights and lag', () => {
+    const text = formatNetworkCapability(recorded())
 
-    const marked = (rows: string[]) =>
-      rows.filter((row) => row.endsWith('  ◀ slowest')).map((row) => row.trim().split(/\s{2,}/)[0])
-    expect(marked(table(output, 'Indexing'))).toEqual(['dex'])
-    expect(marked(table(output, 'Graph'))).toEqual(['dex_swaps', 'dex_liquidity'])
-    expect(table(output, 'Indexing')[2]).toBe(
-      '  dex                         12,617,066   75,044,148  ◀ slowest'
+    expect(text).not.toContain('◀')
+    expect(text).not.toContain('slowest')
+    expect(table(text.split('\n'), 'Indexing')[2]).toBe(
+      '  dex                         12,617,066   75,044,148'
     )
   })
 
-  it('a lane not started prints "not started" and no lag, and never counts as slowest', () => {
+  it('a lane not started prints "not started" and no lag', () => {
     const network = recorded()
     network.lane_progress = network.lane_progress!.map((lane) =>
       lane.lane === 'core_bridge_follow' ? { ...lane, height: null } : lane
@@ -169,9 +164,7 @@ describe('cia network <name>: the screen', () => {
     const indexing = table(lines(network), 'Indexing')
 
     expect(indexing[3]).toBe('  bridge                      not started')
-    expect(indexing.filter((row) => row.endsWith('◀ slowest'))).toEqual([
-      '  dex                         12,617,066   75,044,148  ◀ slowest',
-    ])
+    expect(indexing[2]).toBe('  dex                         12,617,066   75,044,148')
   })
 
   it('evidence absent: the Evidence table is one row, "evidence  not reported"', () => {
@@ -192,7 +185,7 @@ describe('cia network <name>: the screen', () => {
     expect(output[3]).toBe('')
     expect(output[4]).toBe('Indexing                      height')
     expect(table(output, 'Indexing')[0]).toBe('  receipts                    87,659,858')
-    expect(table(output, 'Indexing')[2]).toBe('  dex                         12,617,066  ◀ slowest')
+    expect(table(output, 'Indexing')[2]).toBe('  dex                         12,617,066')
     for (const layer of network.graph_progress!.layers) {
       expect(text).toContain(`  ${layer.layer}`.padEnd(30) + groupThousands(layer.position))
     }
