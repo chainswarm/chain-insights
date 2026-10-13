@@ -3,6 +3,31 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.58.0] - 2026-10-13 — cia network <name> is the indexing progress: blockchain head first, receipts, traces, dex, bridge, smart accounts, graph layers, evidence
+
+### Changed
+
+- `cia network <name>` shows how far the network is indexed. It opens with
+  `Blockchain head`, the chain node's own newest block and its age. Three
+  tables follow: Indexing (receipts, traces, dex, bridge, smart accounts),
+  Graph (each link kind as sent) and Evidence. Every row shows its height and
+  its blocks behind the head, with thousands separators. `◀ slowest` marks the
+  rows at the lowest height of their table. A lane with no height prints
+  `not started`; a missing evidence row prints `not reported`. Without a head
+  in the reply the head line and the lag column are left out. A lane the CLI
+  does not know prints as sent, after the known ones.
+- The `Dataset` and `Available tools` lines left this screen. `cia networks`
+  keeps the dataset overview and `cia mcp networks` the tools.
+- `--json` is unchanged.
+
+### Added
+
+- `tests/cli-network-detail.test.ts` with the recorded production reply
+  `tests/fixtures/network-capabilities-robinhood-20261013.json`: the agreed
+  screen character for character, the slowest marks, a lane not started,
+  evidence absent, no head, known and unknown lane names, and the built CLI
+  with and without `--json`.
+
 ## [0.57.7] - 2026-10-13 — the README and the docs are tested against the CLI
 
 ### Added

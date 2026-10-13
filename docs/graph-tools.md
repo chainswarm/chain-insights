@@ -20,8 +20,9 @@ The Chain Insights Graph surface is intentionally small:
 not list it and refuses a call to it as an unknown tool.
 
 `cia mcp tools` lists the remote GraphRAG surface only. Use `cia networks` for
-the short network overview, `cia network <name>` for one network's details and
-remote tools, and `cia mcp networks` for the full network capability matrix.
+the short network overview, `cia network <name>` for how far one network is
+indexed, and `cia mcp networks` for the full network capability matrix with
+each network's remote tools.
 Use `cia mcp call` for low-level GraphRAG calls and custom read-only queries.
 
 The Chain Insights MCP proxy adds product-facing local metadata tools such as

@@ -96,6 +96,11 @@ export interface NetworkCapability {
     last_successful_sync_at?: string
     max_data_age_seconds?: number
     last_processing_duration_seconds?: number
+    /** The chain node's own head block, and how old that reading is. */
+    chain_head_block?: number
+    chain_head_age_seconds?: number
+    warehouse_blocks_behind_head?: number
+    graph_blocks_behind_head?: number
   }
   lane_progress?: NetworkLaneProgress[]
   graph_progress?: NetworkGraphProgress
@@ -348,14 +353,171 @@ export function findNetworkCapability(
   )
 }
 
+/** The writer lanes a customer sees, in screen order, by their plain names. */
+const KNOWN_LANES: readonly (readonly [string, string])[] = [
+  ['core_transfers_source_head', 'receipts'],
+  ['core_transfers_internal_follow', 'traces'],
+  ['core_dex_follow', 'dex'],
+  ['core_bridge_follow', 'bridge'],
+  ['core_smart_account_follow', 'smart accounts'],
+]
+
+/** The evidence worker's lane. It has its own table and never joins Indexing. */
+const EVIDENCE_LANE = 'evidence_detect'
+
+/** The plain name a lane prints as. An unknown lane prints as sent. */
+export function laneDisplayName(lane: string): string {
+  if (lane === EVIDENCE_LANE) return 'evidence'
+  return KNOWN_LANES.find(([name]) => name === lane)?.[1] ?? lane
+}
+
+/** A graph layer prints as sent: it is the link kind a query names. */
+export function layerDisplayName(layer: string): string {
+  return layer
+}
+
+/** 87642448 -> "87,642,448", the same on every machine (no locale). */
+export function groupThousands(value: number): string {
+  const sign = value < 0 ? '-' : ''
+  const digits = String(Math.trunc(Math.abs(value)))
+  return sign + digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+}
+
+/** One row of a progress table. `behind` is absent with no head or no height. */
+interface ProgressRow {
+  label: string
+  height: number | null
+  /** Text printed in the height column instead of a number. */
+  note?: string
+  behind?: number
+  slowest: boolean
+}
+
+const DETAIL_LABEL_WIDTH = 18
+const TABLE_LABEL_WIDTH = 30
+const HEIGHT_MIN_WIDTH = 10
+const LAG_HEADER = 'behind head'
+const SLOWEST_MARK = '◀ slowest'
+
+function progressRows(
+  entries: { label: string; height: number | null }[],
+  head: number | undefined
+): ProgressRow[] {
+  const heights = entries
+    .map((entry) => entry.height)
+    .filter((height): height is number => height !== null)
+  const lowest = heights.length > 0 ? Math.min(...heights) : undefined
+  // A mark needs something faster beside it: one row, or rows all level, have no slowest.
+  const marks = lowest !== undefined && heights.some((height) => height > lowest)
+  return entries.map(({ label, height }) => ({
+    label,
+    height,
+    ...(height === null ? { note: 'not started' } : {}),
+    ...(height !== null && head !== undefined ? { behind: Math.max(0, head - height) } : {}),
+    slowest: marks && height === lowest,
+  }))
+}
+
+function notReportedRow(label: string): ProgressRow {
+  return { label, height: null, note: 'not reported', slowest: false }
+}
+
+function formatProgressTables(
+  tables: { title: string; rows: ProgressRow[] }[],
+  withLag: boolean
+): string[] {
+  const allRows = tables.flatMap((table) => table.rows)
+  const labelWidth = Math.max(
+    TABLE_LABEL_WIDTH,
+    ...allRows.map((row) => row.label.length + 4),
+    ...tables.map((table) => table.title.length + 2)
+  )
+  const heightWidth = Math.max(
+    HEIGHT_MIN_WIDTH,
+    ...allRows.map((row) => (row.height === null ? 0 : groupThousands(row.height).length))
+  )
+  const lagWidth = Math.max(
+    LAG_HEADER.length,
+    ...allRows.map((row) => (row.behind === undefined ? 0 : groupThousands(row.behind).length))
+  )
+  const lines: string[] = []
+  for (const table of tables) {
+    if (lines.length > 0) lines.push('')
+    const header = table.title.padEnd(labelWidth) + 'height'
+    lines.push(withLag ? header.padEnd(labelWidth + heightWidth + 2) + LAG_HEADER : header)
+    for (const row of table.rows) {
+      let line = `  ${row.label}`.padEnd(labelWidth)
+      if (row.height === null) {
+        line += row.note ?? ''
+      } else {
+        line += groupThousands(row.height).padEnd(heightWidth)
+        if (withLag && row.behind !== undefined) {
+          line += '  ' + groupThousands(row.behind).padStart(lagWidth)
+        }
+        if (row.slowest) line += `  ${SLOWEST_MARK}`
+      }
+      lines.push(line.trimEnd())
+    }
+  }
+  return lines
+}
+
+/**
+ * `cia network <name>`: how far this network is indexed. The chain node's head
+ * comes first; every row reads against it. Known lanes print by plain name,
+ * unknown lanes as sent after them, graph layers as sent, and evidence in its
+ * own table. `--json` never comes through here.
+ */
 export function formatNetworkCapability(network: NetworkCapability): string {
-  const rows = [
-    ['Network', network.display_name || network.network],
+  const headBlock = network.freshness?.chain_head_block
+  const head = typeof headBlock === 'number' ? headBlock : undefined
+  const detail: [string, string][] = [
+    ['Network', displayName(network)],
     ['Identifier', network.network],
-    ['Status', network.default ? `${network.status} (default)` : network.status],
-    ['Dataset', datasetLabel(network)],
-    ['Available tools', availableTools(network).join(', ') || 'none'],
+    ['Status', statusLabel(network)],
   ]
-  const labelWidth = Math.max(...rows.map(([label]) => label.length))
-  return rows.map(([label, value]) => `${label.padEnd(labelWidth)}  ${value}`).join('\n')
+  if (head !== undefined) {
+    const age = network.freshness?.chain_head_age_seconds
+    const ageText = typeof age === 'number' ? `  (${groupThousands(age)} s old)` : ''
+    detail.push(['Blockchain head', `${groupThousands(head)}${ageText}`])
+  }
+
+  const lanes = network.lane_progress ?? []
+  const known = KNOWN_LANES.flatMap(([name, label]) =>
+    lanes.filter((lane) => lane.lane === name).map((lane) => ({ label, height: lane.height }))
+  )
+  const unknown = lanes
+    .filter(
+      (lane) => lane.lane !== EVIDENCE_LANE && !KNOWN_LANES.some(([name]) => name === lane.lane)
+    )
+    .map((lane) => ({ label: laneDisplayName(lane.lane), height: lane.height }))
+  const indexing = [...known, ...unknown]
+  const layers = (network.graph_progress?.layers ?? []).map((layer) => ({
+    label: layerDisplayName(layer.layer),
+    height: layer.position,
+  }))
+  const evidence = lanes
+    .filter((lane) => lane.lane === EVIDENCE_LANE)
+    .map((lane) => ({ label: laneDisplayName(lane.lane), height: lane.height }))
+
+  const tables = [
+    {
+      title: 'Indexing',
+      rows: indexing.length > 0 ? progressRows(indexing, head) : [notReportedRow('indexing')],
+    },
+    {
+      title: 'Graph',
+      rows: layers.length > 0 ? progressRows(layers, head) : [notReportedRow('graph')],
+    },
+    {
+      title: 'Evidence',
+      rows: evidence.length > 0 ? progressRows(evidence, head) : [notReportedRow('evidence')],
+    },
+  ]
+
+  return [
+    ...detail.map(([label, value]) => `${label.padEnd(DETAIL_LABEL_WIDTH)}${value}`),
+    '',
+    ...formatProgressTables(tables, head !== undefined),
+  ].join('\n')
 }
