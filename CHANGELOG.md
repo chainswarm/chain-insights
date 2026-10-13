@@ -3,6 +3,25 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.57.6] - 2026-10-13 — no USDC subscription door, README matches the CLI
+
+### Removed
+
+- `cia buy day` and `cia buy month`, the USDC deposit guidance for a
+  subscription pass, with `SUBSCRIPTION_MONTH_USD` and the deposit guard
+  helpers. Subscriptions are paid in $CIA only (aphex5 ruling, 2026-10-12);
+  USDC is pay per call. The command sold a pass that does not exist at a
+  price that was wrong, into a sink that cannot refund.
+
+### Changed
+
+- README: `cia setup chatgpt` named with the other setup targets;
+  `meta_rules` and `meta_subscription_status` in the tool table; the Claude
+  Desktop setup steps, the plugin skill sync note, the local gate and the
+  release rules now link to `plugin/README.md`, `docs/development.md` and
+  `docs/contributing.md` instead of repeating them; the Stop hook the plugin
+  ships and `cia status` are named; the owning-group line is gone.
+
 ## [0.57.5] - 2026-10-13 — free tier, never free demo
 
 ### Changed
