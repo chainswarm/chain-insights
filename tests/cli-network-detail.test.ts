@@ -115,7 +115,7 @@ describe('cia network <name>: the screen', () => {
     const network = recorded()
     network.lane_progress = [
       ...network.lane_progress!,
-      { lane: 'evidence_detect', height: 80000000 },
+      { lane: 'evidence_sync', height: 80000000 },
     ]
     const output = lines(network)
     const head = network.freshness!.chain_head_block!
@@ -135,7 +135,7 @@ describe('cia network <name>: the screen', () => {
 
     const heights = [
       ...network.lane_progress
-        .filter((lane) => lane.lane !== 'evidence_detect')
+        .filter((lane) => lane.lane !== 'evidence_sync')
         .map((lane) => lane.height!),
       ...network.graph_progress!.layers.map((layer) => layer.position),
     ]
@@ -214,8 +214,8 @@ describe('cia network <name>: names', () => {
       ['receipts', 'traces', 'dex', 'bridge', 'smart accounts']
     )
     expect(laneDisplayName('core_smart_account_follow')).toBe('smart accounts')
-    expect(laneDisplayName('evidence_detect')).toBe('evidence')
-    expect(text).not.toMatch(/core_|_follow|source_head|evidence_detect/)
+    expect(laneDisplayName('evidence_sync')).toBe('evidence')
+    expect(text).not.toMatch(/core_|_follow|source_head|evidence_sync/)
     expect(text).not.toContain('Dataset')
     expect(text).not.toContain('Available tools')
   })
@@ -225,7 +225,7 @@ describe('cia network <name>: names', () => {
     network.lane_progress = [
       { lane: 'core_future_follow', height: 87000000 },
       ...network.lane_progress!,
-      { lane: 'evidence_detect', height: 80000000 },
+      { lane: 'evidence_sync', height: 80000000 },
     ]
     const output = lines(network)
 
