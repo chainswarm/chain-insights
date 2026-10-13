@@ -3,6 +3,17 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.57.7] - 2026-10-13 — the README and the docs are tested against the CLI
+
+### Added
+
+- `tests/docs-sync.test.ts`: every `cia` command the README or `docs/*.md`
+  name exists; every public top-level command is named in a doc; the README
+  tool table equals the public tool surface the proxy serves; the README
+  names exactly the `cia setup` targets; every relative link resolves; the
+  README carries the default endpoint. A doc that drifts from the code fails
+  the push (aphex5 ruling, 2026-10-13).
+
 ## [0.57.6] - 2026-10-13 — no USDC subscription door, README matches the CLI
 
 ### Removed

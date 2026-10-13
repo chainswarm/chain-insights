@@ -48,7 +48,7 @@ import { connectFresh, connectRemote } from './remote-connect.js'
 import { withTimestampTextResult, withoutUtcProperties } from './timestamp-text.js'
 import { withAnswerHintResult } from './answer-hint.js'
 
-const LOCAL_TOOL_NAMES = new Set([
+export const LOCAL_TOOL_NAMES = new Set([
   'meta_network_capabilities',
   'meta_schema',
   'meta_usage_status',
@@ -60,7 +60,7 @@ const LOCAL_TOOL_NAMES = new Set([
   GRAPH_EXPAND_TOOL,
 ])
 // Local tools only the view calls (visibility ["app"]): never named to the model.
-const APP_ONLY_LOCAL_TOOL_NAMES = new Set([GRAPH_EXPAND_TOOL])
+export const APP_ONLY_LOCAL_TOOL_NAMES = new Set([GRAPH_EXPAND_TOOL])
 const GRAPH_ARRAY_KEYS = ['nodes', 'edges', 'flows', 'edge_anchors'] as const
 
 // The Chain Insights view: one HTML file, served by this proxy and by nothing
