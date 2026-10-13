@@ -3,6 +3,14 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.58.1] - 2026-10-13 — the evidence row reads the evidence_sync checkpoint
+
+### Changed
+
+- `cia network <name>`: the Evidence table reads the lane named `evidence_sync`,
+  the checkpoint the evidence sync in data-pipeline writes. 0.58.0 looked for
+  `evidence_detect`, a name nothing writes.
+
 ## [0.58.0] - 2026-10-13 — cia network <name> is the indexing progress: blockchain head first, receipts, traces, dex, bridge, smart accounts, graph layers, evidence
 
 ### Changed
@@ -15,9 +23,7 @@ All notable changes to Chain Insights are recorded here.
   rows at the lowest height of their table. A lane with no height prints
   `not started`; a missing evidence row prints `not reported`. Without a head
   in the reply the head line and the lag column are left out. A lane the CLI
-  does not know prints as sent, after the known ones. The evidence row reads
-  the `evidence_sync` checkpoint, written by the evidence sync in
-  data-pipeline.
+  does not know prints as sent, after the known ones.
 - The `Dataset` and `Available tools` lines left this screen. `cia networks`
   keeps the dataset overview and `cia mcp networks` the tools.
 - `--json` is unchanged.
