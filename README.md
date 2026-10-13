@@ -37,7 +37,9 @@ cia mcp tools                      # list remote graph tools
 Sixty seconds gets you the CLI, a network overview, and the available remote
 graph tools for Robinhood.
 To call the same tools from an agent, register the MCP proxy:
-`cia setup claude-code` (or `claude-desktop` / `codex` / `hermes`).
+`cia setup claude-code` (or `claude-desktop` / `codex` / `chatgpt` / `hermes`).
+The `chatgpt` target is for Codex chats inside the ChatGPT app: ask there,
+not in a plain ChatGPT chat.
 
 CLI results are human-readable by default. Add `--json` when another tool or
 script needs indented JSON:
@@ -61,34 +63,19 @@ the balance), and reaches the Chain Insights Graph for the data.
 - **Cannot start it:** claude.ai on the web, the Claude mobile apps and Cowork
   cloud sessions. They run no program on your computer.
 
+In Claude Code the plugin also ships a Stop hook that checks every answer
+against the Chain Insights answer rules (full addresses, tokens are not
+dollars) and sends the model back once when one is broken.
+
 The plugin needs Node.js 22 or newer. Add this repository as a plugin
-marketplace, then install the `chain-insights` plugin from it.
-
-Without the plugin, register the installed proxy in Claude Desktop directly:
-
-1. Quit Claude Desktop fully. Closing the window is not enough: it keeps
-   running and writes its settings file back, which can remove the new entry.
-   - macOS: Claude menu > Quit Claude (Cmd+Q).
-   - Windows: right-click the Claude icon in the taskbar tray > Quit.
-   - Linux: File menu > Quit, or the tray icon > Quit.
-2. Run `npm install -g chain-insights`, then `cia setup claude-desktop`.
-   It warns if Claude Desktop is still running.
-3. Start Claude Desktop. `chain-insights` shows under Settings > Developer.
-
-The entry is written to `claude_desktop_config.json` under `mcpServers`:
-`~/Library/Application Support/Claude` on macOS, `%APPDATA%\Claude` on
-Windows, `~/.config/Claude` on Linux. A `.bak` copy of the previous file is
-kept beside it.
-
-The plugin skills are copies of `skills/`. After editing a skill, run
-`node scripts/sync-plugin-skills.mjs`; a test fails while the copies differ.
+marketplace, then install the `chain-insights` plugin from it. Setup for
+Claude Desktop without the plugin, and the plugin's own layout, are in
+[plugin/README.md](plugin/README.md).
 
 ## Purpose And Ownership
 
 One public npm package (`chain-insights`) providing the `cia` CLI and a
 stdio MCP proxy over a Chain Insights Graph endpoint.
-
-Owning group: chainswarm org, infra group.
 
 ## What It Does
 
@@ -119,7 +106,9 @@ Never touches:
 | `graph_query_batch`         | Run related read-only graph queries as one MCP call                                |
 | `meta_network_capabilities` | Check supported Chain Insights networks and graph tools                            |
 | `meta_schema`               | Read the live graph schema of a network: labels, link types, fields, indexes       |
-| `meta_usage_status`         | Check the caller's daily free-demo graph query allowance                           |
+| `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                           |
+| `meta_subscription_status`  | Check the caller's $CIA subscription window and allowance                          |
+| `meta_rules`                | Read the answer rules when the `chain-insights-cypher` skill is not loaded         |
 | `meta_help`                 | Show Chain Insights tool and workflow guidance                                     |
 | `wallet_balance`            | Show the local payment wallet amount                                               |
 | `wallet_topup`              | Show the local payment wallet address and its QR code for a USDC top-up on Base    |
@@ -349,24 +338,8 @@ first, then paid access continues automatically.
 
 ## Test
 
-Local gate, in order:
-
-```bash
-npm run typecheck
-npm run build
-npm test
-npm run release:check   # PR-only step in verify.yml
-```
-
-CI install step, when reproducing CI:
-
-```bash
-npm ci --ignore-scripts --audit=false --fund=false
-```
-
-CI workflows: `.github/workflows/verify.yml` (typecheck, build,
-release:check, tests, npm pack contents), `security.yml`, `scorecard.yml`,
-`docs.yml`.
+The local gate, the CI install step and the workflows are in
+[docs/development.md](docs/development.md).
 
 ## Debug
 
@@ -394,6 +367,9 @@ cia mcp tools --refresh
 # Installed CLI sanity
 cia --version && cia update --check
 
+# Endpoint, wallet and access mode in one view
+cia status
+
 ```
 
 If network or tool discovery fails, check the endpoint and access mode
@@ -402,13 +378,8 @@ the command.
 
 ## Pre-staging / Release
 
-Every pull request to `main` must bump `package.json` and
-`package-lock.json`, add a matching `CHANGELOG.md` entry, and pass the GitHub
-verification checks. Before pre-staging or release, run the full local gate
-and confirm the release metadata is consistent.
-
-See [Release Discipline](docs/contributing.md#release-discipline) for the
-complete contributor requirements.
+Contributor rules, the version bump and the changelog entry every pull
+request carries: [Release Discipline](docs/contributing.md#release-discipline).
 
 ## Documentation Links
 
