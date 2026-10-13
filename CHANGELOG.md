@@ -15,7 +15,9 @@ All notable changes to Chain Insights are recorded here.
   rows at the lowest height of their table. A lane with no height prints
   `not started`; a missing evidence row prints `not reported`. Without a head
   in the reply the head line and the lag column are left out. A lane the CLI
-  does not know prints as sent, after the known ones.
+  does not know prints as sent, after the known ones. The evidence row reads
+  the `evidence_sync` checkpoint, written by the evidence sync in
+  data-pipeline.
 - The `Dataset` and `Available tools` lines left this screen. `cia networks`
   keeps the dataset overview and `cia mcp networks` the tools.
 - `--json` is unchanged.
