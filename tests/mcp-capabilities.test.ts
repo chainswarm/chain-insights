@@ -364,7 +364,7 @@ describe('MCP network capabilities', () => {
     expect(output).not.toContain('graph_query')
   })
 
-  it('formats one network as a readable detail table', async () => {
+  it('formats one network as a readable detail table, without dataset or tools', async () => {
     const { formatNetworkCapability } = await import('../src/mcp/capabilities.js')
 
     const output = formatNetworkCapability({
@@ -390,10 +390,10 @@ describe('MCP network capabilities', () => {
     expect(output).toContain('robinhood')
     expect(output).toContain('Status')
     expect(output).toContain('live (default)')
-    expect(output).toContain('Dataset')
-    expect(output).toContain('84..7440268 / 2023-03-20..2026-01-31')
-    expect(output).toContain('Available tools')
-    expect(output).toContain('graph_query')
+    // The detail screen is indexing progress (cli-network-detail.test.ts): no dataset, no tools.
+    expect(output).not.toContain('Dataset')
+    expect(output).not.toContain('Available tools')
+    expect(output).not.toContain('graph_query')
     expect(output).not.toContain('aml_address_risk')
     expect(output).not.toContain('undefined')
   })

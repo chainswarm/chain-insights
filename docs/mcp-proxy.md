@@ -163,10 +163,55 @@ Chain Insights presents this as local, prefixed metadata through
 
 The CLI keeps these catalogs distinct: `cia workflows` lists high-level CIA
 workflow tools, while `cia mcp tools` lists remote GraphRAG tools and caches
-that schema for 24 hours. `cia networks` and `cia network <name>` report the
-network list and each network's advertised remote tools. `cia mcp networks`
-exposes the same full network capability matrix. Use `cia mcp tools --refresh`
-after a backend tool change.
+that schema for 24 hours. `cia networks` reports the network list.
+`cia mcp networks` exposes the full network capability matrix, with each
+network's advertised remote tools. Use `cia mcp tools --refresh` after a
+backend tool change.
+
+`cia network <name>` shows how far one network is indexed:
+
+```text
+$ cia network robinhood
+Network           Robinhood Chain
+Identifier        robinhood
+Status            live (default)
+Blockchain head   87,642,448  (1 s old)
+
+Indexing                      height      behind head
+  receipts                    87,642,307          141
+  traces                      87,641,751          697
+  dex                         11,959,694   75,682,754  ◀ slowest
+  bridge                      87,641,751          697
+  smart accounts              87,641,751          697
+
+Graph                         height      behind head
+  flows                       87,641,751          697
+  operated_by                 87,642,307          141
+  dex_swaps                   87,312,173      330,275  ◀ slowest
+  dex_liquidity               87,312,173      330,275  ◀ slowest
+  bridged                     87,641,751          697
+  approvals                   87,642,307          141
+  sponsored                   87,641,703          745
+  bundled                     87,641,751          697
+  signers                     87,641,703          745
+  owners                      87,641,751          697
+  contracts                   87,641,751          697
+
+Evidence                      height      behind head
+  evidence                    not reported
+```
+
+- `Blockchain head` is the newest block the chain node holds, and how old that
+  reading is. Every other number reads against it.
+- `Indexing` is the raw chain data: receipts, traces, dex, bridge and smart
+  accounts. `Graph` is each link kind of the topology graph. `Evidence` is the
+  evidence index.
+- `height` is the block each one has reached. `behind head` is the head minus
+  that height.
+- `◀ slowest` marks every row at the lowest height in its table.
+- `not started` means that data has not begun. `not reported` means the
+  network does not report it yet.
+- `--json` prints the network's reply unchanged.
 
 Use `cia mcp call graph_query` or `cia mcp call graph_query_batch` for
 agent-authored graph reads.
