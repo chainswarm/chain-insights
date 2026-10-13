@@ -17,7 +17,7 @@ Chain Insights is open-source AML and forensics infrastructure for AI agents
 and analysts: a hosted Chain Insights Graph you reach over MCP, screened
 through one CLI. It screens blockchain addresses for risk, explores fund flows
 through read-only graph queries, and returns structured investigation facts.
-The hosted graph has a free demo — 5,000 units a day per address,
+The hosted graph has a free tier — 5,000 units a day per address,
 no key and no payment setup — so you can run a first screen in minutes.
 
 ## Quickstart
@@ -205,7 +205,7 @@ Chain Insights Graph bills by **billable units**.
 
 | Door | Price | Limits |
 | --- | --- | --- |
-| Free demo | Free | 5,000 units a day per address, 30 requests a minute, resets at midnight UTC |
+| Free tier | Free | 5,000 units a day per address, 30 requests a minute, resets at midnight UTC |
 | Pay as you go (USDC per call, and the ACP offering) | One cent per 100 units, rounded up to the next cent, one cent minimum per call. A batch is one call. | No daily limit, no rate limit for paying agents |
 | Subscription in $CIA (not yet live) | Paid in $CIA | 100,000 units a day, 60 requests a minute |
 
@@ -340,11 +340,11 @@ a prepared wallet. For paid access, run `cia wallet ready` — it checks
 funding and finishes one-time payment setup. Setup commands live in
 [MCP proxy](docs/mcp-proxy.md).
 
-The hosted graph includes a free demo for `graph_query` and
+The hosted graph includes a free tier for `graph_query` and
 `graph_query_batch`: 5,000 units a day per address (an IP address block),
 no key, 30 requests a minute, reset at midnight UTC. Schema reads
 (`meta_schema`) cost nothing on every door. Use `meta_usage_status` to see
-the current caller allowance. Prepared wallet users receive the free demo
+the current caller allowance. Prepared wallet users receive the free tier
 first, then paid access continues automatically.
 
 ## Test

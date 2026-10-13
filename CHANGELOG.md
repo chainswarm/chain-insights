@@ -3,6 +3,13 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.57.5] - 2026-10-13 — free tier, never free demo
+
+### Changed
+
+- Docs: the free door is the free tier in the README, graph-tools and
+  mcp-proxy docs. "Free demo" is gone (aphex5 ruling, 2026-10-13).
+
 ## [0.57.4] - 2026-10-13 — the free demo and the price rule in the docs
 
 ### Changed

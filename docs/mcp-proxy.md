@@ -208,15 +208,15 @@ cia mcp call graph_query \
 ```
 
 Hosted Chain Insights Graph can allow anonymous `graph_query` and
-`graph_query_batch` calls before wallet setup. The free demo is 5,000 units a
+`graph_query_batch` calls before wallet setup. The free tier is 5,000 units a
 day per address (an IP address block), at 30 requests a minute, reset at
 midnight UTC. A unit is one returned row, node, edge or list element.
 Schema reads (`meta_schema`) cost nothing on every door.
 `meta_usage_status` returns only the current caller's allowance status.
-Wallet users receive the same free demo first; after it is exhausted, x402
+Wallet users receive the same free tier first; after it is exhausted, x402
 payment continues automatically when `wallet ready` reports ready.
 
-The free demo includes `graph_query_batch`. Pay as you go on x402 (and the ACP
+The free tier includes `graph_query_batch`. Pay as you go on x402 (and the ACP
 offering) costs one cent per 100 units, rounded up to the next cent, with one
 cent minimum per call; a batch is one call. It has no daily limit and no rate
 limit for paying agents. A subscription in $CIA (not yet live) gives 100,000
