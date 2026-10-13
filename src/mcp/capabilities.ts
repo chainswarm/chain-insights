@@ -363,7 +363,7 @@ const KNOWN_LANES: readonly (readonly [string, string])[] = [
 ]
 
 /** The evidence worker's lane. It has its own table and never joins Indexing. */
-const EVIDENCE_LANE = 'evidence_detect'
+const EVIDENCE_LANE = 'evidence_sync'
 
 /** The plain name a lane prints as. An unknown lane prints as sent. */
 export function laneDisplayName(lane: string): string {

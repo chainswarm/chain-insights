@@ -3,6 +3,14 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.58.1] - 2026-10-13 — the evidence row reads the evidence_sync checkpoint
+
+### Changed
+
+- `cia network <name>`: the Evidence table reads the lane named `evidence_sync`,
+  the checkpoint the evidence sync in data-pipeline writes. 0.58.0 looked for
+  `evidence_detect`, a name nothing writes.
+
 ## [0.58.0] - 2026-10-13 — cia network <name> is the indexing progress: blockchain head first, receipts, traces, dex, bridge, smart accounts, graph layers, evidence
 
 ### Changed
