@@ -341,7 +341,7 @@ and `:Sanctioned`. Each role also has a flag on the node.
   day to read only the internal rows.
 - Use `meta_usage_status` through Chain Insights before public hosted reads
   when you need the caller's remaining free-demo allowance.
-- Hosted endpoints expose a free demo for graph_query and graph_query_batch:
+- Hosted endpoints expose a free tier for graph_query and graph_query_batch:
   5,000 units a day per address (an IP address block), 30 requests a minute,
   reset at midnight UTC. A unit is one returned row, node, edge or list
   element. Schema reads (`meta_schema`) cost nothing on every door.
@@ -350,14 +350,14 @@ and `:Sanctioned`. Each role also has a flag on the node.
   There is no daily limit and no rate limit for paying agents.
 - A subscription in $CIA (not yet live) gives 100,000 units a day at 60
   requests a minute.
-- Prepared wallet users receive the daily free demo first; after it is used,
+- Prepared wallet users receive the daily free tier first; after it is used,
   x402 payment continues automatically from the configured wallet.
 - Use explicit LIMIT and pagination in your query when you want bounded result
   sets.
 - Chain Insights Graph does not append `LIMIT`; Chain Insights recipes own their
   own limits and pagination.
 - Use bounded `graph_query` calls for public no-wallet free-demo usage.
-  `graph_query_batch` is also included in the free demo; use it for related
+  `graph_query_batch` is also included in the free tier; use it for related
   reads that should share one call.
 - `per_query_timeout_seconds` is optional and capped at `60` by default (`30` for
   `USE facts`). It can lower a limit. It cannot raise one.
