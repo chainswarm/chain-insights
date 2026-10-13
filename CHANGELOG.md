@@ -3,6 +3,14 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.58.2] - 2026-10-13 — no slowest mark on the network screen
+
+### Changed
+
+- `cia network <name>` no longer marks rows `◀ slowest`. The heights and the
+  blocks behind the head say it; a public screen carries no editorial mark
+  (aphex5, 2026-10-13).
+
 ## [0.58.1] - 2026-10-13 — the evidence row reads the evidence_sync checkpoint
 
 ### Changed

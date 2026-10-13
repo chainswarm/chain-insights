@@ -384,15 +384,15 @@ Blockchain head   87,642,448  (1 s old)
 Indexing                      height      behind head
   receipts                    87,642,307          141
   traces                      87,641,751          697
-  dex                         11,959,694   75,682,754  ◀ slowest
+  dex                         11,959,694   75,682,754
   bridge                      87,641,751          697
   smart accounts              87,641,751          697
 
 Graph                         height      behind head
   flows                       87,641,751          697
   operated_by                 87,642,307          141
-  dex_swaps                   87,312,173      330,275  ◀ slowest
-  dex_liquidity               87,312,173      330,275  ◀ slowest
+  dex_swaps                   87,312,173      330,275
+  dex_liquidity               87,312,173      330,275
   bridged                     87,641,751          697
   approvals                   87,642,307          141
   sponsored                   87,641,703          745
@@ -412,7 +412,6 @@ Evidence                      height      behind head
   evidence index.
 - `height` is the block each one has reached. `behind head` is the head minus
   that height.
-- `◀ slowest` marks every row at the lowest height in its table.
 - `not started` means that data has not begun. `not reported` means the
   network does not report it yet.
 - `--json` prints the network's reply unchanged.
