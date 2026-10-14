@@ -14,7 +14,15 @@ name: Verify
 # D1): the merge gate is the local receipt; a dispatched run is the second
 # opinion. `gh workflow run verify.yml --ref <branch>`.
 
+# The merge gate is GitHub Actions on the build host (AP1000 change
+# build-host-and-shared-qmd, aphex5 2026-10-14 "actions only"): this workflow
+# runs on every pull request and every push to main, on the ms-a2-1 runners,
+# and branch protection requires its check. The local receipt of 2026-10-04 is
+# retired; the comment above that names it is history.
 on:
+  pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
