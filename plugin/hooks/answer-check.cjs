@@ -2,10 +2,12 @@
 // Stop hook of the Chain Insights plugin: reads the last answer of the turn
 // and, when it breaks an answer rule the skill already states, blocks the
 // stop once with the sentence to fix. The rules are the skill's rule 1
-// (full addresses) and rule 9 (tokens are not dollars): two hundred loop
-// conversations showed both still slip through about one time in thirty on
-// Claude Code, always in a long answer. A hook that reads the text is the
-// only check that sees the answer itself.
+// (full addresses), rule 9 (tokens are not dollars) and rule 8 (say nothing
+// about drawing): two hundred loop conversations showed the first two still
+// slip through about one time in thirty on Claude Code, always in a long
+// answer, and the 0.58.3 regression window wrote "I can't draw a picture in
+// this terminal" once in twenty. A hook that reads the text is the only check
+// that sees the answer itself.
 //
 // Input (stdin): the Stop hook JSON with last_assistant_message, transcript_path and stop_hook_active.
 // Output: {"decision":"block","reason":...} when the answer must be rewritten;
@@ -16,6 +18,7 @@ const fs = require('fs')
 const SHORT_ADDRESS = /0x[0-9a-fA-F]{2,12}(\.\.\.|…)[0-9a-fA-F]{0,8}/
 const SENT_DOLLARS = /\b(sent|received|moved|transferred|paid|deposited|withdrew)\s+(about\s+|roughly\s+|~)?(\$\s?\d|\d[\d,\.]*\s*(USD|dollars)\b)/i
 const BARE_DOLLAR = /(?<![A-Za-z])\$\s?\d/
+const DRAW_NARRATION = /\b(I\s+)?(can'?t|cannot|won'?t|will\s+not|did\s+not|didn'?t|don'?t|unable\s+to)\s+draw\b|\b(host|app|desktop|client)\s+draws\b|\b(picture|graph|chart|diagram)\s+(should|will|would)\s+(appear|show|render|be\s+drawn)\b|\b(appears?|drawn|rendered)\s+beside\b/i
 
 /** The sentences a rewrite must fix, or an empty list. */
 function answerProblems(text) {
@@ -25,6 +28,8 @@ function answerProblems(text) {
   const m2 = text.match(SENT_DOLLARS)
   if (m2) problems.push(`"${m2[0]}" reads as dollars sent: a transfer moves tokens, so write "tokens worth about N USD on DAY".`)
   else if (BARE_DOLLAR.test(text)) problems.push(`a "$" figure reads as dollars sent: write the unit as USD after the number, "tokens worth about N USD".`)
+  const m3 = text.match(DRAW_NARRATION)
+  if (m3) problems.push(`"${m3[0]}" talks about drawing: say nothing about a picture, who draws it or that you cannot; give the flows as a list or a table.`)
   return problems
 }
 
