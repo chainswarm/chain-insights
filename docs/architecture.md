@@ -63,6 +63,7 @@ Supported config keys:
 | `graphMcpAuthToken` | Chain Insights Graph bearer credential for test access keys or local debug UAT |
 | `graphMcpMode`      | Endpoint access mode: `paid` (default) or `debug`                              |
 | `walletAddress`     | Optional wallet metadata                                                       |
+| `serverPort`        | Reserved. Default `4321`. No current command reads it                          |
 | `dataDir`           | Local Chain Insights data directory                                            |
 | `version`           | Config schema version                                                          |
 
@@ -77,9 +78,12 @@ Default local data directory:
 ~/.chain-insights/
   config.json
   wallet.json
-  mcp-schema-*.json
+  mcp-schema.json
   cache/
     schema-<network>-<endpoint hash>.json
+  runtime/
+    logs/
+      mcp-proxy.jsonl
 ```
 
 ## Security Model

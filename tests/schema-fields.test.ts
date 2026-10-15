@@ -116,7 +116,7 @@ describe('the bounds text', () => {
 
   it('the guide and the tools guide give the 60 s topology limit and the 30 s facts limit', () => {
     const tools = flat(read('docs/graph-tools.md'))
-    expect(tools).toContain('(60 seconds by default, or your lower `per_query_timeout_seconds`)')
+    expect(tools).toContain('(60 seconds by default, or the lower `per_query_timeout_seconds` of a batch)')
     expect(tools).toContain('capped at `60` by default (`30` for `USE facts`)')
     expect(tools).toContain('"live_tier_timeout_seconds": 60')
     expect(tools).toContain('"starrocks_tier_timeout_seconds": 30')

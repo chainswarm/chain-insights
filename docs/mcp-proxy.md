@@ -81,8 +81,10 @@ The proxy:
 | --------------------------- | ------------------------------------------------------------------------------------ |
 | `meta_network_capabilities` | Show the current Chain Insights network/tool support matrix                          |
 | `meta_schema`               | Show the live graph schema of a network: labels, link types, fields, indexes         |
-| `meta_usage_status`         | Check the caller's daily free-demo graph query allowance                             |
+| `meta_rules`                | Read the answer rules when the `chain-insights-cypher` skill is not loaded           |
 | `meta_help`                 | Show Chain Insights tool and workflow guidance                                       |
+| `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                             |
+| `meta_subscription_status`  | Check the caller's $CIA subscription window and allowance                            |
 | `wallet_balance`            | Show the local payment wallet address, payment network, token, and amount            |
 | `wallet_topup`              | Show the local payment wallet address and its QR code, with a Claude view            |
 | `graph_expand`              | Expand a node or list a link's transfers in an open picture; called by the view only |
@@ -242,7 +244,7 @@ cia access-key set ci_test_REDACTED --endpoint https://mcp.chain-insights.ai/
 cia access-key status
 ```
 
-Daily free-demo graph usage:
+Daily free-tier graph usage:
 
 ```bash
 cia mcp call meta_usage_status
@@ -281,11 +283,6 @@ cia mcp call --json graph_query \
   network=robinhood \
   "query=USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 10"
 ```
-
-UAT on 2026-05-31 showed the earlier free tier was enough for exact
-address checks, sample address reads, sample flow reads, and the
-free-to-paid handoff, but bounded sample reads still returned topology data
-inside the same daily allowance.
 
 For graph reads, install `chain-insights-cypher`. It teaches ISO GQL, the
 three read layers, one query for each kind of graph search, and how to find
@@ -341,8 +338,12 @@ flags:
 cia setup claude-code
 cia setup claude-desktop
 cia setup codex
+cia setup chatgpt
 cia setup hermes
 ```
+
+`cia setup chatgpt` sets up the ChatGPT desktop app: its Codex chats run
+Chain Insights. Ask there, not in a plain ChatGPT chat.
 
 `cia setup claude` is an alias for `cia setup
 claude-code`. `cia setup claude-desktop` writes the proxy into Claude
@@ -365,7 +366,9 @@ the plugin: `codex plugin remove chain-insights@chain-insights`, then
 Current MCP prompts exposed by the local proxy:
 
 - `meta-network-capabilities`
+- `meta-schema`
 - `meta-usage-status`
+- `meta-subscription-status`
 - `graph-query`
 - `graph-query-batch`
 - `wallet-balance`

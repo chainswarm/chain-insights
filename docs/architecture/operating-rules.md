@@ -38,9 +38,10 @@ knowledge skill during the 2026-07-28 docs-layer rework.
 
 ## CI Gotchas
 
-- `verify.yml` deliberately runs `ubuntu-latest` for pull requests and
-  `chainswarm-runner` for push/dispatch (a runs-on ternary). PR CI does not
-  exercise the self-hosted fleet.
+- `verify.yml` runs on every pull request and every push to `main`, on the
+  self-hosted `chainswarm-runner` runners. Its three tiers are the files
+  under `ci/` (`t1.sh`, `lint.sh`, `build.sh`), so `bash ci/t1.sh` runs the
+  same gate locally.
 - Repo CI has a release gate blocking non-release PRs and a secret scan
   flagging `0x{64}` hex. Avoid committing 64-hex strings.
 - UATs expecting unprefixed tool names (`address_risk`, `trace_funds`, …)

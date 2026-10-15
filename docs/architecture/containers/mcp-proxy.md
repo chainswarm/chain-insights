@@ -5,7 +5,7 @@ Stdio or local proxy surface that lets agent clients call Chain Insights tools.
 
 ## Purpose
 
-Exposes Chain Insights investigation tools to AI agents through stdio MCP transport. Proxies configured local tools and remote graph tools to the Chain Insights Graph MCP endpoint. Logs structured tool and topology events to mcp-proxy.jsonl.
+Exposes Chain Insights investigation tools to AI agents through stdio MCP transport. Proxies configured local tools and remote graph tools to the Chain Insights Graph MCP endpoint. Logs structured tool and topology events to `~/.chain-insights/runtime/logs/mcp-proxy.jsonl`.
 
 ## Components
 
@@ -19,7 +19,7 @@ Exposes Chain Insights investigation tools to AI agents through stdio MCP transp
 
 ## Data Flow
 
--> graphMcp: Proxies configured tools (graph_query, graph_query_batch, aml_*, network_capabilities, usage_status)
+-> graphMcp: Proxies `graph_query` and `graph_query_batch`; the backend's own `network_capabilities` and `usage_status` are read behind `meta_network_capabilities` and `meta_usage_status`, never exposed by name
 -> mcp-proxy.jsonl: Writes runtime logs (tool calls, topology queries, errors, durations)
 
 ## Invariants

@@ -25,19 +25,17 @@ Start your local Chain Insights Graph development endpoint with debug bearer
 auth enabled. The exact startup command depends on your Chain Insights Graph
 checkout or deployment.
 
-```bash
-export CHAIN_INSIGHTS_GRAPH_ENDPOINT=http://localhost:8012/mcp
-export CHAIN_INSIGHTS_GRAPH_DEBUG_TOKEN=chain-insights-dev-debug
-```
-
-Point Chain Insights at the local endpoint:
+Point Chain Insights at the local endpoint. The debug token and the endpoint
+are command arguments; the CLI reads no environment variable for them:
 
 ```bash
 node bin/cli.js debug on \
-  --token "${CHAIN_INSIGHTS_GRAPH_DEBUG_TOKEN}" \
-  --endpoint "${CHAIN_INSIGHTS_GRAPH_ENDPOINT}"
+  --token chain-insights-dev-debug \
+  --endpoint http://localhost:8012/mcp
 node bin/cli.js mcp tools --refresh
 ```
+
+`cia debug off` returns to the paid production endpoint.
 
 ## Inspector
 
@@ -45,10 +43,10 @@ Inspect the Chain Insights Graph endpoint directly:
 
 ```bash
 npx @modelcontextprotocol/inspector \
-  --cli "${CHAIN_INSIGHTS_GRAPH_ENDPOINT:-http://localhost:8012/mcp}" \
+  --cli http://localhost:8012/mcp \
   --transport http \
   --method tools/list \
-  --header "X-MCP-Debug-Token: ${CHAIN_INSIGHTS_GRAPH_DEBUG_TOKEN:-chain-insights-dev-debug}"
+  --header "X-MCP-Debug-Token: chain-insights-dev-debug"
 ```
 
 Inspect the Chain Insights proxy:
@@ -61,9 +59,25 @@ npx @modelcontextprotocol/inspector \
 
 ## Environment Variables
 
-| Variable         | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CIA_ACTION_LOG` | Optional path to an append-only JSONL audit log of every MCP tool invocation (tool name, arguments, outcome, duration, and any `warnings`/`search_limits` surfaced by the result). Unset by default — no file is written. Intended for unattended runs where an operator or a later reviewing agent needs to see what ran and why a result looked the way it did. Never causes a tool call to fail: a write error (including an unwritable path) is swallowed silently. |
+Every variable the CLI and the proxy read. None is required.
+
+| Variable                            | Purpose                                                                                                                                                                                                                                                                                                                                                                                 |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT` | Chain Insights Graph endpoint override. Wins over the saved `graphMcpEndpoint`. `GRAPH_MCP_ENDPOINT` is the legacy alias.                                                                                                                                                                                                                                                              |
+| `BASE_RPC_URL`                      | Base RPC override for the wallet balance and the local top-up page.                                                                                                                                                                                                                                                                                                                     |
+| `CHAIN_INSIGHTS_MCP_LOG`            | `0` turns the proxy's runtime log off. On by default.                                                                                                                                                                                                                                                                                                                                  |
+| `CHAIN_INSIGHTS_MCP_LOG_PATH`       | Where the proxy writes its runtime log. Default `~/.chain-insights/runtime/logs/mcp-proxy.jsonl` (under the configured `dataDir`).                                                                                                                                                                                                                                                      |
+| `CIA_ACTION_LOG`                    | Optional path to an append-only JSONL audit log of every MCP tool invocation (tool name, arguments, outcome, duration, and any `warnings`/`search_limits` surfaced by the result). Unset by default — no file is written. Intended for unattended runs where an operator or a later reviewing agent needs to see what ran and why a result looked the way it did. Never causes a tool call to fail: a write error (including an unwritable path) is swallowed silently. |
+| `CHAIN_INSIGHTS_SKIP_UPDATE_CHECK`  | `1` skips the update prompt `cia` shows in a terminal when npm has a newer release.                                                                                                                                                                                                                                                                                                                            |
+| `CHAIN_INSIGHTS_NPM_REGISTRY_URL`   | Registry the update check asks. Default npmjs.                                                                                                                                                                                                                                                                                                                                          |
+| `CHAIN_INSIGHTS_MAX_AUTO_APPROVAL_USDC` | Ceiling of the one-time USDC approval `cia wallet ready` grants.                                                                                                                                                                                                                                                                                                                       |
+| `CHAIN_INSIGHTS_PAYMENT_ASSET_PREFERENCE` | Comma-separated symbols or addresses (`CHOICE,USDG,USDC`) that order the payment assets a server offers. Empty keeps the server's order.                                                                                                                                                                                                                                                                                                                |
+| `CHAIN_INSIGHTS_MCP_PROXY_MODE`     | Proxy mode. The default, and the only public mode, is stateless.                                                                                                                                                                                                                                                                                                                       |
+| `CHAIN_INSIGHTS_WORKSPACE`          | Workspace root for the non-public workspace commands.                                                                                                                                                                                                                                                                                                                                  |
+| `CHAIN_INSIGHTS_SKILL_REFRESH`      | `0` stops the proxy from bringing the installed skill copies up to its own release at start.                                                                                                                                                                                                                                                                                                                            |
+
+The proxy's runtime log holds `tool.start`, `tool.end`, `topology.start`,
+`topology.end` and `cypher.throw` events as JSON lines.
 
 ## Smoke Checks
 

@@ -15,8 +15,11 @@ Every statement here was verified against the source files it names.
   `address_connection_risk` and the retired exchange-flows tool) via
   `HIDDEN_REMOTE_TOOL_NAMES`. They never surface publicly. So does
   `aml_address_risk`, hidden until its verdict is fixed.
-- Local tools live in `src/mcp/proxy.ts`: `meta_network_capabilities`,
-  `meta_schema`, `meta_usage_status`, `meta_help`, `wallet_balance`.
+- Local tools live in `src/mcp/proxy.ts` (`LOCAL_TOOL_NAMES`):
+  `meta_network_capabilities`, `meta_schema`, `meta_rules`, `meta_help`,
+  `meta_usage_status`, `meta_subscription_status`, `wallet_balance`,
+  `wallet_topup`, and `graph_expand`, which only the view calls
+  (`APP_ONLY_LOCAL_TOOL_NAMES`).
 - `meta_schema` (`src/mcp/graph-schema.ts`) builds the live graph schema of one
   network from the catalog statements of the graph endpoint (`CALL db.labels()`,
   `CALL db.relationshipTypes()`, `CALL db.propertyKeys()`, `SHOW INDEXES`), a
@@ -36,8 +39,8 @@ Every statement here was verified against the source files it names.
 
 - `PUBLIC_MCP_TOOL_REQUIRED_ARGS` / `PUBLIC_MCP_TOOL_ALLOWED_ARGS` in
   `src/mcp/tool-visibility.ts` define the public arg contract. Examples:
-  `graph_query` requires query + network; `graph_query_batch` allows
-  `per_query_timeout_seconds`; `graph_query` allows `time_scope`.
+  `graph_query` requires query + network; `graph_query_batch` alone allows
+  `per_query_timeout_seconds`; both allow `time_scope`.
 - An argument absent from the allowlist is silently stripped by
   `normalizeRemoteToolArguments`. Every new tunable arg must be added here
   and to the numeric-argument set in `src/mcp/call-args.ts` the moment it
