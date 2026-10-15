@@ -3,6 +3,37 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.58.3] - 2026-10-15 — docs match the code: ten tools, eight prompts, free tier, one facts rule, the proxy log path
+
+### Fixed
+
+- The proxy wrote its runtime log to `~/.chain-insights/.chain-insights/runtime/logs/`,
+  one `.chain-insights` too many. It now lands where the README and the
+  acceptance doc said: `~/.chain-insights/runtime/logs/mcp-proxy.jsonl`
+  (`CHAIN_INSIGHTS_MCP_LOG_PATH` still overrides it).
+
+### Changed
+
+- `docs/`: the audit of 2026-10-13 found 14 of 22 files stale. The public
+  tool surface is ten tools everywhere (`meta_rules` and
+  `meta_subscription_status` were missing from `stability.md`, `mcp-proxy.md`,
+  `graph-tools.md`, `data-contracts.md` and the acceptance doc); the proxy
+  registers eight prompts, not six; "free demo" reads "free tier" in every
+  doc; `per_query_timeout_seconds` is a `graph_query_batch` argument only;
+  `graph-query-compatibility.md` states the facts rule the server admits (one
+  pair, one day, no hop, no `ORDER BY`, `count()` and `sum()` only) instead of
+  a 90-day address window and a day range it never served; `debugging.md`
+  lists the environment variables the code reads and drops two it never did;
+  `cia setup chatgpt` is in the setup list; `serverPort` is in the config key
+  table; the diagram render script path is `scripts/docs/`; `verify.yml` runs
+  on every pull request on the self-hosted runners.
+- `tests/docs-sync.test.ts` now reads every Markdown file under `docs/`, and
+  also fails when a doc names an environment variable the code does not read,
+  a `scripts/` path that does not exist, a tool list that is not the served
+  surface (`stability.md`, the `mcp-proxy.md` local tool table), a prompt list
+  that is not what the proxy registers, a config key table that is not
+  `CONFIG_KEYS`, or the words "free demo".
+
 ## [0.58.2] - 2026-10-13 — no slowest mark on the network screen
 
 ### Changed

@@ -874,7 +874,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     })
 
     const entries = await readJsonl(
-      join(testDataDir, '.chain-insights', 'runtime', 'logs', 'mcp-proxy.jsonl')
+      join(testDataDir, 'runtime', 'logs', 'mcp-proxy.jsonl')
     )
     expect(entries.some((entry) => entry.event === 'proxy.start')).toBe(true)
     expect(

@@ -10,11 +10,14 @@ the `cia mcp` commands. Results are returned as text and structured facts.
 
 The Chain Insights Graph surface is intentionally small:
 
-| Tool                   | Purpose                                                                                 |
-| ---------------------- | --------------------------------------------------------------------------------------- |
-| `network_capabilities` | Return supported networks and graph layers when the backend exposes capability metadata |
-| `graph_query`          | Run one read-only GQL/Cypher query through the universal graph endpoint                 |
-| `graph_query_batch`    | Run related read-only graph-language queries as one MCP call                            |
+| Tool                | Purpose                                                                 |
+| ------------------- | ----------------------------------------------------------------------- |
+| `graph_query`       | Run one read-only GQL/Cypher query through the universal graph endpoint |
+| `graph_query_batch` | Run related read-only graph-language queries as one MCP call            |
+
+The networks and layers a backend serves are read through
+`meta_network_capabilities`; the backend's own capability tool is never
+exposed by name.
 
 `aml_address_risk` is hidden until its verdict is fixed. The MCP proxy does
 not list it and refuses a call to it as an unknown tool.
@@ -25,8 +28,9 @@ indexed, and `cia mcp networks` for the full network capability matrix with
 each network's remote tools.
 Use `cia mcp call` for low-level GraphRAG calls and custom read-only queries.
 
-The Chain Insights MCP proxy adds product-facing local metadata tools such as
-`meta_network_capabilities`, `meta_schema`, `meta_usage_status`, and `meta_help`. On hosted
+The Chain Insights MCP proxy adds the local tools `meta_network_capabilities`,
+`meta_schema`, `meta_rules`, `meta_help`, `meta_usage_status`,
+`meta_subscription_status`, `wallet_balance` and `wallet_topup`. On hosted
 backends, `meta_usage_status` can reflect remote quota telemetry. On
 backends without a quota tool, Chain Insights returns a local unmetered
 primitive-backend status instead.
@@ -341,7 +345,7 @@ and `:Sanctioned`. Each role also has a flag on the node.
   `kind` is a column and a filter. Add `t.kind = "internal"` to the pair and the
   day to read only the internal rows.
 - Use `meta_usage_status` through Chain Insights before public hosted reads
-  when you need the caller's remaining free-demo allowance.
+  when you need the caller's remaining free-tier allowance.
 - Hosted endpoints expose a free tier for graph_query and graph_query_batch:
   5,000 units a day per address (an IP address block), 30 requests a minute,
   reset at midnight UTC. A unit is one returned row, node, edge or list
@@ -357,11 +361,12 @@ and `:Sanctioned`. Each role also has a flag on the node.
   sets.
 - Chain Insights Graph does not append `LIMIT`; Chain Insights recipes own their
   own limits and pagination.
-- Use bounded `graph_query` calls for public no-wallet free-demo usage.
+- Use bounded `graph_query` calls for public no-wallet free-tier usage.
   `graph_query_batch` is also included in the free tier; use it for related
   reads that should share one call.
-- `per_query_timeout_seconds` is optional and capped at `60` by default (`30` for
-  `USE facts`). It can lower a limit. It cannot raise one.
+- `per_query_timeout_seconds` is a `graph_query_batch` argument only. It is
+  optional and capped at `60` by default (`30` for `USE facts`). It can lower a
+  limit. It cannot raise one. `graph_query` takes no timeout argument.
 - Returned rows live in `structuredContent.facts`.
 
 Agent installers ship one skill:
@@ -407,8 +412,8 @@ cia mcp call graph_query_batch \
 ```
 
 A batch is one call and counts the units of all its returned rows. The free
-demo includes batches. On public hosted endpoints, a batch that would pass
-the remaining free-demo allowance can ask for paid x402 access.
+tier includes batches. On public hosted endpoints, a batch that would pass
+the remaining free-tier allowance can ask for paid x402 access.
 
 Batch result facts include:
 
@@ -432,7 +437,7 @@ Hosted `USE topology` queries share one graph database, so every query is
 bounded:
 
 - **Time:** the graph database stops a query when its time budget ends
-  (60 seconds by default, or your lower `per_query_timeout_seconds`).
+  (60 seconds by default, or the lower `per_query_timeout_seconds` of a batch).
 - **Concurrency:** topology queries share the slots of the hosted endpoint, so
   a query waits for a free slot inside its own time budget, and a busy endpoint
   answers `topology_busy`. The number of slots is the server's to publish, not

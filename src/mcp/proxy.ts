@@ -399,7 +399,7 @@ function createMcpLogger(config: Pick<InvestigatorConfig, 'dataDir'>) {
   const disabled = process.env.CHAIN_INSIGHTS_MCP_LOG === '0'
   const filePath =
     process.env.CHAIN_INSIGHTS_MCP_LOG_PATH?.trim() ||
-    path.join(config.dataDir, '.chain-insights', 'runtime', 'logs', 'mcp-proxy.jsonl')
+    path.join(config.dataDir, 'runtime', 'logs', 'mcp-proxy.jsonl')
 
   async function write(
     level: 'info' | 'error',
