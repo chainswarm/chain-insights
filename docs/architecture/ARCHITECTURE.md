@@ -2,66 +2,65 @@
 
 [Website](https://chain-insights.ai) | [npm](https://www.npmjs.com/package/chain-insights)
 
-> Depth lives in authored docs under `context/`, `containers/`, and
-> `components/`. This index is human-authored; C4 diagrams render via CI.
-> Data contracts live in [data-contracts.md](data-contracts.md); repo
-> invariants and operating rules live in [operating-rules.md](operating-rules.md).
+Chain Insights is one npm package with two entry points: the `cia` CLI and the
+stdio MCP proxy. Both read the same local config and wallet, and both reach
+the hosted Chain Insights Graph for data. Nothing in this package indexes a
+chain, stores a graph or scores risk.
 
-## Context
+```mermaid
+flowchart LR
+  person(["Investigator or agent<br/>terminal, Claude, Codex, ChatGPT, Hermes"])
+  subgraph pkg["npm package chain-insights"]
+    cli["cia CLI<br/>bin/cli.js → src/cli.ts"]
+    proxy["MCP proxy<br/>bin/mcp-proxy.cjs → src/mcp/proxy.ts"]
+    config[("~/.chain-insights/config.json<br/>src/config")]
+    wallet[("~/.chain-insights/wallet.json<br/>src/wallet")]
+    view["view: graph, chart, table<br/>ui://chain-insights/view"]
+  end
+  endpoint["Chain Insights Graph<br/>https://mcp.chain-insights.ai/"]
+  base["Base mainnet<br/>USDC payments"]
+  person -->|"commands"| cli
+  person -->|"MCP over stdio"| proxy
+  cli --> config
+  proxy --> config
+  cli --> wallet
+  proxy --> wallet
+  proxy --> view
+  cli -->|"graph_query, graph_query_batch"| endpoint
+  proxy -->|"graph_query, graph_query_batch"| endpoint
+  wallet -->|"x402"| base
+```
 
-- [overview](context/overview.md) — purpose, bounded context, external systems
-
-- [data flow](context/data-flow.md) — end-to-end pipeline
-
-- [dependencies](context/dependencies.md) — contracts with the graph backend and the ACP marketplace bridge
+Overview, config keys, local data and the security model:
+[../architecture.md](../architecture.md). The contracts the code keeps (tool
+surface, argument allowlists, endpoint precedence, the shared-graph model):
+[../development.md](../development.md#contracts-the-code-keeps). Repository
+rules and CI gotchas: [../contributing.md](../contributing.md#repository-rules).
 
 ## Containers
 
-- [cia CLI](containers/cia-cli.md) — Command-line interface for configuration, graph tool calls, and wallet operations.
-
-- [MCP Proxy](containers/mcp-proxy.md) — Stdio or local proxy surface that lets agent clients call Chain Insights tools.
-
-- [NPM Package](containers/npm-package.md) — Published package containing CLI, proxy, docs, and installer assets.
+- [cia CLI](containers/cia-cli.md) — configuration, graph tool calls, wallet
+  operations, agent setup.
+- [MCP proxy](containers/mcp-proxy.md) — the stdio server agent clients
+  connect to; serves the local tools and the view, proxies the graph tools.
+- [npm package](containers/npm-package.md) — what ships: bins, `dist/`,
+  `docs/*.md`, the `chain-insights-cypher` skill.
 
 ## Components
 
 One doc per source module under `components/`. Human-authored.
 
-| Worker          | Component doc                                |
-| --------------- | -------------------------------------------- |
-| `config`        | [config](components/config.md)               |
-| `investigation` | [investigation](components/investigation.md) |
-| `mcp`           | [mcp](components/mcp.md)                     |
-| `wallet`        | [wallet](components/wallet.md)               |
+| Module          | Entrypoint          | Component doc                                |
+| --------------- | ------------------- | -------------------------------------------- |
+| `config`        | `src/config`        | [config](components/config.md)               |
+| `investigation` | `src/investigation` | [investigation](components/investigation.md) |
+| `mcp`           | `src/mcp`           | [mcp](components/mcp.md)                     |
+| `wallet`        | `src/wallet`        | [wallet](components/wallet.md)               |
 
-## C4 Diagrams
-
-### structurizr-chain-insights-components
-
-![structurizr-chain-insights-components](diagrams/rendered/global/structurizr-chain-insights-components.png)
-
-[vector SVG](diagrams/rendered/global/structurizr-chain-insights-components.svg) · [PNG](diagrams/rendered/global/structurizr-chain-insights-components.png)
-
-See [context/overview.md](context/overview.md) for context.
-
-### structurizr-chain-insights-containers
-
-![structurizr-chain-insights-containers](diagrams/rendered/global/structurizr-chain-insights-containers.png)
-
-[vector SVG](diagrams/rendered/global/structurizr-chain-insights-containers.svg) · [PNG](diagrams/rendered/global/structurizr-chain-insights-containers.png)
-
-See [context/overview.md](context/overview.md) for context.
-
-### structurizr-chain-insights-context
-
-![structurizr-chain-insights-context](diagrams/rendered/global/structurizr-chain-insights-context.png)
-
-[vector SVG](diagrams/rendered/global/structurizr-chain-insights-context.svg) · [PNG](diagrams/rendered/global/structurizr-chain-insights-context.png)
-
-See [context/overview.md](context/overview.md) for context.
+Acceptance scenarios per component: [../acceptance/](../acceptance/config.md).
 
 ## Verification
 
-- `npm test`
-
+- `npm test` — the suite, including `tests/docs-sync.test.ts`, which fails
+  when these docs drift from the code.
 - `npm run build`
