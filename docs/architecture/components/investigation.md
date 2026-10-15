@@ -8,11 +8,11 @@ Tests: tests/mcp-proxy.test.ts, tests/cli-mcp.test.ts
 
 ## Purpose
 
-Implements AML address screening and comparison. It composes read-only
-`graph_query` and `graph_query_batch` calls, builds a risk profile, and returns
-a text summary with structured facts. The CLI command stays. The MCP proxy
-does not offer it as a tool: `aml_address_risk` is hidden until its verdict is
-fixed.
+Holds the address screening recipes (`public-tools.ts`), the risk-level
+normalisation the graph verdicts need (`risk-level.ts`), the graph row
+normaliser, and the workflow catalogue. It composes read-only `graph_query`
+and `graph_query_batch` calls. The MCP proxy does not offer the screening as
+a tool: `aml_address_risk` is hidden until its verdict is fixed.
 
 ## Reads
 
@@ -39,11 +39,6 @@ addressRisk
 
 ## Run
 
-```bash
-cia workflow aml-address-risk \
-  --address 0x1234... \
-  --network robinhood
-```
-
-Use `--json` for indented structured output. Omit the tool version to use the
-latest AML contract, or pin it with `--version v1`.
+No public command runs this module directly. The proxy composes its reads
+behind the public graph tools, and the workflow catalogue it holds is not a
+public surface.

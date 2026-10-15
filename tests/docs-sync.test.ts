@@ -88,7 +88,7 @@ function tableNames(text: string, heading: string): string[] {
 
 describe('README and docs match the CLI and the proxy', () => {
   it('reads the README and every Markdown file under docs/', () => {
-    expect(docFiles).toContain('docs/architecture/data-contracts.md')
+    expect(docFiles).toContain('docs/architecture/components/config.md')
     expect(docFiles.length).toBeGreaterThan(15)
   })
 

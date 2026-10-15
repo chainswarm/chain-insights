@@ -3,6 +3,28 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.58.4] - 2026-10-15 — docs/ has one home per fact: the generated C4 layer and two orphan files are gone
+
+### Changed
+
+- `docs/architecture/ARCHITECTURE.md` opens with a hand-written Mermaid
+  component diagram of the package (CLI, proxy, config, wallet, view, the
+  graph endpoint, Base) and links the containers and the four component
+  docs. The generated C4 layer is gone: `docs/architecture/context/*`,
+  `docs/architecture/diagrams/**` (the Structurizr workspace and its nine
+  rendered files) and `scripts/docs/render-architecture-diagrams.sh`. The
+  nightly docs workflow no longer renders or checks them. The context files
+  named sibling repositories and products this public package does not
+  depend on.
+- `docs/architecture/data-contracts.md` moved into `docs/development.md`
+  as "Contracts the code keeps"; `docs/architecture/operating-rules.md` moved
+  into `docs/contributing.md` as "Repository rules". The root
+  `ARCHITECTURE.md` is a pointer to the index under `docs/architecture/`.
+- `docs/architecture/components/investigation.md` names what the module
+  holds and no longer shows a workflow command that is not public.
+- `docs/images/topup-page.png` is removed: nothing referenced it. The
+  package no longer ships `docs/images`.
+
 ## [0.58.3] - 2026-10-15 — docs match the code: ten tools, eight prompts, free tier, one facts rule, the proxy log path
 
 ### Fixed

@@ -1,8 +1,9 @@
 name: Docs
 
-# Chain Insights owns this validation. Architecture docs and their rendering
-# helpers live in this repository. The workflow never fetches another repo or
-# writes to protected branches.
+# Chain Insights owns this validation. The README lint lives in this
+# repository. The workflow never fetches another repo or writes to protected
+# branches. The C4 render step went with the generated diagrams (0.58.4): the
+# architecture diagram is hand-written Mermaid in docs/architecture/ARCHITECTURE.md.
 on:
   schedule:
     - cron: '5 3 * * *'
@@ -28,12 +29,3 @@ jobs:
       - name: README documentation lint
         run: python3 scripts/docs/check-readme-standard.py --repo-root .
 
-      - name: Render C4 diagrams
-        run: bash scripts/docs/render-architecture-diagrams.sh
-
-      - name: Verify rendered docs are committed
-        run: |
-          if ! git diff --exit-code -- docs/architecture; then
-            echo "::error::Rendered architecture docs are stale. Regenerate and commit them in this repository."
-            exit 1
-          fi

@@ -159,8 +159,8 @@ Entry points:
 - `src/index.ts` — library exports.
 
 Full architecture docs: [docs/architecture/](docs/architecture/ARCHITECTURE.md),
-including C4 diagrams, [data contracts](docs/architecture/data-contracts.md),
-and [operating rules](docs/architecture/operating-rules.md).
+the contracts the code keeps in [Development](docs/development.md#contracts-the-code-keeps),
+and the repository rules in [Contributing](docs/contributing.md#repository-rules).
 
 ### Graph Access
 
@@ -442,10 +442,10 @@ Product docs:
 
 Architecture depth:
 
-- [docs/architecture/](docs/architecture/ARCHITECTURE.md) — index, C4
-  diagrams, context, containers, components.
-- [Data contracts](docs/architecture/data-contracts.md) — tool surface,
-  search limits, endpoint rules, shared-graph model.
-- [Operating rules](docs/architecture/operating-rules.md) — repo
-  invariants, findings rules, CI gotchas.
+- [docs/architecture/](docs/architecture/ARCHITECTURE.md) — the component
+  diagram, containers, one doc per source module.
+- [Contracts the code keeps](docs/development.md#contracts-the-code-keeps) —
+  tool surface, argument allowlists, endpoint rules, shared-graph model.
+- [Repository rules](docs/contributing.md#repository-rules) — invariants,
+  CI gotchas, documentation rules.
 - [docs/acceptance/](docs/acceptance/) — per-component acceptance evidence.
