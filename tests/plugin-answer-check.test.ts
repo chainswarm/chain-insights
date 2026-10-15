@@ -32,6 +32,14 @@ describe('the Stop hook that reads the last answer', () => {
     expect(hook.answerProblems('Tokens worth (USD): 1,000. The USDG token.')).toEqual([])
   })
 
+  it('names a sentence about drawing (rule 8, regression window round 6 on 0.58.3)', () => {
+    expect(hook.answerProblems("I can't draw a picture in this terminal, so here are its 25 newest receivers as a list.")[0]).toContain('talks about drawing')
+    expect(hook.answerProblems('The picture should appear beside this answer.')[0]).toContain('talks about drawing')
+    expect(hook.answerProblems('The host draws the graph from these rows.')[0]).toContain('talks about drawing')
+    expect(hook.answerProblems('Its 25 newest receivers, newest first: 0xd4a91e5023406903aff83225186e1d1ed18ca587 (3 transfers).')).toEqual([])
+    expect(hook.answerProblems('Withdrawals from the vault, as a table.')).toEqual([])
+  })
+
   it('reads the last assistant text of a transcript', () => {
     const path = transcript(['first answer, fine', 'second answer sent about 5 USD'])
     expect(hook.lastAnswer(path)).toBe('second answer sent about 5 USD')

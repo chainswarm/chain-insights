@@ -3,6 +3,17 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.58.5] - 2026-10-15 — the Stop hook also catches a sentence about drawing
+
+### Fixed
+
+- The Claude plugin's Stop hook now blocks once on a sentence about drawing
+  ("I can't draw a picture in this terminal", "the picture should appear
+  beside this answer", "the host draws the graph"), the way it already does
+  for a shortened address and a dollars-sent figure. Rule 8 of the skill
+  names these sentences; the 0.58.3 regression window still wrote one in
+  twenty rounds on Claude Code.
+
 ## [0.58.4] - 2026-10-15 — docs/ has one home per fact: the generated C4 layer and two orphan files are gone
 
 ### Changed
