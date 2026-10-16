@@ -112,10 +112,29 @@ export interface NetworkLaneProgress {
   height: number | null
 }
 
-/** How far each block layer of the topology graph reaches, and their lowest. */
+/**
+ * How far each block layer of the topology graph reaches, and how far the
+ * money family reaches (`complete_through_block`). `families` is absent on a
+ * server that does not group its layers into families.
+ */
 export interface NetworkGraphProgress {
   complete_through_block: number
   layers: { layer: string; position: number }[]
+  families?: NetworkGraphFamily[]
+}
+
+/**
+ * One layer family as the server reports it. A block family carries the block
+ * it is complete through and its lag behind the head (null on a server that
+ * knows no head). `annotations` follows runs, not blocks: both numbers are null
+ * and `fresh` says whether its last run is current.
+ */
+export interface NetworkGraphFamily {
+  name: string
+  complete_through_block: number | null
+  blocks_behind_head: number | null
+  fresh?: boolean
+  layers: string[]
 }
 
 export interface NetworkCapabilitiesDocument {
@@ -149,6 +168,40 @@ function advertisedLaneProgress(raw: unknown): NetworkLaneProgress[] | undefined
   return lanes
 }
 
+function isNumberOrNull(value: unknown): value is number | null {
+  return value === null || typeof value === 'number'
+}
+
+/** One family entry, or null when any member has the wrong shape. */
+function advertisedGraphFamily(entry: unknown): NetworkGraphFamily | null {
+  if (!isRecord(entry) || typeof entry.name !== 'string' || entry.name.trim() === '') return null
+  if (!isNumberOrNull(entry.complete_through_block)) return null
+  const behind = entry.blocks_behind_head === undefined ? null : entry.blocks_behind_head
+  if (!isNumberOrNull(behind)) return null
+  if (entry.fresh !== undefined && typeof entry.fresh !== 'boolean') return null
+  if (!Array.isArray(entry.layers) || !entry.layers.every((layer) => typeof layer === 'string'))
+    return null
+  return {
+    name: entry.name,
+    complete_through_block: entry.complete_through_block,
+    blocks_behind_head: behind,
+    ...(typeof entry.fresh === 'boolean' ? { fresh: entry.fresh } : {}),
+    layers: [...(entry.layers as string[])],
+  }
+}
+
+/** The families list, whole or not at all: one entry with a bad shape drops it. */
+function advertisedGraphFamilies(raw: unknown): NetworkGraphFamily[] | undefined {
+  if (!Array.isArray(raw)) return undefined
+  const families: NetworkGraphFamily[] = []
+  for (const entry of raw) {
+    const family = advertisedGraphFamily(entry)
+    if (family === null) return undefined
+    families.push(family)
+  }
+  return families
+}
+
 function advertisedGraphProgress(raw: unknown): NetworkGraphProgress | undefined {
   if (!isRecord(raw) || typeof raw.complete_through_block !== 'number') return undefined
   if (!Array.isArray(raw.layers)) return undefined
@@ -158,7 +211,13 @@ function advertisedGraphProgress(raw: unknown): NetworkGraphProgress | undefined
       continue
     layers.push({ layer: entry.layer, position: entry.position })
   }
-  return { complete_through_block: raw.complete_through_block, layers }
+  const progress: NetworkGraphProgress = {
+    complete_through_block: raw.complete_through_block,
+    layers,
+  }
+  const families = advertisedGraphFamilies(raw.families)
+  if (families) progress.families = families
+  return progress
 }
 
 function advertisedNetwork(raw: unknown): NetworkCapability | null {
@@ -376,6 +435,11 @@ export function layerDisplayName(layer: string): string {
   return layer
 }
 
+/** A family prints by its plain name: `chain_facts` prints as "chain facts". */
+export function familyDisplayName(family: string): string {
+  return family.replace(/_/g, ' ')
+}
+
 /** 87642448 -> "87,642,448", the same on every machine (no locale). */
 export function groupThousands(value: number): string {
   const sign = value < 0 ? '-' : ''
@@ -413,6 +477,26 @@ function notReportedRow(label: string): ProgressRow {
   return { label, height: null, note: 'not reported' }
 }
 
+/**
+ * The family rows, in the order the server sends them. A block family's lag is
+ * the server's `blocks_behind_head`, or head minus height when the server knows
+ * no head. A family with no block (annotations) prints "fresh" or "walking" and
+ * no lag.
+ */
+function familyRows(families: NetworkGraphFamily[], head: number | undefined): ProgressRow[] {
+  return families.map((family) => {
+    const label = familyDisplayName(family.name)
+    const height = family.complete_through_block
+    if (height === null) {
+      const note = family.fresh === undefined ? 'not started' : family.fresh ? 'fresh' : 'walking'
+      return { label, height: null, note }
+    }
+    if (head === undefined) return { label, height }
+    const behind = family.blocks_behind_head ?? Math.max(0, head - height)
+    return { label, height, behind }
+  })
+}
+
 function formatProgressTables(
   tables: { title: string; rows: ProgressRow[] }[],
   withLag: boolean
@@ -441,7 +525,7 @@ function formatProgressTables(
       if (row.height === null) {
         line += row.note ?? ''
       } else {
-        line += groupThousands(row.height).padEnd(heightWidth)
+        line += groupThousands(row.height).padStart(heightWidth)
         if (withLag && row.behind !== undefined) {
           line += '  ' + groupThousands(row.behind).padStart(lagWidth)
         }
@@ -455,8 +539,10 @@ function formatProgressTables(
 /**
  * `cia network <name>`: how far this network is indexed. The chain node's head
  * comes first; every row reads against it. Known lanes print by plain name,
- * unknown lanes as sent after them, graph layers as sent, and evidence in its
- * own table. `--json` never comes through here.
+ * unknown lanes as sent after them, the layer families by plain name in the
+ * server's order, graph layers as sent, and evidence in its own table. Heights
+ * are right-aligned, so a shorter height lines up by its last digit.
+ * `--json` never comes through here.
  */
 export function formatNetworkCapability(network: NetworkCapability): string {
   const headBlock = network.freshness?.chain_head_block
@@ -490,11 +576,16 @@ export function formatNetworkCapability(network: NetworkCapability): string {
     .filter((lane) => lane.lane === EVIDENCE_LANE)
     .map((lane) => ({ label: laneDisplayName(lane.lane), height: lane.height }))
 
+  const families = network.graph_progress?.families
+
   const tables = [
     {
       title: 'Indexing',
       rows: indexing.length > 0 ? progressRows(indexing, head) : [notReportedRow('indexing')],
     },
+    // Absent on a server that sends no families: the table is left out, so the
+    // screen of such a server stays as it was.
+    ...(families ? [{ title: 'Families', rows: familyRows(families, head) }] : []),
     {
       title: 'Graph',
       rows: layers.length > 0 ? progressRows(layers, head) : [notReportedRow('graph')],

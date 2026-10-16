@@ -1,0 +1,9 @@
+{
+  "families": [
+    {"name": "money", "layers": ["flows", "operated_by"], "link_types": ["FLOWS_TO", "OPERATED_BY"]},
+    {"name": "dex", "layers": ["dex_swaps", "dex_liquidity"], "link_types": ["SWAPPED", "ADDED_LIQUIDITY", "REMOVED_LIQUIDITY"]},
+    {"name": "chain_facts", "layers": ["approvals", "bridged", "contracts", "authorization"], "link_types": ["APPROVED", "BRIDGED", "DEPLOYED_CONTRACT", "SIGNED_AUTHORIZATION"]},
+    {"name": "smart_accounts", "layers": ["sponsored", "bundled", "signers", "owners"], "link_types": ["SPONSORED", "BUNDLED", "SIGNED_FOR", "LINKED"]},
+    {"name": "annotations", "layers": ["labels", "ml", "inferred", "kinds"], "link_types": []}
+  ]
+}

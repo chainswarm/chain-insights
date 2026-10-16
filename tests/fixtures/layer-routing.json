@@ -395,7 +395,7 @@
    "id": "skill-cypher-27",
    "layer": "chain",
    "anchor": "head",
-   "query": "USE chain MATCH (h:Head) RETURN h.block_height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind",
+   "query": "USE chain MATCH (h:Head) RETURN h.block_height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind, h.behind_money, h.behind_dex, h.behind_chain_facts, h.behind_smart_accounts, h.annotations_fresh",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
@@ -423,7 +423,7 @@
    "id": "hint-1",
    "layer": "topology",
    "anchor": "probe",
-   "query": "USE topology MATCH (h:Head) RETURN h.graph_blocks_behind`, under a second): when `graph_blocks_behind` is above 100000 (a few hours of blocks: a robinhood block is about a tenth of a second apart from the next), the search cannot finish, so do not send it; say the graph is that many blocks behind the head and ask for an address",
+   "query": "USE topology MATCH (h:Head) RETURN h.behind_money, h.behind_dex`, under a second): a `FLOWS_TO` search is sent when `behind_money` is at most 100000; a `SWAPPED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY` search when `behind_dex` is at most 100000 (100000 blocks is a few hours: a robinhood block is about a tenth of a second apart from the next)",
    "source": "src/mcp/proxy.ts graph hints"
   },
   {

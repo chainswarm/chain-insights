@@ -28,6 +28,11 @@
       "class": "refused"
     },
     {
+      "code": "family_behind",
+      "layer": "topology",
+      "class": "refused"
+    },
+    {
       "code": "aggregate_unanchored",
       "layer": "topology",
       "class": "refused"

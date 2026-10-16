@@ -20,7 +20,7 @@ const LAYERS = ['any', 'topology', 'facts', 'chain']
 
 describe('the pinned list of refusal codes', () => {
   it('holds each code once, with a layer and a class the skill can name', () => {
-    expect(pinned.codes).toHaveLength(40)
+    expect(pinned.codes).toHaveLength(41)
     expect(new Set(pinned.codes.map((entry) => entry.code)).size).toBe(pinned.codes.length)
     for (const entry of pinned.codes) {
       expect(LAYERS, entry.code).toContain(entry.layer)
@@ -45,7 +45,7 @@ describe('the pinned list of refusal codes', () => {
       if (typeof value === 'string') values.push(value)
       return value
     })
-    expect(values.length).toBeGreaterThan(40)
+    expect(values.length).toBeGreaterThan(41)
     for (const value of values) expect(value, value).not.toMatch(/[/\\]/)
   })
 })
@@ -64,6 +64,23 @@ describe('the cypher skill and the refusal codes', () => {
   it('sends the reader to the fix and the example the refusal carries', () => {
     expect(skill).toContain('`error_detail`: `code`, `rule`, `class`, `fix` and `example`')
     expect(skill).toContain('read `fix`, rewrite the query from `example`, and send it once')
+  })
+
+  // `family_behind` refuses a whole-chain search whose link type belongs to a
+  // family that is too far behind the head. The refusal names the family, so
+  // the move is the same each time: drop that link type, or ask for an address.
+  it('teaches the family_behind move: drop the link type the server names, or give an address', () => {
+    expect(pinned.codes).toContainEqual({
+      code: 'family_behind',
+      layer: 'topology',
+      class: 'refused',
+    })
+    expect(skill).toContain(
+      'If it answers `family_behind`, the refusal names the family that is behind and its link types: drop the link type the server names, or give an address.'
+    )
+    expect(skill).toContain(
+      'If the server refuses the search with `anchor_missing` or `family_behind`, or stops it with `query_timeout`'
+    )
   })
 
   it('holds no table of codes: no pinned code is written down as a row', () => {

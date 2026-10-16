@@ -3,6 +3,45 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.59.0] - 2026-10-16 — layer families: cia network prints them, and a whole-chain search reads the family of its link type
+
+### Changed
+
+- `cia network <name>` prints a Families table between Indexing and Graph
+  when the server sends `graph_progress.families`: money, dex, chain facts,
+  smart accounts and annotations, by plain name, in the server's order. A
+  block family shows its height and its blocks behind the head; annotations
+  shows `fresh` or `walking`. A server that sends no families gets the
+  0.58.0 screen unchanged. Heights in every table are now right-aligned, so
+  a shorter height lines up by its last digit.
+- The whole-chain rule in the `chain-insights-cypher` skill, in
+  `docs/graph-tools.md` and in the proxy's served instructions reads the
+  family of the link type it searches: `Head` first with `h.behind_money,
+  h.behind_dex`; a `FLOWS_TO` search is sent when `behind_money` is at most
+  100000, a `SWAPPED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY` search when
+  `behind_dex` is. On a server whose Head has no `behind_money` it reads
+  `graph_blocks_behind` as before. The new refusal `family_behind` names the
+  family; the skill's move is to drop the link type the server names, or ask
+  for an address.
+- The skill's `Head` example returns `behind_money`, `behind_dex`,
+  `behind_chain_facts`, `behind_smart_accounts` and `annotations_fresh`
+  beside the four properties it had.
+- The plugin eval `whole-chain-head-first` accepts a Head read of
+  `behind_money` or of `graph_blocks_behind`.
+
+### Added
+
+- `src/mcp/families.json`, a verbatim copy of the graph server's family
+  table, with `src/mcp/families.ts` (`LAYER_FAMILIES`, `familyOfLinkType`).
+  `tests/families-parity.test.ts` holds it equal to the server's
+  `graph_progress.families` and to the families the whole-chain rule names.
+- `tests/fixtures/network-capabilities-robinhood-families.json`, the
+  2026-10-13 reply with a families block and a head of 90,266,314, until a
+  live reply replaces it; `tests/cli-network-detail.test.ts` holds its screen
+  character for character.
+- The pinned chain catalogue serves the five new `Head` properties, and the
+  pinned refusal codes carry `family_behind` (41 codes).
+
 ## [0.58.5] - 2026-10-15 — the Stop hook also catches a sentence about drawing
 
 ### Fixed

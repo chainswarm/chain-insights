@@ -1,0 +1,243 @@
+{
+  "network": "robinhood",
+  "display_name": "Robinhood Chain",
+  "status": "live",
+  "tools": {
+    "graph_query": "available",
+    "graph_query_batch": "available"
+  },
+  "layers": {
+    "chain": {
+      "enabled": true
+    },
+    "facts": {
+      "enabled": true,
+      "relationships": [
+        "TRANSFER",
+        "BRIDGE_CROSSING",
+        "SWAP",
+        "LIQUIDITY_ADD",
+        "LIQUIDITY_REMOVE"
+      ]
+    },
+    "risk": {
+      "enabled": false
+    },
+    "topology": {
+      "enabled": true
+    }
+  },
+  "chain_admission": {
+    "enabled": true,
+    "status": "ok",
+    "rules_version": "2",
+    "grammar": "chain-v1",
+    "lookups": [
+      "Transaction",
+      "Block",
+      "Head",
+      "Address"
+    ],
+    "ceiling_seconds": {
+      "point": 3,
+      "state_now": 5,
+      "state_past": 10
+    },
+    "slots": 4,
+    "past_slots": 1,
+    "slots_per_caller": 2,
+    "calls_per_second_per_caller": 3,
+    "batch_max": 5,
+    "call_gas": 200000,
+    "head_ttl_ms": 1000,
+    "max_head_age_seconds": 60,
+    "at_block_min_depth": 256
+  },
+  "topology_admission": {
+    "rules_version": "1",
+    "shape_mode": "enforce",
+    "anchor_mode": "search",
+    "ceiling_seconds": {
+      "probe": 5,
+      "anchored": 20,
+      "walk": 60,
+      "search": 10
+    },
+    "slots": 4,
+    "slots_per_caller": 2,
+    "slot_wait_seconds": 2,
+    "heavy_permits": 1,
+    "max_hops_per_path": 5,
+    "max_hops_per_query": 8,
+    "max_limit": 5000,
+    "probe_max_limit": 100,
+    "max_query_bytes": 8192,
+    "requests_per_minute_per_ip": 30,
+    "requests_per_minute_per_wallet": 60,
+    "anchors": [
+      "address",
+      "address_list",
+      "swapped_pair_key"
+    ],
+    "catalog_calls": [
+      "CALL db.labels()",
+      "CALL db.relationshipTypes()",
+      "CALL db.propertyKeys()",
+      "CALL db.schema.visualization()",
+      "SHOW INDEXES"
+    ],
+    "schema_reads": [
+      "CALL db.labels()",
+      "CALL db.relationshipTypes()",
+      "CALL db.propertyKeys()",
+      "CALL db.schema.visualization()",
+      "SHOW INDEXES",
+      "MATCH (a:Address) RETURN keys(a) AS keys LIMIT 20",
+      "MATCH ()-[r:<TYPE>]->() RETURN keys(r) AS keys LIMIT 5"
+    ],
+    "schema_reads_note": "Schema reads are free of charge on every door: no x402 payment, no subscription allowance and no free daily units, and billable_units is 0. The request rate of the caller still counts them. <TYPE> is any link type, and a LIMIT may be lower."
+  },
+  "default": true,
+  "coverage": {
+    "from_block": 4,
+    "to_block": 87659858,
+    "from_timestamp": "2026-04-30T18:08:59Z",
+    "to_timestamp": "2026-10-13T16:36:56Z",
+    "chain_tip_block": 87660002,
+    "blocks_behind_tip": 144,
+    "complete_through_block": 12617066
+  },
+  "freshness": {
+    "last_processed_at": "2026-10-13T16:36:56Z",
+    "max_data_age_seconds": 45,
+    "chain_head_block": 90266314,
+    "chain_head_age_seconds": 1,
+    "warehouse_blocks_behind_head": 77649248,
+    "graph_blocks_behind_head": 6314
+  },
+  "lane_progress": [
+    {
+      "lane": "core_transfers_source_head",
+      "height": 90266100
+    },
+    {
+      "lane": "core_transfers_internal_follow",
+      "height": 90266000
+    },
+    {
+      "lane": "core_dex_follow",
+      "height": 12617066
+    },
+    {
+      "lane": "core_bridge_follow",
+      "height": 90266000
+    },
+    {
+      "lane": "core_smart_account_follow",
+      "height": 90266000
+    }
+  ],
+  "graph_progress": {
+    "complete_through_block": 90260000,
+    "layers": [
+      {
+        "layer": "flows",
+        "position": 90260000
+      },
+      {
+        "layer": "operated_by",
+        "position": 90266000
+      },
+      {
+        "layer": "dex_swaps",
+        "position": 8300000
+      },
+      {
+        "layer": "dex_liquidity",
+        "position": 8300000
+      },
+      {
+        "layer": "bridged",
+        "position": 90266000
+      },
+      {
+        "layer": "approvals",
+        "position": 90266000
+      },
+      {
+        "layer": "sponsored",
+        "position": 90266000
+      },
+      {
+        "layer": "bundled",
+        "position": 90266000
+      },
+      {
+        "layer": "signers",
+        "position": 90266000
+      },
+      {
+        "layer": "owners",
+        "position": 90266000
+      },
+      {
+        "layer": "contracts",
+        "position": 90266000
+      }
+    ],
+    "families": [
+      {
+        "name": "money",
+        "complete_through_block": 90260000,
+        "blocks_behind_head": 6314,
+        "layers": [
+          "flows",
+          "operated_by"
+        ]
+      },
+      {
+        "name": "dex",
+        "complete_through_block": 8300000,
+        "blocks_behind_head": 81966314,
+        "layers": [
+          "dex_swaps",
+          "dex_liquidity"
+        ]
+      },
+      {
+        "name": "chain_facts",
+        "complete_through_block": 90266000,
+        "blocks_behind_head": 314,
+        "layers": [
+          "approvals",
+          "bridged",
+          "contracts",
+          "authorization"
+        ]
+      },
+      {
+        "name": "smart_accounts",
+        "complete_through_block": 90266000,
+        "blocks_behind_head": 314,
+        "layers": [
+          "sponsored",
+          "bundled",
+          "signers",
+          "owners"
+        ]
+      },
+      {
+        "name": "annotations",
+        "complete_through_block": null,
+        "blocks_behind_head": null,
+        "fresh": true,
+        "layers": [
+          "labels",
+          "ml",
+          "inferred",
+          "kinds"
+        ]
+      }
+    ]
+  }
+}
