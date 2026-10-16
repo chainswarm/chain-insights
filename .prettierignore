@@ -10,3 +10,7 @@ tests/fixtures/
 # Built in another repository and copied with its source commit on line one
 # (scripts/refresh-claude-view.mjs). Never formatted or edited here.
 src/mcp/apps/claude-view.html
+
+# A verbatim copy of the graph server's own family table. Kept byte for byte,
+# so a diff against the server's file shows drift. tests/families-parity.test.ts holds its content.
+src/mcp/families.json

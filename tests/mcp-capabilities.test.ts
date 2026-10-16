@@ -536,6 +536,88 @@ describe('MCP network capabilities', () => {
     expect(result.networks[1]?.lane_progress).toBeUndefined()
   })
 
+  it('reads the layer families whole: every entry as sent, annotations with fresh and no block', async () => {
+    const { mirrorGraphNetworkCapabilities } = await import('../src/mcp/capabilities.js')
+    const families = [
+      {
+        name: 'money',
+        complete_through_block: 90260000,
+        blocks_behind_head: 6314,
+        layers: ['flows', 'operated_by'],
+      },
+      {
+        name: 'dex',
+        complete_through_block: 8300000,
+        blocks_behind_head: null,
+        layers: ['dex_swaps', 'dex_liquidity'],
+      },
+      {
+        name: 'annotations',
+        complete_through_block: null,
+        blocks_behind_head: null,
+        fresh: false,
+        layers: ['labels', 'ml', 'inferred', 'kinds'],
+      },
+    ]
+    const result = mirrorGraphNetworkCapabilities({
+      networks: [
+        {
+          network: 'robinhood',
+          status: 'live',
+          tools: {},
+          graph_progress: { complete_through_block: 90260000, layers: [], families },
+        },
+      ],
+    })
+
+    expect(result.networks[0]?.graph_progress?.families).toEqual(families)
+  })
+
+  it('drops the whole families list when one entry has a bad shape, and keeps the layers', async () => {
+    const { mirrorGraphNetworkCapabilities } = await import('../src/mcp/capabilities.js')
+    const good = {
+      name: 'money',
+      complete_through_block: 90260000,
+      blocks_behind_head: 6314,
+      layers: ['flows', 'operated_by'],
+    }
+    const bad: unknown[] = [
+      { ...good, name: '' },
+      { ...good, complete_through_block: '90260000' },
+      { ...good, blocks_behind_head: '6314' },
+      { ...good, fresh: 'yes' },
+      { ...good, layers: ['flows', 7] },
+      { ...good, layers: 'flows' },
+      'money',
+    ]
+    const result = mirrorGraphNetworkCapabilities({
+      networks: [
+        ...bad.map((entry, index) => ({
+          network: `n${index}`,
+          status: 'live',
+          tools: {},
+          graph_progress: {
+            complete_through_block: 1,
+            layers: [{ layer: 'flows', position: 1 }],
+            families: [good, entry],
+          },
+        })),
+        {
+          network: 'old',
+          status: 'live',
+          tools: {},
+          graph_progress: { complete_through_block: 1, layers: [] },
+        },
+      ],
+    })
+
+    for (const network of result.networks) {
+      expect(network.graph_progress, network.network).toBeDefined()
+      expect(network.graph_progress?.families, network.network).toBeUndefined()
+    }
+    expect(result.networks[0]?.graph_progress?.layers).toEqual([{ layer: 'flows', position: 1 }])
+  })
+
   // The public reply of 2026-10-05, saved once. The mirror repeats the layer
   // blocks member for member: it adds no field, invents no default and drops no
   // member, and a block the server did not send stays absent.

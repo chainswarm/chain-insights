@@ -113,10 +113,7 @@ describe('cia network <name>: the screen', () => {
 
   it('full reply: head on line four, five lanes, eleven layers, one evidence row, lag is head minus height', () => {
     const network = recorded()
-    network.lane_progress = [
-      ...network.lane_progress!,
-      { lane: 'evidence_sync', height: 80000000 },
-    ]
+    network.lane_progress = [...network.lane_progress!, { lane: 'evidence_sync', height: 80000000 }]
     const output = lines(network)
     const head = network.freshness!.chain_head_block!
 
@@ -196,6 +193,102 @@ describe('cia network <name>: the screen', () => {
     delete network.freshness!.chain_head_age_seconds
 
     expect(lines(network)[3]).toBe('Blockchain head   87,661,214')
+  })
+})
+
+// A server that groups its graph layers into families. The fixture is the 2026-10-13 reply with the
+// families block of the design added and the head set to 90,266,314, until a
+// live reply replaces it. The Families table sits between Indexing and Graph,
+// by plain name, in the order the server sends.
+const familiesFixtureText = readFileSync(
+  join(process.cwd(), 'tests/fixtures/network-capabilities-robinhood-families.json'),
+  'utf8'
+)
+
+function recordedWithFamilies(): NetworkCapability {
+  const raw = JSON.parse(familiesFixtureText) as Record<string, unknown>
+  return mirrorGraphNetworkCapabilities({ networks: [raw] }).networks[0]!
+}
+
+// The agreed screen of a server that sends families, character for character.
+const FAMILIES_SCREEN = `Network           Robinhood Chain
+Identifier        robinhood
+Status            live (default)
+Blockchain head   90,266,314  (1 s old)
+
+Indexing                      height      behind head
+  receipts                    90,266,100          214
+  traces                      90,266,000          314
+  dex                         12,617,066   77,649,248
+  bridge                      90,266,000          314
+  smart accounts              90,266,000          314
+
+Families                      height      behind head
+  money                       90,260,000        6,314
+  dex                          8,300,000   81,966,314
+  chain facts                 90,266,000          314
+  smart accounts              90,266,000          314
+  annotations                 fresh
+
+Graph                         height      behind head
+  flows                       90,260,000        6,314
+  operated_by                 90,266,000          314
+  dex_swaps                    8,300,000   81,966,314
+  dex_liquidity                8,300,000   81,966,314
+  bridged                     90,266,000          314
+  approvals                   90,266,000          314
+  sponsored                   90,266,000          314
+  bundled                     90,266,000          314
+  signers                     90,266,000          314
+  owners                      90,266,000          314
+  contracts                   90,266,000          314
+
+Evidence                      height      behind head
+  evidence                    not reported`
+
+describe('cia network <name>: the layer families', () => {
+  it('prints the agreed screen of a server that sends families', () => {
+    expect(formatNetworkCapability(recordedWithFamilies())).toBe(FAMILIES_SCREEN)
+  })
+
+  it('a server with no families prints no Families table', () => {
+    const network = recordedWithFamilies()
+    delete network.graph_progress!.families
+    const text = formatNetworkCapability(network)
+
+    expect(text).not.toContain('Families')
+    expect(text).not.toContain('chain facts')
+  })
+
+  it('annotations walking prints "walking" and no lag', () => {
+    const network = recordedWithFamilies()
+    network.graph_progress!.families = network.graph_progress!.families!.map((family) =>
+      family.name === 'annotations' ? { ...family, fresh: false } : family
+    )
+
+    expect(table(lines(network), 'Families')[4]).toBe('  annotations                 walking')
+  })
+
+  it('a block family with no lag from the server prints head minus height', () => {
+    const network = recordedWithFamilies()
+    network.graph_progress!.families = network.graph_progress!.families!.map((family) => ({
+      ...family,
+      blocks_behind_head: null,
+    }))
+    const families = table(lines(network), 'Families')
+
+    expect(families[0]).toBe('  money                       90,260,000        6,314')
+    expect(families[1]).toBe('  dex                          8,300,000   81,966,314')
+  })
+
+  it('no head: families print their heights and no lag', () => {
+    const network = recordedWithFamilies()
+    delete network.freshness!.chain_head_block
+    const families = table(lines(network), 'Families')
+
+    expect(families[0]).toBe('  money                       90,260,000')
+    expect(families[1]).toBe('  dex                          8,300,000')
+    expect(families[4]).toBe('  annotations                 fresh')
   })
 })
 
