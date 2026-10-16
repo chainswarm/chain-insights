@@ -3,6 +3,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.59.1] - 2026-10-17 — the pins follow the graph server that serves families
+
+### Changed
+- The chain catalogue pin moves to rules version 3: the Head lookup serves `behind_money`, `behind_dex`, `behind_chain_facts`, `behind_smart_accounts` and `annotations_fresh`. The refusal-code pin names the same server.
+- The family parity test also reads the first live reply that served `graph_progress.families` (lane B, 2026-10-17 01:50 CEST).
+
 ## [0.59.0] - 2026-10-16 — layer families: cia network prints them, and a whole-chain search reads the family of its link type
 
 ### Changed

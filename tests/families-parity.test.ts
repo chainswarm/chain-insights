@@ -12,14 +12,18 @@ import { flat, read } from './support/schema-text.js'
 // pairs each link type with that property. A family renamed, reordered or
 // regrouped on one side fails here.
 //
-// The reply is tests/fixtures/network-capabilities-robinhood-families.json:
-// the 2026-10-13 reply with the families block of the design added, until a
-// live reply replaces it.
+// Two replies are read: tests/fixtures/network-capabilities-robinhood-families.json,
+// the 2026-10-13 reply with the families block of the design added (the agreed
+// `cia network` screen is drawn from it), and
+// tests/fixtures/network-capabilities-robinhood-20261017.json, the live reply of
+// lane B on 2026-10-17 01:50 CEST, the first server that served families.
 
 type ReplyFamily = { name: string; layers: string[] }
-const reply = JSON.parse(read('tests/fixtures/network-capabilities-robinhood-families.json')) as {
-  graph_progress: { families: ReplyFamily[] }
-}
+type Reply = { graph_progress: { families: ReplyFamily[] } }
+const replies: [string, Reply][] = [
+  'tests/fixtures/network-capabilities-robinhood-families.json',
+  'tests/fixtures/network-capabilities-robinhood-20261017.json',
+].map((file) => [file, JSON.parse(read(file)) as Reply])
 
 const RULE_SURFACES: [string, string][] = [
   ['skills/chain-insights-cypher/SKILL.md', read('skills/chain-insights-cypher/SKILL.md')],
@@ -37,11 +41,13 @@ function familiesNamedIn(rule: string): string[] {
 }
 
 describe('the family table', () => {
-  it('is the server reply: the same names, in the same order, with the same layers', () => {
-    expect(LAYER_FAMILIES.map(({ name, layers }) => ({ name, layers }))).toEqual(
-      reply.graph_progress.families.map(({ name, layers }) => ({ name, layers }))
-    )
-  })
+  for (const [file, served] of replies) {
+    it(`is the server reply ${file}: the same names, in the same order, with the same layers`, () => {
+      expect(LAYER_FAMILIES.map(({ name, layers }) => ({ name, layers }))).toEqual(
+        served.graph_progress.families.map(({ name, layers }) => ({ name, layers }))
+      )
+    })
+  }
 
   it('gives every link type one family, and annotations none', () => {
     const types = LAYER_FAMILIES.flatMap((family) => family.link_types)
