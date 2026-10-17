@@ -3,6 +3,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.59.3] - 2026-10-17 — no CLAUDE.md
+
+### Changed
+- `CLAUDE.md` is removed. Claude Code reads `AGENTS.md` directly, so
+  `AGENTS.md` is the only agent instruction file.
+
 ## [0.59.2] - 2026-10-17 — one agent instruction file
 
 ### Changed

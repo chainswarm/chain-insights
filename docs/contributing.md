@@ -56,8 +56,7 @@ git diff --check
 ## Repository rules
 ### Repository Invariants
 
-- `AGENTS.md` is the one agent instruction file. `CLAUDE.md` holds only
-  `@AGENTS.md`. Edit `AGENTS.md` only.
+- `AGENTS.md` is the one agent instruction file. Never add a `CLAUDE.md`.
 - Every PR that changes tracked files must bump `package.json`,
   `package-lock.json`, and `CHANGELOG.md`. Enforced by
   `npm run release:check` (`scripts/check-release-gate.mjs`) in
