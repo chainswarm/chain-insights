@@ -3,6 +3,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.59.2] - 2026-10-17 — one agent instruction file
+
+### Changed
+- `AGENTS.md` is the one agent instruction file. `CLAUDE.md` now holds only
+  `@AGENTS.md`, so the two can no longer drift apart.
+
 ## [0.59.1] - 2026-10-17 — the pins follow the graph server that serves families
 
 ### Changed

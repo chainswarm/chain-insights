@@ -1,8 +1,7 @@
-<!-- TWIN FILE — AGENTS.md and CLAUDE.md in this directory are kept byte-identical.
-     AGENTS.md is the entrypoint Codex reads; CLAUDE.md is what Claude Code reads.
-     Edit BOTH together, or neither. Last synced 2026-05-29. -->
-
 # Chain Insights Agent Guide
+
+`AGENTS.md` is the one instruction file for every coding agent. `CLAUDE.md`
+only imports it (`@AGENTS.md`). Edit `AGENTS.md` only.
 
 Chain Insights is a public AML investigation CLI and MCP proxy for blockchain
 risk screening and fund-flow tracing.
