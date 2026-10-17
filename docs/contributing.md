@@ -56,8 +56,8 @@ git diff --check
 ## Repository rules
 ### Repository Invariants
 
-- `AGENTS.md` and `CLAUDE.md` are twin files kept byte-identical. Edit both
-  together, or neither.
+- `AGENTS.md` is the one agent instruction file. `CLAUDE.md` holds only
+  `@AGENTS.md`. Edit `AGENTS.md` only.
 - Every PR that changes tracked files must bump `package.json`,
   `package-lock.json`, and `CHANGELOG.md`. Enforced by
   `npm run release:check` (`scripts/check-release-gate.mjs`) in
