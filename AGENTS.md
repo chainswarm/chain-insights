@@ -1,7 +1,7 @@
 # Chain Insights Agent Guide
 
-`AGENTS.md` is the one instruction file for every coding agent. `CLAUDE.md`
-only imports it (`@AGENTS.md`). Edit `AGENTS.md` only.
+`AGENTS.md` is the one instruction file for every coding agent. Do not add a
+`CLAUDE.md`.
 
 Chain Insights is a public AML investigation CLI and MCP proxy for blockchain
 risk screening and fund-flow tracing.
