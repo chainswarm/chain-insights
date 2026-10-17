@@ -69,7 +69,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@modelcontextprotocol/ext-apps": "1.7.5",
+    "@modelcontextprotocol/ext-apps": "2.0.3",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "@x402/evm": "^2.28.0",
     "@x402/fetch": "^2.28.0",
