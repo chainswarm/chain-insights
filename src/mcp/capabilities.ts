@@ -435,7 +435,7 @@ export function layerDisplayName(layer: string): string {
   return layer
 }
 
-/** A family prints by its plain name: `chain_facts` prints as "chain facts". */
+/** A family prints by its plain name: `smart_accounts` prints as "smart accounts". */
 export function familyDisplayName(family: string): string {
   return family.replace(/_/g, ' ')
 }

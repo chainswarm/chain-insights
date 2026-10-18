@@ -226,7 +226,7 @@ Indexing                      height      behind head
 Families                      height      behind head
   money                       90,260,000        6,314
   dex                          8,300,000   81,966,314
-  chain facts                 90,266,000          314
+  interactions                90,266,000          314
   smart accounts              90,266,000          314
   annotations                 fresh
 
@@ -257,7 +257,7 @@ describe('cia network <name>: the layer families', () => {
     const text = formatNetworkCapability(network)
 
     expect(text).not.toContain('Families')
-    expect(text).not.toContain('chain facts')
+    expect(text).not.toContain('interactions')
   })
 
   it('annotations walking prints "walking" and no lag', () => {

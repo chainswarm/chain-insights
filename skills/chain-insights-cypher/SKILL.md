@@ -486,7 +486,7 @@ MATCH (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550", at_bloc
 
 ```cypher
 USE chain
-MATCH (h:Head) RETURN h.block_height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind, h.behind_money, h.behind_dex, h.behind_chain_facts, h.behind_smart_accounts, h.annotations_fresh
+MATCH (h:Head) RETURN h.block_height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind, h.behind_money, h.behind_dex, h.behind_interactions, h.behind_smart_accounts, h.annotations_fresh
 ```
 
 An `Address` lookup always answers one row, because every address has a state. `a.balance` is decimal text. Read the kind from `a.is_contract`, `a.nonce` and `a.delegated_to`: `a.is_contract` is `true` for a contract and null for any other address, a `nonce` above 0 with `a.is_contract` null is an account, and `a.delegated_to` names the target of an EIP-7702 delegation, which is an account. `a.code_size` is the size of the code, and the code itself is never returned. `:Account` and `:Contract` are never a chain lookup label.

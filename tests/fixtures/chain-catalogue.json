@@ -71,8 +71,8 @@
       "properties": [
         "age_seconds",
         "annotations_fresh",
-        "behind_chain_facts",
         "behind_dex",
+        "behind_interactions",
         "behind_money",
         "behind_smart_accounts",
         "block_hash",

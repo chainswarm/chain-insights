@@ -205,7 +205,7 @@
         ]
       },
       {
-        "name": "chain_facts",
+        "name": "interactions",
         "complete_through_block": 90266000,
         "blocks_behind_head": 314,
         "layers": [
