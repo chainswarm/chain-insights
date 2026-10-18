@@ -3,6 +3,14 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.60.0] - 2026-10-18 — the layer family chain_facts is now interactions
+
+### Changed
+- **BREAKING:** the layer family `chain_facts` is now `interactions`. It
+  still holds the layers approvals, bridged, contracts and authorization.
+  The Head property `behind_chain_facts` is now `behind_interactions`.
+  Older servers are not supported by this version's skill text.
+
 ## [0.59.3] - 2026-10-17 — no CLAUDE.md
 
 ### Changed

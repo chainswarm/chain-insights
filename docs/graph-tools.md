@@ -56,13 +56,13 @@ A question about the whole chain (recent activity, the biggest senders, a top li
 
 The graph layers are grouped into families, and each family is as fresh as
 its slowest layer: `money` (`FLOWS_TO`, `OPERATED_BY`), `dex` (`SWAPPED`,
-`ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`), `chain_facts` (`APPROVED`,
+`ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`), `interactions` (`APPROVED`,
 `BRIDGED`, `DEPLOYED_CONTRACT`, `SIGNED_AUTHORIZATION`), `smart_accounts`
 (`SPONSORED`, `BUNDLED`, `SIGNED_FOR`, `LINKED`) and `annotations` (labels
 and kinds, which follow runs, not blocks). `cia network <name>` prints one
 row per family with its height and its blocks behind the head, and
 `annotations` as `fresh` or `walking`. The `Head` node of `USE chain` serves
-`behind_money`, `behind_dex`, `behind_chain_facts` and
+`behind_money`, `behind_dex`, `behind_interactions` and
 `behind_smart_accounts` (integers) and `annotations_fresh` (a boolean);
 `graph_blocks_behind` equals `behind_money`. A search bounded only by time is
 refused with `family_behind` when a link type it names belongs to a family

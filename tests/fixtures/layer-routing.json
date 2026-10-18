@@ -395,7 +395,7 @@
    "id": "skill-cypher-27",
    "layer": "chain",
    "anchor": "head",
-   "query": "USE chain MATCH (h:Head) RETURN h.block_height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind, h.behind_money, h.behind_dex, h.behind_chain_facts, h.behind_smart_accounts, h.annotations_fresh",
+   "query": "USE chain MATCH (h:Head) RETURN h.block_height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind, h.behind_money, h.behind_dex, h.behind_interactions, h.behind_smart_accounts, h.annotations_fresh",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
