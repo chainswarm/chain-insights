@@ -1,0 +1,35 @@
+schema_version: "1.0"
+name: virtuals-mass-creator-not-owner
+expected_outcome: The agent says the creator wallet signed and paid gas for the creations, that this alone does not prove it paid fees or profited, and checks the money it received, forwarded and kept with the address totals before calling it a scammer.
+execution:
+  prompt: |
+    On Robinhood Chain one wallet,
+    0x384d92776496bce2c6f08d5b8e015eae498e78b3, created 12,282 Virtuals
+    agents. Someone says it earned money on every one of them.
+
+    Using Chain Insights, how do I test that claim? Call no graph tool.
+    Give the exact query you would send first and what in its result
+    would prove or disprove the claim.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: reads-net-flow
+    target: last_message
+    pattern: 'net_flow_usd|total_in_usd|kept_usd'
+    match: contains
+  - type: regex
+    name: forwarded-vs-kept
+    target: last_message
+    pattern: 'forward|launch service|pass(es|ed)? (it )?(on|through)'
+    flags: i
+    match: contains
+  - type: regex
+    name: full-addresses
+    target: last_message
+    pattern: '0x[0-9a-fA-F]{2,10}(…|\.\.\.)'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

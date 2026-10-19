@@ -1,0 +1,41 @@
+schema_version: "1.0"
+name: virtuals-hub-label-trap
+expected_outcome: The agent recognises 0x65050a9b7e5075a2ba5ced7b1b64ee66262c40dc as the trading router hub whose scam and victim labels come from traffic, and does not call the agent's buyer a scammer on that label.
+execution:
+  prompt: |
+    I traced buyers of a fresh Virtuals agent on Robinhood Chain in Chain
+    Insights. The pool's only receiver is
+    0x65050a9b7e5075a2ba5ced7b1b64ee66262c40dc and it carries the labels
+    Scam, Targeted and Victim. Did a scammer buy this agent?
+
+    Answer in a few lines. Call no graph tool.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: names-router
+    target: last_message
+    pattern: 'router'
+    flags: i
+    match: contains
+  - type: regex
+    name: label-is-traffic-noise
+    target: last_message
+    pattern: 'noise|traffic|volume|millions of transactions'
+    flags: i
+    match: contains
+  - type: regex
+    name: buyer-is-tx-sender
+    target: last_message
+    pattern: 'sender'
+    flags: i
+    match: contains
+  - type: regex
+    name: full-addresses
+    target: last_message
+    pattern: '0x[0-9a-fA-F]{2,10}(…|\.\.\.)'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

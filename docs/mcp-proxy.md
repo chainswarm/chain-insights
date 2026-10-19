@@ -327,7 +327,9 @@ cia --hermes
 The Hermes installer writes Chain Insights skills under the Hermes skills
 directory and registers the stdio MCP proxy in the Hermes config.
 
-For graph-language work, agents use `chain-insights-cypher`.
+For graph-language work, agents use `chain-insights-cypher`. A protocol
+skill such as `chain-insights-virtuals` is installed beside it and loads only
+when a question names its protocol.
 
 ## Supported Agent Setup
 

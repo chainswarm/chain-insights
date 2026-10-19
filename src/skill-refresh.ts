@@ -1,8 +1,10 @@
 import {
+  type Dirent,
   cpSync,
   existsSync,
   lstatSync,
   readFileSync,
+  readdirSync,
   renameSync,
   rmSync,
   writeFileSync,
@@ -18,15 +20,43 @@ import { fileURLToPath } from 'node:url'
  * reading the skill of the release it was set up with.
  *
  * Rules, in order:
- * - Only a place setup already installed is refreshed. Nothing is installed.
+ * - Only a place setup already installed is refreshed.
+ * - A protocol skill new in this release is added only to a place where setup
+ *   installed the core skill as a copy, not stamped by a newer release. Nothing
+ *   is installed anywhere else.
  * - A symlinked skill belongs to its owner (a checkout) and is never touched.
  * - A copy stamped by a newer release is left alone: two installs of
  *   different versions (a global install and a bundled extension) must not
  *   take turns downgrading each other.
  */
 
-/** The reviewed skill set; the same list as PUBLIC_SKILL_NAMES in bin/install.cjs. */
-export const PUBLIC_SKILL_NAMES = Object.freeze(['chain-insights-cypher'])
+/** The core skill: the graph query dialect and the answer rules. Always shipped. */
+export const CORE_SKILL_NAME = 'chain-insights-cypher'
+
+/** A shipped skill's directory name. */
+export const PUBLIC_SKILL_PATTERN = /^chain-insights-[a-z0-9-]+$/
+
+/**
+ * The shipped skills, read from a skills/ directory: the core skill, then every
+ * protocol skill (a directory named chain-insights-* that holds a SKILL.md),
+ * sorted. bin/install.cjs and scripts/sync-plugin-skills.mjs apply the same
+ * rule; the installer also leaves out its retired names.
+ */
+export function publicSkillNames(sourceDir: string = packagedSkillsDir()): string[] {
+  let entries: Dirent[]
+  try {
+    entries = readdirSync(sourceDir, { withFileTypes: true })
+  } catch {
+    return [CORE_SKILL_NAME]
+  }
+  const protocol = entries
+    .filter((entry) => entry.isDirectory() && PUBLIC_SKILL_PATTERN.test(entry.name))
+    .map((entry) => entry.name)
+    .filter((name) => name !== CORE_SKILL_NAME)
+    .filter((name) => existsSync(path.join(sourceDir, name, 'SKILL.md')))
+    .sort()
+  return [CORE_SKILL_NAME, ...protocol]
+}
 
 /** Written inside each installed skill by setup and by the refresh. */
 export const SKILL_VERSION_FILE = '.chain-insights-version'
@@ -34,6 +64,8 @@ export const SKILL_VERSION_FILE = '.chain-insights-version'
 export interface SkillRefreshResult {
   /** Skill directories replaced with the packaged copy. */
   refreshed: string[]
+  /** Protocol skill directories added beside a core skill that setup installed. */
+  installed: string[]
   /** Skill directories left alone, with the reason. */
   skipped: { dir: string; reason: 'symlink' | 'newer' | 'current' }[]
   /** Skill directories that could not be replaced, with the error text. */
@@ -59,7 +91,7 @@ export function packagedSkillsDir(): string {
  * SKILL.md without its front matter, which only says when to load it.
  */
 export function readPackagedSkillRules(sourceDir: string = packagedSkillsDir()): string {
-  const text = readFileSync(path.join(sourceDir, PUBLIC_SKILL_NAMES[0]!, 'SKILL.md'), 'utf8')
+  const text = readFileSync(path.join(sourceDir, CORE_SKILL_NAME, 'SKILL.md'), 'utf8')
   const frontMatter = /^---\n[\s\S]*?\n---\n+/
   return text.replace(frontMatter, '').trimEnd() + '\n'
 }
@@ -111,14 +143,42 @@ function replaceSkill(source: string, dest: string, version: string): void {
   }
 }
 
+/** Copies a skill in through a hidden sibling, so a reader never sees half a skill. */
+function addSkill(source: string, dest: string, version: string): void {
+  const staged = path.join(path.dirname(dest), `.${path.basename(dest)}.refresh-${process.pid}`)
+  rmSync(staged, { recursive: true, force: true })
+  try {
+    cpSync(source, staged, { recursive: true })
+    writeFileSync(path.join(staged, SKILL_VERSION_FILE), `${version}\n`, 'utf8')
+    renameSync(staged, dest)
+  } finally {
+    rmSync(staged, { recursive: true, force: true })
+  }
+}
+
+/** Setup installed the core skill here as a copy, and no newer release owns it. */
+function coreSetUpIn(target: string, version: string): boolean {
+  const core = path.join(target, CORE_SKILL_NAME)
+  try {
+    const stat = lstatSync(core)
+    if (stat.isSymbolicLink() || !stat.isDirectory()) return false
+  } catch {
+    return false
+  }
+  const stamp = readStamp(core)
+  return stamp === undefined || compareVersions(stamp, version) <= 0
+}
+
 export function refreshInstalledSkills(
   version: string,
   options: { home?: string; sourceDir?: string } = {}
 ): SkillRefreshResult {
   const sourceDir = options.sourceDir ?? packagedSkillsDir()
-  const result: SkillRefreshResult = { refreshed: [], skipped: [], failed: [] }
+  const result: SkillRefreshResult = { refreshed: [], installed: [], skipped: [], failed: [] }
+  const names = publicSkillNames(sourceDir)
   for (const target of skillTargetDirs(options.home)) {
-    for (const name of PUBLIC_SKILL_NAMES) {
+    const setUpHere = coreSetUpIn(target, version)
+    for (const name of names) {
       const source = path.join(sourceDir, name)
       const dest = path.join(target, name)
       if (!existsSync(source)) continue
@@ -126,7 +186,19 @@ export function refreshInstalledSkills(
       try {
         stat = lstatSync(dest)
       } catch {
-        continue // not installed here
+        // Not installed here. A protocol skill joins a core skill setup installed.
+        if (name !== CORE_SKILL_NAME && setUpHere) {
+          try {
+            addSkill(source, dest, version)
+            result.installed.push(dest)
+          } catch (error) {
+            result.failed.push({
+              dir: dest,
+              error: error instanceof Error ? error.message : String(error),
+            })
+          }
+        }
+        continue
       }
       if (stat.isSymbolicLink()) {
         result.skipped.push({ dir: dest, reason: 'symlink' })

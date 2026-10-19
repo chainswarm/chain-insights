@@ -1,0 +1,34 @@
+schema_version: "1.0"
+name: virtuals-other-network
+expected_outcome: The agent says the Virtuals contract addresses it knows are for Robinhood Chain only and must not be reused on another network; the other network's contracts must be found first.
+execution:
+  prompt: |
+    I want to rank the creators of Virtuals agents on Base the same way I
+    did on Robinhood Chain with Chain Insights. Can I reuse the same
+    factory address in the query? Answer in a few lines. Call no graph
+    tool.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: names-robinhood-scope
+    target: last_message
+    pattern: 'robinhood'
+    flags: i
+    match: contains
+  - type: regex
+    name: serves-robinhood-only
+    target: last_message
+    pattern: 'serves (only )?(`?network=)?robinhood|robinhood (only|is the only)|only (serves|covers|indexes) (`?network=)?robinhood|does not (serve|cover|index) base|doesn.t (serve|cover|index) base|no base (data|network|layer)'
+    flags: i
+    match: contains
+  - type: llm
+    name: no-reuse
+    criteria: >
+      The answer says not to reuse the Robinhood Chain factory address on
+      Base.
+    weight: 1
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

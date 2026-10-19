@@ -1,11 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdir, rm, stat } from 'node:fs/promises'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { execSync } from 'node:child_process'
+import { CORE_SKILL_NAME, publicSkillNames } from '../src/skill-refresh.js'
 
-const reviewedSkills = ['chain-insights-cypher']
+// The shipped skills, by the rule the installer applies to the package's own
+// skills/: the core skill and every protocol skill beside it.
+const reviewedSkills = publicSkillNames(join(process.cwd(), 'skills'))
 
 // The two retired schema skills are built from two halves so that only
 // bin/install.cjs and CHANGELOG.md carry their literal names (R25): a git grep
@@ -65,15 +68,45 @@ describe('Installer (FOUND-01)', () => {
 
       execSync(`HOME=${fakeHome} node bin/install.cjs ${flag}`, { stdio: 'pipe' })
 
+      expect(reviewedSkills[0]).toBe(CORE_SKILL_NAME)
       for (const name of reviewedSkills) {
         expect(existsSync(join(target, name, 'SKILL.md'))).toBe(true)
       }
+      expect(readdirSync(target).sort()).toEqual([...reviewedSkills, 'ci-my-user-skill'].sort())
       for (const name of retiredSkills) {
         expect(existsSync(join(target, name))).toBe(false)
       }
       expect(existsSync(join(userSkillDir, 'SKILL.md'))).toBe(true)
     })
   }
+
+  it('reads the skills of its own package at run time: a new protocol skill installs, a retired name or a non-skill folder never does', () => {
+    const pkg = join(fakeHome, 'package')
+    mkdirSync(join(pkg, 'bin'), { recursive: true })
+    cpSync(join(process.cwd(), 'bin', 'install.cjs'), join(pkg, 'bin', 'install.cjs'))
+    cpSync(join(process.cwd(), 'package.json'), join(pkg, 'package.json'))
+    cpSync(join(process.cwd(), 'skills'), join(pkg, 'skills'), { recursive: true })
+    for (const name of [
+      'chain-insights-testproto',
+      retiredEvmSchemaSkill,
+      'rbmk-private',
+      'chain-insights-no-skill-file',
+    ]) {
+      mkdirSync(join(pkg, 'skills', name), { recursive: true })
+      if (name !== 'chain-insights-no-skill-file') {
+        writeFileSync(join(pkg, 'skills', name, 'SKILL.md'), '# skill\n', 'utf8')
+      }
+    }
+
+    execSync(`HOME=${fakeHome} node ${join(pkg, 'bin', 'install.cjs')} --hermes`, {
+      stdio: 'pipe',
+    })
+
+    const target = join(fakeHome, '.hermes', 'skills', 'chain-insights')
+    expect(readdirSync(target).sort()).toEqual(
+      [...reviewedSkills, 'chain-insights-testproto'].sort()
+    )
+  })
 
   it('--claude creates ~/.chain-insights/config.json', () => {
     execSync(`HOME=${fakeHome} node bin/install.cjs --claude`, { stdio: 'pipe' })

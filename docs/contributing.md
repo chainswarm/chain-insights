@@ -116,11 +116,19 @@ git diff --check
 - Keep docs product-first and user-workflow-first: install → configure graph
   access → run AML tools.
 - Localhost endpoints are fine in debugging docs. Private paths are not.
-- The shipped product skill under `skills/` is `chain-insights-cypher`.
-  It is a separate product surface
+- The shipped product skills live under `skills/`: one core skill,
+  `chain-insights-cypher`, and any number of protocol skills beside it, such
+  as `chain-insights-virtuals`. A protocol skill is a directory named
+  `chain-insights-<protocol>` with a `SKILL.md` whose description names its
+  protocol, so an agent loads it only on demand. The installer, the proxy's
+  skill refresh and the plugin read the list from `skills/`, so a new
+  protocol skill needs no list edited. Skills are a separate product surface
   packaged into the npm tarball and enforced by
   `tests/skills-contract.test.ts`. A capability no skill mentions is
-  invisible to agents — keep the skill in step with any change.
+  invisible to agents — keep the skills in step with any change.
+- Eval cases for the plugin skills live in `plugin/evals/<case>/case.yaml`.
+  A protocol skill's cases start with its protocol name, such as
+  `virtuals-creator-ranking`.
 
 ## Release Discipline
 

@@ -11,10 +11,27 @@ import { cpSync, existsSync, readFileSync, readdirSync, rmSync, statSync } from 
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// The skills the plugin carries: every skill that skills/ ships.
-export const PLUGIN_SKILLS = ['chain-insights-cypher']
-
 const defaultRoot = dirname(dirname(fileURLToPath(import.meta.url)))
+
+// The core skill the plugin always carries. Protocol skills sit beside it.
+export const CORE_SKILL_NAME = 'chain-insights-cypher'
+
+// The skills the plugin carries: every skill that skills/ ships, read from
+// skills/ — the core skill, then every directory named chain-insights-* that
+// holds a SKILL.md, sorted. bin/install.cjs and src/skill-refresh.ts apply the
+// same rule.
+export function pluginSkills(root = defaultRoot) {
+  const skills = join(root, 'skills')
+  const protocol = existsSync(skills)
+    ? readdirSync(skills, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory() && /^chain-insights-[a-z0-9-]+$/.test(entry.name))
+        .map((entry) => entry.name)
+        .filter((name) => name !== CORE_SKILL_NAME)
+        .filter((name) => existsSync(join(skills, name, 'SKILL.md')))
+        .sort()
+    : []
+  return [CORE_SKILL_NAME, ...protocol]
+}
 
 function filesUnder(dir) {
   if (!existsSync(dir)) return []
@@ -27,16 +44,19 @@ function filesUnder(dir) {
 /** Every difference between skills/<name> and plugin/skills/<name>, as readable lines. */
 export function pluginSkillDrift(root = defaultRoot) {
   const drift = []
-  const pluginSkills = join(root, 'plugin', 'skills')
-  const shipped = existsSync(pluginSkills)
-    ? readdirSync(pluginSkills).filter((name) => statSync(join(pluginSkills, name)).isDirectory())
+  const names = pluginSkills(root)
+  const pluginSkillsDir = join(root, 'plugin', 'skills')
+  const shipped = existsSync(pluginSkillsDir)
+    ? readdirSync(pluginSkillsDir).filter((name) =>
+        statSync(join(pluginSkillsDir, name)).isDirectory()
+      )
     : []
   for (const name of shipped) {
-    if (!PLUGIN_SKILLS.includes(name)) drift.push(`plugin/skills/${name}: not a plugin skill`)
+    if (!names.includes(name)) drift.push(`plugin/skills/${name}: not a plugin skill`)
   }
-  for (const name of PLUGIN_SKILLS) {
+  for (const name of names) {
     const source = join(root, 'skills', name)
-    const copy = join(pluginSkills, name)
+    const copy = join(pluginSkillsDir, name)
     if (!existsSync(source)) {
       drift.push(`skills/${name}: missing`)
       continue
@@ -59,10 +79,10 @@ export function pluginSkillDrift(root = defaultRoot) {
 
 /** Replace plugin/skills/ with fresh copies of the plugin skills. */
 export function syncPluginSkills(root = defaultRoot) {
-  const pluginSkills = join(root, 'plugin', 'skills')
-  rmSync(pluginSkills, { recursive: true, force: true })
-  for (const name of PLUGIN_SKILLS) {
-    cpSync(join(root, 'skills', name), join(pluginSkills, name), { recursive: true })
+  const pluginSkillsDir = join(root, 'plugin', 'skills')
+  rmSync(pluginSkillsDir, { recursive: true, force: true })
+  for (const name of pluginSkills(root)) {
+    cpSync(join(root, 'skills', name), join(pluginSkillsDir, name), { recursive: true })
   }
 }
 
@@ -77,6 +97,6 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     console.log('plugin/skills matches skills/')
   } else {
     syncPluginSkills()
-    console.log(`plugin/skills synced: ${PLUGIN_SKILLS.join(', ')}`)
+    console.log(`plugin/skills synced: ${pluginSkills().join(', ')}`)
   }
 }

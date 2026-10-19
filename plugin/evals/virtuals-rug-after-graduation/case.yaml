@@ -1,0 +1,42 @@
+schema_version: "1.0"
+name: virtuals-rug-after-graduation
+expected_outcome: The agent checks liquidity removed from the graduated Uniswap pair with REMOVED_LIQUIDITY and checks whether the creator sold the agent token with SWAPPED, and says that on Virtuals a rug after graduation is an insider dump because the pool liquidity is seeded by the token contract and has not been removed on the agents checked.
+execution:
+  prompt: |
+    A Virtuals agent on Robinhood Chain graduated. Its Uniswap v2 pair is
+    0x817f16f5d8da83d1b089b082c0172af3923618da and its creator wallet is
+    0x32e7c4afea4f868a53ec51435c92ed80625eeb33. A friend says the creator
+    rugged it.
+
+    Using Chain Insights, what would you check, in order, to confirm or
+    reject that? Call no graph tool. Give the exact queries.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: checks-liquidity-removed
+    target: last_message
+    pattern: 'REMOVED_LIQUIDITY'
+    match: contains
+  - type: regex
+    name: checks-creator-swaps
+    target: last_message
+    pattern: 'SWAPPED'
+    match: contains
+  - type: regex
+    name: says-dump
+    target: last_message
+    pattern: 'dump'
+    flags: i
+    match: contains
+  - type: llm
+    name: dump-not-drain
+    criteria: >
+      The answer says that on a graduated Virtuals agent the likely form of a
+      rug is the creator or insiders selling (dumping) the agent token,
+      rather than removing the pool's liquidity.
+    weight: 1
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

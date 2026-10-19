@@ -28,6 +28,10 @@ cloud cannot start it.
 - **`chain-insights-cypher`**: the graph query dialect, the rules every
   `graph_query` must follow, one query for each kind of graph search, and how
   to find the fields of the robinhood graph.
+- **`chain-insights-virtuals`**: Virtuals Protocol investigations on
+  robinhood, loaded only when a question names Virtuals: who created an
+  agent, who is behind a creator wallet, whether an agent was dumped, and
+  whether its buyers form a cartel.
 
 ## Use it
 

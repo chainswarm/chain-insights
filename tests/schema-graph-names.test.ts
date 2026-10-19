@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
+import { publicSkillNames } from '../src/skill-refresh.js'
 import { chainCatalogue } from './support/chain-catalogue.js'
 import { factsColumns } from './support/facts-columns.js'
 import { flat, sectionWith } from './support/schema-text.js'
@@ -156,7 +157,9 @@ describe('the Bittensor schema skill is gone', () => {
       return match?.[1] ?? ''
     }
     expect(list('RETIRED_SKILL_NAMES')).toContain(`'${NAME}'`)
-    expect(list('PUBLIC_SKILL_NAMES')).not.toContain(NAME)
+    // The installer ships what skills/ holds, never a retired name
+    // (tests/installer.test.ts), and skills/ holds no folder for it.
+    expect(publicSkillNames(join(root, 'skills'))).not.toContain(NAME)
   })
 })
 
@@ -214,7 +217,9 @@ describe('the EVM schema skill is gone', () => {
       return match?.[1] ?? ''
     }
     expect(list('RETIRED_SKILL_NAMES')).toContain(`'${NAME}'`)
-    expect(list('PUBLIC_SKILL_NAMES')).not.toContain(NAME)
+    // The installer ships what skills/ holds, never a retired name
+    // (tests/installer.test.ts), and skills/ holds no folder for it.
+    expect(publicSkillNames(join(root, 'skills'))).not.toContain(NAME)
   })
 })
 

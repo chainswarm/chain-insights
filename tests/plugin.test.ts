@@ -1,12 +1,22 @@
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
-  PLUGIN_SKILLS,
+  CORE_SKILL_NAME,
   pluginSkillDrift,
+  pluginSkills,
   syncPluginSkills,
 } from '../scripts/sync-plugin-skills.mjs'
+import { publicSkillNames } from '../src/skill-refresh.js'
 
 const root = process.cwd()
 
@@ -21,8 +31,36 @@ describe('Claude plugin (plugin/)', () => {
   })
 
   it('carries the plugin skills exactly as skills/ holds them', () => {
-    expect(PLUGIN_SKILLS).toEqual(['chain-insights-cypher'])
+    expect(pluginSkills(root)[0]).toBe(CORE_SKILL_NAME)
+    // The plugin and the installed copies follow one rule, read from skills/.
+    expect(pluginSkills(root)).toEqual(publicSkillNames(join(root, 'skills')))
     expect(pluginSkillDrift(root)).toEqual([])
+  })
+
+  it('finds a new protocol skill in skills/ and leaves out what is no chain-insights-* skill', () => {
+    const copy = mkdtempSync(join(tmpdir(), 'ci-plugin-discover-'))
+    scratch.push(copy)
+    cpSync(join(root, 'skills'), join(copy, 'skills'), { recursive: true })
+    cpSync(join(root, 'plugin'), join(copy, 'plugin'), { recursive: true })
+    for (const [name, withSkill] of [
+      ['chain-insights-testproto', true],
+      ['chain-insights-no-skill-file', false],
+      ['rbmk-private', true],
+    ] as const) {
+      mkdirSync(join(copy, 'skills', name), { recursive: true })
+      if (withSkill) writeFileSync(join(copy, 'skills', name, 'SKILL.md'), '# skill\n')
+    }
+
+    const found = pluginSkills(copy)
+    expect(found[0]).toBe(CORE_SKILL_NAME)
+    expect(new Set(found)).toEqual(new Set([...pluginSkills(root), 'chain-insights-testproto']))
+    expect(found).toEqual(publicSkillNames(join(copy, 'skills')))
+    expect(pluginSkillDrift(copy)).toEqual([
+      'plugin/skills/chain-insights-testproto/SKILL.md: missing',
+    ])
+    syncPluginSkills(copy)
+    expect(pluginSkillDrift(copy)).toEqual([])
+    expect(existsSync(join(copy, 'plugin', 'skills', 'rbmk-private'))).toBe(false)
   })
 
   it('reports drift when a plugin skill differs from skills/, and a sync clears it', () => {

@@ -936,7 +936,11 @@ export async function createProxy(): Promise<void> {
     try {
       const { refreshInstalledSkills } = await import('../skill-refresh.js')
       const refresh = refreshInstalledSkills(PACKAGE_VERSION)
-      if (refresh.refreshed.length > 0 || refresh.failed.length > 0) {
+      if (
+        refresh.refreshed.length > 0 ||
+        refresh.installed.length > 0 ||
+        refresh.failed.length > 0
+      ) {
         await logger.info('skills.refresh', { version: PACKAGE_VERSION, ...refresh })
       }
     } catch (error) {

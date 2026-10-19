@@ -1,0 +1,45 @@
+schema_version: "1.0"
+name: virtuals-sniper-twins
+expected_outcome: The agent finds the real buyers of a Virtuals starting pool by reading the pool-to-router transfers on the creation day on USE facts, then each buy transaction's sender on USE chain, and then the funders shared by those buyers, excluding the router hub by address.
+execution:
+  prompt: |
+    The Virtuals agent BIBEL on Robinhood Chain has its starting pool at
+    0x09e9df72f639875b58dbfd356e31c47b0b87f65b. It was created on
+    2026-07-27. In Chain Insights the only receiver of BIBEL from the pool
+    looks like one busy contract.
+
+    I suspect a cartel sniped it. How do I find the real buyers and check
+    whether one person funds them? Call no graph tool. Give the exact
+    queries in order.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: names-router
+    target: last_message
+    pattern: '0x65050a9b7e5075a2ba5ced7b1b64ee66262c40dc'
+    match: contains
+  - type: regex
+    name: reads-transaction-sender
+    target: last_message
+    pattern: 'Transaction \{tx_id'
+    match: contains
+  - type: regex
+    name: facts-on-creation-day
+    target: last_message
+    pattern: 'block_date = "2026-07-27"'
+    match: contains
+  - type: regex
+    name: excludes-hub-by-address
+    target: last_message
+    pattern: 'NOT \w+\.address IN'
+    match: contains
+  - type: regex
+    name: full-addresses
+    target: last_message
+    pattern: '0x[0-9a-fA-F]{2,10}(…|\.\.\.)'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
