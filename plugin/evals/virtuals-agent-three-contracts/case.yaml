@@ -1,0 +1,40 @@
+schema_version: "1.0"
+name: virtuals-agent-three-contracts
+expected_outcome: The agent explains that one Virtuals creation transaction makes three contracts (agent token, starting pool, Uniswap v2 pair) that share the creation tx_id, and finds them with one query over the three factories filtered on that tx_id.
+execution:
+  prompt: |
+    A Virtuals agent called VEX on Robinhood Chain was created in the
+    transaction
+    0x45bc4c937e1af56bd01968443430968e0b296fbc0e717dd06e9e49f0758854d8.
+
+    Using Chain Insights, how do I find every contract that creation made,
+    and tell which one is the token and which one is a pool? Call no graph
+    tool. Write the exact query and say how to read its rows.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: filters-on-tx-id
+    target: last_message
+    pattern: 'r\.tx_id\s*=\s*"0x45bc4c937e1af56bd01968443430968e0b296fbc0e717dd06e9e49f0758854d8"'
+    match: contains
+  - type: regex
+    name: names-pair-factory
+    target: last_message
+    pattern: '0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f'
+    match: contains
+  - type: regex
+    name: names-token-factory
+    target: last_message
+    pattern: '0x43e4c17b15365596caae8e7d00e42bc8e988c2d4'
+    match: contains
+  - type: regex
+    name: three-contracts
+    target: last_message
+    pattern: 'three|3 contracts'
+    flags: i
+    match: contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

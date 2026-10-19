@@ -1,0 +1,40 @@
+schema_version: "1.0"
+name: virtuals-funding-two-hops-back
+expected_outcome: The agent traces a Virtuals creator wallet's funders oldest first, repeats the step on the funders for a second hop, and stops at a hub, a bridge or an exchange; it checks the wallet's own BRIDGED link for a bridge origin.
+execution:
+  prompt: |
+    Who is behind the Virtuals creator wallet
+    0x384d92776496bce2c6f08d5b8e015eae498e78b3 on Robinhood Chain? I want
+    its funders and their funders, two hops back, with Chain Insights.
+
+    Call no graph tool. Give the exact first query, then say how you go
+    to the second hop and where you stop.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: oldest-first
+    target: last_message
+    pattern: 'ORDER BY f\.first_seen_timestamp ASC'
+    match: contains
+  - type: regex
+    name: stops-at-terminals
+    target: last_message
+    pattern: 'bridge'
+    flags: i
+    match: contains
+  - type: regex
+    name: stops-at-hub-or-exchange
+    target: last_message
+    pattern: 'hub|exchange'
+    flags: i
+    match: contains
+  - type: regex
+    name: full-addresses
+    target: last_message
+    pattern: '0x[0-9a-fA-F]{2,10}(…|\.\.\.)'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

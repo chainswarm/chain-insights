@@ -420,6 +420,125 @@
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
+   "id": "skill-virtuals-reference-1",
+   "layer": "topology",
+   "anchor": "address",
+   "query": "USE topology MATCH (f:Address {address: \"0xfc2e4da3edb2e18100473339c763705d263d20a9\"})-[r:DEPLOYED_CONTRACT]->(t:Address) RETURN r.tx_origin AS creator, count(*) AS agents ORDER BY agents DESC LIMIT 40",
+   "source": "skills/chain-insights-virtuals/reference.md"
+  },
+  {
+   "id": "skill-virtuals-reference-2",
+   "layer": "topology",
+   "anchor": "address",
+   "query": "USE topology MATCH (f:Address {address: \"0xfc2e4da3edb2e18100473339c763705d263d20a9\"})-[r:DEPLOYED_CONTRACT]->(t:Address) WHERE r.tx_origin = \"<creator>\" RETURN t.address AS pool, t.labels AS labels, r.tx_id AS tx_id, r.block_timestamp AS created_timestamp, t.degree_in AS senders, t.tx_total_count AS tx_count, t.total_volume_usd AS volume_usd ORDER BY r.block_timestamp DESC LIMIT 25",
+   "source": "skills/chain-insights-virtuals/reference.md"
+  },
+  {
+   "id": "skill-virtuals-reference-3",
+   "layer": "topology",
+   "anchor": "address",
+   "query": "USE topology MATCH (b:Address)-[f:FLOWS_TO]->(a:Address {address: \"<wallet>\"}) WHERE NOT b:Pool RETURN b.address AS from_address, a.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, b.labels AS from_labels, a.labels AS to_labels, b.is_exchange AS from_is_exchange, a.is_exchange AS to_is_exchange ORDER BY f.first_seen_timestamp ASC LIMIT 10",
+   "source": "skills/chain-insights-virtuals/reference.md"
+  },
+  {
+   "id": "skill-virtuals-reference-4",
+   "layer": "topology",
+   "anchor": "address",
+   "query": "USE topology MATCH (a:Address {address: \"<wallet>\"})-[x:BRIDGED]-(c:Chain) RETURN c.network AS remote_network, c.address AS endpoint, x.events AS events, x.kinds AS kinds LIMIT 10",
+   "source": "skills/chain-insights-virtuals/reference.md"
+  },
+  {
+   "id": "skill-virtuals-reference-5",
+   "layer": "topology",
+   "anchor": "address",
+   "query": "USE topology MATCH (c:Address {address: \"<wallet>\"}) RETURN c.total_in_usd AS in_usd, c.total_out_usd AS out_usd, c.net_flow_usd AS kept_usd, c.degree_in AS senders, c.degree_out AS receivers, c.tx_total_count AS tx_count LIMIT 1",
+   "source": "skills/chain-insights-virtuals/reference.md"
+  },
+  {
+   "id": "skill-virtuals-reference-6",
+   "layer": "topology",
+   "anchor": "address",
+   "query": "USE topology MATCH (f:Address)-[r:DEPLOYED_CONTRACT]->(t:Address) WHERE f.address IN [\"0x43e4c17b15365596caae8e7d00e42bc8e988c2d4\", \"0xfc2e4da3edb2e18100473339c763705d263d20a9\", \"0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f\"] AND r.tx_id = \"<creation tx_id>\" RETURN f.address AS factory, t.address AS contract, t.labels AS labels, r.tx_origin AS creator LIMIT 5",
+   "source": "skills/chain-insights-virtuals/reference.md"
+  },
+  {
+   "id": "skill-virtuals-reference-7",
+   "layer": "topology",
+   "anchor": "address",
+   "query": "USE topology MATCH (a:Address)-[r:ADDED_LIQUIDITY]->(p:Address {address: \"<uniswap pair>\"}) RETURN a.address AS provider, r.usd AS added_usd, r.event_count AS events LIMIT 10",
+   "source": "skills/chain-insights-virtuals/reference.md"
+  },
+  {
+   "id": "skill-virtuals-reference-8",
+   "layer": "topology",
+   "anchor": "address",
+   "query": "USE topology MATCH (p:Address {address: \"<uniswap pair>\"})-[r:REMOVED_LIQUIDITY]->(b:Address) RETURN b.address AS receiver, r.usd AS removed_usd, r.event_count AS events, r.receiver_provided AS receiver_provided LIMIT 10",
+   "source": "skills/chain-insights-virtuals/reference.md"
+  },
+  {
+   "id": "skill-virtuals-reference-9",
+   "layer": "topology",
+   "anchor": "address",
+   "query": "USE topology MATCH (c:Address {address: \"<wallet>\"})-[s:SWAPPED]->(b:Address) RETURN b.address AS recipient, s.sold_asset AS sold_asset, s.bought_asset AS bought_asset, s.sold_usd AS sold_usd, s.bought_usd AS bought_usd, s.swap_count AS swap_count ORDER BY s.sold_usd DESC LIMIT 10",
+   "source": "skills/chain-insights-virtuals/reference.md"
+  },
+  {
+   "id": "skill-virtuals-reference-10",
+   "layer": "topology",
+   "anchor": "address",
+   "query": "USE topology MATCH (p:Address) WHERE p.address IN [\"<pool 1>\", \"<pool 2>\"] RETURN p.address AS pool, p.labels AS labels, p.degree_in AS senders, p.degree_out AS receivers, p.tx_total_count AS tx_count, p.total_volume_usd AS volume_usd, p.first_activity_timestamp AS first_active, p.last_activity_timestamp AS last_active LIMIT 25",
+   "source": "skills/chain-insights-virtuals/reference.md"
+  },
+  {
+   "id": "skill-virtuals-reference-11",
+   "layer": "facts",
+   "anchor": "pair_day",
+   "query": "USE facts MATCH (a:Address {address: \"0x09e9df72f639875b58dbfd356e31c47b0b87f65b\"})-[t:TRANSFER]->(b:Address {address: \"0x65050a9b7e5075a2ba5ced7b1b64ee66262c40dc\"}) WHERE t.block_date = \"2026-07-27\" RETURN t.tx_id AS tx_id, t.block_timestamp AS block_timestamp, t.asset_symbol AS asset_symbol, t.amount AS amount LIMIT 50",
+   "source": "skills/chain-insights-virtuals/reference.md"
+  },
+  {
+   "id": "skill-virtuals-reference-12",
+   "layer": "chain",
+   "anchor": "key",
+   "query": "USE chain MATCH (t:Transaction {tx_id: \"<tx_id>\"}) RETURN t.from_address, t.block_timestamp, t.status",
+   "source": "skills/chain-insights-virtuals/reference.md"
+  },
+  {
+   "id": "skill-virtuals-reference-13",
+   "layer": "topology",
+   "anchor": "address",
+   "query": "USE topology MATCH (p:Address {address: \"<starting pool>\"})-[f:FLOWS_TO]->(b:Address) WHERE NOT b:Protocol AND NOT b.address IN [\"0x65050a9b7e5075a2ba5ced7b1b64ee66262c40dc\", \"0xd4ccbfa37e2f35611b3042e4096ad7a3459bd007\", \"0xca6395246b4382ba70f886526dd9a9de984f6081\", \"0x6d80b81d9fc56a7a839b1af9006eb49151961ce7\"] RETURN p.address AS from_address, b.address AS to_address, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp ORDER BY f.first_seen_timestamp ASC LIMIT 25",
+   "source": "skills/chain-insights-virtuals/reference.md"
+  },
+  {
+   "id": "skill-virtuals-reference-14",
+   "layer": "topology",
+   "anchor": "address",
+   "query": "USE topology MATCH (p1:Address {address: \"<pool a>\"})-[:FLOWS_TO]->(w:Address)<-[:FLOWS_TO]-(p2:Address {address: \"<pool b>\"}) WHERE NOT w.address IN [\"0x65050a9b7e5075a2ba5ced7b1b64ee66262c40dc\", \"0xca6395246b4382ba70f886526dd9a9de984f6081\"] RETURN DISTINCT w.address AS shared_buyer LIMIT 25",
+   "source": "skills/chain-insights-virtuals/reference.md"
+  },
+  {
+   "id": "skill-virtuals-reference-15",
+   "layer": "topology",
+   "anchor": "address",
+   "query": "USE topology MATCH (s:Address)-[f:FLOWS_TO]->(b:Address) WHERE b.address IN [\"<buyer 1>\", \"<buyer 2>\"] AND NOT s:Pool AND NOT s:Protocol AND NOT s:System AND NOT s.address IN [\"0x65050a9b7e5075a2ba5ced7b1b64ee66262c40dc\", \"0xca6395246b4382ba70f886526dd9a9de984f6081\"] RETURN s.address AS funder, count(DISTINCT b.address) AS buyers_funded, sum(f.amount_usd_sum) AS usd ORDER BY buyers_funded DESC, usd DESC LIMIT 10",
+   "source": "skills/chain-insights-virtuals/reference.md"
+  },
+  {
+   "id": "skill-virtuals-reference-16",
+   "layer": "topology",
+   "anchor": "address",
+   "query": "USE topology MATCH (a:Address {address: \"<creator a>\"})<-[:FLOWS_TO]-(c:Address)-[:FLOWS_TO]->(b:Address {address: \"<creator b>\"}) WHERE NOT c:Pool AND NOT c:Protocol AND NOT c:System AND c.is_exchange IS NULL RETURN DISTINCT c.address AS shared_funder LIMIT 25",
+   "source": "skills/chain-insights-virtuals/reference.md"
+  },
+  {
+   "id": "skill-virtuals-reference-17",
+   "layer": "topology",
+   "anchor": "address",
+   "query": "USE topology MATCH (a:Address {address: \"<wallet>\"})-[l:LINKED]-(b:Address) RETURN b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 25",
+   "source": "skills/chain-insights-virtuals/reference.md"
+  },
+  {
    "id": "hint-1",
    "layer": "topology",
    "anchor": "probe",

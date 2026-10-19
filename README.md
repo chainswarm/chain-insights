@@ -182,7 +182,12 @@ an address instead. A thing has one name on every layer: `address`, `tx_id`,
 
 Agent installs include `chain-insights-cypher` for graph-query dialect rules,
 one query for each kind of graph search, and how to find the fields of the
-EVM / Robinhood graph.
+EVM / Robinhood graph. Protocol skills sit beside it and load only when a
+question names their protocol:
+
+- `chain-insights-virtuals`: Virtuals Protocol agents on robinhood: who
+  created an agent, who is behind a creator wallet, whether an agent was
+  dumped, and whether its buyers form a cartel.
 
 ## Billing: Billable Units
 

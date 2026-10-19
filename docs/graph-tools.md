@@ -384,13 +384,18 @@ and `:Sanctioned`. Each role also has a flag on the node.
   limit. It cannot raise one. `graph_query` takes no timeout argument.
 - Returned rows live in `structuredContent.facts`.
 
-Agent installers ship one skill:
+Agent installers ship one core skill and the protocol skills beside it:
 
 - `chain-insights-cypher`: ISO GQL dialect, layer routing, one query for each
   kind of graph search (routes, walks, shared counterparties, ownership
   clusters, operators, swaps, pools and bridges), how to find the fields of
   the graph, and the move for every refusal, for `graph_query` and
   `graph_query_batch`.
+- `chain-insights-virtuals`: Virtuals Protocol investigations on robinhood,
+  loaded only when a question names Virtuals: how an agent is built on
+  chain, who its creator is, one tested query for each step of "who is
+  behind", "who rugs" and "cartel", and the hub contracts to keep out of
+  buyer and funder lists.
 
 Check public-free usage:
 

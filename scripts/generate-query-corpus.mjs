@@ -24,7 +24,7 @@
 // hashed bundle without stable per-module paths). Regenerate with
 // `npm run corpus:generate`; tests/query-corpus.test.ts fails CI when
 // builders drift from the committed corpus.
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -214,7 +214,25 @@ console.log(`wrote ${outPath} (${entries.length} entries)`)
 // ---------------------------------------------------------------------------
 const RULES_VERSION = '1'
 
-const SKILLS = ['skills/chain-insights-cypher/SKILL.md']
+// Every Markdown file of every shipped skill: the core skill, then each
+// protocol skill, SKILL.md first. A protocol skill keeps its queries in a
+// reference page beside SKILL.md, and those queries are admit cases too.
+const { publicSkillNames } = await import(join(repoRoot, 'src/skill-refresh.ts'))
+const SKILLS = publicSkillNames(join(repoRoot, 'skills')).flatMap((name) => [
+  `skills/${name}/SKILL.md`,
+  ...readdirSync(join(repoRoot, 'skills', name))
+    .filter((file) => file.endsWith('.md') && file !== 'SKILL.md')
+    .sort()
+    .map((file) => `skills/${name}/${file}`),
+])
+// The id of a skill example: skill-<skill>-<n> for SKILL.md, and
+// skill-<skill>-<page>-<n> for a page beside it.
+const skillCaseId = (skill, i) => {
+  const [, dir, file] = skill.split('/')
+  const name = dir.replace(/^chain-insights-/, '')
+  const page = file === 'SKILL.md' ? '' : `${file.replace(/\.md$/, '')}-`
+  return `skill-${name}-${page}${i + 1}`
+}
 // A $name placeholder of a skill example reads as one fixed literal.
 const SKILL_PLACEHOLDER = '"corpus-address-a"'
 
@@ -297,9 +315,8 @@ for (const recipe of documentedRecipes.recipes) {
   }
 }
 for (const skill of SKILLS) {
-  const name = skill.split('/')[1].replace(/^chain-insights-/, '')
   fencedTopologyQueries(readFileSync(join(repoRoot, skill), 'utf8')).forEach((query, i) => {
-    admitCases.push(admitCase(`skill-${name}-${i + 1}`, query, skill))
+    admitCases.push(admitCase(skillCaseId(skill, i), query, skill))
   })
 }
 
@@ -614,13 +631,12 @@ for (const recipe of documentedRecipes.recipes) {
   )
 }
 for (const skill of SKILLS) {
-  const name = skill.split('/')[1].replace(/^chain-insights-/, '')
   const fenced = [
     ...readFileSync(join(repoRoot, skill), 'utf8').matchAll(/^```[\w-]*\n([\s\S]*?)^```/gm),
   ]
     .map((block) => squash(block[1]))
     .filter((body) => /^USE (?:topology|facts|chain)\b/.test(body))
-  fenced.forEach((query, i) => addRoute(`skill-${name}-${i + 1}`, query, skill))
+  fenced.forEach((query, i) => addRoute(skillCaseId(skill, i), query, skill))
 }
 hintQueries().forEach((query, i) =>
   addRoute(`hint-${i + 1}`, query, 'src/mcp/proxy.ts graph hints')

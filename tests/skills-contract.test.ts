@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
@@ -11,6 +11,7 @@ import {
 } from './support/pool-walk-guard.js'
 import { flat, servedGraphHints } from './support/schema-text.js'
 import { routingLines } from '../src/mcp/layer-routing.js'
+import { publicSkillNames } from '../src/skill-refresh.js'
 
 const root = process.cwd()
 
@@ -100,7 +101,12 @@ function routeWalk(query: string): string | null {
   return walk
 }
 
-const reviewedSkills = ['chain-insights-cypher']
+// One core skill, plus any number of protocol skills beside it, each loaded on
+// demand. The shipped set is read from skills/ by the rule the installer, the
+// proxy and the plugin apply.
+const CORE_SKILL = 'chain-insights-cypher'
+const shippedSkills = publicSkillNames(join(root, 'skills'))
+const protocolSkills = shippedSkills.filter((name) => name !== CORE_SKILL)
 
 // The system addresses a walk of two or more hops never starts at or passes
 // through, besides a :Protocol contract (ruled 2026-10-11): the zero address
@@ -139,13 +145,18 @@ function servedSurfaces(): { name: string; queries: string[] }[] {
 }
 
 describe('shipped Chain Insights skills contract', () => {
-  it('ships exactly the reviewed public skill directories', () => {
+  it('ships the core skill, and every skill directory is a chain-insights-* skill with a SKILL.md', () => {
     const actual = readdirSync(join(root, 'skills'), { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)
       .sort()
 
-    expect(actual).toEqual(reviewedSkills)
+    expect(actual).toContain(CORE_SKILL)
+    for (const name of actual) {
+      expect(name).toMatch(/^chain-insights-[a-z0-9-]+$/)
+      expect(existsSync(join(root, 'skills', name, 'SKILL.md')), name).toBe(true)
+    }
+    expect([...shippedSkills].sort()).toEqual(actual)
   })
 
   it('teaches ISO GQL and how to find the fields, and excludes stale product guidance', () => {
@@ -1293,4 +1304,77 @@ describe('the cypher skill teaches the chain Address lookup', () => {
       /`block_timestamp` is[^.]*epoch milliseconds on every layer, chain included/
     )
   })
+})
+
+// A protocol skill (every shipped skill except the core one) is loaded on
+// demand for one protocol. It holds the same answer contract as the core skill
+// in every page it ships, and it never triggers on a question that does not
+// name its protocol.
+describe('protocol skills', () => {
+  const pages = (name: string): string[] =>
+    readdirSync(join(root, 'skills', name), { recursive: true, encoding: 'utf8' })
+      .filter((file) => file.endsWith('.md'))
+      .map((file) => `skills/${name}/${file}`)
+  const frontMatter = (name: string): Record<string, string> => {
+    const head = /^---\n([\s\S]*?)\n---\n/.exec(read(`skills/${name}/SKILL.md`))?.[1] ?? ''
+    return Object.fromEntries(
+      head.split('\n').flatMap((line) => {
+        const at = line.indexOf(': ')
+        return at < 0 ? [] : [[line.slice(0, at), line.slice(at + 2)]]
+      })
+    )
+  }
+  const fencedBlocks = (text: string): string[] =>
+    [...text.matchAll(/^```[\w-]*\n([\s\S]*?)^```/gm)].map((m) => (m[1] ?? '').trim())
+
+  it('there is at least one, so the rules below are exercised', () => {
+    expect(protocolSkills.length).toBeGreaterThan(0)
+  })
+
+  for (const name of protocolSkills) {
+    const protocol = name.replace(/^chain-insights-/, '')
+
+    it(`${name}: names itself, and its description names its protocol so it loads on demand`, () => {
+      const meta = frontMatter(name)
+      expect(meta['name']).toBe(name)
+      expect(meta['description'] ?? '').toMatch(new RegExp(`\\b${protocol}\\b`, 'i'))
+    })
+
+    it(`${name}: loads the core skill first`, () => {
+      expect(read(`skills/${name}/SKILL.md`)).toContain(`\`${CORE_SKILL}\``)
+    })
+
+    it(`${name}: writes every address and hash in full and lowercase, with no $ sign and no Ref line`, () => {
+      for (const page of pages(name)) {
+        const text = read(page)
+        for (const [hex] of text.matchAll(/0x[0-9a-fA-F]+/g)) {
+          expect([42, 66], `${page}: ${hex}`).toContain(hex.length)
+          expect(hex, page).toBe(hex.toLowerCase())
+        }
+        expect(text, page).not.toMatch(/0x[0-9a-fA-F]*(…|\.\.\.)/)
+        expect(text.includes('$'), `${page} has a $ sign`).toBe(false)
+        expect(text, page).not.toMatch(/^\s*Ref:/m)
+        expect(text, page).not.toMatch(/\bsent (about )?[\d,.]+ USD\b/i)
+      }
+    })
+
+    it(`${name}: every fenced query names its layer, and a topology read carries a literal LIMIT`, () => {
+      const queries = pages(name)
+        .flatMap((page) => fencedBlocks(read(page)))
+        .filter((block) => /^(USE|MATCH)\b/.test(block))
+      expect(queries.length, `${name} shows no query`).toBeGreaterThan(0)
+      for (const query of queries) {
+        expect(query, query).toMatch(/^USE (topology|facts|chain)\b/)
+        if (query.startsWith('USE topology')) expect(query, query).toMatch(/\bLIMIT \d+$/)
+      }
+    })
+
+    it(`${name}: carries nothing private`, () => {
+      for (const page of pages(name)) {
+        expect(read(page), page).not.toMatch(
+          /AP1000|aphex5|operator (knowledge|ruling)|docs\/evidence|\.worktrees|\/home\//i
+        )
+      }
+    })
+  }
 })

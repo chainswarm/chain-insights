@@ -431,3 +431,4 @@ reads it at one block.
 
 - `docs/graph-tools.md` — tool tiers, timeouts, and capability transparency
 - Skill `chain-insights-cypher` — ISO GQL dialect, layer rules, graph searches and how to find the fields
+- Skill `chain-insights-virtuals` — Virtuals Protocol agent investigations: creators, rugs and cartels

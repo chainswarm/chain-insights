@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Chain Insights Virtuals'
+  short_description: 'Investigate Virtuals Protocol agents, creators, rugs and cartels'
+  default_prompt: 'Load chain-insights-cypher first. For a Virtuals Protocol question on robinhood, find the creator from tx_origin on the starting-pool factory, read the three contracts of an agent from its creation tx_id, keep the hub contracts out of buyer and funder lists by address, and use the tested queries in reference.md.'

@@ -1,0 +1,37 @@
+schema_version: "1.0"
+name: virtuals-api-lookup
+expected_outcome: The agent looks the agent up in the Virtuals public API by filters[preTokenPair] with the starting pool address, fetches it with curl, and warns that filters[status] is ignored and filters[walletAddress] covers every chain.
+execution:
+  prompt: |
+    I have the starting pool of a Virtuals agent on Robinhood Chain,
+    0x718f131cb06142f207e011cf30d3eaa27aa59be5, from Chain Insights. I
+    want its name, status and creator from the Virtuals public API at
+    api.virtuals.io.
+
+    Give the exact request, and tell me what to watch out for if I then
+    want to count all agents of one creator by status. Call no graph tool.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: pre-token-pair-filter
+    target: last_message
+    pattern: 'preTokenPair'
+    match: contains
+  - type: regex
+    name: uses-curl
+    target: last_message
+    pattern: 'curl'
+    match: contains
+  - type: llm
+    name: status-filter-ignored
+    criteria: >
+      The answer warns that the status filter is ignored by the API, so a
+      count by status through the API is not reliable, or that the
+      walletAddress filter returns agents from every chain and not only
+      Robinhood Chain.
+    weight: 1
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

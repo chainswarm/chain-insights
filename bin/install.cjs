@@ -49,8 +49,9 @@ const homeDir = os.homedir()
 const dataDir = path.join(homeDir, '.chain-insights')
 const configPath = path.join(dataDir, 'config.json')
 const srcSkillsDir = path.join(__dirname, '..', 'skills')
-const PUBLIC_SKILL_NAMES = Object.freeze(['chain-insights-cypher'])
 const SKILL_VERSION_FILE = '.chain-insights-version'
+// The core skill every install carries. Protocol skills sit beside it.
+const CORE_SKILL_NAME = 'chain-insights-cypher'
 const RETIRED_SKILL_NAMES = Object.freeze([
   'chain-insights-address-risk',
   'chain-insights-bittensor-cypher',
@@ -62,6 +63,21 @@ const RETIRED_SKILL_NAMES = Object.freeze([
   'ci-status',
   'test-chain-insights-graph',
 ])
+
+// The shipped skills, read from the package's own skills/ at run time: the core
+// skill, then every protocol skill. A shipped skill is a directory named
+// chain-insights-* that holds a SKILL.md. src/skill-refresh.ts and
+// scripts/sync-plugin-skills.mjs apply the same rule.
+function publicSkillNames(skillsDir) {
+  const names = fs
+    .readdirSync(skillsDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && /^chain-insights-[a-z0-9-]+$/.test(entry.name))
+    .map((entry) => entry.name)
+    .filter((name) => !RETIRED_SKILL_NAMES.includes(name))
+    .filter((name) => fs.existsSync(path.join(skillsDir, name, 'SKILL.md')))
+    .sort()
+  return [CORE_SKILL_NAME, ...names.filter((name) => name !== CORE_SKILL_NAME)]
+}
 
 // Determine skills targets
 const skillsTargets = []
@@ -110,7 +126,7 @@ function copyCommandsAsClaudeSkills(srcDir, targetDir) {
     fs.rmSync(path.join(targetDir, skillName), { recursive: true, force: true })
   }
 
-  for (const skillName of PUBLIC_SKILL_NAMES) {
+  for (const skillName of publicSkillNames(srcDir)) {
     const skillSrc = path.join(srcDir, skillName)
     const skillDest = path.join(targetDir, skillName)
     if (!fs.existsSync(skillSrc) || !fs.statSync(skillSrc).isDirectory()) {

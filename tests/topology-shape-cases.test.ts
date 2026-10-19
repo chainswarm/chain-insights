@@ -1,10 +1,11 @@
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
 
+import { CORE_SKILL_NAME, publicSkillNames } from '../src/skill-refresh.js'
 import { markdownQueries, proseQueries } from './support/pool-walk-guard.js'
 import { servedGraphHints } from './support/schema-text.js'
 
@@ -31,7 +32,15 @@ type ShapeCase = {
 }
 type CasesFile = { rules_version: string; cases: ShapeCase[] }
 
-const SKILLS = ['skills/chain-insights-cypher/SKILL.md']
+// Every Markdown file of every shipped skill, the way the generator reads them.
+const CORE_SKILL = `skills/${CORE_SKILL_NAME}/SKILL.md`
+const SKILLS = publicSkillNames(join(repoRoot, 'skills')).flatMap((name) => [
+  `skills/${name}/SKILL.md`,
+  ...readdirSync(join(repoRoot, 'skills', name))
+    .filter((file) => file.endsWith('.md') && file !== 'SKILL.md')
+    .sort()
+    .map((file) => `skills/${name}/${file}`),
+])
 
 // The nine codes the shape rules can give, each with the rule words it may
 // carry.
@@ -85,7 +94,9 @@ describe('topology shape cases', () => {
     const refused = new Set(cases.filter((c) => c.expect === 'refuse').map((c) => c.query))
     for (const skill of SKILLS) {
       const queries = fencedTopologyQueries(read(skill))
-      expect(queries.length, `${skill} shows no USE topology query`).toBeGreaterThan(0)
+      if (skill === CORE_SKILL) {
+        expect(queries.length, `${skill} shows no USE topology query`).toBeGreaterThan(0)
+      }
       for (const { shown, asRead } of queries) {
         expect(
           admitted.has(asRead),

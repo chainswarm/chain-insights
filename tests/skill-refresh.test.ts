@@ -13,9 +13,11 @@ import { execSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
+  CORE_SKILL_NAME,
   SKILL_VERSION_FILE,
   compareVersions,
   packagedSkillsDir,
+  publicSkillNames,
   refreshInstalledSkills,
 } from '../src/skill-refresh.js'
 
@@ -89,18 +91,62 @@ describe('refreshInstalledSkills', () => {
     expect(readFileSync(join(checkout, 'SKILL.md'), 'utf8')).toBe('# my checkout\n')
   })
 
+  it('adds a new protocol skill only beside a core skill that setup installed as a copy', () => {
+    const PROTOCOL = 'chain-insights-testproto'
+    mkdirSync(join(source, PROTOCOL), { recursive: true })
+    writeFileSync(join(source, PROTOCOL, 'SKILL.md'), '# protocol\n')
+    const claude = install('.claude/skills', '0.50.0')
+    const codex = install('.codex/skills', '0.52.0') // a newer release owns this place
+    const checkout = join(home, 'checkout', SKILL)
+    mkdirSync(checkout, { recursive: true })
+    writeFileSync(join(checkout, 'SKILL.md'), '# my checkout\n')
+    const hermes = join(home, '.hermes', 'skills', 'chain-insights')
+    mkdirSync(hermes, { recursive: true })
+    symlinkSync(checkout, join(hermes, SKILL))
+
+    const result = refreshInstalledSkills('0.51.0', { home, sourceDir: source })
+
+    const added = join(claude, '..', PROTOCOL)
+    expect(result.installed).toEqual([added])
+    expect(result.failed).toEqual([])
+    expect(readFileSync(join(added, 'SKILL.md'), 'utf8')).toBe('# protocol\n')
+    expect(readFileSync(join(added, SKILL_VERSION_FILE), 'utf8')).toBe('0.51.0\n')
+    expect(readdirSync(join(claude, '..')).sort()).toEqual([SKILL, PROTOCOL].sort())
+    expect(existsSync(join(codex, '..', PROTOCOL))).toBe(false)
+    expect(existsSync(join(hermes, PROTOCOL))).toBe(false)
+
+    // The next start of the same release finds the protocol skill current.
+    const again = refreshInstalledSkills('0.51.0', { home, sourceDir: source })
+    expect(again.installed).toEqual([])
+    expect(again.skipped).toContainEqual({ dir: added, reason: 'current' })
+  })
+
+  it('reads the shipped skills from the package: the core skill first, then every protocol skill', () => {
+    const names = publicSkillNames(packagedSkillsDir())
+    expect(names[0]).toBe(CORE_SKILL_NAME)
+    for (const name of names) {
+      expect(name).toMatch(/^chain-insights-[a-z0-9-]+$/)
+      expect(existsSync(join(packagedSkillsDir(), name, 'SKILL.md')), name).toBe(true)
+    }
+    expect(names.slice(1)).toEqual(names.slice(1).sort())
+  })
+
   it('setup stamps the copy it installs, so the next start of the same release changes nothing', () => {
     const version = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8')).version
     execSync(`node ${join(__dirname, '..', 'bin', 'install.cjs')} --codex`, {
       env: { ...process.env, HOME: home },
       stdio: 'pipe',
     })
-    const dir = join(home, '.codex', 'skills', SKILL)
-    expect(readFileSync(join(dir, SKILL_VERSION_FILE), 'utf8')).toBe(`${version}\n`)
-
+    const target = join(home, '.codex', 'skills')
     const result = refreshInstalledSkills(version, { home, sourceDir: packagedSkillsDir() })
     expect(result.refreshed).toEqual([])
-    expect(result.skipped).toContainEqual({ dir, reason: 'current' })
+    expect(result.installed).toEqual([])
+    // Setup installed every shipped skill, the protocol skills included.
+    for (const name of publicSkillNames(packagedSkillsDir())) {
+      const dir = join(target, name)
+      expect(readFileSync(join(dir, SKILL_VERSION_FILE), 'utf8')).toBe(`${version}\n`)
+      expect(result.skipped).toContainEqual({ dir, reason: 'current' })
+    }
   })
 })
 

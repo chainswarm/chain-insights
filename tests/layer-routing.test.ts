@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -223,12 +223,21 @@ describe('the routing lines are one text in the skill, the guide and the served 
   })
 })
 
-describe('no second graph skill', () => {
-  it('skills/ holds the cypher skill only: the address risk and the schema skills are gone', () => {
-    expect(readdirSync(join(repoRoot, 'skills')).sort()).toEqual(['chain-insights-cypher'])
+// One core skill, chain-insights-cypher, plus any number of protocol skills,
+// each loaded on demand. The address risk and the schema skills are gone.
+describe('one core graph skill, and protocol skills beside it', () => {
+  const shipped = readdirSync(join(repoRoot, 'skills')).sort()
+
+  it('skills/ holds the cypher skill, and every other entry is a chain-insights-* skill with a SKILL.md', () => {
+    expect(shipped).toContain('chain-insights-cypher')
+    for (const name of shipped) {
+      expect(name).toMatch(/^chain-insights-[a-z0-9-]+$/)
+      expect(existsSync(join(repoRoot, 'skills', name, 'SKILL.md')), name).toBe(true)
+    }
+    expect(shipped).not.toContain('chain-insights-address-risk')
   })
 
-  it('the plugin carries the cypher skill, equal to skills/', () => {
-    expect(readdirSync(join(repoRoot, 'plugin/skills')).sort()).toEqual(['chain-insights-cypher'])
+  it('the plugin carries the same skills as skills/', () => {
+    expect(readdirSync(join(repoRoot, 'plugin/skills')).sort()).toEqual(shipped)
   })
 })

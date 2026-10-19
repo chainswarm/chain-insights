@@ -1,0 +1,33 @@
+schema_version: "1.0"
+name: virtuals-random-agent-sample
+expected_outcome: The agent lists agents of one creator from the starting-pool factory filtered on tx_origin and orders them by r.tx_id to get an unbiased random sample.
+execution:
+  prompt: |
+    The creator wallet 0x384d92776496bce2c6f08d5b8e015eae498e78b3 made
+    thousands of Virtuals agents on Robinhood Chain. I want 5 random ones,
+    not just the newest, to check what happened to them with Chain
+    Insights.
+
+    Call no graph tool. Write the exact query.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: random-by-tx-id
+    target: last_message
+    pattern: 'ORDER BY r\.tx_id'
+    match: contains
+  - type: regex
+    name: filters-creator
+    target: last_message
+    pattern: 'r\.tx_origin = "0x384d92776496bce2c6f08d5b8e015eae498e78b3"'
+    match: contains
+  - type: regex
+    name: limit-five
+    target: last_message
+    pattern: 'LIMIT 5\b'
+    match: contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

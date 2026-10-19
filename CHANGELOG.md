@@ -3,6 +3,29 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.61.0] - 2026-10-19 — the Virtuals protocol skill ships beside the cypher skill
+
+### Added
+- `chain-insights-virtuals`, the first protocol skill. It loads only when a
+  question names Virtuals Protocol. It teaches how a Virtuals agent is built
+  on robinhood (one creation transaction, three contracts), where its creator
+  is recorded, the hub contracts to keep out of buyer and funder lists, and
+  one tested query for each step of "who is behind", "who rugs" and
+  "cartel", in `reference.md` beside `SKILL.md`.
+- Fourteen eval cases for it in `plugin/evals/virtuals-*`.
+
+### Changed
+- The package ships one core skill, `chain-insights-cypher`, and any number
+  of protocol skills beside it. `cia setup`, the proxy's skill refresh and the
+  Claude plugin read the list from `skills/`: every directory named
+  `chain-insights-*` that holds a `SKILL.md`. A new protocol skill needs no
+  list edited.
+- The proxy's skill refresh adds a protocol skill new in this release beside a
+  core skill that setup installed as a copy. A symlinked core skill, or one
+  stamped by a newer release, gets nothing added.
+- The topology admit cases and the layer routing table also read the queries
+  of every protocol skill page.
+
 ## [0.60.0] - 2026-10-18 — the layer family chain_facts is now interactions
 
 ### Changed

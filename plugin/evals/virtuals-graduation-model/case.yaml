@@ -1,0 +1,34 @@
+schema_version: "1.0"
+name: virtuals-graduation-model
+expected_outcome: The agent explains that the Uniswap v2 pair already exists from the creation transaction, that at graduation the starting pool's VIRTUAL moves to the launch contract and the agent token contract seeds the Uniswap pair once, and that trading then moves to that pair.
+execution:
+  prompt: |
+    A Virtuals agent on Robinhood Chain just graduated. What changes on
+    chain at graduation: which contract does it trade on afterwards, when
+    was that contract made, and who provides its first liquidity? Answer
+    in a few lines. Call no graph tool.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: uniswap-pair
+    target: last_message
+    pattern: 'Uniswap'
+    flags: i
+    match: contains
+  - type: regex
+    name: token-contract-seeds
+    target: last_message
+    pattern: 'token contract'
+    flags: i
+    match: contains
+  - type: regex
+    name: made-at-creation
+    target: last_message
+    pattern: 'creation|same transaction|at launch|already exists'
+    flags: i
+    match: contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
