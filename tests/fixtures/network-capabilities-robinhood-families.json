@@ -183,6 +183,10 @@
       {
         "layer": "contracts",
         "position": 90266000
+      },
+      {
+        "layer": "transfers_by_asset",
+        "position": 90266000
       }
     ],
     "families": [
@@ -236,6 +240,14 @@
           "ml",
           "inferred",
           "kinds"
+        ]
+      },
+      {
+        "name": "transfers",
+        "complete_through_block": 90266000,
+        "blocks_behind_head": 314,
+        "layers": [
+          "transfers_by_asset"
         ]
       }
     ]

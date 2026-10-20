@@ -1145,7 +1145,7 @@ describe('the cypher skill: graph searches, units and the field sampling reads',
       expect(hops, query).toBeLessThanOrEqual(admission['max_hops_per_path'] ?? 0)
       expect(hops, query).toBeLessThanOrEqual(admission['max_hops_per_query'] ?? 0)
     }
-    expect(walks, 'the skill shows five walks').toBe(5)
+    expect(walks, 'the skill shows six walks').toBe(6)
   })
 
   it('sends an agent to meta_schema for the fields, and keeps two sampling reads the guard admits as the fallback', () => {

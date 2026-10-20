@@ -229,6 +229,7 @@ Families                      height      behind head
   interactions                90,266,000          314
   smart accounts              90,266,000          314
   annotations                 fresh
+  transfers                   90,266,000          314
 
 Graph                         height      behind head
   flows                       90,260,000        6,314
@@ -242,6 +243,7 @@ Graph                         height      behind head
   signers                     90,266,000          314
   owners                      90,266,000          314
   contracts                   90,266,000          314
+  transfers_by_asset          90,266,000          314
 
 Evidence                      height      behind head
   evidence                    not reported`

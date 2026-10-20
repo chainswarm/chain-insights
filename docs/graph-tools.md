@@ -52,18 +52,20 @@ A transaction is a chain question: read it on `USE chain` by its `tx_id`. Chain 
 
 The layers hand each other keys, and each key keeps its name. Topology gives the pair and the first and last seen time. Facts gives the `tx_id` and the `block_height`. Chain takes an `address`, a `tx_id`, a `block_height` or a `block_hash`, and gives the `block_date` of a transaction or a block.
 
-A question about the whole chain (recent activity, the biggest senders, a top list) is a `USE topology` search: bound it by time with `f.last_seen_timestamp >= <epoch ms>` on the `FLOWS_TO` link, then sort and `LIMIT`. A search has 10 s. Read `Head` first (`USE chain MATCH (h:Head) RETURN h.behind_money, h.behind_dex`, under a second): a `FLOWS_TO` search is sent when `behind_money` is at most 100000; a `SWAPPED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY` search when `behind_dex` is at most 100000 (100000 blocks is a few hours: a robinhood block is about a tenth of a second apart from the next). When the family is further behind, the search cannot finish, so do not send it: say which family, how many blocks, and ask for an address. On a server whose Head has no `behind_money`, read `h.graph_blocks_behind` and hold it to the same limit. Never turn the block count into days or hours by head. To say how fresh the data is, give the newest `_utc` time you read on the layer you used: a family's lag counts its slowest layer, and the links of an address and the facts rows are often newer than it. If the server refuses the search with `anchor_missing` or `family_behind`, or stops it with `query_timeout`, it cannot search the whole chain now: say so in one line, name the family the refusal names, and ask for an address or drop the link type that is behind. A narrower window times out the same way, so do not send it again.
+A question about the whole chain (recent activity, the biggest senders, a top list) is a `USE topology` search: bound it by time with `f.last_seen_timestamp >= <epoch ms>` on the `FLOWS_TO` link, then sort and `LIMIT`. A search has 10 s. Read `Head` first (`USE chain MATCH (h:Head) RETURN h.behind_money, h.behind_dex, h.behind_transfers`, under a second): a `FLOWS_TO` search is sent when `behind_money` is at most 100000; a `SWAPPED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY` search when `behind_dex` is at most 100000; a `TRANSFERRED` search when `behind_transfers` is at most 100000 (100000 blocks is a few hours: a robinhood block is about a tenth of a second apart from the next). When the family is further behind, the search cannot finish, so do not send it: say which family, how many blocks, and ask for an address. On a server whose Head has no `behind_money`, read `h.graph_blocks_behind` and hold it to the same limit. On a server whose Head has no `behind_transfers`, it serves no `TRANSFERRED` link: send no `TRANSFERRED` search. Never turn the block count into days or hours by head. To say how fresh the data is, give the newest `_utc` time you read on the layer you used: a family's lag counts its slowest layer, and the links of an address and the facts rows are often newer than it. If the server refuses the search with `anchor_missing` or `family_behind`, or stops it with `query_timeout`, it cannot search the whole chain now: say so in one line, name the family the refusal names, and ask for an address or drop the link type that is behind. A narrower window times out the same way, so do not send it again.
 
-The graph layers are grouped into families, and each family is as fresh as
-its slowest layer: `money` (`FLOWS_TO`, `OPERATED_BY`), `dex` (`SWAPPED`,
+The graph layers are grouped into six families, and each family is as fresh
+as its slowest layer: `money` (`FLOWS_TO`, `OPERATED_BY`), `dex` (`SWAPPED`,
 `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`), `interactions` (`APPROVED`,
 `BRIDGED`, `DEPLOYED_CONTRACT`, `SIGNED_AUTHORIZATION`), `smart_accounts`
-(`SPONSORED`, `BUNDLED`, `SIGNED_FOR`, `LINKED`) and `annotations` (labels
-and kinds, which follow runs, not blocks). `cia network <name>` prints one
+(`SPONSORED`, `BUNDLED`, `SIGNED_FOR`, `LINKED`), `annotations` (labels
+and kinds, which follow runs, not blocks) and `transfers` (`TRANSFERRED`).
+`cia network <name>` prints one
 row per family with its height and its blocks behind the head, and
 `annotations` as `fresh` or `walking`. The `Head` node of `USE chain` serves
-`behind_money`, `behind_dex`, `behind_interactions` and
-`behind_smart_accounts` (integers) and `annotations_fresh` (a boolean);
+`behind_money`, `behind_dex`, `behind_interactions`,
+`behind_smart_accounts` and `behind_transfers` (integers) and
+`annotations_fresh` (a boolean);
 `graph_blocks_behind` equals `behind_money`. A search bounded only by time is
 refused with `family_behind` when a link type it names belongs to a family
 too far behind the head: the refusal names the family and its lag, and its
@@ -306,6 +308,58 @@ cia mcp call graph_query \
 
 A relationship is served only where its data exists. Check
 `meta_network_capabilities` before querying one.
+
+## Tokens: one link per sender, receiver and token
+
+`FLOWS_TO` is the total of a pair over every token. `TRANSFERRED` splits that
+total by token: one link for each sender, receiver and token, in the
+`transfers` family. `FLOWS_TO` stays the pair total, and the `TRANSFERRED`
+links of a pair add up to it.
+
+| Property               | Meaning                                                                 |
+| ---------------------- | ----------------------------------------------------------------------- |
+| `asset`                | the token's contract in lowercase, or `native` for the chain's own coin |
+| `token_standard`       | the standard of the token                                               |
+| `tx_count`             | transfers of that token between the pair                                |
+| `amount_raw_sum`       | exact total in base units, as text; not dollars                         |
+| `amount_usd_sum`       | value at the day prices in USD; a transfer with no price adds 0         |
+| `unpriced_count`       | transfers with no price; above 0 means `amount_usd_sum` is a floor      |
+| `first_seen_timestamp` | first transfer, in epoch milliseconds                                   |
+| `last_seen_timestamp`  | last transfer, in epoch milliseconds                                    |
+
+The tokens of one pair, one row for each token:
+
+```cypher
+USE topology
+MATCH (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"})-[t:TRANSFERRED]->(b:Address {address: "0x7e3702e9dfaa847f9829a258f1e26fa431160662"})
+RETURN t.asset AS asset, t.tx_count AS tx_count, t.amount_raw_sum AS amount_raw_sum, t.amount_usd_sum AS amount_usd_sum, t.first_seen_timestamp AS first_seen_timestamp, t.last_seen_timestamp AS last_seen_timestamp ORDER BY t.amount_usd_sum DESC LIMIT 50
+```
+
+Where one token went, up to 3 hops out. Every hop carries the same `asset`:
+
+```cypher
+USE topology
+MATCH p = (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System) (()-[t:TRANSFERRED WHERE t.asset = "0x5fc5360d0400a0fd4f2af552add042d716f1d168"]->(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,2} ()-[:TRANSFERRED {asset: "0x5fc5360d0400a0fd4f2af552add042d716f1d168"}]->(b:Address)
+RETURN b.address AS to_address, length(p) AS hops LIMIT 25
+```
+
+The biggest receivers of one token among the pairs active since a time. The
+sums are lifetime totals of those pairs, not the money of the window:
+
+```cypher
+USE topology
+MATCH (a:Address)-[t:TRANSFERRED]->(b:Address)
+WHERE t.asset = "0x5fc5360d0400a0fd4f2af552add042d716f1d168" AND t.last_seen_timestamp >= 1792368000000
+RETURN b.address AS receiver, sum(t.amount_usd_sum) AS received_usd, count(*) AS links
+ORDER BY received_usd DESC LIMIT 10
+```
+
+A `TRANSFERRED` search over the whole chain, with no address anchor, names one
+`asset` literal and a lower bound `t.last_seen_timestamp >=`, joined by `AND`.
+The server refuses any other with `transfer_search_unbounded`. For several
+tokens, send one search per token, in one `graph_query_batch`. A read anchored
+on a full address needs neither bound. Tokens are not dollars, and a token is
+named by its full contract.
 
 ## Role labels and flags
 

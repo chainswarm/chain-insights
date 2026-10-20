@@ -486,7 +486,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (a:Address) RETURN keys(a) AS keys LIMIT 20",
+   "query": "USE topology MATCH (a:Address {address: \"0x04911a118f11c75667e4d0dfb8e640af5a353550\"})-[t:TRANSFERRED]->(b:Address {address: \"0x7e3702e9dfaa847f9829a258f1e26fa431160662\"}) RETURN t.asset AS asset, t.tx_count AS tx_count, t.amount_raw_sum AS amount_raw_sum, t.amount_usd_sum AS amount_usd_sum, t.first_seen_timestamp AS first_seen_timestamp, t.last_seen_timestamp AS last_seen_timestamp ORDER BY t.amount_usd_sum DESC LIMIT 50",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
@@ -494,11 +494,35 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH ()-[r:FLOWS_TO]->() RETURN keys(r) AS keys LIMIT 5",
+   "query": "USE topology MATCH p = (a:Address {address: \"0x04911a118f11c75667e4d0dfb8e640af5a353550\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System) (()-[t:TRANSFERRED WHERE t.asset = \"0x5fc5360d0400a0fd4f2af552add042d716f1d168\"]->(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]){0,2} ()-[:TRANSFERRED {asset: \"0x5fc5360d0400a0fd4f2af552add042d716f1d168\"}]->(b:Address) RETURN b.address AS to_address, length(p) AS hops LIMIT 25",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
    "id": "skill-cypher-21",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address)-[t:TRANSFERRED]->(b:Address) WHERE t.asset = \"0x5fc5360d0400a0fd4f2af552add042d716f1d168\" AND t.last_seen_timestamp >= 1792368000000 RETURN b.address AS receiver, sum(t.amount_usd_sum) AS received_usd, count(*) AS links ORDER BY received_usd DESC LIMIT 10",
+   "source": "skills/chain-insights-cypher/SKILL.md"
+  },
+  {
+   "id": "skill-cypher-22",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address) RETURN keys(a) AS keys LIMIT 20",
+   "source": "skills/chain-insights-cypher/SKILL.md"
+  },
+  {
+   "id": "skill-cypher-23",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH ()-[r:FLOWS_TO]->() RETURN keys(r) AS keys LIMIT 5",
+   "source": "skills/chain-insights-cypher/SKILL.md"
+  },
+  {
+   "id": "skill-cypher-24",
    "expect": "admit",
    "rule": null,
    "code": null,
@@ -630,7 +654,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (h:Head) RETURN h.behind_money, h.behind_dex`, under a second): a `FLOWS_TO` search is sent when `behind_money` is at most 100000; a `SWAPPED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY` search when `behind_dex` is at most 100000 (100000 blocks is a few hours: a robinhood block is about a tenth of a second apart from the next)",
+   "query": "USE topology MATCH (h:Head) RETURN h.behind_money, h.behind_dex, h.behind_transfers`, under a second): a `FLOWS_TO` search is sent when `behind_money` is at most 100000; a `SWAPPED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY` search when `behind_dex` is at most 100000; a `TRANSFERRED` search when `behind_transfers` is at most 100000 (100000 blocks is a few hours: a robinhood block is about a tenth of a second apart from the next)",
    "source": "src/mcp/proxy.ts graph hints"
   },
   {
