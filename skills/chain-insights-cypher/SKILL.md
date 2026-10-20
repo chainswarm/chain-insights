@@ -110,10 +110,10 @@ The graph's layers are grouped into six families, and a family is as fresh as it
 | Family           | Layers                                         | Link types                                                    | `Head` property         |
 | ---------------- | ---------------------------------------------- | ------------------------------------------------------------- | ----------------------- |
 | money            | `flows`, `operated_by`                         | `FLOWS_TO`, `OPERATED_BY`                                     | `behind_money`          |
-| dex              | `dex_swaps`, `dex_liquidity`                   | `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`             | `behind_dex`            |
+| dex              | `dex_swaps`, `dex_liquidity`, `dex_pools`      | `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`             | `behind_dex`            |
 | interactions     | `approvals`, `bridged`, `contracts`, `authorization` | `APPROVED`, `BRIDGED`, `DEPLOYED_CONTRACT`, `SIGNED_AUTHORIZATION` | `behind_interactions`   |
 | smart_accounts   | `sponsored`, `bundled`, `signers`, `owners`    | `SPONSORED`, `BUNDLED`, `SIGNED_FOR`, `LINKED`                | `behind_smart_accounts` |
-| annotations      | `labels`, `ml`, `inferred`, `kinds`            | none                                                          | `annotations_fresh`     |
+| annotations      | `labels`, `ml`, `inferred`, `kinds`, `assets`  | none                                                          | `annotations_fresh`     |
 | transfers        | `transfers_by_asset`                           | `TRANSFERRED`                                                 | `behind_transfers`      |
 
 `transfers` is its own family: a `FLOWS_TO` search never waits for it, and a `TRANSFERRED` search never waits for `money`.
