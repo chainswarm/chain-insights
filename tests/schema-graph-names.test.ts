@@ -87,9 +87,10 @@ describe.each([COMPAT])('%s', (file) => {
     expect(text).toMatch(/permit lands on `APPROVED`, never here/)
   })
 
-  it('names both DEX layers setting :Pool', () => {
-    expect(text).toMatch(/Both DEX layers set `:Pool`|Both DEX layers set it/)
-    expect(text).toMatch(/pool with liquidity and no swap carries it/)
+  it('names the three layers setting :Pool', () => {
+    expect(text).toMatch(/Three layers set `:Pool` \(`dex_pools`,\s+`dex_swaps` and `dex_liquidity`\)/)
+    expect(text).toMatch(/pool with liquidity and no swap carries\s+it/)
+    expect(text).toMatch(/so does a pool with neither/)
   })
 
   it('keys BRIDGED.totals_raw by event kind and asset, and gives LINKED a last_height', () => {

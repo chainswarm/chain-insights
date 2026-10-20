@@ -68,7 +68,8 @@ sorted by `f.amount_usd_sum DESC`.
 ### A6. The three contracts of one agent
 
 The token, the starting pool and the Uniswap pair share the creation `tx_id`.
-The factory tells them apart.
+The factory tells them apart. The graph marks the token `:Token` (with
+`token_standard`), and the starting pool and the pair `:Pool`.
 
 ```cypher
 USE topology

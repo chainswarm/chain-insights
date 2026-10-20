@@ -205,8 +205,17 @@ of truth.
 | `LIQUIDITY_REMOVE` | `(pool:Address)-[:LIQUIDITY_REMOVE]->(receiver:Address)`   | liquidity removal |
 | `BRIDGE_CROSSING`  | `(sender:Address)-[:BRIDGE_CROSSING]->(recipient:Address)` | bridge event      |
 
-- `:Pool` is a second label on an `Address`: the pool of a swap route or a
-  liquidity event. It carries the pool's liquidity totals.
+- `:Pool` is a second label on an `Address`: a pool contract the DEX indexer
+  knows, traded or not. A bonding curve, a Virtuals starting pool and an empty
+  pair are `:Pool` from discovery. A singleton pool manager is never `:Pool`.
+  It carries the pool's liquidity totals once there are some.
+- `:Token` is a second label on an `Address` for every ERC20, ERC721, ERC1155
+  and ERC6909 contract the asset scan knows. `:NFT` is beside it on ERC721 and
+  ERC1155 contracts. `token_standard` on the node says which standard. A token
+  name from an explorer gives `:Token`, not `:Protocol`. One contract can carry
+  both `:Token` and `:Pool`: a Uniswap v2 pair is an ERC20 token of its
+  liquidity providers. These are marks, not
+  stops: the pool trace rule and the walk guards do not change.
 - `SWAPPED` joins two different addresses. A self swap is a `SWAP` row only.
   `strength` is `swap` (the whole route is proven) or `swap_like` (the shape
   is a swap, the pool's code is not proven).

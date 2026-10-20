@@ -16,19 +16,42 @@ import { flat, read } from './support/schema-text.js'
 // the 2026-10-13 reply with the families block of the design added (the agreed
 // `cia network` screen is drawn from it), and
 // tests/fixtures/network-capabilities-robinhood-20261017.json, the live reply of
-// lane B on 2026-10-17 01:50 CEST, the first server that served families. That
-// reply is a recording and holds the five families of its day; the sixth,
-// `transfers`, came with the per-asset money links, so the recording is held to
-// the table up to the families it served.
+// lane B on 2026-10-17 01:50 CEST, the first server that served families, and
+// tests/fixtures/network-capabilities-robinhood-20261020.json, the live reply of
+// lane B's graphrag-mcp v3.16.0 on 2026-10-20 19:50 CEST, the first server that
+// serves all six families with the nineteen layers.
+//
+// Every recording stays exactly as recorded. The 2026-10-17 reply holds the five
+// families of its day (`transfers` came with the per-asset money links), so it
+// is held to the table up to the families it served. Change
+// graph-migrations-and-marks added two layers after the first two recordings
+// (`dex_pools` under dex, `assets` under annotations); `added` names those per
+// recording, so the table must equal the recorded reply plus exactly those
+// layers, in that order. The live reply of 2026-10-20 adds nothing.
 
 type ReplyFamily = { name: string; layers: string[] }
 type Reply = { graph_progress: { families: ReplyFamily[] } }
-// The families a reply must hold: all of the table, or for the recording of
-// 2026-10-17 the first five.
-const replies: [string, Reply, number][] = [
-  ['tests/fixtures/network-capabilities-robinhood-families.json', LAYER_FAMILIES.length] as const,
-  ['tests/fixtures/network-capabilities-robinhood-20261017.json', 5] as const,
-].map(([file, count]) => [file, JSON.parse(read(file)) as Reply, count])
+type Recording = { file: string; count: number; added: Record<string, string[]> }
+const ADDED_BY_GRAPH_MIGRATIONS_AND_MARKS: Record<string, string[]> = {
+  dex: ['dex_pools'],
+  annotations: ['assets'],
+}
+const recordings: Recording[] = [
+  {
+    file: 'tests/fixtures/network-capabilities-robinhood-families.json',
+    count: LAYER_FAMILIES.length,
+    added: ADDED_BY_GRAPH_MIGRATIONS_AND_MARKS,
+  },
+  {
+    file: 'tests/fixtures/network-capabilities-robinhood-20261017.json',
+    count: 5,
+    added: ADDED_BY_GRAPH_MIGRATIONS_AND_MARKS,
+  },
+  { file: 'tests/fixtures/network-capabilities-robinhood-20261020.json', count: LAYER_FAMILIES.length, added: {} },
+]
+const replies: [string, Reply, number, Record<string, string[]>][] = recordings.map(
+  ({ file, count, added }) => [file, JSON.parse(read(file)) as Reply, count, added],
+)
 
 const RULE_SURFACES: [string, string][] = [
   ['skills/chain-insights-cypher/SKILL.md', read('skills/chain-insights-cypher/SKILL.md')],
@@ -62,10 +85,13 @@ describe('the family table', () => {
     })
   })
 
-  for (const [file, served, count] of replies) {
+  for (const [file, served, count, added] of replies) {
     it(`is the server reply ${file}: the same names, in the same order, with the same layers`, () => {
       expect(LAYER_FAMILIES.slice(0, count).map(({ name, layers }) => ({ name, layers }))).toEqual(
-        served.graph_progress.families.map(({ name, layers }) => ({ name, layers }))
+        served.graph_progress.families.map(({ name, layers }) => ({
+          name,
+          layers: [...layers, ...(added[name] ?? [])],
+        }))
       )
     })
   }

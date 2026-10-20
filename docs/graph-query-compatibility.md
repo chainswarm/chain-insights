@@ -94,8 +94,9 @@ approvals, contract creations and smart accounts (`APPROVED`,
 `DEPLOYED_CONTRACT`, `SPONSORED`, `BUNDLED`, `SIGNED_FOR` and
 `SIGNED_AUTHORIZATION`), the ten ML pattern link types, and the swap, liquidity
 and bridge totals (`SWAPPED`, `ADDED_LIQUIDITY` and `REMOVED_LIQUIDITY` around
-`:Pool` nodes, `BRIDGED` to `:Chain` nodes). Both DEX layers set `:Pool`, so a
-pool with liquidity and no swap carries it. A trace through a pool follows the
+`:Pool` nodes, `BRIDGED` to `:Chain` nodes). Three layers set `:Pool` (`dex_pools`,
+`dex_swaps` and `dex_liquidity`), so a pool with liquidity and no swap carries
+it, and so does a pool with neither. A trace through a pool follows the
 pool trace rule in the `chain-insights-cypher` skill.
 
 ### `OPERATED_BY` — operator-mediated topology (topology only)
