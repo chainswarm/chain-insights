@@ -103,7 +103,20 @@ Route by what the question names: an address, a pair with a day, a transaction o
 `USE chain` with `Address` reads the balance, the nonce or the kind of one address, now or at a past block with `at_block`. A past block must be at least `chain_admission.at_block_min_depth` blocks below the tip. To find the counterparties of an address, search `USE topology`, then read the pair and one day on `USE facts`.
 A transaction is a chain question: read it on `USE chain` by its `tx_id`. Chain gives its `block_date`; the transfers between a pair on that day are a `USE facts` read. "Every token that moved inside this transaction": read the chain record for `from_address`, `to_address` and `block_date`, then the facts `TRANSFER` rows of that pair on that day and keep the rows whose `tx_id` matches; a `kind` of `internal` is ETH a contract moved while it ran. Tokens the transaction moved between other pairs are not reachable from the hash alone: say so, and name the pairs you did read.
 The layers hand each other keys, and each key keeps its name. Topology gives the pair and the first and last seen time. Facts gives the `tx_id` and the `block_height`. Chain takes an `address`, a `tx_id`, a `block_height` or a `block_hash`, and gives the `block_date` of a transaction or a block.
-A question about the whole chain (recent activity, the biggest senders, a top list) is a `USE topology` search: bound it by time with `f.last_seen_timestamp >= <epoch ms>` on the `FLOWS_TO` link, then sort and `LIMIT`. A search has 10 s. Read `Head` first (`USE chain MATCH (h:Head) RETURN h.behind_money, h.behind_dex`, under a second): a `FLOWS_TO` search is sent when `behind_money` is at most 100000; a `SWAPPED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY` search when `behind_dex` is at most 100000 (100000 blocks is a few hours: a robinhood block is about a tenth of a second apart from the next). When the family is further behind, the search cannot finish, so do not send it: say which family, how many blocks, and ask for an address. On a server whose Head has no `behind_money`, read `h.graph_blocks_behind` and hold it to the same limit. Never turn the block count into days or hours by head. To say how fresh the data is, give the newest `_utc` time you read on the layer you used: a family's lag counts its slowest layer, and the links of an address and the facts rows are often newer than it. If the server refuses the search with `anchor_missing` or `family_behind`, or stops it with `query_timeout`, it cannot search the whole chain now: say so in one line, name the family the refusal names, and ask for an address or drop the link type that is behind. A narrower window times out the same way, so do not send it again.
+A question about the whole chain (recent activity, the biggest senders, a top list) is a `USE topology` search: bound it by time with `f.last_seen_timestamp >= <epoch ms>` on the `FLOWS_TO` link, then sort and `LIMIT`. A search has 10 s. Read `Head` first (`USE chain MATCH (h:Head) RETURN h.behind_money, h.behind_dex, h.behind_transfers`, under a second): a `FLOWS_TO` search is sent when `behind_money` is at most 100000; a `SWAPPED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY` search when `behind_dex` is at most 100000; a `TRANSFERRED` search when `behind_transfers` is at most 100000 (100000 blocks is a few hours: a robinhood block is about a tenth of a second apart from the next). When the family is further behind, the search cannot finish, so do not send it: say which family, how many blocks, and ask for an address. On a server whose Head has no `behind_money`, read `h.graph_blocks_behind` and hold it to the same limit. On a server whose Head has no `behind_transfers`, it serves no `TRANSFERRED` link: send no `TRANSFERRED` search. Never turn the block count into days or hours by head. To say how fresh the data is, give the newest `_utc` time you read on the layer you used: a family's lag counts its slowest layer, and the links of an address and the facts rows are often newer than it. If the server refuses the search with `anchor_missing` or `family_behind`, or stops it with `query_timeout`, it cannot search the whole chain now: say so in one line, name the family the refusal names, and ask for an address or drop the link type that is behind. A narrower window times out the same way, so do not send it again.
+
+The graph's layers are grouped into six families, and a family is as fresh as its slowest layer. The family of a link type decides which `Head` lag a whole-chain search on it waits for.
+
+| Family           | Layers                                         | Link types                                                    | `Head` property         |
+| ---------------- | ---------------------------------------------- | ------------------------------------------------------------- | ----------------------- |
+| money            | `flows`, `operated_by`                         | `FLOWS_TO`, `OPERATED_BY`                                     | `behind_money`          |
+| dex              | `dex_swaps`, `dex_liquidity`                   | `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`             | `behind_dex`            |
+| interactions     | `approvals`, `bridged`, `contracts`, `authorization` | `APPROVED`, `BRIDGED`, `DEPLOYED_CONTRACT`, `SIGNED_AUTHORIZATION` | `behind_interactions`   |
+| smart_accounts   | `sponsored`, `bundled`, `signers`, `owners`    | `SPONSORED`, `BUNDLED`, `SIGNED_FOR`, `LINKED`                | `behind_smart_accounts` |
+| annotations      | `labels`, `ml`, `inferred`, `kinds`            | none                                                          | `annotations_fresh`     |
+| transfers        | `transfers_by_asset`                           | `TRANSFERRED`                                                 | `behind_transfers`      |
+
+`transfers` is its own family: a `FLOWS_TO` search never waits for it, and a `TRANSFERRED` search never waits for `money`.
 
 Find the question in this table. Send its first query, once, with the addresses the user gave.
 
@@ -122,6 +135,9 @@ Find the question in this table. Send its first query, once, with the addresses 
 | The latest block, block N, how far behind the graph is       | `chain`    | `Head`, or `Block {block_height}`                                      |
 | The balance of one address over time, its balance changes   | `chain`    | `Head`, one `Block`, then one batch of `Address` reads, see Balance over time of one address |
 | Who transacted in block N, what happened in block N           | `chain`, then say the limit | `Block {block_height}` gives the hash, the time and the count; no layer lists a block's transactions or searches by block. Say so and offer the pair's day on facts. |
+| Which tokens moved between two addresses?                    | `topology` | `TRANSFERRED` of the pair, one link per token (see Tokens)             |
+| Where did one token go, or come from, in N hops?             | `topology` | The guarded walk on `TRANSFERRED` with one `asset` (see Tokens)        |
+| The biggest receivers of one token in a window               | `topology` | `TRANSFERRED` with one `asset` and `last_seen_timestamp` (see Tokens)  |
 | What fields does an Address have?                            | none       | Call `meta_schema {network}`. Send no query.                           |
 | Recent addresses, biggest senders, any top list of the chain | topology   | A search bounded by `f.last_seen_timestamp`, then sort and LIMIT (below). |
 
@@ -324,6 +340,55 @@ MATCH (a:Address {address: "0x9a8f92a830a5cb89a3816e3d267cb7791c16b04d"})-[x:BRI
 RETURN c.network AS remote_network, c.address AS endpoint, x.events AS events LIMIT 25
 ```
 
+### Tokens: one link per sender, receiver and token
+
+`FLOWS_TO` is the pair's total over every token. `TRANSFERRED` splits that total by token: one link for each sender, receiver and token. `FLOWS_TO` stays the pair total, and the `TRANSFERRED` links of a pair add up to it. A link carries these properties:
+
+- `asset`: the token's contract, in lowercase and in full (42 characters), or `native` for the chain's own coin.
+- `token_standard`: the standard of the token.
+- `tx_count`: the number of transfers of that token between the pair.
+- `amount_raw_sum`: the exact total in base units, as text. It is not dollars and not a number of whole tokens.
+- `amount_usd_sum`: the value at the day prices, in USD. A transfer with no price adds 0, so it is a floor.
+- `unpriced_count`: how many of those transfers had no price. A link with an `unpriced_count` above 0 is worth more than `amount_usd_sum` says.
+- `first_seen_timestamp` and `last_seen_timestamp`: milliseconds since the epoch.
+
+Tokens between a pair, one row for each token. This read is anchored on both addresses, so it needs no asset and no time bound:
+
+```cypher
+USE topology
+MATCH (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"})-[t:TRANSFERRED]->(b:Address {address: "0x7e3702e9dfaa847f9829a258f1e26fa431160662"})
+RETURN t.asset AS asset, t.tx_count AS tx_count, t.amount_raw_sum AS amount_raw_sum, t.amount_usd_sum AS amount_usd_sum, t.first_seen_timestamp AS first_seen_timestamp, t.last_seen_timestamp AS last_seen_timestamp ORDER BY t.amount_usd_sum DESC LIMIT 50
+```
+
+Where one token went, up to 3 hops out. Every hop carries the same `asset`, so the route follows one token and not the money in general. Keep the guards of the walk and change only the address and the token:
+
+```cypher
+USE topology
+MATCH p = (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System) (()-[t:TRANSFERRED WHERE t.asset = "0x5fc5360d0400a0fd4f2af552add042d716f1d168"]->(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,2} ()-[:TRANSFERRED {asset: "0x5fc5360d0400a0fd4f2af552add042d716f1d168"}]->(b:Address)
+RETURN b.address AS to_address, length(p) AS hops LIMIT 25
+```
+
+The short form of a route in one token is `-[:TRANSFERRED {asset: "<contract>"}]-{1,4}`, at most 4 hops: use it only inside the guarded walk above, never alone. Where one token came from is the same walk with the arrows flipped.
+
+The biggest receivers of one token among the pairs active since a time. The sums are lifetime totals of those pairs, not the money of the window:
+
+```cypher
+USE topology
+MATCH (a:Address)-[t:TRANSFERRED]->(b:Address)
+WHERE t.asset = "0x5fc5360d0400a0fd4f2af552add042d716f1d168" AND t.last_seen_timestamp >= 1792368000000
+RETURN b.address AS receiver, sum(t.amount_usd_sum) AS received_usd, count(*) AS links
+ORDER BY received_usd DESC LIMIT 10
+```
+
+A `TRANSFERRED` search over the whole chain, with no address anchor, must name one `asset` literal and a lower bound `t.last_seen_timestamp >=` joined by `AND`. Without both, the server refuses it with `transfer_search_unbounded` before it runs. An `OR` of two assets is refused the same way: send one search per asset, in one `graph_query_batch` when there are several. Read `behind_transfers` on `Head` first, as for any whole-chain search. A read anchored on a full address needs neither bound.
+
+How to answer from these rows:
+
+- Tokens are not dollars. Say "tokens worth about 183 USD", never "sent 183 USD". Head the column "Tokens worth (USD)".
+- Name the token by its full contract, all 42 characters. Never write a symbol you have not read, and never shorten the contract. For `native`, say "the chain's own coin".
+- Never add `amount_raw_sum` of two different tokens: base units of different tokens do not add up. Add a token's own units only, and say the token.
+- Say when `unpriced_count` is above 0: the dollar figure is a floor for that token.
+
 ## Pool trace rule
 
 `:Pool` is a second label on an `Address`: the pool of a swap route or a
@@ -486,7 +551,7 @@ MATCH (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550", at_bloc
 
 ```cypher
 USE chain
-MATCH (h:Head) RETURN h.block_height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind, h.behind_money, h.behind_dex, h.behind_interactions, h.behind_smart_accounts, h.annotations_fresh
+MATCH (h:Head) RETURN h.block_height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind, h.behind_money, h.behind_dex, h.behind_interactions, h.behind_smart_accounts, h.behind_transfers, h.annotations_fresh
 ```
 
 An `Address` lookup always answers one row, because every address has a state. `a.balance` is decimal text. Read the kind from `a.is_contract`, `a.nonce` and `a.delegated_to`: `a.is_contract` is `true` for a contract and null for any other address, a `nonce` above 0 with `a.is_contract` null is an account, and `a.delegated_to` names the target of an EIP-7702 delegation, which is an account. `a.code_size` is the size of the code, and the code itself is never returned. `:Account` and `:Contract` are never a chain lookup label.

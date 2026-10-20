@@ -75,6 +75,7 @@
         "behind_interactions",
         "behind_money",
         "behind_smart_accounts",
+        "behind_transfers",
         "block_hash",
         "block_height",
         "block_timestamp",

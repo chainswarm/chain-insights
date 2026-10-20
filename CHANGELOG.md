@@ -3,6 +3,38 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.62.0] - 2026-10-20 — tokens: one link per sender, receiver and token
+
+### Added
+- A sixth layer family, `transfers`, last in the table: layer
+  `transfers_by_asset`, link type `TRANSFERRED`. `src/mcp/families.json` stays
+  a byte-for-byte copy of the graph server's table, and the skill text carries
+  the same six-family table.
+- `behind_transfers` on the `Head` read. The whole-chain rule joins it to the
+  others: a `TRANSFERRED` search is sent when `behind_transfers` is at most
+  100000. A server whose Head has no `behind_transfers` gets no `TRANSFERRED`
+  search.
+- Three recipes in the skill and in `docs/graph-tools.md`: the tokens of one
+  pair, where one token went in up to 3 hops, and the biggest receivers of one
+  token among the pairs active since a time.
+- The skill explains the link: one `TRANSFERRED` link per sender, receiver and
+  token, with `asset` (the lowercase contract or `native`), `token_standard`,
+  `tx_count`, `amount_raw_sum` (exact base units as text), `amount_usd_sum`,
+  `unpriced_count` and the first and last seen time. `FLOWS_TO` stays the pair
+  total.
+- A whole-chain `TRANSFERRED` search must name one `asset` literal and a
+  `t.last_seen_timestamp >=` bound, or the server refuses it with
+  `transfer_search_unbounded`. For several tokens, send one search per token,
+  in one `graph_query_batch`.
+
+### Changed
+- `cia network <name>` prints the `transfers` family and the
+  `transfers_by_asset` layer when the server reports them.
+- The pinned chain catalogue lists `behind_transfers` among the `Head`
+  properties.
+- Answer rule for the new link: tokens are not dollars, and a token is named by
+  its full contract.
+
 ## [0.61.0] - 2026-10-19 — the Virtuals protocol skill ships beside the cypher skill
 
 ### Added
