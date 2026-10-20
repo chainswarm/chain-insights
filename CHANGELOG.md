@@ -3,6 +3,27 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.63.0] - 2026-10-20 — every pool and token is marked: :Pool, :Token, :NFT
+
+### Added
+- The core skill, the served hints and `docs/graph-tools.md` teach the marks the
+  graph server release 3.16.0 writes on `Address`: `:Pool` for a known pool of
+  any DEX (one `pool_key` per pool, the factory it came from), `:Token` for an
+  ERC-20 contract and `:NFT` for an ERC-721, ERC-1155 or ERC-6909 contract, with
+  `token_standard` on both. A named token reads `:Token`, no longer `:Protocol`.
+- Two layers in the family table, as the server serves them: `dex_pools` under
+  `dex` and `assets` under `annotations`. `src/mcp/families.json` stays a
+  byte-for-byte copy of the graph server's table (six families, nineteen layers).
+- A third recorded status reply, `tests/fixtures/network-capabilities-robinhood-20261020.json`:
+  lane B's graphrag-mcp v3.16.0 on 2026-10-20 19:50 CEST, the first server that
+  serves all six families with the nineteen layers. The parity test holds each
+  recording to the table up to the families of its day plus the layers added
+  after it; the live one to the whole table.
+
+### Changed
+- The Virtuals protocol skill reads a pool as `:Pool` with its `pool_key` and
+  finds its tokens through `:Token`, instead of the `:Protocol:Launchpad` guess.
+
 ## [0.62.1] - 2026-10-20 — the pins follow the server that serves transfers
 
 ### Changed
