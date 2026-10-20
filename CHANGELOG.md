@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.62.1] - 2026-10-20 — the pins follow the server that serves transfers
+
+### Changed
+- The pinned chain catalogue is re-read from the graph server release that
+  serves the `transfers` family. It lists `behind_transfers` among the `Head`
+  properties, as the server does.
+- The pinned list of refusal codes holds `transfer_search_unbounded` (layer
+  topology, class refused): a whole-chain `TRANSFERRED` search without one
+  `asset` literal and a `last_seen_timestamp` bound.
+
 ## [0.62.0] - 2026-10-20 — tokens: one link per sender, receiver and token
 
 ### Added

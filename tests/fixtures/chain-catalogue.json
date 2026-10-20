@@ -1,6 +1,6 @@
 {
   "source": "graph server chain lookup catalogue",
-  "server_commit": "14c13ae3d04b21bbba53df70a4d08c9bb82d9901",
+  "server_commit": "21b76a9d8db9455a95ab29a9afe4e6672af98373",
   "rules_version": "3",
   "grammar": "chain-v1",
   "computed_on_every_label": [

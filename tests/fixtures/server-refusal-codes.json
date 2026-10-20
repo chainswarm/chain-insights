@@ -1,6 +1,6 @@
 {
   "source": "graph server refusal codes",
-  "server_commit": "14c13ae3d04b21bbba53df70a4d08c9bb82d9901",
+  "server_commit": "21b76a9d8db9455a95ab29a9afe4e6672af98373",
   "codes": [
     {
       "code": "invalid_scope",
@@ -29,6 +29,11 @@
     },
     {
       "code": "family_behind",
+      "layer": "topology",
+      "class": "refused"
+    },
+    {
+      "code": "transfer_search_unbounded",
       "layer": "topology",
       "class": "refused"
     },

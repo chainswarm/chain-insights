@@ -20,7 +20,7 @@ const LAYERS = ['any', 'topology', 'facts', 'chain']
 
 describe('the pinned list of refusal codes', () => {
   it('holds each code once, with a layer and a class the skill can name', () => {
-    expect(pinned.codes).toHaveLength(41)
+    expect(pinned.codes).toHaveLength(42)
     expect(new Set(pinned.codes.map((entry) => entry.code)).size).toBe(pinned.codes.length)
     for (const entry of pinned.codes) {
       expect(LAYERS, entry.code).toContain(entry.layer)
@@ -45,7 +45,7 @@ describe('the pinned list of refusal codes', () => {
       if (typeof value === 'string') values.push(value)
       return value
     })
-    expect(values.length).toBeGreaterThan(41)
+    expect(values.length).toBeGreaterThan(42)
     for (const value of values) expect(value, value).not.toMatch(/[/\\]/)
   })
 })
