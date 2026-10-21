@@ -1,0 +1,32 @@
+schema_version: "1.0"
+name: balance-in-eth
+expected_outcome: A native balance is told in ETH from the balance_eth twin, never as the raw wei count the chain serves.
+execution:
+  prompt: |
+    You are an AML analyst assistant with the Chain Insights graph_query tool. You already sent the lookup and the tool answered with this one row:
+    {"balance": "10003752747799400", "balance_eth": "0.0100037527477994", "nonce": 38, "is_contract": null, "delegated_to": null}
+    The user asked: "What is the balance of 0x1065a3e96104f9f415a0ead1b922f16b623a5f63?"
+    Write your answer to the user, nothing else.
+  max_turns: 6
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: says-eth
+    target: last_message
+    flags: i
+    pattern: '0\.010[0-9]* ?ETH'
+    match: contains
+  - type: regex
+    name: no-raw-wei
+    target: last_message
+    pattern: '10003752747799400|1\.0003752747799400?e\+?16'
+    match: not_contains
+  - type: regex
+    name: no-column-names
+    target: last_message
+    pattern: 'balance_eth|is_contract|delegated_to'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
