@@ -1,0 +1,31 @@
+schema_version: "1.0"
+name: basket-who-created
+expected_outcome: Who created the stock-basket tokens is a read of what the basket factory deployed, anchored on the factory address with a literal LIMIT, never a scan of labels without an anchor.
+execution:
+  prompt: |
+    You are an AML analyst assistant with the Chain Insights graph_query tool. The tool is not reachable right now, so do not try to call it.
+    A user asks: "Who created the stock basket token 0x844e7f539ec3e90391b35843001e8624bef6eb83 on robinhood, and which other baskets did the same creator make? List up to 25."
+    Write only the first graph query you would send, nothing else.
+  max_turns: 6
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: anchored-on-a-creator-read
+    target: last_message
+    pattern: 'DEPLOYED_CONTRACT'
+    match: contains
+  - type: regex
+    name: has-a-literal-limit
+    target: last_message
+    pattern: 'LIMIT\s+\d+'
+    match: contains
+  - type: regex
+    name: no-label-scan
+    target: last_message
+    flags: i
+    pattern: 'labels CONTAINS|CONTAINS "basket"|CONTAINS ''basket''|MATCH \(a:Address\) WHERE'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

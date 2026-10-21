@@ -47,6 +47,25 @@ describe('the golden mark set', () => {
     }
   })
 
+  it('asserts label words only as plain role words, never a judgement', () => {
+    for (const row of golden.rows) {
+      for (const word of row.words ?? []) {
+        expect(word, row.address).toMatch(/^[A-Za-z][A-Za-z0-9]*$/)
+        expect(['Scam', 'Victim', 'Targeted', 'Sanctioned'], `${row.address} word ${word}`).not.toContain(word)
+      }
+    }
+  })
+
+  it('holds the basket factory, its router, an old basket and a new one, the new one without an explorer name', () => {
+    const byAddress = new Map(golden.rows.map((row) => [row.address, row]))
+    expect(byAddress.get('0xe78b036bd6da158cd61a3dac3f67e18f62ecddfd')?.words).toEqual(['BasketFactory'])
+    expect(byAddress.get('0xb672a5d825f82dea8574711d1da696fcc48d2ae0')?.marks).toContain('Contract')
+    for (const basket of ['0x923bce12f2faa00e21f9406dd161e360f858c3e2', '0x844e7f539ec3e90391b35843001e8624bef6eb83']) {
+      expect(byAddress.get(basket)?.words, basket).toEqual(['Basket'])
+      expect(byAddress.get(basket)?.marks, basket).toEqual(expect.arrayContaining(['Protocol', 'Token']))
+    }
+  })
+
   it('gives every :Token row its standard, and every :NFT row a non-fungible standard', () => {
     for (const row of golden.rows) {
       if (row.marks.includes('Token')) {
