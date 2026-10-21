@@ -12,6 +12,8 @@ export type GoldenMarkRow = {
   name: string
   marks: string[]
   never: string[]
+  /** Role words the node's `labels` property must carry (Basket, BasketFactory). Optional. */
+  words?: string[]
   token_standard?: string
   since_block: number
   source: string

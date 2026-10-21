@@ -1,0 +1,25 @@
+schema_version: "1.0"
+name: basket-router-day
+expected_outcome: Which baskets went through the basket router on one day is found by listing the basket factory's children and reading each router and basket pair on facts for that day, never a facts read anchored on the router alone.
+execution:
+  prompt: |
+    You are an AML analyst assistant with the Chain Insights graph_query and graph_query_batch tools. The tools are not reachable right now, so do not try to call them.
+    A user asks: "Which baskets went through the basket router 0xb672a5d825f82dea8574711d1da696fcc48d2ae0 on robinhood on 2026-10-20?"
+    Write only the graph queries you would send, in order, nothing else.
+  max_turns: 6
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: factory-children-first
+    target: last_message
+    pattern: '0xe78b036bd6da158cd61a3dac3f67e18f62ecddfd[\s\S]*DEPLOYED_CONTRACT|DEPLOYED_CONTRACT[\s\S]*0xe78b036bd6da158cd61a3dac3f67e18f62ecddfd'
+    match: contains
+  - type: regex
+    name: no-router-only-facts
+    target: last_message
+    pattern: 'USE facts\s+MATCH\s+\(\w*:Address \{address: ?["'']0xb672a5d825f82dea8574711d1da696fcc48d2ae0["'']\}\)-\[\w*:TRANSFER\]->\(\w*(:Address)?\)|USE facts\s+MATCH\s+\(\w*(:Address)?\)-\[\w*:TRANSFER\]->\(\w*:Address \{address: ?["'']0xb672a5d825f82dea8574711d1da696fcc48d2ae0["'']\}\)'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

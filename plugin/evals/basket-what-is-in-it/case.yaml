@@ -1,0 +1,31 @@
+schema_version: "1.0"
+name: basket-what-is-in-it
+expected_outcome: What a stock basket holds is read from the stock-token transfers between the basket and the basket router for one day on facts, or from the pair's token links, with both addresses named in full.
+execution:
+  prompt: |
+    You are an AML analyst assistant with the Chain Insights graph_query tool. The tool is not reachable right now, so do not try to call it.
+    A user asks: "Which stock tokens does the basket 0x844e7f539ec3e90391b35843001e8624bef6eb83 trade on robinhood? Look at 2026-10-20."
+    Write only the first graph query you would send, nothing else.
+  max_turns: 6
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: pair-with-the-router
+    target: last_message
+    pattern: '0xb672a5d825f82dea8574711d1da696fcc48d2ae0'
+    match: contains
+  - type: regex
+    name: facts-day-or-token-links
+    target: last_message
+    pattern: 'USE facts[\s\S]*block_date\s*=\s*"2026-10-20"|TRANSFERRED'
+    match: contains
+  - type: regex
+    name: no-unanchored-scan
+    target: last_message
+    flags: i
+    pattern: 'labels CONTAINS|MATCH \(a:Address\) WHERE'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

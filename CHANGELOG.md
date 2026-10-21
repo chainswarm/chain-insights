@@ -3,6 +3,34 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.66.0] - 2026-10-21 — the skill knows stock baskets
+
+### Added
+- `skills/chain-insights-cypher`: a basket is named in the marks list (a
+  Robinhood stock-basket token, `:Protocol` and `:Token`, the word `Basket`;
+  the factory carries `BasketFactory`) and a Baskets section gives the reads:
+  is this address a basket (its own labels, or the factory having created it),
+  what it trades (the stock tokens between the basket and the router for one
+  day on facts), and who created it (the factory's `DEPLOYED_CONTRACT` links).
+  The reads are admit cases of the topology shape file.
+- `tests/fixtures/graph-marks-golden.json`: 41 addresses. The basket factory,
+  the basket router, one old basket and one new basket join the set; a row can
+  now name label words (`words`) that the node's `labels` must carry, and the
+  live marks test checks them.
+- `plugin/evals/basket-is-this-a-basket`, `basket-what-is-in-it`,
+  `basket-who-created`: with the skill 1.00, without 0.33 to 0.44.
+- `skills/chain-insights-cypher`: "which baskets went through the router on a
+  day" lists the factory's children, then one batch of facts pair reads. Claude
+  Desktop sent ten facts reads on the router alone first, each refused.
+  `plugin/evals/basket-router-day`: with the skill 1.00, without 0.50.
+
+### Fixed
+- A node label or link type in the wrong case is spelled the graph's way
+  before the query is sent (`src/mcp/label-case.ts`). `(a:address …)` matched
+  nothing with no error, and Claude Desktop told a user the basket router had
+  no activity; under `:Address` it has links to every basket. Quoted text and
+  map values stay as written.
+
 ## [0.65.1] - 2026-10-21 — the shell shows the same twins as a host
 
 ### Fixed

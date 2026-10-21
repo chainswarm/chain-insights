@@ -66,6 +66,9 @@ export function judgeRow(row: GoldenMarkRow, read: MarkRead | undefined): string
   const problems: string[] = []
   if (missing.length) problems.push(`missing ${missing.join(', ')}`)
   if (forbidden.length) problems.push(`carries ${forbidden.join(', ')}`)
+  const words = new Set(read.labels ?? [])
+  const missingWords = (row.words ?? []).filter((word) => !words.has(word))
+  if (missingWords.length) problems.push(`missing label word ${missingWords.join(', ')}; served words [${[...words].sort().join(', ')}]`)
   if (row.token_standard && read.token_standard !== row.token_standard) {
     problems.push(`token_standard ${String(read.token_standard)} wanted ${row.token_standard}`)
   }

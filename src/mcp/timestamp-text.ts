@@ -9,6 +9,7 @@
  */
 
 import { addBalanceText, stripEthProperties } from './balance-text.js'
+import { fixLabelCase } from './label-case.js'
 
 const TIMESTAMP_KEY = /(_timestamp|_time|_at|_seen|_active)$/
 const MIN_MS = 1_000_000_000_000 // 2001-09-09
@@ -49,10 +50,11 @@ export function addTimestampText(row: Record<string, unknown>): Record<string, u
  * reference is rewritten to its millisecond column, `x.<column>_utc` to
  * `x.<column>`; an alias after AS is not a property and stays as written, so
  * `f.first_seen_timestamp_utc AS first_seen_utc` yields a `first_seen_utc`
- * column that addTimestampText renders as text.
+ * column that addTimestampText renders as text. A label or link type in the
+ * wrong case is spelled the graph's way (label-case.ts).
  */
 export function stripUtcProperties(query: string): string {
-  return stripEthProperties(query.replace(/\.([A-Za-z_][A-Za-z0-9_]*?)_utc\b/g, '.$1'))
+  return fixLabelCase(stripEthProperties(query.replace(/\.([A-Za-z_][A-Za-z0-9_]*?)_utc\b/g, '.$1')))
 }
 
 /** graph_query and graph_query_batch arguments with stripUtcProperties applied to every query. */

@@ -188,6 +188,7 @@ Marks say what an address is. They sit beside the kind and are never an anchor:
 - `:Mixer` is a mixer contract from the mixer registry: a pool, the router or the relayer of a Tornado-style mixer (Hearsay on robinhood). Its `labels` carry the word `Mixer` and `label_risk_levels` carries `high`.
 - `:Protocol` is a protocol's own contract: a pool, a router, a position manager, a stock token's proxy. It is never given for a token name alone.
 - `:SmartAccount` is a contract wallet, beside `:Account` or `:Contract`.
+- A basket is a Robinhood stock-basket token: one token that holds several stock tokens in near-equal USD weights. One factory, `0xe78b036bd6da158cd61a3dac3f67e18f62ecddfd`, creates every basket, and one router, `0xb672a5d825f82dea8574711d1da696fcc48d2ae0`, mints and redeems them. A basket is `:Protocol` and `:Token`, and its `labels` carry the word `Basket`. The factory is `:Protocol` and its `labels` carry `BasketFactory`. The router has no mark of its own beyond `:Contract`. See [Baskets](#baskets-is-this-a-basket-and-what-does-it-trade).
 
 **Ask by mark.** A question that names a kind of thing (mixers, launchpad pools, NFT collections, tokens of one standard) is a label match on the mark, a probe the server answers from the label index: nine `:Mixer` rows come back in 13 ms, a count of 2.4 million `:Token` in 4 s.
 
@@ -195,11 +196,48 @@ Marks say what an address is. They sit beside the kind and are never an anchor:
 USE topology MATCH (a:Mixer) RETURN a.address AS address, labels(a) AS node_labels, a.labels AS labels LIMIT 25
 ```
 
-Never write `MATCH (a:Address) WHERE a.labels CONTAINS "mixer"` with no address: `labels` is a list on every address, the scan touches all of them and the query times out. Read `a.labels` only beside an anchor, or beside a mark. The marks a lane serves, and a golden set of 37 addresses with the marks each must carry, are pinned in `tests/fixtures/graph-marks-golden.json`.
+Never write `MATCH (a:Address) WHERE a.labels CONTAINS "mixer"` with no address: `labels` is a list on every address, the scan touches all of them and the query times out. Read `a.labels` only beside an anchor, or beside a mark. The marks a lane serves, and a golden set of 41 addresses with the marks each must carry, are pinned in `tests/fixtures/graph-marks-golden.json`.
 
 A token name from an explorer gives `:Token`, not `:Protocol`. `:Token` is a mark, not a stop: the walk guard below does not name it. One contract can carry both marks: a Uniswap v2 pair is itself an ERC20 token of its liquidity providers, so it is `:Pool` and, when the asset scan lists it, `:Token` too. Ask which tokens or pools an address touched with the mark: `WHERE t:Token` or `WHERE p:Pool`.
 
 A topology link is a lifetime summary of a pair, and a facts row is one event. They are two things, so they keep two names: `SWAPPED`, `ADDED_LIQUIDITY` and `REMOVED_LIQUIDITY` on topology, `SWAP`, `LIQUIDITY_ADD` and `LIQUIDITY_REMOVE` on facts. Read the summary on topology, anchored on an address, then the events behind it on facts, by the pair and one day.
+
+### Baskets: is this a basket, and what does it trade
+
+A basket is known by two facts, and either one answers "is this a basket": the word `Basket` in its own `labels`, or the basket factory having created it. The word comes from the factory's creations, so it reaches every basket the factory made, old or new.
+
+Is this address a basket? One read, anchored on the address:
+
+```cypher
+USE topology
+MATCH (a:Address {address: "0x844e7f539ec3e90391b35843001e8624bef6eb83"})
+RETURN a.address AS address, labels(a) AS node_labels, a.labels AS labels LIMIT 1
+```
+
+The factory's own children are the other read. A row means the factory created the address:
+
+```cypher
+USE topology
+MATCH (f:Address {address: "0xe78b036bd6da158cd61a3dac3f67e18f62ecddfd"})-[d:DEPLOYED_CONTRACT]->(p:Address {address: "0x844e7f539ec3e90391b35843001e8624bef6eb83"})
+RETURN p.address AS address, d.block_height AS block_height, d.tx_id AS tx_id LIMIT 1
+```
+
+What does a basket trade? The stock tokens move between the router and the basket. Read one day of the pair on `USE facts`. A deposit has the router as sender, a redemption has the basket as sender. Each transaction lists its stock tokens in near-equal USD values:
+
+```cypher
+USE facts
+MATCH (r:Address {address: "0xb672a5d825f82dea8574711d1da696fcc48d2ae0"})-[t:TRANSFER]->(b:Address {address: "0x844e7f539ec3e90391b35843001e8624bef6eb83"}) WHERE t.block_date = "2026-10-20"
+RETURN t.tx_id AS tx_id, t.asset_contract AS asset_contract, t.asset_symbol AS asset_symbol, t.amount_usd AS amount_usd LIMIT 50
+```
+
+For redemptions, flip the arrow. To see every token the pair ever moved in one read, use the `TRANSFERRED` links of the pair on topology (Tokens: one link per sender, receiver and token, above). Read `behind_transfers` on `Head` first: while it is large, those links are missing and the answer is empty, so use the facts day instead.
+
+How to answer:
+
+- "Is this a basket?" Say yes when the word `Basket` is there or the factory created it. Name the factory in full. If neither holds, say it is not one the factory made, and do not call it a basket.
+- "What is in it?" The graph shows the stock tokens that moved between the basket and the router, not a balance. Say "the stock tokens it takes in and pays out", name each by its full contract, and never write a symbol you have not read. Say that the rows show the day you read, one deposit or one redemption each, and that a lifetime link is a total.
+- "Who created these tokens?" The factory. List its children with a `DEPLOYED_CONTRACT` read anchored on the factory, with a literal `LIMIT`. Never scan `a.labels` for `Basket` with no anchor; ask the factory's children, or the `:Protocol` mark beside an anchor.
+- "Which baskets went through the router on a day?" A facts read needs both addresses, so never send one with the router alone: the server refuses it. List the factory's children first (above), then send one `graph_query_batch` of the facts day, one query per basket and direction (router to basket, basket to router), each with its own `id`.
 
 ## Topology
 

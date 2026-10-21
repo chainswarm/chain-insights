@@ -670,6 +670,90 @@
       ],
       "since_block": 0,
       "source": "https://github.com/chainswarm/AP1000/blob/main/openspec/changes/archive/2026-10-21-cia-graph-marks-regression/proposal.md"
+    },
+    {
+      "address": "0xe78b036bd6da158cd61a3dac3f67e18f62ecddfd",
+      "name": "Basket factory, creates every stock basket",
+      "marks": [
+        "Address",
+        "Contract",
+        "Protocol"
+      ],
+      "words": [
+        "BasketFactory"
+      ],
+      "never": [
+        "Token",
+        "NFT",
+        "Pool",
+        "Launchpad",
+        "Mixer"
+      ],
+      "since_block": 75239615,
+      "source": "https://github.com/chainswarm/data-pipeline/blob/main/internal/labels/infrastructureregistry/factories.go"
+    },
+    {
+      "address": "0xb672a5d825f82dea8574711d1da696fcc48d2ae0",
+      "name": "Basket router, mints and redeems baskets",
+      "marks": [
+        "Address",
+        "Contract"
+      ],
+      "never": [
+        "Token",
+        "NFT",
+        "Pool",
+        "Launchpad",
+        "Mixer"
+      ],
+      "since_block": 83737306,
+      "source": "https://github.com/chainswarm/data-pipeline/blob/main/internal/labels/infrastructureregistry/factories.go"
+    },
+    {
+      "address": "0x923bce12f2faa00e21f9406dd161e360f858c3e2",
+      "name": "Basket, old, labelled by the explorer name and the factory",
+      "marks": [
+        "Address",
+        "Contract",
+        "Protocol",
+        "Token"
+      ],
+      "words": [
+        "Basket"
+      ],
+      "never": [
+        "NFT",
+        "Pool",
+        "Launchpad",
+        "Mixer",
+        "SmartAccount"
+      ],
+      "token_standard": "ERC20",
+      "since_block": 78572106,
+      "source": "https://github.com/chainswarm/data-pipeline/blob/main/internal/labels/infrastructureregistry/factories.go"
+    },
+    {
+      "address": "0x844e7f539ec3e90391b35843001e8624bef6eb83",
+      "name": "Basket, new, no explorer name, labelled by the factory only",
+      "marks": [
+        "Address",
+        "Contract",
+        "Protocol",
+        "Token"
+      ],
+      "words": [
+        "Basket"
+      ],
+      "never": [
+        "NFT",
+        "Pool",
+        "Launchpad",
+        "Mixer",
+        "SmartAccount"
+      ],
+      "token_standard": "ERC20",
+      "since_block": 93690626,
+      "source": "https://github.com/chainswarm/data-pipeline/blob/main/internal/labels/infrastructureregistry/factories.go"
     }
   ],
   "counts": [
