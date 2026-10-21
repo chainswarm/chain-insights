@@ -3,6 +3,26 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.64.0] - 2026-10-21 — every graph mark is proven, and the skill asks by mark
+
+### Added
+- `tests/fixtures/graph-marks-golden.json`: 37 robinhood addresses with the marks
+  each must carry and must not carry (`:Token`, `:NFT`, `:Pool`, `:Launchpad`,
+  `:Mixer`, `:Protocol`, `:SmartAccount`), a source permalink and a since block per
+  row, and a count floor per mark. `tests/graph-marks-golden.test.ts` keeps the
+  file honest on every push; `tests/graph-marks-live.integration.test.ts` reads
+  every row and every count from a lane in one batch per release candidate, a
+  miss names the row and its source.
+- Six documented recipes: mixers by mark, launchpad pools by mark, a token's
+  standard, an NFT is a token, a pool by address traded or not, a Virtuals agent's
+  two contracts.
+- The core skill names every mark the graph serves and the rule "ask by mark":
+  `MATCH (a:Mixer)` answers from the label index, a text match over `labels`
+  with no address scans every address and times out. Four evals pin it:
+  `mixer-by-mark`, `launchpad-by-mark`, `token-standard`, `nft-is-token`.
+- The Virtuals skill reference carries the marks of an agent token, its starting
+  pool, a graduated pair, the mass creator and the launch contract.
+
 ## [0.63.0] - 2026-10-20 — every pool and token is marked: :Pool, :Token, :NFT
 
 ### Added

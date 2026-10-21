@@ -178,11 +178,24 @@ A thing has one name on topology, facts and chain. Copy a value from one layer i
 
 A kind is a second label that topology takes from a chain fact: `:Account` for a key holder, `:Contract` for a contract (`:Contract:SmartAccount` for a contract wallet). Never both on one address. An address that only received has none, and so does a Nitro precompile on topology (chain reads it as a contract). A role label such as `:Pool` or `:Token` stays beside the kind. `is_contract` stays beside `:Contract`. Facts serves no kind: a facts read that names `:Account` or `:Contract` is refused, so ask `USE topology`, or `USE chain` for `is_contract` and `nonce`.
 
-Three marks say what a contract is. They sit beside the kind and are never an anchor:
+Marks say what an address is. They sit beside the kind and are never an anchor:
 
 - `:Token` is a token contract: every ERC20, ERC721, ERC1155 and ERC6909 contract the chain's asset scan knows. `token_standard` on the node says which one (`ERC20`, `ERC721`, `ERC1155` or `ERC6909`). A token with no standard yet has no mark.
 - `:NFT` is a token contract whose `token_standard` is `ERC721` or `ERC1155`. An `ERC20` is `:Token` only.
 - `:Pool` is a pool contract the DEX indexer knows, traded or not. A bonding curve, a Virtuals starting pool and a pair that nobody has swapped in are `:Pool` from the day the pool is discovered. A singleton pool manager, such as the PoolManager, is never `:Pool`.
+
+- `:Launchpad` is a Virtuals launchpad contract: an agent token or its starting pool. Its `labels` name the agent and its stage, `virtuals:<NAME>:bonding` or `virtuals:<NAME>:graduated`.
+- `:Mixer` is a mixer contract from the mixer registry: a pool, the router or the relayer of a Tornado-style mixer (Hearsay on robinhood). Its `labels` carry the word `Mixer` and `label_risk_levels` carries `high`.
+- `:Protocol` is a protocol's own contract: a pool, a router, a position manager, a stock token's proxy. It is never given for a token name alone.
+- `:SmartAccount` is a contract wallet, beside `:Account` or `:Contract`.
+
+**Ask by mark.** A question that names a kind of thing (mixers, launchpad pools, NFT collections, tokens of one standard) is a label match on the mark, a probe the server answers from the label index: nine `:Mixer` rows come back in 13 ms, a count of 2.4 million `:Token` in 4 s.
+
+```cypher
+USE topology MATCH (a:Mixer) RETURN a.address AS address, labels(a) AS node_labels, a.labels AS labels LIMIT 25
+```
+
+Never write `MATCH (a:Address) WHERE a.labels CONTAINS "mixer"` with no address: `labels` is a list on every address, the scan touches all of them and the query times out. Read `a.labels` only beside an anchor, or beside a mark. The marks a lane serves, and a golden set of 37 addresses with the marks each must carry, are pinned in `tests/fixtures/graph-marks-golden.json`.
 
 A token name from an explorer gives `:Token`, not `:Protocol`. `:Token` is a mark, not a stop: the walk guard below does not name it. One contract can carry both marks: a Uniswap v2 pair is itself an ERC20 token of its liquidity providers, so it is `:Pool` and, when the asset scan lists it, `:Token` too. Ask which tokens or pools an address touched with the mark: `WHERE t:Token` or `WHERE p:Pool`.
 

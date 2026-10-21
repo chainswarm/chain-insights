@@ -1,0 +1,33 @@
+schema_version: "1.0"
+name: nft-is-token
+expected_outcome: The answer calls the address an NFT collection (an ERC-721 token contract), does not call it a plain wallet or a pool, and prints no column names.
+execution:
+  prompt: |
+    You are an AML analyst assistant using Chain Insights. The graph already answered. Write the reply to the user from this row; load the chain-insights-cypher skill first and call no graph tool.
+    User asked: "Is 0x02d9876a21af7545f8632c3af76ec90b5ad4b66d on robinhood a wallet or a token?"
+    Row from USE topology (address, node_labels, token_standard, labels):
+    0x02d9876a21af7545f8632c3af76ec90b5ad4b66d, ["Address","Contract","NFT","Token"], ERC721, []
+  max_turns: 4
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: says-nft
+    target: last_message
+    flags: i
+    pattern: 'NFT|non-fungible|ERC[- ]?721'
+    match: contains
+  - type: regex
+    name: not-a-wallet
+    target: last_message
+    flags: i
+    pattern: 'is a wallet|is a plain wallet|is a pool|not a token'
+    match: not_contains
+  - type: regex
+    name: no-column-names
+    target: last_message
+    pattern: 'token_standard|node_labels'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
