@@ -19,6 +19,17 @@ All notable changes to Chain Insights are recorded here.
   live marks test checks them.
 - `plugin/evals/basket-is-this-a-basket`, `basket-what-is-in-it`,
   `basket-who-created`: with the skill 1.00, without 0.33 to 0.44.
+- `skills/chain-insights-cypher`: "which baskets went through the router on a
+  day" lists the factory's children, then one batch of facts pair reads. Claude
+  Desktop sent ten facts reads on the router alone first, each refused.
+  `plugin/evals/basket-router-day`: with the skill 1.00, without 0.50.
+
+### Fixed
+- A node label or link type in the wrong case is spelled the graph's way
+  before the query is sent (`src/mcp/label-case.ts`). `(a:address …)` matched
+  nothing with no error, and Claude Desktop told a user the basket router had
+  no activity; under `:Address` it has links to every basket. Quoted text and
+  map values stay as written.
 
 ## [0.65.1] - 2026-10-21 — the shell shows the same twins as a host
 

@@ -237,6 +237,7 @@ How to answer:
 - "Is this a basket?" Say yes when the word `Basket` is there or the factory created it. Name the factory in full. If neither holds, say it is not one the factory made, and do not call it a basket.
 - "What is in it?" The graph shows the stock tokens that moved between the basket and the router, not a balance. Say "the stock tokens it takes in and pays out", name each by its full contract, and never write a symbol you have not read. Say that the rows show the day you read, one deposit or one redemption each, and that a lifetime link is a total.
 - "Who created these tokens?" The factory. List its children with a `DEPLOYED_CONTRACT` read anchored on the factory, with a literal `LIMIT`. Never scan `a.labels` for `Basket` with no anchor; ask the factory's children, or the `:Protocol` mark beside an anchor.
+- "Which baskets went through the router on a day?" A facts read needs both addresses, so never send one with the router alone: the server refuses it. List the factory's children first (above), then send one `graph_query_batch` of the facts day, one query per basket and direction (router to basket, basket to router), each with its own `id`.
 
 ## Topology
 
