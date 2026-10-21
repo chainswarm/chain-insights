@@ -1,3 +1,5 @@
+import { withTimestampTextResult } from './timestamp-text.js'
+
 export interface McpTextResult {
   content?: Array<{ type: string; text?: string }>
   structuredContent?: unknown
@@ -190,7 +192,37 @@ export function formatMcpTextContent(
  * printing to stdout and exiting 0. The error keeps the `error_detail` of the
  * reply, so a caller can tell a refused query from a dead endpoint.
  */
+/** The tools whose rows carry the `_utc` and `_eth` twins, the same two the proxy adds (src/mcp/proxy.ts). */
+function isGraphReadTool(tool?: string): boolean {
+  return tool === 'graph_query' || tool === 'graph_query_batch'
+}
+
+/**
+ * A graph reply with the twins the proxy writes for a host: `<column>_utc`
+ * beside every timestamp and `<column>_eth` beside every wei balance. The
+ * shell path printed the server row as it arrived (chain-insights #509), so a
+ * person reading `cia mcp call` got the raw milliseconds and the raw wei.
+ * The text block the server sends is the JSON of its structured content, so
+ * both are rewritten together; a result with no structured content is read
+ * from its text block first.
+ */
+export function withGraphTwins(result: McpTextResult, tool?: string): McpTextResult {
+  if (!isGraphReadTool(tool) || result.isError) return result
+  const only = (result.content ?? []).length === 1 && result.content?.[0]?.type === 'text' ? result.content[0] : null
+  let structured = result.structuredContent
+  if (structured === undefined && only?.text) {
+    try {
+      structured = JSON.parse(only.text) as unknown
+    } catch {
+      return result
+    }
+  }
+  const twinned = withTimestampTextResult({ ...result, structuredContent: structured })
+  return twinned.structuredContent === structured && result.structuredContent !== undefined ? result : twinned
+}
+
 export function printMcpTextContent(result: McpTextResult, options: McpPrintOptions = {}): void {
+  result = withGraphTwins(result, options.tool)
   const texts = (result.content ?? [])
     .filter((item) => item.type === 'text')
     .map((item) => item.text ?? '')

@@ -199,3 +199,44 @@ describe('printMcpTextContent', () => {
     expect(log).toHaveBeenCalledWith('ok')
   })
 })
+
+describe('the shell path carries the twins the proxy writes (#509)', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  const row = { balance: '10003752747799400', nonce: 38, last_seen_timestamp: 1792286196000 }
+  const reply = {
+    schema: 'chain-insights.result.v1',
+    tool: 'graph_query',
+    facts: { query: { count: 1, billable_units: 1, elapsed_ms: 5, truncated: false, results: [row] } },
+    subject: { network: 'robinhood' },
+  }
+
+  it('prints the ETH and UTC twins beside the wei and the milliseconds for a graph_query --json', () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    printMcpTextContent({ content: [{ type: 'text', text: JSON.stringify(reply) }] }, { tool: 'graph_query', json: true })
+    const printed = JSON.parse(log.mock.calls[0]?.[0] as string) as typeof reply
+    expect(printed.facts.query.results[0]).toEqual({
+      ...row,
+      balance_eth: '0.0100037527477994',
+      last_seen_timestamp_utc: '2026-10-18 01:16:36 UTC',
+    })
+  })
+
+  it('shows the twins in the readable table too, and leaves a non-graph tool alone', () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    printMcpTextContent({ content: [{ type: 'text', text: JSON.stringify(reply) }] }, { tool: 'graph_query' })
+    expect(log.mock.calls[0]?.[0]).toContain('0.0100037527477994')
+    log.mockClear()
+    printMcpTextContent({ content: [{ type: 'text', text: JSON.stringify(reply) }] }, { tool: 'meta_rules', json: true })
+    expect(log.mock.calls[0]?.[0]).not.toContain('balance_eth')
+  })
+
+  it('reads a result that carries structured content and rewrites its text block with it', () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    printMcpTextContent(
+      { content: [{ type: 'text', text: JSON.stringify(reply) }], structuredContent: reply },
+      { tool: 'graph_query_batch', json: true }
+    )
+    expect(log.mock.calls[0]?.[0]).toContain('"balance_eth": "0.0100037527477994"')
+  })
+})

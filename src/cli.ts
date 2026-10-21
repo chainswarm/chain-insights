@@ -856,7 +856,7 @@ mcpCommand.addCommand(
         const { parseMcpCallArgs } = await import('./mcp/call-args.js')
         const { assertPublicMcpToolName, validatePublicMcpToolArguments } =
           await import('./mcp/tool-visibility.js')
-        const args = parseMcpCallArgs(rawArgs)
+        let args = parseMcpCallArgs(rawArgs)
         assertPublicMcpToolName(tool)
         validatePublicMcpToolArguments(tool, args)
 
@@ -949,6 +949,10 @@ mcpCommand.addCommand(
           // while the server is still answering. Other tools keep that default.
           const { graphToolRequestOptions } = await import('./mcp/request-timeout.js')
           const requestOptions = graphToolRequestOptions(tool)
+          // A query that names a twin as a property (a.balance_eth, f.last_seen_timestamp_utc)
+          // is rewritten to the column the server has, as the proxy does (src/mcp/timestamp-text.ts).
+          const { withoutUtcProperties } = await import('./mcp/timestamp-text.js')
+          args = withoutUtcProperties(tool, args)
           const result = requestOptions
             ? await client.callTool({ name: tool, arguments: args }, undefined, requestOptions)
             : await client.callTool({ name: tool, arguments: args })
