@@ -136,7 +136,9 @@ Run them in this order. Each step names its query in reference.md.
   `virtuals:<NAME>:<stage>`. `AgentTokenV4` is missing on some tokens.
   Tell them apart by the factory that made them (A6).
 - The starting pool is `:Pool` from the day it is discovered, and the
-  agent token is `:Token`. The Uniswap pair of the agent is `:Pool`, graduated
+  agent token is `:Token`. Both carry `:Launchpad` beside it, so
+  `MATCH (p:Pool:Launchpad)` lists every starting pool (see Marks in
+  reference.md). The Uniswap pair of the agent is `:Pool`, graduated
   or not. The pre-made Uniswap pair of an agent that never graduated has
   no Virtuals label at all.
 - Holder counts on an explorer can run ahead of the graph. The graph

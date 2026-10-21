@@ -380,6 +380,86 @@
         "address-key",
         "state-now"
       ]
+    },
+    {
+      "id": "recipe_topology_mixer_by_mark_01",
+      "query": "USE topology MATCH (a:Mixer) RETURN a.address AS address, labels(a) AS node_labels, a.labels AS labels LIMIT 25",
+      "layer": "topology",
+      "expect_rows": true,
+      "description": "Every mixer contract the registry loaded, asked by its mark. :Mixer is a node label beside :Address, so a label match is a probe the server admits and answers from the label index in milliseconds (9 Hearsay contracts on robinhood). Never ask with a text match over a.labels and no address: that scans every address and times out.",
+      "features": [
+        "label-match",
+        "mark-probe",
+        "mixer-mark"
+      ]
+    },
+    {
+      "id": "recipe_topology_launchpad_by_mark_01",
+      "query": "USE topology MATCH (p:Pool:Launchpad) RETURN p.address AS address, labels(p) AS node_labels, p.labels AS labels LIMIT 25",
+      "layer": "topology",
+      "expect_rows": true,
+      "description": "Virtuals launchpad pools, asked by two marks at once: :Pool from the DEX indexer and :Launchpad from the Virtuals labeler. A starting pool is :Pool from the day it is discovered, traded or not. Its labels name the agent and its stage, virtuals:<NAME>:bonding or :graduated.",
+      "features": [
+        "label-match",
+        "mark-probe",
+        "pool-label",
+        "launchpad-mark"
+      ]
+    },
+    {
+      "id": "recipe_topology_token_standard_01",
+      "query": "USE topology MATCH (a:Address {address: \"0x966890d38bfd587c9d6fd6123389dfe18ac9de0e\"}) RETURN a.address AS address, a.token_standard AS token_standard, labels(a) AS node_labels, a.labels AS labels LIMIT 1",
+      "layer": "topology",
+      "expect_rows": true,
+      "description": "What one contract is: the BIBEL agent token carries :Token with token_standard ERC20 and :Launchpad from the Virtuals labeler. Say it is an ERC-20 token; never print the column name token_standard in the answer.",
+      "features": [
+        "address-predicate",
+        "inline-property-map",
+        "label-match",
+        "token-mark"
+      ]
+    },
+    {
+      "id": "recipe_topology_nft_is_token_01",
+      "query": "USE topology MATCH (a:Address {address: \"0x02d9876a21af7545f8632c3af76ec90b5ad4b66d\"}) WHERE a:NFT RETURN a.address AS address, a.token_standard AS token_standard, labels(a) AS node_labels LIMIT 1",
+      "layer": "topology",
+      "expect_rows": true,
+      "description": "An NFT collection is :Token and :NFT both: :NFT is the token contract whose token_standard is ERC721 or ERC1155. WHERE a:NFT tests the mark beside the anchor; an ERC20 would return no row here.",
+      "features": [
+        "address-predicate",
+        "inline-property-map",
+        "where-clause",
+        "label-match",
+        "nft-mark"
+      ]
+    },
+    {
+      "id": "recipe_topology_pool_by_address_01",
+      "query": "USE topology MATCH (p:Address {address: \"0x00aea4ccd2a12f955bfae8b8741cbee14d38e755\"}) WHERE p:Pool RETURN p.address AS address, labels(p) AS node_labels, p.labels AS labels LIMIT 1",
+      "layer": "topology",
+      "expect_rows": true,
+      "description": "Is this address a pool: the HOODRAT starting pool is :Pool although nobody may have swapped in it, because :Pool means a pool contract the DEX indexer knows, traded or not. An empty labels list beside the :Pool mark does not make it unlabelled.",
+      "features": [
+        "address-predicate",
+        "inline-property-map",
+        "where-clause",
+        "label-match",
+        "pool-label"
+      ]
+    },
+    {
+      "id": "recipe_topology_virtuals_agent_01",
+      "query": "USE topology MATCH (a:Address) WHERE a.address IN [\"0x966890d38bfd587c9d6fd6123389dfe18ac9de0e\", \"0x09e9df72f639875b58dbfd356e31c47b0b87f65b\"] RETURN a.address AS address, labels(a) AS node_labels, a.labels AS labels, a.token_standard AS token_standard LIMIT 2",
+      "layer": "topology",
+      "expect_rows": true,
+      "description": "A Virtuals agent is two contracts: the agent token (:Token:Launchpad, ERC20) and its starting pool (:Pool:Launchpad). Both carry the same named label virtuals:<NAME>:<stage>. A list of at most 25 addresses is an anchor.",
+      "features": [
+        "address-list-anchor",
+        "label-match",
+        "token-mark",
+        "pool-label",
+        "launchpad-mark"
+      ]
     }
   ]
 }

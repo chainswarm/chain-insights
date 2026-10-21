@@ -1,0 +1,38 @@
+schema_version: "1.0"
+name: token-standard
+expected_outcome: The answer says the address is an ERC-20 token of the Virtuals launchpad, in plain words, and never prints the column name token_standard or node_labels.
+execution:
+  prompt: |
+    You are an AML analyst assistant using Chain Insights. The graph already answered. Write the reply to the user from this row; load the chain-insights-cypher skill first and call no graph tool.
+    User asked: "What is 0x966890d38bfd587c9d6fd6123389dfe18ac9de0e on robinhood?"
+    Row from USE topology (address, node_labels, token_standard, labels):
+    0x966890d38bfd587c9d6fd6123389dfe18ac9de0e, ["Address","Contract","Protocol","Launchpad","Token"], ERC20, ["Launchpad","virtuals:BIBEL:bonding"]
+  max_turns: 4
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: says-erc20-token
+    target: last_message
+    flags: i
+    pattern: 'ERC[- ]?20 token|token contract.{0,40}ERC[- ]?20|ERC[- ]?20 \(|an ERC[- ]?20'
+    match: contains
+  - type: regex
+    name: says-launchpad
+    target: last_message
+    flags: i
+    pattern: 'launchpad|Virtuals'
+    match: contains
+  - type: regex
+    name: no-column-names
+    target: last_message
+    pattern: 'token_standard|node_labels'
+    match: not_contains
+  - type: regex
+    name: full-address
+    target: last_message
+    pattern: '0x966890d38bfd587c9d6fd6123389dfe18ac9de0e'
+    match: contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

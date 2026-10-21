@@ -1,0 +1,713 @@
+{
+  "recorded_on": "2026-10-21",
+  "network": "robinhood",
+  "note": "Marks are node labels beside :Address. A row asserts every mark in `marks` is present and every mark in `never` is absent; it never asserts equality, so a judgement label such as Scam or Victim on one lane (lane B carries them, lane A never does, ruling 2026-10-19) changes nothing. A count asserts the lane serves at least `floor` nodes with the mark.",
+  "rows": [
+    {
+      "address": "0xface39ce3d6647f5e6a5fb2023d3514c93c268a6",
+      "name": "Hearsay pool, 1 HRSY",
+      "marks": [
+        "Address",
+        "Contract",
+        "Protocol",
+        "Mixer"
+      ],
+      "never": [
+        "Token",
+        "NFT",
+        "Pool",
+        "Launchpad",
+        "SmartAccount"
+      ],
+      "since_block": 88002512,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/domain/mixer-registry/robinhood.md"
+    },
+    {
+      "address": "0xfacecd7abf7c6f96be88b2e2bec7577d06492d8b",
+      "name": "Hearsay pool, 10 HRSY",
+      "marks": [
+        "Address",
+        "Contract",
+        "Protocol",
+        "Mixer"
+      ],
+      "never": [
+        "Token",
+        "NFT",
+        "Pool",
+        "Launchpad",
+        "SmartAccount"
+      ],
+      "since_block": 88002571,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/domain/mixer-registry/robinhood.md"
+    },
+    {
+      "address": "0xface583da71d7ef624bc58de1cd83c59190baedb",
+      "name": "Hearsay pool, 100 HRSY",
+      "marks": [
+        "Address",
+        "Contract",
+        "Protocol",
+        "Mixer"
+      ],
+      "never": [
+        "Token",
+        "NFT",
+        "Pool",
+        "Launchpad",
+        "SmartAccount"
+      ],
+      "since_block": 88002609,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/domain/mixer-registry/robinhood.md"
+    },
+    {
+      "address": "0xfacec937f866107690034b75f842704ac3b5241a",
+      "name": "Hearsay pool, 1000 HRSY",
+      "marks": [
+        "Address",
+        "Contract",
+        "Protocol",
+        "Mixer"
+      ],
+      "never": [
+        "Token",
+        "NFT",
+        "Pool",
+        "Launchpad",
+        "SmartAccount"
+      ],
+      "since_block": 88002649,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/domain/mixer-registry/robinhood.md"
+    },
+    {
+      "address": "0xface9b703eff6f41a736041a30502a619a642b51",
+      "name": "Hearsay pool, 10000 HRSY",
+      "marks": [
+        "Address",
+        "Contract",
+        "Protocol",
+        "Mixer"
+      ],
+      "never": [
+        "Token",
+        "NFT",
+        "Pool",
+        "Launchpad",
+        "SmartAccount"
+      ],
+      "since_block": 88002686,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/domain/mixer-registry/robinhood.md"
+    },
+    {
+      "address": "0xfacebf9befbfc7e31966913f0ab74e40b60f2f08",
+      "name": "Hearsay pool, 10 HRSY (second)",
+      "marks": [
+        "Address",
+        "Contract",
+        "Protocol",
+        "Mixer"
+      ],
+      "never": [
+        "Token",
+        "NFT",
+        "Pool",
+        "Launchpad",
+        "SmartAccount"
+      ],
+      "since_block": 88002837,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/domain/mixer-registry/robinhood.md"
+    },
+    {
+      "address": "0xface231dd09979660e94335ae14a54a61192aae7",
+      "name": "Hearsay pool, 100 HRSY (second)",
+      "marks": [
+        "Address",
+        "Contract",
+        "Protocol",
+        "Mixer"
+      ],
+      "never": [
+        "Token",
+        "NFT",
+        "Pool",
+        "Launchpad",
+        "SmartAccount"
+      ],
+      "since_block": 88002874,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/domain/mixer-registry/robinhood.md"
+    },
+    {
+      "address": "0xface4f6a03fb6f866456f300f91c3449d54e8c33",
+      "name": "Hearsay router",
+      "marks": [
+        "Address",
+        "Contract",
+        "Protocol",
+        "Mixer"
+      ],
+      "never": [
+        "Token",
+        "NFT",
+        "Pool",
+        "Launchpad",
+        "SmartAccount"
+      ],
+      "since_block": 88003698,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/domain/mixer-registry/robinhood.md"
+    },
+    {
+      "address": "0x1065a3e96104f9f415a0ead1b922f16b623a5f63",
+      "name": "Hearsay relayer, a key holder the registry lists as a helper",
+      "marks": [
+        "Address",
+        "Account",
+        "Mixer"
+      ],
+      "never": [
+        "Contract",
+        "Token",
+        "Pool",
+        "SmartAccount"
+      ],
+      "since_block": 90767429,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/domain/mixer-registry/robinhood.md"
+    },
+    {
+      "address": "0xfaceca49586274d5fa81a8594953f29a45e88c33",
+      "name": "Hearsay registry row with no code on the chain: never loaded",
+      "marks": [
+        "Address"
+      ],
+      "never": [
+        "Contract",
+        "Mixer",
+        "Pool",
+        "Protocol",
+        "Token"
+      ],
+      "since_block": 0,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/domain/mixer-registry/robinhood.md"
+    },
+    {
+      "address": "0xface1e55c302b4d52b5078c743c6048d2a6a7fb4",
+      "name": "HRSY, the Hearsay denomination token",
+      "marks": [
+        "Address",
+        "Contract",
+        "Token"
+      ],
+      "never": [
+        "Mixer",
+        "NFT",
+        "Pool",
+        "Launchpad"
+      ],
+      "token_standard": "ERC20",
+      "since_block": 87999652,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/domain/mixer-registry/robinhood.md"
+    },
+    {
+      "address": "0xd4c8f179a2840dec0503b7879c14d0cc5ff08571",
+      "name": "the Hearsay withdrawals funder, a contract wallet",
+      "marks": [
+        "Address",
+        "Account",
+        "SmartAccount"
+      ],
+      "never": [
+        "Mixer",
+        "Token",
+        "Pool",
+        "Contract"
+      ],
+      "since_block": 90767429,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/openspec/changes/archive/2026-10-20-hearsay-mixer-support/design.md"
+    },
+    {
+      "address": "0xfd31f22d840a4bf9ed7c5ab579ddec5cea814ee0",
+      "name": "a contract that paid the Hearsay relayer, no mark",
+      "marks": [
+        "Address",
+        "Contract"
+      ],
+      "never": [
+        "Mixer",
+        "Token",
+        "NFT",
+        "Pool",
+        "Launchpad"
+      ],
+      "since_block": 92943516,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/openspec/changes/archive/2026-10-20-hearsay-mixer-support/design.md"
+    },
+    {
+      "address": "0x5ea1ed03b834ffe10f3bdc39372185d26acbd68b",
+      "name": "a contract that paid the Hearsay relayer, no mark",
+      "marks": [
+        "Address",
+        "Contract"
+      ],
+      "never": [
+        "Mixer",
+        "Token",
+        "NFT",
+        "Pool",
+        "Launchpad"
+      ],
+      "since_block": 88002393,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/openspec/changes/archive/2026-10-20-hearsay-mixer-support/design.md"
+    },
+    {
+      "address": "0xf7d9cd77412d984c6022b9ce0ea93600e9cbbead",
+      "name": "a key holder near Hearsay, no mark",
+      "marks": [
+        "Address",
+        "Account"
+      ],
+      "never": [
+        "Contract",
+        "Mixer",
+        "Pool",
+        "Protocol",
+        "SmartAccount",
+        "Token"
+      ],
+      "since_block": 90767429,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/openspec/changes/archive/2026-10-20-hearsay-mixer-support/design.md"
+    },
+    {
+      "address": "0x966890d38bfd587c9d6fd6123389dfe18ac9de0e",
+      "name": "BIBEL, a Virtuals agent token in the bonding stage",
+      "marks": [
+        "Address",
+        "Contract",
+        "Token",
+        "Launchpad"
+      ],
+      "never": [
+        "Pool",
+        "NFT",
+        "Mixer"
+      ],
+      "token_standard": "ERC20",
+      "since_block": 20770760,
+      "source": "https://github.com/chainswarm/AP1000/blob/af1ab15c/openspec/changes/archive/2026-10-20-graph-migrations-and-marks/proposal.md"
+    },
+    {
+      "address": "0x09e9df72f639875b58dbfd356e31c47b0b87f65b",
+      "name": "BIBEL starting pool (bonding)",
+      "marks": [
+        "Address",
+        "Contract",
+        "Pool",
+        "Launchpad"
+      ],
+      "never": [
+        "Token",
+        "NFT",
+        "Mixer"
+      ],
+      "since_block": 20766459,
+      "source": "https://github.com/chainswarm/AP1000/blob/af1ab15c/openspec/changes/archive/2026-10-20-graph-migrations-and-marks/proposal.md"
+    },
+    {
+      "address": "0x817f16f5d8da83d1b089b082c0172af3923618da",
+      "name": "VEX Uniswap v2 pair, a graduated Virtuals agent: a pool that is also the LP token",
+      "marks": [
+        "Address",
+        "Contract",
+        "Pool",
+        "Token",
+        "Launchpad"
+      ],
+      "never": [
+        "NFT",
+        "Mixer"
+      ],
+      "token_standard": "ERC20",
+      "since_block": 1952861,
+      "source": "https://github.com/chainswarm/chain-insights/blob/main/skills/chain-insights-virtuals/reference.md"
+    },
+    {
+      "address": "0xa20b68e2e1de71f1426b546ed5514bf253215a48",
+      "name": "RAXOL Uniswap v2 pair, a graduated Virtuals agent",
+      "marks": [
+        "Address",
+        "Contract",
+        "Pool",
+        "Token",
+        "Launchpad"
+      ],
+      "never": [
+        "NFT",
+        "Mixer"
+      ],
+      "token_standard": "ERC20",
+      "since_block": 1233735,
+      "source": "https://github.com/chainswarm/chain-insights/blob/main/skills/chain-insights-virtuals/reference.md"
+    },
+    {
+      "address": "0x00aea4ccd2a12f955bfae8b8741cbee14d38e755",
+      "name": "HOODRAT starting pool (bonding)",
+      "marks": [
+        "Address",
+        "Contract",
+        "Pool",
+        "Launchpad"
+      ],
+      "never": [
+        "Token",
+        "NFT",
+        "Mixer"
+      ],
+      "since_block": 3134383,
+      "source": "https://github.com/chainswarm/chain-insights/blob/main/skills/chain-insights-virtuals/reference.md"
+    },
+    {
+      "address": "0x00dc90a73a413abba43e196ff1a5ca0c0049c59f",
+      "name": "CARPET starting pool (bonding)",
+      "marks": [
+        "Address",
+        "Contract",
+        "Pool",
+        "Launchpad"
+      ],
+      "never": [
+        "Token",
+        "NFT",
+        "Mixer"
+      ],
+      "since_block": 1939030,
+      "source": "https://github.com/chainswarm/chain-insights/blob/main/skills/chain-insights-virtuals/reference.md"
+    },
+    {
+      "address": "0x06c9d1b053e5bd08147c35008a516d53686c14cc",
+      "name": "XMOBILE, a Virtuals agent token (AgentTokenV4)",
+      "marks": [
+        "Address",
+        "Contract",
+        "Token",
+        "Launchpad"
+      ],
+      "never": [
+        "Pool",
+        "NFT",
+        "Mixer"
+      ],
+      "token_standard": "ERC20",
+      "since_block": 2765377,
+      "source": "https://github.com/chainswarm/chain-insights/blob/main/skills/chain-insights-virtuals/reference.md"
+    },
+    {
+      "address": "0x384d92776496bce2c6f08d5b8e015eae498e78b3",
+      "name": "the Virtuals mass creator wallet (12,282 agents)",
+      "marks": [
+        "Address",
+        "Account"
+      ],
+      "never": [
+        "Contract",
+        "Launchpad",
+        "Mixer",
+        "Pool",
+        "Protocol",
+        "SmartAccount",
+        "Token"
+      ],
+      "since_block": 1086232,
+      "source": "https://github.com/chainswarm/chain-insights/blob/main/skills/chain-insights-virtuals/reference.md"
+    },
+    {
+      "address": "0x32e7c4afea4f868a53ec51435c92ed80625eeb33",
+      "name": "the VEX creator wallet",
+      "marks": [
+        "Address",
+        "Account"
+      ],
+      "never": [
+        "Contract",
+        "Launchpad",
+        "Mixer",
+        "Pool",
+        "Protocol",
+        "SmartAccount",
+        "Token"
+      ],
+      "since_block": 1952861,
+      "source": "https://github.com/chainswarm/chain-insights/blob/main/skills/chain-insights-virtuals/reference.md"
+    },
+    {
+      "address": "0x65050a9b7e5075a2ba5ced7b1b64ee66262c40dc",
+      "name": "the Virtuals launch contract: infrastructure, no mark",
+      "marks": [
+        "Address",
+        "Contract"
+      ],
+      "never": [
+        "Token",
+        "Pool",
+        "Launchpad",
+        "Mixer",
+        "NFT"
+      ],
+      "since_block": 1086232,
+      "source": "https://github.com/chainswarm/chain-insights/blob/main/skills/chain-insights-virtuals/reference.md"
+    },
+    {
+      "address": "0xfc2e4da3edb2e18100473339c763705d263d20a9",
+      "name": "a Virtuals token factory: infrastructure, no mark",
+      "marks": [
+        "Address",
+        "Contract"
+      ],
+      "never": [
+        "Token",
+        "Pool",
+        "Launchpad",
+        "Mixer",
+        "NFT"
+      ],
+      "since_block": 191671,
+      "source": "https://github.com/chainswarm/chain-insights/blob/main/skills/chain-insights-virtuals/reference.md"
+    },
+    {
+      "address": "0xd4ccbfa37e2f35611b3042e4096ad7a3459bd007",
+      "name": "a Virtuals collector contract: infrastructure, no mark",
+      "marks": [
+        "Address",
+        "Contract"
+      ],
+      "never": [
+        "Token",
+        "Pool",
+        "Launchpad",
+        "Mixer",
+        "NFT"
+      ],
+      "since_block": 191786,
+      "source": "https://github.com/chainswarm/chain-insights/blob/main/skills/chain-insights-virtuals/reference.md"
+    },
+    {
+      "address": "0x02d9876a21af7545f8632c3af76ec90b5ad4b66d",
+      "name": "an ERC721 collection",
+      "marks": [
+        "Address",
+        "Contract",
+        "Token",
+        "NFT"
+      ],
+      "never": [
+        "Pool",
+        "Mixer",
+        "Launchpad"
+      ],
+      "token_standard": "ERC721",
+      "since_block": 33537,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/openspec/changes/archive/2026-10-21-cia-graph-marks-regression/proposal.md"
+    },
+    {
+      "address": "0x04911a118f11c75667e4d0dfb8e640af5a353550",
+      "name": "an ERC721 collection, the core skill's example address",
+      "marks": [
+        "Address",
+        "Contract",
+        "Token",
+        "NFT"
+      ],
+      "never": [
+        "Pool",
+        "Mixer",
+        "Launchpad"
+      ],
+      "token_standard": "ERC721",
+      "since_block": 91173,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/openspec/changes/archive/2026-10-21-cia-graph-marks-regression/proposal.md"
+    },
+    {
+      "address": "0x58daec3116aae6d93017baaea7749052e8a04fa7",
+      "name": "a Uniswap position manager: an ERC721 that is also a protocol contract",
+      "marks": [
+        "Address",
+        "Contract",
+        "Token",
+        "NFT",
+        "Protocol"
+      ],
+      "never": [
+        "Pool",
+        "Mixer",
+        "Launchpad"
+      ],
+      "token_standard": "ERC721",
+      "since_block": 9073,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/openspec/changes/archive/2026-10-21-cia-graph-marks-regression/proposal.md"
+    },
+    {
+      "address": "0x0000004c6cc2ca10cf4d67c8902659085d31e1dc",
+      "name": "an ERC1155 collection",
+      "marks": [
+        "Address",
+        "Contract",
+        "Token",
+        "NFT"
+      ],
+      "never": [
+        "Pool",
+        "Mixer",
+        "Launchpad"
+      ],
+      "token_standard": "ERC1155",
+      "since_block": 873041,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/openspec/changes/archive/2026-10-21-cia-graph-marks-regression/proposal.md"
+    },
+    {
+      "address": "0x06c1be6b45b15129cfd9570f0432457f4ddd398c",
+      "name": "an ERC1155 collection",
+      "marks": [
+        "Address",
+        "Contract",
+        "Token",
+        "NFT"
+      ],
+      "never": [
+        "Pool",
+        "Mixer",
+        "Launchpad"
+      ],
+      "token_standard": "ERC1155",
+      "since_block": 83831661,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/openspec/changes/archive/2026-10-21-cia-graph-marks-regression/proposal.md"
+    },
+    {
+      "address": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+      "name": "WETH: a protocol token, never a pool",
+      "marks": [
+        "Address",
+        "Contract",
+        "Token",
+        "Protocol"
+      ],
+      "never": [
+        "NFT",
+        "Pool",
+        "Mixer",
+        "Launchpad"
+      ],
+      "token_standard": "ERC20",
+      "since_block": 2,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/openspec/changes/archive/2026-10-21-cia-graph-marks-regression/proposal.md"
+    },
+    {
+      "address": "0x12f190a9f9d7d37a250758b26824b97ce941bf54",
+      "name": "AMZN Robinhood stock token",
+      "marks": [
+        "Address",
+        "Contract",
+        "Token",
+        "Protocol"
+      ],
+      "never": [
+        "NFT",
+        "Pool",
+        "Mixer",
+        "Launchpad"
+      ],
+      "token_standard": "ERC20",
+      "since_block": 48288,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/openspec/changes/archive/2026-10-21-cia-graph-marks-regression/proposal.md"
+    },
+    {
+      "address": "0x00068081853cf8bf8e7f6fcdfe87a89e7ff40d16",
+      "name": "a Uniswap v3 pool: a pool that is no token",
+      "marks": [
+        "Address",
+        "Contract",
+        "Pool",
+        "Protocol"
+      ],
+      "never": [
+        "Token",
+        "NFT",
+        "Mixer",
+        "Launchpad"
+      ],
+      "since_block": 5496230,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/openspec/changes/archive/2026-10-21-cia-graph-marks-regression/proposal.md"
+    },
+    {
+      "address": "0x0000e413222ce1bed7221ae14b070b2f8620582f",
+      "name": "a bonding-curve pool outside Virtuals",
+      "marks": [
+        "Address",
+        "Contract",
+        "Pool",
+        "Protocol"
+      ],
+      "never": [
+        "Token",
+        "NFT",
+        "Mixer",
+        "Launchpad"
+      ],
+      "since_block": 58071125,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/openspec/changes/archive/2026-10-21-cia-graph-marks-regression/proposal.md"
+    },
+    {
+      "address": "0x0005e36aef430e4226e772f5ad5b5394af8a0e0a",
+      "name": "a contract wallet (smart account) that is a key holder",
+      "marks": [
+        "Address",
+        "Account",
+        "SmartAccount"
+      ],
+      "never": [
+        "Contract",
+        "Launchpad",
+        "Mixer",
+        "Pool",
+        "Protocol",
+        "Token"
+      ],
+      "since_block": 0,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/openspec/changes/archive/2026-10-21-cia-graph-marks-regression/proposal.md"
+    }
+  ],
+  "counts": [
+    {
+      "mark": "Mixer",
+      "floor": 9,
+      "lane": "b",
+      "read_at": "2026-10-21T02:55:00Z"
+    },
+    {
+      "mark": "Launchpad",
+      "floor": 52321,
+      "lane": "b",
+      "read_at": "2026-10-21T02:55:00Z"
+    },
+    {
+      "mark": "Token",
+      "floor": 2409910,
+      "lane": "b",
+      "read_at": "2026-10-21T02:55:00Z"
+    },
+    {
+      "mark": "NFT",
+      "floor": 59574,
+      "lane": "b",
+      "read_at": "2026-10-21T02:55:00Z"
+    },
+    {
+      "mark": "Pool",
+      "floor": 1402865,
+      "lane": "b",
+      "read_at": "2026-10-21T02:55:00Z"
+    },
+    {
+      "mark": "SmartAccount",
+      "floor": 1000913,
+      "lane": "b",
+      "read_at": "2026-10-21T02:55:00Z"
+    }
+  ]
+}

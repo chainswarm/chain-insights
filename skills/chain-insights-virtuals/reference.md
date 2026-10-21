@@ -208,3 +208,24 @@ RETURN b.address AS linked_address, l.basis AS basis, l.confidence AS confidence
 | Five random agents of that creator | All five never traded beyond dust (B3). |
 | BIBEL, starting pool `0x09e9df72f639875b58dbfd356e31c47b0b87f65b` | Three holders: the pool and two wallets that bought in the same second through the router (B4). Both share the funder `0xca7ded7e4f4ba8ab3b10009236ae6d1b95094589` (C3). |
 | VEX, Uniswap pair `0x817f16f5d8da83d1b089b082c0172af3923618da` | Seeded with about 23,225 USD by the token contract, never removed (B1). 82.8M USD volume. The creator `0x32e7c4afea4f868a53ec51435c92ed80625eeb33` only bought VEX (B2). |
+
+## Marks on Virtuals contracts
+
+What the graph serves on each piece of an agent, read live on 2026-10-21. A row is "marks present"; a lane may add a judgement label beside them.
+
+| Piece | Address | Marks | Labels |
+|---|---|---|---|
+| BIBEL agent token, bonding | `0x966890d38bfd587c9d6fd6123389dfe18ac9de0e` | `:Address:Contract:Token:Launchpad`, `token_standard` ERC20 | `Launchpad`, `virtuals:BIBEL:bonding` |
+| BIBEL starting pool | `0x09e9df72f639875b58dbfd356e31c47b0b87f65b` | `:Address:Contract:Pool:Launchpad` | `Launchpad`, `virtuals:BIBEL:bonding` |
+| VEX Uniswap v2 pair, graduated | `0x817f16f5d8da83d1b089b082c0172af3923618da` | `:Address:Contract:Pool:Token:Launchpad`, ERC20 (the pair is the LP token) | `Launchpad`, `uniswap-v2`, `virtuals:VEX:graduated` |
+| XMOBILE agent token (AgentTokenV4) | `0x06c9d1b053e5bd08147c35008a516d53686c14cc` | `:Address:Contract:Token:Launchpad`, ERC20 | `AgentTokenV4`, `Launchpad`, `virtuals:XMOBILE:bonding` |
+| the mass creator wallet | `0x384d92776496bce2c6f08d5b8e015eae498e78b3` | `:Address:Account`, no mark | none |
+| the launch contract | `0x65050a9b7e5075a2ba5ced7b1b64ee66262c40dc` | `:Address:Contract`, no mark | none |
+
+Ask for every launchpad pool by the two marks, never by a text match over `labels`:
+
+```cypher
+USE topology MATCH (p:Pool:Launchpad) RETURN p.address AS address, labels(p) AS node_labels, p.labels AS labels LIMIT 25
+```
+
+The core skill's golden set (`tests/fixtures/graph-marks-golden.json`) pins these rows and the live test reads them on every release.
