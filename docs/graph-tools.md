@@ -328,6 +328,7 @@ links of a pair add up to it.
 | Property               | Meaning                                                                 |
 | ---------------------- | ----------------------------------------------------------------------- |
 | `asset`                | the token's contract in lowercase, or `native` for the chain's own coin |
+| `asset_key`            | bookkeeping: the server's own number for the token, never a name to query by; it differs per server and changes on a rebuild |
 | `token_standard`       | the standard of the token                                               |
 | `tx_count`             | transfers of that token between the pair                                |
 | `amount_raw_sum`       | exact total in base units, as text; not dollars                         |
@@ -369,6 +370,12 @@ The server refuses any other with `transfer_search_unbounded`. For several
 tokens, send one search per token, in one `graph_query_batch`. A read anchored
 on a full address needs neither bound. Tokens are not dollars, and a token is
 named by its full contract.
+
+An `asset` that names no token of the graph, or a symbol such as `USDC`, is
+refused with `anchor_missing` whose fix names the contract: the graph holds no
+token at that address. Check the contract, all 42 characters in lowercase, and
+send the same query again with the right one. The server turns the contract
+into its own `asset_key` itself; a query never needs the key.
 
 ## Role labels and flags
 

@@ -1,0 +1,44 @@
+schema_version: "1.0"
+name: token-unknown-contract
+expected_outcome: After an anchor_missing refusal whose fix names a token contract, the answer says the graph holds no token at that contract, names the contract in full, asks the user to check it, and never asks for an address or blames a family being behind.
+execution:
+  prompt: |
+    You are an AML analyst assistant using Chain Insights. The graph refused the query. Write the reply to the user from this refusal; load the chain-insights-cypher skill first and call no graph tool.
+    User asked: "Who are the biggest receivers of the token 0x5fc5360d0400a0fd4f2af552add042d716f1d169 since October 18? robinhood"
+    The query sent: USE topology MATCH (a:Address)-[t:TRANSFERRED]->(b:Address) WHERE t.asset = "0x5fc5360d0400a0fd4f2af552add042d716f1d169" AND t.last_seen_timestamp >= 1792368000000 RETURN b.address AS receiver, sum(t.amount_usd_sum) AS received_usd, count(*) AS links ORDER BY received_usd DESC LIMIT 10
+    error_detail: code anchor_missing, rule anchor, class refused, fix "The graph holds no token at 0x5fc5360d0400a0fd4f2af552add042d716f1d169. Name the token by its full contract, 0x and 40 hex characters, as the chain holds it. For the chain's own coin write native."
+  max_turns: 4
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: names-the-contract-in-full
+    target: last_message
+    pattern: '0x5fc5360d0400a0fd4f2af552add042d716f1d169'
+    match: contains
+  - type: regex
+    name: says-no-token-at-that-contract
+    target: last_message
+    flags: i
+    pattern: '(no token|not a token|holds no token|no such token|does not (hold|know|have) (a |that |this )?token)'
+    match: contains
+  - type: regex
+    name: never-asks-for-an-address
+    target: last_message
+    flags: i
+    pattern: '(give|send|share|provide|name|tell) me (an|one|the|a) (wallet )?address'
+    match: not_contains
+  - type: regex
+    name: never-blames-a-family-behind
+    target: last_message
+    flags: i
+    pattern: '(family|behind the head|blocks behind|catching up)'
+    match: not_contains
+  - type: regex
+    name: no-shortened-contract
+    target: last_message
+    pattern: '0x[0-9a-f]{2,8}(\.\.\.|…)'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

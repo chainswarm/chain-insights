@@ -404,6 +404,7 @@ RETURN c.network AS remote_network, c.address AS endpoint, x.events AS events LI
 `FLOWS_TO` is the pair's total over every token. `TRANSFERRED` splits that total by token: one link for each sender, receiver and token. `FLOWS_TO` stays the pair total, and the `TRANSFERRED` links of a pair add up to it. A link carries these properties:
 
 - `asset`: the token's contract, in lowercase and in full (42 characters), or `native` for the chain's own coin.
+- `asset_key`: bookkeeping, the number the server keeps beside `asset`. Never name a token by it and never copy one into a query: it differs from server to server and changes when a graph is rebuilt. Write `asset` with the full contract; the server turns it into the key itself.
 - `token_standard`: the standard of the token.
 - `tx_count`: the number of transfers of that token between the pair.
 - `amount_raw_sum`: the exact total in base units, as text. It is not dollars and not a number of whole tokens.
@@ -440,6 +441,8 @@ ORDER BY received_usd DESC LIMIT 10
 ```
 
 A `TRANSFERRED` search over the whole chain, with no address anchor, must name one `asset` literal and a lower bound `t.last_seen_timestamp >=` joined by `AND`. Without both, the server refuses it with `transfer_search_unbounded` before it runs. An `OR` of two assets is refused the same way: send one search per asset, in one `graph_query_batch` when there are several. Read `behind_transfers` on `Head` first, as for any whole-chain search. A read anchored on a full address needs neither bound.
+
+An `asset` that names no token of the graph, or a symbol such as `USDC`, is refused with `anchor_missing` whose fix names the contract: the graph holds no token at that address. That refusal is not a family behind and not a missing anchor: do not ask for an address. Check the contract, all 42 characters in lowercase, and send the same query again with the right one.
 
 How to answer from these rows:
 
