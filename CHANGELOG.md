@@ -3,6 +3,15 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.65.1] - 2026-10-21 — the shell shows the same twins as a host
+
+### Fixed
+- `cia mcp call graph_query` and `graph_query_batch` printed the server row as
+  it arrived: raw wei and raw milliseconds. The print step now adds the same
+  `<column>_eth` and `<column>_utc` twins the proxy writes for a host, in the
+  JSON and in the readable table, and a query that names `a.balance_eth` or a
+  `_utc` property is rewritten to the server's column before it is sent (#509).
+
 ## [0.65.0] - 2026-10-21 — a balance is told in ETH, never as a wei count
 
 ### Added
