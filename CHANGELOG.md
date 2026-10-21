@@ -3,6 +3,22 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.65.0] - 2026-10-21 — a balance is told in ETH, never as a wei count
+
+### Added
+- `src/mcp/balance-text.ts`: every `balance` column of a chain answer gets a
+  `balance_eth` twin, the exact ETH text of the wei string, beside it, the way a
+  timestamp gets its `_utc` twin. Claude Desktop printed `10003752747799400` to
+  a user on 2026-10-21; it now reads `0.0100037527477994` next to it. A query
+  that names `a.balance_eth` is rewritten to `a.balance`.
+- `plugin/evals/balance-in-eth`: the answer says about 0.0100 ETH and never the
+  wei.
+
+### Changed
+- `skills/chain-insights-cypher`: the one-address lookup names the unit (wei),
+  tells the reader to answer from the `balance_eth` twin and never to print
+  the wei; the balance-over-time recipe reads the twin instead of dividing.
+
 ## [0.64.0] - 2026-10-21 — every graph mark is proven, and the skill asks by mark
 
 ### Added

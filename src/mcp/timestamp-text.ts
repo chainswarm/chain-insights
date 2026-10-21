@@ -8,6 +8,8 @@
  * way to convert, so the proxy writes `<column>_utc` next to each one.
  */
 
+import { addBalanceText, stripEthProperties } from './balance-text.js'
+
 const TIMESTAMP_KEY = /(_timestamp|_time|_at|_seen|_active)$/
 const MIN_MS = 1_000_000_000_000 // 2001-09-09
 const MAX_MS = 4_000_000_000_000 // 2096-10-02
@@ -50,7 +52,7 @@ export function addTimestampText(row: Record<string, unknown>): Record<string, u
  * column that addTimestampText renders as text.
  */
 export function stripUtcProperties(query: string): string {
-  return query.replace(/\.([A-Za-z_][A-Za-z0-9_]*?)_utc\b/g, '.$1')
+  return stripEthProperties(query.replace(/\.([A-Za-z_][A-Za-z0-9_]*?)_utc\b/g, '.$1'))
 }
 
 /** graph_query and graph_query_batch arguments with stripUtcProperties applied to every query. */
@@ -69,12 +71,16 @@ export function withoutUtcProperties(toolName: string, args: Record<string, unkn
 
 function mapResults(holder: unknown): unknown {
   if (!isRecord(holder) || !Array.isArray(holder.results)) return holder
-  return { ...holder, results: holder.results.map((row) => (isRecord(row) ? addTimestampText(row) : row)) }
+  return {
+    ...holder,
+    results: holder.results.map((row) => (isRecord(row) ? addBalanceText(addTimestampText(row)) : row)),
+  }
 }
 
 /**
  * The structured content of graph_query (facts.query.results) or
- * graph_query_batch (facts.queries[].results) with the UTC twins added.
+ * graph_query_batch (facts.queries[].results) with the UTC twins and the
+ * ETH twins (balance-text.ts) added.
  * Anything else comes back as it was.
  */
 export function withTimestampText(structuredContent: unknown): unknown {

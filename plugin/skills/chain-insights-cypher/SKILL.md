@@ -575,7 +575,7 @@ USE chain
 MATCH (h:Head) RETURN h.block_height, h.age_seconds, h.warehouse_blocks_behind, h.graph_blocks_behind, h.behind_money, h.behind_dex, h.behind_interactions, h.behind_smart_accounts, h.behind_transfers, h.annotations_fresh
 ```
 
-An `Address` lookup always answers one row, because every address has a state. `a.balance` is decimal text. Read the kind from `a.is_contract`, `a.nonce` and `a.delegated_to`: `a.is_contract` is `true` for a contract and null for any other address, a `nonce` above 0 with `a.is_contract` null is an account, and `a.delegated_to` names the target of an EIP-7702 delegation, which is an account. `a.code_size` is the size of the code, and the code itself is never returned. `:Account` and `:Contract` are never a chain lookup label.
+An `Address` lookup always answers one row, because every address has a state. `a.balance` is the native coin, ETH, in wei as decimal text: `10003752747799400` is a wei count, never a readable number. The answer carries a `balance_eth` twin beside it, written by the proxy (`0.0100037527477994`): say the balance from the twin, in ETH, rounded to what the reader needs (about 0.0100 ETH), and never print the wei. `balance_eth` is no property: ask for `a.balance` and read the twin from the row. Only ETH is served, never a token balance. Read the kind from `a.is_contract`, `a.nonce` and `a.delegated_to`: `a.is_contract` is `true` for a contract and null for any other address, a `nonce` above 0 with `a.is_contract` null is an account, and `a.delegated_to` names the target of an EIP-7702 delegation, which is an account. `a.code_size` is the size of the code, and the code itself is never returned. `:Account` and `:Contract` are never a chain lookup label.
 
 `at_block` must be at least `chain_admission.at_block_min_depth` blocks below the tip. A nearer block is refused with `chain_block_out_of_range` and the rule `at_block_near_tip`: leave `at_block` out to read the newest block. The names `hash` and `height` are no key and no property of any label.
 
@@ -721,11 +721,12 @@ Each row is one member of `queries`:
 ]}
 ```
 
-Each day answers one row, such as `{"balance": "9674936629657651"}`, in
-wei. The view joins the days into one series.
+Each day answers one row, such as `{"balance": "9674936629657651",
+"balance_eth": "0.009674936629657651"}`: the wei and its ETH twin. The view
+joins the days into one series.
 
-Answer in ETH: divide the wei by 10^18. `9674936629657651` wei is about
-0.00967 ETH. Say each point is the ETH held at the end of that UTC day, and
+Answer in ETH from the `balance_eth` twin: `9674936629657651` wei is about
+0.00967 ETH. Never divide the wei by head and never print it. Say each point is the ETH held at the end of that UTC day, and
 today's point is now. A flat line at zero is an answer: the address held no
 ETH on those days. Say that only ETH is shown.
 
