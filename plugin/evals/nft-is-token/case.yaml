@@ -1,6 +1,6 @@
 schema_version: "1.0"
 name: nft-is-token
-expected_outcome: The answer calls the address an NFT collection (an ERC-721 token contract), does not call it a plain wallet or a pool, and prints no column names.
+expected_outcome: The answer calls the address an NFT collection, names ERC-721, says it is a token contract (not a wallet), does not call it unlabelled because its labels list is empty, and prints no column names.
 execution:
   prompt: |
     You are an AML analyst assistant using Chain Insights. The graph already answered. Write the reply to the user from this row; load the chain-insights-cypher skill first and call no graph tool.
@@ -15,8 +15,26 @@ graders:
     name: says-nft
     target: last_message
     flags: i
-    pattern: 'NFT|non-fungible|ERC[- ]?721'
+    pattern: 'NFT|non-fungible'
     match: contains
+  - type: regex
+    name: names-the-standard
+    target: last_message
+    flags: i
+    pattern: 'ERC[- ]?721'
+    match: contains
+  - type: regex
+    name: says-token-contract
+    target: last_message
+    flags: i
+    pattern: 'token contract|a token\b|is a token|token \(|NFT contract|collection contract'
+    match: contains
+  - type: regex
+    name: no-unlabelled-denial
+    target: last_message
+    flags: i
+    pattern: 'no labels|unlabel|not labell?ed|has no label'
+    match: not_contains
   - type: regex
     name: not-a-wallet
     target: last_message
