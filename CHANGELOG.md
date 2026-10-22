@@ -3,6 +3,25 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.66.1] - 2026-10-21 — a token is named by its contract, the server keeps the key
+
+### Changed
+- `skills/chain-insights-cypher`, `docs/graph-tools.md`: `TRANSFERRED` links
+  carry `asset_key`, the server's own number for the token, beside `asset`. It
+  is bookkeeping: a query keeps naming the token by its full contract in
+  `asset`, and the server turns the contract into the key itself. The key
+  differs from server to server and changes when a graph is rebuilt, so it is
+  never copied into a query.
+- The same two: an `asset` that names no token of the graph, or a symbol such
+  as `USDC`, is refused with `anchor_missing` whose fix names the contract.
+  That refusal is not a family behind and not a missing anchor: the answer
+  asks the user to check the contract, never for an address.
+
+### Added
+- `plugin/evals/token-unknown-contract`: after that refusal the answer names
+  the contract in full, says the graph holds no token at it, and asks for no
+  address.
+
 ## [0.66.0] - 2026-10-21 — the skill knows stock baskets
 
 ### Added
