@@ -388,16 +388,20 @@ Pool trace: who took liquidity out of the pools an address paid into.
 ```cypher
 USE topology
 MATCH (a:Address {address: "0x7a31dd32a880827477ab2bbeff47db188c896815"})-[:FLOWS_TO]->(p:Pool)-[r:REMOVED_LIQUIDITY]->(b:Address) WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND b.address <> a.address
-RETURN p.address AS pool, b.address AS receiver, r.usd AS removed_usd, r.receiver_provided AS receiver_provided LIMIT 25
+RETURN p.address AS pool, b.address AS receiver, sum(r.usd) AS removed_usd, max(r.receiver_added_usd) AS receiver_added_usd, max(r.receiver_provided) AS receiver_provided LIMIT 25
 ```
+
+`ADDED_LIQUIDITY` and `REMOVED_LIQUIDITY` have one link per party, pool and asset. A link carries `asset` (the token's contract in full, or `NATIVE` for the chain's own coin), `event_count`, `amount_raw_sum` (the exact total of that asset in base units, as text), `usd`, `unpriced_count`, `first_seen_height` and `last_seen_height`. `REMOVED_LIQUIDITY` adds `fees_raw_sum` (exact, that asset only), `receiver_added_usd` and `receiver_provided`. `receiver_added_usd` is the USD the receiver added to the same pool over every asset, so it repeats on each link of the pair: sum `usd` over the links, as above, and take `receiver_added_usd` once with `max()`, never `sum()`. A receiver's profit from a pool is that sum minus `receiver_added_usd`. There is no `totals_raw` map. `asset_key` is bookkeeping, as on `TRANSFERRED`.
 
 Bridges: the remote chains an address used. A `:Chain` is no `Address`: two users of one bridge are not connected through it.
 
 ```cypher
 USE topology
 MATCH (a:Address {address: "0x9a8f92a830a5cb89a3816e3d267cb7791c16b04d"})-[x:BRIDGED]->(c:Chain)
-RETURN c.network AS remote_network, c.address AS endpoint, x.events AS events LIMIT 25
+RETURN c.network AS remote_network, c.address AS endpoint, x.kind AS kind, x.asset AS asset, x.events AS events, x.amount_raw_sum AS amount_raw_sum LIMIT 25
 ```
+
+`BRIDGED` has one link per address, endpoint, direction, event kind and asset. A link carries `kind`, `asset` (the token's contract in full, `NATIVE` for the chain's own coin, or `UNKNOWN` when the bridge named no local contract), `events`, `amount_raw_sum` (the exact total of that kind and asset in base units, as text), `first_height`, `last_height` and `last_bridge_event_id`. There is no `kinds` list and no `totals_raw` map: an address that used two kinds or two assets with one endpoint has one row for each. Sum `events` over the rows for the address's crossings to that endpoint. `asset_key` is bookkeeping, as on `TRANSFERRED`.
 
 ### Tokens: one link per sender, receiver and token
 

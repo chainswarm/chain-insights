@@ -500,7 +500,7 @@
     ]
    },
    "scope": "topology",
-   "query": "USE topology MATCH (victim:Address {address: \"0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24\"})-[paid:FLOWS_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE NOT victim:Pool AND NOT victim:Protocol AND NOT victim:System AND NOT victim.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND receiver.address <> victim.address RETURN pool.address AS pool_address, receiver.address AS receiver_address, paid.amount_usd_sum AS paid_in_usd, removal.usd AS removed_usd, removal.receiver_added_usd AS receiver_added_usd, removal.usd - removal.receiver_added_usd AS receiver_profit_usd, removal.receiver_provided AS receiver_provided ORDER BY removed_usd DESC LIMIT 25"
+   "query": "USE topology MATCH (victim:Address {address: \"0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24\"})-[paid:FLOWS_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE NOT victim:Pool AND NOT victim:Protocol AND NOT victim:System AND NOT victim.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND receiver.address <> victim.address RETURN pool.address AS pool_address, receiver.address AS receiver_address, max(paid.amount_usd_sum) AS paid_in_usd, sum(removal.usd) AS removed_usd, max(removal.receiver_added_usd) AS receiver_added_usd, sum(removal.usd) - max(removal.receiver_added_usd) AS receiver_profit_usd, max(removal.receiver_provided) AS receiver_provided ORDER BY removed_usd DESC LIMIT 25"
   },
   {
    "builder": "documented-recipe",

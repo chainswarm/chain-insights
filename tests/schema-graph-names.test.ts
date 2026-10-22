@@ -93,8 +93,9 @@ describe.each([COMPAT])('%s', (file) => {
     expect(text).toMatch(/so does a pool with neither/)
   })
 
-  it('keys BRIDGED.totals_raw by event kind and asset, and gives LINKED a last_height', () => {
-    expect(text).toMatch(/totals_raw`[^.]{0,80}event kind and asset/)
+  it('gives BRIDGED one link per event kind and asset, and gives LINKED a last_height', () => {
+    expect(text).toMatch(/`BRIDGED` has one link per [^.]{0,80}event kind and asset/)
+    expect(text).not.toMatch(/totals_raw/)
     expect(text).toMatch(/`last_height`/)
   })
 })

@@ -50,7 +50,7 @@ The origin sits on the wallet's own `BRIDGED` link, not on the bridge node.
 ```cypher
 USE topology
 MATCH (a:Address {address: "<wallet>"})-[x:BRIDGED]-(c:Chain)
-RETURN c.network AS remote_network, c.address AS endpoint, x.events AS events, x.kinds AS kinds LIMIT 10
+RETURN c.network AS remote_network, c.address AS endpoint, x.kind AS kind, x.asset AS asset, x.events AS events LIMIT 10
 ```
 
 ### A5. Money in, out and kept
@@ -83,18 +83,18 @@ RETURN f.address AS factory, t.address AS contract, t.labels AS labels, r.tx_ori
 
 ### B1. Liquidity seeded and removed on a graduated pair
 
-No rows in the second read means nobody drained the pool.
+No rows in the second read means nobody drained the pool. Each read has one row per party and asset: a pair holds the agent token and VIRTUAL, so one provider or receiver shows two rows.
 
 ```cypher
 USE topology
 MATCH (a:Address)-[r:ADDED_LIQUIDITY]->(p:Address {address: "<uniswap pair>"})
-RETURN a.address AS provider, r.usd AS added_usd, r.event_count AS events LIMIT 10
+RETURN a.address AS provider, r.asset AS asset, r.amount_raw_sum AS amount_raw_sum, r.usd AS added_usd, r.event_count AS events LIMIT 10
 ```
 
 ```cypher
 USE topology
 MATCH (p:Address {address: "<uniswap pair>"})-[r:REMOVED_LIQUIDITY]->(b:Address)
-RETURN b.address AS receiver, r.usd AS removed_usd, r.event_count AS events, r.receiver_provided AS receiver_provided LIMIT 10
+RETURN b.address AS receiver, r.asset AS asset, r.amount_raw_sum AS amount_raw_sum, r.usd AS removed_usd, r.event_count AS events, r.receiver_provided AS receiver_provided LIMIT 10
 ```
 
 ### B2. Did a wallet dump or pump the agent token?

@@ -443,7 +443,7 @@ describe('shipped Chain Insights skills contract', () => {
       /-\[paid:FLOWS_TO\]->\(pool:Pool\)-\[removal:REMOVED_LIQUIDITY\]->\(receiver:Address\)/
     )
     expect(rugPull?.query).toContain(
-      'removal.usd - removal.receiver_added_usd AS receiver_profit_usd'
+      'sum(removal.usd) - max(removal.receiver_added_usd) AS receiver_profit_usd'
     )
     expect(rugPull?.query).toContain('WHERE NOT victim:Pool AND')
 

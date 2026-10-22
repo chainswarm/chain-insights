@@ -230,8 +230,13 @@ of truth.
   and it exists in the warehouse only. Every Uniswap v4 swap reads this way
   today, by design, so v4 swaps are hidden. The share of `swap_unsplit` rises
   with v4 use.
-- `REMOVED_LIQUIDITY` carries `receiver_added_usd` and `receiver_provided`.
-  A receiver's profit from a pool is `usd` minus `receiver_added_usd`.
+- `ADDED_LIQUIDITY` and `REMOVED_LIQUIDITY` have one link per party, pool and
+  asset, with `asset`, `amount_raw_sum` and `usd`; a removal adds
+  `fees_raw_sum`. `BRIDGED` has one link per address, endpoint, direction,
+  event kind and asset, with `kind`, `asset`, `events` and `amount_raw_sum`.
+- `REMOVED_LIQUIDITY` carries `receiver_added_usd` and `receiver_provided`,
+  the same on every asset link of a pair. A receiver's profit from a pool is
+  the sum of `usd` over its links minus `receiver_added_usd`, taken once.
 - `SWAP`, `LIQUIDITY_*` and `BRIDGE_CROSSING` rows follow the rule of
   `TRANSFER` rows: a facts read names an address pair with one day, or one
   `tx_id`.
@@ -295,7 +300,7 @@ Rug-pull check from a victim, under the rule:
 ```bash
 cia mcp call graph_query \
   network=robinhood \
-  'query=USE topology MATCH (victim:Address {address: "0x..."})-[paid:FLOWS_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE NOT victim:Pool AND NOT victim:Protocol AND NOT victim:System AND NOT victim.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND receiver.address <> victim.address RETURN pool.address AS pool_address, receiver.address AS receiver_address, paid.amount_usd_sum AS paid_in_usd, removal.usd AS removed_usd, removal.receiver_added_usd AS receiver_added_usd, removal.usd - removal.receiver_added_usd AS receiver_profit_usd, removal.receiver_provided AS receiver_provided ORDER BY removed_usd DESC LIMIT 25'
+  'query=USE topology MATCH (victim:Address {address: "0x..."})-[paid:FLOWS_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE NOT victim:Pool AND NOT victim:Protocol AND NOT victim:System AND NOT victim.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND receiver.address <> victim.address RETURN pool.address AS pool_address, receiver.address AS receiver_address, max(paid.amount_usd_sum) AS paid_in_usd, sum(removal.usd) AS removed_usd, max(removal.receiver_added_usd) AS receiver_added_usd, sum(removal.usd) - max(removal.receiver_added_usd) AS receiver_profit_usd, max(removal.receiver_provided) AS receiver_provided ORDER BY removed_usd DESC LIMIT 25'
 ```
 
 One transaction's swap routes, with their strength and the two sides:
