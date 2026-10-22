@@ -1,0 +1,38 @@
+schema_version: "1.0"
+name: liquidity-per-asset
+expected_outcome: The agent reads REMOVED_LIQUIDITY from the pool to its receivers, sums usd over a receiver's links because there is one link per asset, takes receiver_added_usd once with max() instead of summing it, and never reads a totals_raw map.
+execution:
+  prompt: |
+    A Uniswap v2 pool on Robinhood Chain,
+    0x817f16f5d8da83d1b089b082c0172af3923618da, holds two tokens. I want one
+    row per address that took liquidity out of it, with the USD it took out,
+    the USD it had put in itself, and its profit.
+
+    Using Chain Insights, give the exact query. Call no graph tool.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: reads-removed-liquidity
+    target: last_message
+    pattern: 'REMOVED_LIQUIDITY'
+    match: contains
+  - type: regex
+    name: sums-usd-over-asset-links
+    target: last_message
+    pattern: 'sum\(\s*\w+\.usd\s*\)'
+    match: contains
+  - type: regex
+    name: added-usd-taken-once
+    target: last_message
+    pattern: 'sum\(\s*\w+\.receiver_added_usd'
+    match: not_contains
+  - type: regex
+    name: no-totals-map
+    target: last_message
+    pattern: 'totals_raw'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

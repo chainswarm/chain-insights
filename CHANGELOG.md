@@ -3,6 +3,21 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.66.2] - 2026-10-22 — liquidity and bridge links, one per asset
+
+### Changed
+- `src/mcp/proxy.ts` schema text, `skills/chain-insights-cypher`, the docs:
+  `ADDED_LIQUIDITY` and `REMOVED_LIQUIDITY` have one link per party, pool and
+  asset, with `asset`, `amount_raw_sum` and, on a removal, `fees_raw_sum`.
+  `BRIDGED` has one link per address, endpoint, direction, event kind and
+  asset, with `kind`, `asset`, `events` and `amount_raw_sum`. `totals_raw`,
+  `fees_raw` and `kinds` are gone. `asset_key` is bookkeeping, as on
+  `TRANSFERRED`.
+- The rug-pull read sums `usd` over a receiver's asset links and takes
+  `receiver_added_usd` once, so a pool of two tokens is not counted twice.
+- `skills/chain-insights-virtuals` reference: the bridge origin and liquidity
+  reads return `kind` and `asset`, one row per asset.
+
 ## [0.66.1] - 2026-10-21 — a token is named by its contract, the server keeps the key
 
 ### Changed

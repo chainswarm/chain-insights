@@ -246,7 +246,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (victim:Address {address: \"0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24\"})-[paid:FLOWS_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE NOT victim:Pool AND NOT victim:Protocol AND NOT victim:System AND NOT victim.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND receiver.address <> victim.address RETURN pool.address AS pool_address, receiver.address AS receiver_address, paid.amount_usd_sum AS paid_in_usd, removal.usd AS removed_usd, removal.receiver_added_usd AS receiver_added_usd, removal.usd - removal.receiver_added_usd AS receiver_profit_usd, removal.receiver_provided AS receiver_provided ORDER BY removed_usd DESC LIMIT 25",
+   "query": "USE topology MATCH (victim:Address {address: \"0x1874a43d7c6d888f9eda3d22a3a49704e3cadb24\"})-[paid:FLOWS_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE NOT victim:Pool AND NOT victim:Protocol AND NOT victim:System AND NOT victim.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND receiver.address <> victim.address RETURN pool.address AS pool_address, receiver.address AS receiver_address, max(paid.amount_usd_sum) AS paid_in_usd, sum(removal.usd) AS removed_usd, max(removal.receiver_added_usd) AS receiver_added_usd, sum(removal.usd) - max(removal.receiver_added_usd) AS receiver_profit_usd, max(removal.receiver_provided) AS receiver_provided ORDER BY removed_usd DESC LIMIT 25",
    "source": "recipe:recipe_topology_pool_rug_pull_01"
   },
   {
@@ -542,7 +542,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (a:Address {address: \"0x7a31dd32a880827477ab2bbeff47db188c896815\"})-[:FLOWS_TO]->(p:Pool)-[r:REMOVED_LIQUIDITY]->(b:Address) WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND b.address <> a.address RETURN p.address AS pool, b.address AS receiver, r.usd AS removed_usd, r.receiver_provided AS receiver_provided LIMIT 25",
+   "query": "USE topology MATCH (a:Address {address: \"0x7a31dd32a880827477ab2bbeff47db188c896815\"})-[:FLOWS_TO]->(p:Pool)-[r:REMOVED_LIQUIDITY]->(b:Address) WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND b.address <> a.address RETURN p.address AS pool, b.address AS receiver, sum(r.usd) AS removed_usd, max(r.receiver_added_usd) AS receiver_added_usd, max(r.receiver_provided) AS receiver_provided LIMIT 25",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
@@ -550,7 +550,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (a:Address {address: \"0x9a8f92a830a5cb89a3816e3d267cb7791c16b04d\"})-[x:BRIDGED]->(c:Chain) RETURN c.network AS remote_network, c.address AS endpoint, x.events AS events LIMIT 25",
+   "query": "USE topology MATCH (a:Address {address: \"0x9a8f92a830a5cb89a3816e3d267cb7791c16b04d\"})-[x:BRIDGED]->(c:Chain) RETURN c.network AS remote_network, c.address AS endpoint, x.kind AS kind, x.asset AS asset, x.events AS events, x.amount_raw_sum AS amount_raw_sum LIMIT 25",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
@@ -630,7 +630,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (a:Address {address: \"<wallet>\"})-[x:BRIDGED]-(c:Chain) RETURN c.network AS remote_network, c.address AS endpoint, x.events AS events, x.kinds AS kinds LIMIT 10",
+   "query": "USE topology MATCH (a:Address {address: \"<wallet>\"})-[x:BRIDGED]-(c:Chain) RETURN c.network AS remote_network, c.address AS endpoint, x.kind AS kind, x.asset AS asset, x.events AS events LIMIT 10",
    "source": "skills/chain-insights-virtuals/reference.md"
   },
   {
@@ -654,7 +654,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (a:Address)-[r:ADDED_LIQUIDITY]->(p:Address {address: \"<uniswap pair>\"}) RETURN a.address AS provider, r.usd AS added_usd, r.event_count AS events LIMIT 10",
+   "query": "USE topology MATCH (a:Address)-[r:ADDED_LIQUIDITY]->(p:Address {address: \"<uniswap pair>\"}) RETURN a.address AS provider, r.asset AS asset, r.amount_raw_sum AS amount_raw_sum, r.usd AS added_usd, r.event_count AS events LIMIT 10",
    "source": "skills/chain-insights-virtuals/reference.md"
   },
   {
@@ -662,7 +662,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (p:Address {address: \"<uniswap pair>\"})-[r:REMOVED_LIQUIDITY]->(b:Address) RETURN b.address AS receiver, r.usd AS removed_usd, r.event_count AS events, r.receiver_provided AS receiver_provided LIMIT 10",
+   "query": "USE topology MATCH (p:Address {address: \"<uniswap pair>\"})-[r:REMOVED_LIQUIDITY]->(b:Address) RETURN b.address AS receiver, r.asset AS asset, r.amount_raw_sum AS amount_raw_sum, r.usd AS removed_usd, r.event_count AS events, r.receiver_provided AS receiver_provided LIMIT 10",
    "source": "skills/chain-insights-virtuals/reference.md"
   },
   {
@@ -766,7 +766,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (victim:Address {address: \"corpus-address-a\"})-[paid:FLOWS_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE NOT victim:Pool AND NOT victim:Protocol AND NOT victim:System AND NOT victim.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND receiver.address <> victim.address RETURN pool.address AS pool_address, receiver.address AS receiver_address, removal.usd AS removed_usd, removal.receiver_added_usd AS receiver_added_usd, removal.receiver_provided AS receiver_provided LIMIT 25",
+   "query": "USE topology MATCH (victim:Address {address: \"corpus-address-a\"})-[paid:FLOWS_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE NOT victim:Pool AND NOT victim:Protocol AND NOT victim:System AND NOT victim.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND receiver.address <> victim.address RETURN pool.address AS pool_address, receiver.address AS receiver_address, sum(removal.usd) AS removed_usd, max(removal.receiver_added_usd) AS receiver_added_usd, max(removal.receiver_provided) AS receiver_provided LIMIT 25",
    "source": "src/mcp/proxy.ts graph hints"
   },
   {

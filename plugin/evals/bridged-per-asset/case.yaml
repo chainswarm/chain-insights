@@ -1,0 +1,32 @@
+schema_version: "1.0"
+name: bridged-per-asset
+expected_outcome: The agent reads the address's BRIDGED links to Chain nodes and returns kind, asset and amount_raw_sum per link, because there is one link per event kind and asset, and never reads a kinds list or a totals_raw map.
+execution:
+  prompt: |
+    The wallet 0x9a8f92a830a5cb89a3816e3d267cb7791c16b04d on Robinhood Chain
+    used a bridge. Which remote chains did it bridge to, with which kind of
+    crossing, which token, and how much of each token in raw units?
+
+    Using Chain Insights, give the exact query. Call no graph tool.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: reads-bridged
+    target: last_message
+    pattern: 'BRIDGED\]'
+    match: contains
+  - type: regex
+    name: returns-asset-and-amount
+    target: last_message
+    pattern: '\w+\.asset\b[\s\S]*\w+\.amount_raw_sum|\w+\.amount_raw_sum[\s\S]*\w+\.asset\b'
+    match: contains
+  - type: regex
+    name: no-kinds-or-totals-map
+    target: last_message
+    pattern: '\.kinds\b|totals_raw'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
