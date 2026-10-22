@@ -401,7 +401,7 @@ MATCH (a:Address {address: "0x9a8f92a830a5cb89a3816e3d267cb7791c16b04d"})-[x:BRI
 RETURN c.network AS remote_network, c.address AS endpoint, x.kind AS kind, x.asset AS asset, x.events AS events, x.amount_raw_sum AS amount_raw_sum LIMIT 25
 ```
 
-`BRIDGED` has one link per address, endpoint, direction, event kind and asset. A link carries `kind`, `asset` (the token's contract in full, or `NATIVE` for the chain's own coin), `events`, `amount_raw_sum` (the exact total of that kind and asset in base units, as text), `first_height`, `last_height` and `last_bridge_event_id`. There is no `kinds` list and no `totals_raw` map: an address that used two kinds or two assets with one endpoint has one row for each. Sum `events` over the rows for the address's crossings to that endpoint. `asset_key` is bookkeeping, as on `TRANSFERRED`.
+`BRIDGED` has one link per address, endpoint, direction, event kind and asset. A link carries `kind`, `asset` (the token's contract in full, `NATIVE` for the chain's own coin, or `UNKNOWN` when the bridge named no local contract), `events`, `amount_raw_sum` (the exact total of that kind and asset in base units, as text), `first_height`, `last_height` and `last_bridge_event_id`. There is no `kinds` list and no `totals_raw` map: an address that used two kinds or two assets with one endpoint has one row for each. Sum `events` over the rows for the address's crossings to that endpoint. `asset_key` is bookkeeping, as on `TRANSFERRED`.
 
 ### Tokens: one link per sender, receiver and token
 

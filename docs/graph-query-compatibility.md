@@ -259,7 +259,8 @@ only.
 `declared_owner`, `owner_state` (`added` on every link served: a removed owner
 has no link) and `last_height`, the block height of the newest owner action.
 `BRIDGED` has one link per address, endpoint, direction, event kind and asset,
-with `kind`, `asset`, `events` and `amount_raw_sum`, so one sum has one unit.
+with `kind`, `asset` (a contract, `NATIVE` or `UNKNOWN`), `events` and
+`amount_raw_sum`, so one sum has one unit.
 `ADDED_LIQUIDITY` and `REMOVED_LIQUIDITY` have one link per party, pool and
 asset, with `asset` and `amount_raw_sum` (and `fees_raw_sum` on a removal).
 

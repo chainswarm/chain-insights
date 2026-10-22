@@ -11,8 +11,9 @@ All notable changes to Chain Insights are recorded here.
   asset, with `asset`, `amount_raw_sum` and, on a removal, `fees_raw_sum`.
   `BRIDGED` has one link per address, endpoint, direction, event kind and
   asset, with `kind`, `asset`, `events` and `amount_raw_sum`. `totals_raw`,
-  `fees_raw` and `kinds` are gone. `asset_key` is bookkeeping, as on
-  `TRANSFERRED`.
+  `fees_raw` and `kinds` are gone. A `BRIDGED` `asset` is a contract,
+  `NATIVE` or `UNKNOWN` (no local contract named). `asset_key` is
+  bookkeeping, as on `TRANSFERRED`.
 - The rug-pull read sums `usd` over a receiver's asset links and takes
   `receiver_added_usd` once, so a pool of two tokens is not counted twice.
 - `skills/chain-insights-virtuals` reference: the bridge origin and liquidity
