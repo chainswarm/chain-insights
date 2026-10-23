@@ -562,21 +562,22 @@
     },
     {
       "address": "0x06c1be6b45b15129cfd9570f0432457f4ddd398c",
-      "name": "an ERC1155 collection",
+      "name": "a SectorOne Liquidity Book pair: an ERC1155 (its bins are the tokens) that is also a pool, deployed by the SectorOne factory 0x3d8dc63ddc9b992cfde89f7aea6f18717e84687d",
       "marks": [
         "Address",
         "Contract",
         "Token",
-        "NFT"
+        "NFT",
+        "Pool",
+        "Protocol"
       ],
       "never": [
-        "Pool",
         "Mixer",
         "Launchpad"
       ],
       "token_standard": "ERC1155",
       "since_block": 83831661,
-      "source": "https://github.com/chainswarm/AP1000/blob/main/openspec/changes/archive/2026-10-21-cia-graph-marks-regression/proposal.md"
+      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/evidence/2026-10-23-dex-brand-research.md"
     },
     {
       "address": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
