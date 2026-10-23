@@ -1,0 +1,40 @@
+schema_version: "1.0"
+name: dex-curve
+expected_outcome: The agent resolves Curve from the memo with no address from the user, finds its pools by brand or anchored on each memo factory in one batch, and reads the sellers into the busiest pool.
+execution:
+  prompt: |
+    A user asks: "Which pools does Curve have on robinhood, and who trades on the busiest one?"
+
+    The Chain Insights graph_query tool is not reachable right now, so do
+    not try to call it. Write the first graph queries you would send, in
+    full, and one line each on what their rows tell you.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: brand-pool-or-factory-named
+    target: last_message
+    pattern: '0x8271e06e5887fe5ba05234f5315c19f3ec90e8ad|brand: "curve"'
+    match: contains
+  - type: llm
+    name: pools-by-brand-or-factory
+    criteria: >
+      The answer finds the pools of Curve by the brand the graph serves or
+      anchored on the factory addresses the memo lists, never by a whole-chain
+      search for an adapter mark, and asks the user for no address.
+    weight: 1
+  - type: regex
+    name: full-addresses
+    target: last_message
+    pattern: '0x[0-9a-fA-F]{2,10}(…|\.\.\.)'
+    match: not_contains
+  - type: regex
+    name: no-address-asked
+    target: last_message
+    pattern: '(give|send|share|provide|paste|tell) me (the |a |an |its )?(full )?((pool|factory|router|contract|exchange) )?address|what is the (pool|factory|router|contract) address|do you have (the|an?) ((pool|factory|router) )?address'
+    flags: i
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

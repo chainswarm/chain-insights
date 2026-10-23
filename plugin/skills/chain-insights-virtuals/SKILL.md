@@ -57,8 +57,18 @@ differ: find them first, never reuse these.
 | VIRTUAL token | `0xc6911796042b15d7fa4f6cde69e245ddcd3d9c31` |
 | Launch contract | `0xd4ccbfa37e2f35611b3042e4096ad7a3459bd007` |
 | Token factory | `0x43e4c17b15365596caae8e7d00e42bc8e988c2d4` |
-| Starting-pool factory | `0xfc2e4da3edb2e18100473339c763705d263d20a9` |
+
+The starting-pool factory and the Uniswap v2 pair factory come from the
+exchange memo, the same rows `chain-insights-dex` lists under Virtuals:
+
+<!-- brands:start -->
+The factories of the brand registry, version 0, row `virtuals`:
+
+| Factory | Address |
+|---|---|
 | Uniswap v2 pair factory | `0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f` |
+| Starting-pool factory | `0xfc2e4da3edb2e18100473339c763705d263d20a9` |
+<!-- brands:end -->
 
 **Hubs.** These carry millions of transactions. Keep them out of buyer,
 funder and shared-wallet lists **by address**: the graph does not mark

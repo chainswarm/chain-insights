@@ -32,6 +32,14 @@ cloud cannot start it.
   robinhood, loaded only when a question names Virtuals: who created an
   agent, who is behind a creator wallet, whether an agent was dumped, and
   whether its buyers form a cartel.
+- **`chain-insights-dex`**: exchanges by name, loaded when a question names
+  Aero, Uniswap, Balancer, PancakeSwap, Trader Joe, Curve, Metric, Penguin
+  or another exchange with no address: the memo of each brand's factories
+  and router, the pools of a brand, the plain trail. It loads one of three
+  trail skills: **`chain-insights-dex-gauge`** (Aero, up., Raphael, Topaz:
+  the router is not the buyer), **`chain-insights-dex-vault`** (Uniswap v4,
+  Balancer, PancakeSwap Infinity: the pool manager is not the buyer) and
+  **`chain-insights-dex-launchpad`** (Penguin and bonding curves).
 
 ## Use it
 

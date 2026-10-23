@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Chain Insights Exchanges: pool manager trail'
+  short_description: 'The real buyer past the Uniswap v4, Balancer or PancakeSwap pool manager'
+  default_prompt: 'Load chain-insights-cypher and chain-insights-dex first. When a swap names the pool manager, name it as the manager and read the buyer from the recipient of the facts SWAP row of the seller and the manager on that day. Never take a topology hop out of the manager.'
