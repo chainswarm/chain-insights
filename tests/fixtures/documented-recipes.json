@@ -517,7 +517,7 @@
     },
     {
       "id": "recipe_facts_dex_swaps_seller_router_day_01",
-      "query": "USE facts MATCH (s:Address {address: \"0x4b9364c8553c519a419b259f022865071fd7bfdf\"})-[x:SWAP]->(r:Address {address: \"0x72e46c9edf828002fdbfdd0952419790576c0f18\"}) WHERE x.block_date = \"2026-10-22\" RETURN s.address AS from_address, r.address AS to_address, x.tx_id AS tx_id, x.sold_asset AS sold_asset, x.bought_asset AS bought_asset, x.amount_usd AS amount_usd LIMIT 25",
+      "query": "USE facts MATCH (s:Address {address: \"0x4b9364c8553c519a419b259f022865071fd7bfdf\"})-[x:SWAP]->(r:Address {address: \"0x72e46c9edf828002fdbfdd0952419790576c0f18\"}) WHERE x.block_date = \"2026-10-22\" RETURN s.address AS from_address, r.address AS to_address, x.tx_id AS tx_id, x.sold_asset AS sold_asset, x.bought_asset AS bought_asset, x.sold_usd AS sold_usd, x.bought_usd AS bought_usd LIMIT 25",
       "layer": "facts",
       "expect_rows": false,
       "description": "The swaps of a seller and the exchange router on one day (skill chain-insights-dex-gauge, reference G4): a pair-and-day facts read that gives each swap's tx_id and its sold and bought assets, the key to the router's own transfer of that transaction. Rows depend on the day; the shape is what the lane admits.",

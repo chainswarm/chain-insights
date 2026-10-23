@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { validateMcpEndpoint } from '../src/config/mcp-endpoint.js'
 import { pairAnchorQuery } from '../src/investigation/public-tools.js'
 import { fetchNetworkCapabilities, type NetworkCapability } from '../src/mcp/capabilities.js'
+import { withBusyMemberRetry } from '../src/mcp/batch-busy-retry.js'
 import { applyMcpAuthHeaders } from '../src/mcp/client.js'
 import { callGraphQueryBatch, type ToolCaller } from '../src/mcp/graph-client.js'
 import { PACKAGE_VERSION } from '../src/version.js'
@@ -127,8 +128,18 @@ describe.skipIf(!endpoint)('documented recipes against a live Chain Insights Gra
     client = new Client({ name: 'chain-insights-live-recipes', version: PACKAGE_VERSION })
     await client.connect(new StreamableHTTPClientTransport(new URL(url), { fetch: authFetch }))
     caller = {
+      // A batch of chain reads can trip the per-second node-call share
+      // (chain_busy). The proxy resends those members after a short wait;
+      // the test does the same, so a busy second is never a failed recipe.
       callTool: (input) =>
-        client.callTool(input, undefined, { timeout: 120_000, maxTotalTimeout: 120_000 }),
+        input.name === 'graph_query_batch'
+          ? withBusyMemberRetry(input.arguments ?? {}, (args) =>
+              client.callTool({ name: input.name, arguments: args }, undefined, {
+                timeout: 120_000,
+                maxTotalTimeout: 120_000,
+              })
+            )
+          : client.callTool(input, undefined, { timeout: 120_000, maxTotalTimeout: 120_000 }),
     }
     for (const batch of chunk(recipes, BATCH_SIZE)) {
       const batchAnswers = await runBatch(

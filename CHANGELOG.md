@@ -3,6 +3,20 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.68.1] - 2026-10-23 — the exchange recipe reads the SWAP row's own USD columns
+
+### Fixed
+- `tests/fixtures/documented-recipes.json`, `tests/fixtures/graph-query-corpus.json`:
+  `recipe_facts_dex_swaps_seller_router_day_01` asked the facts `SWAP` row
+  for `amount_usd`, a column it does not have; the lane refused it with
+  "property amount_usd is not mapped on relationship SWAP". The recipe
+  reads `sold_usd` and `bought_usd`, the row's own columns, and runs on
+  both lanes (0.67.3 shipped it unrun).
+- `tests/graph-recipes-live.integration.test.ts`: a batch of chain reads
+  tripped the per-second node-call share (`chain_busy`) and failed the
+  run; the test now resends busy members after a short wait, as the proxy
+  does. 15 of 15 live cases pass on lane A and lane B.
+
 ## [0.68.0] - 2026-10-23 — the spent free tier is named first
 
 ### Changed
