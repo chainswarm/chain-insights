@@ -76,19 +76,27 @@ The user names an exchange and no address. Every address the question needs
 is in the memo or in the graph. **Never ask the user for a pool, factory or
 router address.**
 
-1. **The memo.** Match the name against the key and the "Also written"
-   column, ignoring case, spaces and a trailing dot. Take a typo or a short
-   form that is one or two letters away from one entry ("areo",
-   "Aerodome", "uni v4", "pancake"), and say which you took in one line:
-   "I took Aero for areo." Then go on; ask nothing.
-2. **The graph's brand list**, when the memo has no match, or when the memo's
-   read gives zero rows. Read the brands the graph serves (reference R2) and
-   match the name against that list the same way. Say which brand you took.
-   When the memo's factory gave zero pools and the graph's brand gave pools,
-   answer from the graph and say the memo was behind.
-3. **Not covered.** When neither holds the name, say so in one line and list
-   the covered brands by name: "Kyber is not covered yet. Covered: Aero, up.,
-   Uniswap v4, …". Send no whole-chain search for it.
+1. **The memo.** Compare the name with the key and the "Also written"
+   column after dropping case, spaces, dots and hyphens: "alan dale" is
+   Alandale, "up." is up, "uni v4" is Uniswap v4. Take a typo that is one or
+   two letters away from one entry ("areo", "Aerodome", "pancakswap"), and
+   say which you took in one line: "I took Aero for areo." Then go on; ask
+   nothing.
+2. **The graph's brand list**, only when the memo has no match or the memo's
+   factories gave zero pools, and only when the lane can search: read
+   `Head` first (`USE chain MATCH (h:Head) RETURN h.behind_dex LIMIT 1`).
+   When `behind_dex` is at most 100000, read the brands the graph serves
+   (reference R2) and match the name the same way; say which brand you took.
+   When it is larger, or the read comes back `family_behind`,
+   `anchor_missing` or `query_timeout`, the lane cannot search by brand now:
+   say so in one line and go to 3. Never send that read twice.
+3. **Not covered.** When the memo and the brand list both lack the name, say
+   so in one line and list the covered brands by name: "Kyber is not covered
+   yet. Covered: Aero, up., Uniswap v4, …". **Send no query for the name.**
+   The graph has no name search: a `p.name CONTAINS`, a `labels CONTAINS`,
+   a scan of `:Launchpad`, `:Protocol` or `:Pool` by a word, and a count of
+   `SWAPPED` families all walk the whole chain and are stopped at 10 s or
+   refused. Twenty such reads cost the user four minutes and answer nothing.
 
 Rules for the match:
 
@@ -105,15 +113,20 @@ Rules for the match:
 
 ## Find the pools of a brand
 
-Send one `graph_query_batch`, in this order of trust:
+Send one `graph_query_batch`, in this order:
 
-1. **By brand** (reference R1): the `:Pool` nodes that carry the brand,
-   ranked by lifetime volume. A lane that serves `brand` answers this in
-   under a second.
-2. **By memo factory** (reference R3), when the brand read gives zero rows:
-   one batch member per factory of the row, each anchored on its factory.
-   Merge the members into one ranking by volume. A brand with three
-   factories is three members of one batch, never three turns.
+1. **By memo factory** (reference R3): one batch member per factory of the
+   row, each anchored on its factory. Anchored reads are always admitted and
+   answer in under 100 ms. Merge the members into one ranking by volume. A
+   brand with three factories is three members of one batch, never three
+   turns.
+2. **By brand** (reference R1), only when the memo has no row for the name
+   or its factories gave zero pools, and only when `Head` says
+   `behind_dex` is at most 100000: the `:Pool` nodes that carry the brand,
+   ranked by lifetime volume. When the memo's factory gave zero pools and
+   the brand gave pools, answer from the graph and say the memo was behind.
+   A `family_behind`, `anchor_missing` or `query_timeout` ends this read:
+   say the lane cannot search by brand now, and never send it again.
 3. **By manager** for a vault row: a pool manager deploys nothing. Load
    `chain-insights-dex-vault`, which reads the pools from the swaps the
    manager settles.
@@ -159,4 +172,7 @@ pool and the pool pays the buyer:
 - A pool's volume and a link's totals are lifetime totals. The money of one
   day is a facts read of a pair and that day.
 - Zero rows on the memo path is not "no pools": go to the graph's brand list
-  before you say anything is missing.
+  when the lane can search, before you say anything is missing.
+- A refusal is an answer: `family_behind`, `anchor_missing` and
+  `query_timeout` say the lane cannot search the whole chain now. Say that in
+  one line and go on with the anchored reads. Never rephrase the same search.

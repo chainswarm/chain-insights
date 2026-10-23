@@ -3,6 +3,22 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.67.2] - 2026-10-23 — the memo first, no name search
+
+### Changed
+- `skills/chain-insights-dex`: the pools of a brand are read by its memo
+  factories first (anchored, always admitted), and by the brand the graph
+  serves only when the memo lacks the name or gave zero pools and `Head`
+  says the exchange family is within 100,000 blocks. A refusal ends that
+  read. An uncovered name gets no query at all: the graph has no name search,
+  and the name scans the first 20 lane B rounds sent (`p.name CONTAINS`,
+  `labels CONTAINS`, `:Launchpad` and `:Protocol` scans, `SWAPPED` family
+  counts) were stopped at 10 s or refused, 468 times in 20 conversations.
+  The name match drops spaces, dots and hyphens ("alan dale" is Alandale).
+- `plugin/evals/dex-*`: the never-a-buyer grader flags only the literal claim
+  ("the router is the buyer"); "the buyer is whoever the router pays next"
+  was a false flag one run in three.
+
 ## [0.67.1] - 2026-10-23 — the brands the research names
 
 ### Changed

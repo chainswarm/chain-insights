@@ -38,7 +38,7 @@ graders:
   - type: regex
     name: contract-never-buyer
     target: last_message
-    pattern: '(router|pool manager|manager|vault) (is|was) the buyer|buyer (is|was) the (router|pool manager|manager|vault)'
+    pattern: '\b(router|pool manager|the manager|vault)\b[^.\n]{0,20}\b(is|was) the buyer\b|\bthe buyer (is|was) the (router|pool manager|manager|vault)\b(?!''s| pays| passes| forwards)'
     flags: i
     match: not_contains
   - type: regex
