@@ -3,6 +3,17 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.67.4] - 2026-10-23 — a golden row corrected
+
+### Fixed
+- `tests/fixtures/graph-marks-golden.json`: the row
+  `0x06c1be6b45b15129cfd9570f0432457f4ddd398c`, named "an ERC1155
+  collection" and forbidding `:Pool`, is a SectorOne Liquidity Book pair
+  deployed by the SectorOne factory
+  `0x3d8dc63ddc9b992cfde89f7aea6f18717e84687d`: an ERC1155 whose bins are
+  the tokens, and a pool. The row now expects Pool and Protocol. Both lanes
+  were right; the row was wrong (AP1000 change dex-protocol-skills).
+
 ## [0.67.3] - 2026-10-23 — the exchange recipes
 
 ### Added
