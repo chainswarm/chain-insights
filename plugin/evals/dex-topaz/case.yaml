@@ -16,7 +16,7 @@ graders:
   - type: regex
     name: brand-pool-or-factory-named
     target: last_message
-    pattern: '0xaa5865dc3a60b25d305226d66fd573021f0d8ffb|brand: "topaz"'
+    pattern: '0xaa5865dc3a60b25d305226d66fd573021f0d8ffb|brand[^\n]{0,8}topaz'
     match: contains
   - type: regex
     name: names-router

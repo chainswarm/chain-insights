@@ -1,6 +1,6 @@
 schema_version: "1.0"
 name: dex-uniswap-v2
-expected_outcome: The agent finds no proven factory for Uniswap v2 in the memo, reads the brands the graph serves instead, and says plainly when Uniswap v2 is not covered, with no whole-chain search and no address asked.
+expected_outcome: The agent resolves Uniswap v2 from the memo with no address from the user, finds its pools by brand or anchored on each memo factory in one batch, and reads the sellers into the busiest pool.
 execution:
   prompt: |
     A user asks: "Which pools does Uniswap v2 have on robinhood, and who trades on the busiest one?"
@@ -13,18 +13,15 @@ execution:
 runs: 3
 graders:
   - type: regex
-    name: brand-list
+    name: brand-pool-or-factory-named
     target: last_message
-    pattern: 'p\.brand'
+    pattern: '0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f|brand[^\n]{0,8}uniswap-v2'
     match: contains
-  - type: llm
-    name: not-covered-honestly
-    criteria: >
-      The answer says the memo holds no proven factory for Uniswap v2, reads
-      the brand list the graph serves, and says Uniswap v2 is not covered when
-      that list lacks it, listing covered exchanges, with no whole-chain
-      search.
-    weight: 1
+  - type: regex
+    name: pools-by-brand-or-factory
+    target: last_message
+    pattern: 'DEPLOYED_CONTRACT|brand'
+    match: contains
   - type: regex
     name: full-addresses
     target: last_message

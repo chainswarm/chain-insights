@@ -16,7 +16,7 @@ graders:
   - type: regex
     name: brand-pool-or-factory-named
     target: last_message
-    pattern: '0x28082618ba2073e602230188e4f4c46e9b2169eb|brand: "balancer-v3"'
+    pattern: '0x28082618ba2073e602230188e4f4c46e9b2169eb|brand[^\n]{0,8}balancer-v3'
     match: contains
   - type: regex
     name: names-manager

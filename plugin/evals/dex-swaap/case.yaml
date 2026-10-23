@@ -16,7 +16,7 @@ graders:
   - type: regex
     name: brand-pool-or-factory-named
     target: last_message
-    pattern: '0xd315a9c38ec871068fec378e4ce78af528c76293|brand: "swaap"'
+    pattern: '0xd315a9c38ec871068fec378e4ce78af528c76293|brand[^\n]{0,8}swaap'
     match: contains
   - type: regex
     name: names-manager

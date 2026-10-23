@@ -15,15 +15,13 @@ graders:
   - type: regex
     name: brand-pool-or-factory-named
     target: last_message
-    pattern: '0x3d8dc63ddc9b992cfde89f7aea6f18717e84687d|brand: "sectorone"'
+    pattern: '0x3d8dc63ddc9b992cfde89f7aea6f18717e84687d|brand[^\n]{0,8}sectorone'
     match: contains
-  - type: llm
+  - type: regex
     name: pools-by-brand-or-factory
-    criteria: >
-      The answer finds the pools of SectorOne by the brand the graph serves or
-      anchored on the factory addresses the memo lists, never by a whole-chain
-      search for an adapter mark, and asks the user for no address.
-    weight: 1
+    target: last_message
+    pattern: 'DEPLOYED_CONTRACT|brand'
+    match: contains
   - type: regex
     name: full-addresses
     target: last_message

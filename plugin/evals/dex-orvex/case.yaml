@@ -16,7 +16,7 @@ graders:
   - type: regex
     name: brand-pool-or-factory-named
     target: last_message
-    pattern: '0xd01c774d4a66408326bc65728ac5ae5aaf004032|brand: "orvex"'
+    pattern: '0xd01c774d4a66408326bc65728ac5ae5aaf004032|brand[^\n]{0,8}orvex'
     match: contains
   - type: regex
     name: names-manager

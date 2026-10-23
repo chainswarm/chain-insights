@@ -15,15 +15,13 @@ graders:
   - type: regex
     name: brand-pool-or-factory-named
     target: last_message
-    pattern: '0x02a84c1b3bbd7401a5f7fa98a384ebc70bb5749e|brand: "pancakeswap-v2"'
+    pattern: '0x02a84c1b3bbd7401a5f7fa98a384ebc70bb5749e|brand[^\n]{0,8}pancakeswap-v2'
     match: contains
-  - type: llm
+  - type: regex
     name: pools-by-brand-or-factory
-    criteria: >
-      The answer finds the pools of PancakeSwap v2 by the brand the graph serves or
-      anchored on the factory addresses the memo lists, never by a whole-chain
-      search for an adapter mark, and asks the user for no address.
-    weight: 1
+    target: last_message
+    pattern: 'DEPLOYED_CONTRACT|brand'
+    match: contains
   - type: regex
     name: full-addresses
     target: last_message

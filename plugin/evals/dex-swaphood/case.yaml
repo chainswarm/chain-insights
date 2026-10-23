@@ -16,7 +16,7 @@ graders:
   - type: regex
     name: brand-pool-or-factory-named
     target: last_message
-    pattern: '0xe7206ecac3a51afe7e6179182ad4130a26068dd1|brand: "swaphood"'
+    pattern: '0xe7206ecac3a51afe7e6179182ad4130a26068dd1|brand[^\n]{0,8}swaphood'
     match: contains
   - type: regex
     name: names-router

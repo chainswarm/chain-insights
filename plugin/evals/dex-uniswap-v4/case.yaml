@@ -16,7 +16,7 @@ graders:
   - type: regex
     name: brand-pool-or-factory-named
     target: last_message
-    pattern: '0x8366a39cc670b4001a1121b8f6a443a643e40951|brand: "uniswap-v4"'
+    pattern: '0x8366a39cc670b4001a1121b8f6a443a643e40951|brand[^\n]{0,8}uniswap-v4'
     match: contains
   - type: regex
     name: names-manager

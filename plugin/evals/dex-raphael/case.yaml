@@ -16,7 +16,7 @@ graders:
   - type: regex
     name: brand-pool-or-factory-named
     target: last_message
-    pattern: '0x5481864ddd46a2d798df0925c23b7846e776e5e3|0x1a6745f84099fa7e84d1f3b34c23482865194bd1|brand: "raphael"'
+    pattern: '0x5481864ddd46a2d798df0925c23b7846e776e5e3|0x1a6745f84099fa7e84d1f3b34c23482865194bd1|brand[^\n]{0,8}raphael'
     match: contains
   - type: regex
     name: names-router

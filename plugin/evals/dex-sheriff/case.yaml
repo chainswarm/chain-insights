@@ -16,7 +16,7 @@ graders:
   - type: regex
     name: brand-pool-or-factory-named
     target: last_message
-    pattern: '0x9ac30d72168a4498ae5c80226f4d3c86278e8f80|brand: "sheriff"'
+    pattern: '0x9ac30d72168a4498ae5c80226f4d3c86278e8f80|brand[^\n]{0,8}sheriff'
     match: contains
   - type: regex
     name: names-router

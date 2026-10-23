@@ -16,7 +16,7 @@ graders:
   - type: regex
     name: brand-pool-or-factory-named
     target: last_message
-    pattern: '0x45362763166cfed6174d312fa1449ea1fc37988a|brand: "kittenswap"'
+    pattern: '0x45362763166cfed6174d312fa1449ea1fc37988a|brand[^\n]{0,8}kittenswap'
     match: contains
   - type: regex
     name: names-router

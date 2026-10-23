@@ -16,7 +16,7 @@ graders:
   - type: regex
     name: brand-pool-or-factory-named
     target: last_message
-    pattern: '0xd7cb0e0692f2d55a17ba81c1fe5501d66774fc4a|brand: "morpheus"'
+    pattern: '0xd7cb0e0692f2d55a17ba81c1fe5501d66774fc4a|brand[^\n]{0,8}morpheus'
     match: contains
   - type: regex
     name: names-router

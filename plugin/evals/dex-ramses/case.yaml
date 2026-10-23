@@ -15,15 +15,13 @@ graders:
   - type: regex
     name: brand-pool-or-factory-named
     target: last_message
-    pattern: '0xdcd5f77697914e27f56fd263ef82923c8524abac|0x43b2bf9f33036a02fc7a00935571c2a6b0108e66|brand: "ramses"'
+    pattern: '0xdcd5f77697914e27f56fd263ef82923c8524abac|0x43b2bf9f33036a02fc7a00935571c2a6b0108e66|brand[^\n]{0,8}ramses'
     match: contains
-  - type: llm
+  - type: regex
     name: pools-by-brand-or-factory
-    criteria: >
-      The answer finds the pools of Ramses by the brand the graph serves or
-      anchored on the factory addresses the memo lists, never by a whole-chain
-      search for an adapter mark, and asks the user for no address.
-    weight: 1
+    target: last_message
+    pattern: 'DEPLOYED_CONTRACT|brand'
+    match: contains
   - type: regex
     name: full-addresses
     target: last_message

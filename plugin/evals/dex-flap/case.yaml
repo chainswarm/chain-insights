@@ -16,7 +16,7 @@ graders:
   - type: regex
     name: brand-pool-or-factory-named
     target: last_message
-    pattern: '0x0d1ebb179cdbca88d74c923c4255cb2b17474afd|brand: "flap"'
+    pattern: '0x0d1ebb179cdbca88d74c923c4255cb2b17474afd|brand[^\n]{0,8}flap'
     match: contains
   - type: regex
     name: creator-is-tx-origin
