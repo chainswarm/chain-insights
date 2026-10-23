@@ -3,6 +3,21 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.68.0] - 2026-10-23 — the spent free tier is named first
+
+### Changed
+- A payment failure on `graph_query` or `graph_query_batch` now opens with
+  the free tier when it is the reason: the proxy reads `usage_status` once
+  after a 402 and, when the caller's free units of the day are spent, the
+  answer starts "The free tier for today is used up: this network address
+  spent 5,000 of 5,000 free units, and the quota resets at 2026-10-24 00:00
+  UTC", then the paid steps. Before, the same failure read as "fund the
+  wallet", and a new user took the service as paid-only to try. The free
+  tier and its reset time were only reachable through `meta_usage_status`.
+- `chain-insights-cypher` rule 11: on a payment answer the agent checks
+  `meta_usage_status` first and tells the user the free tier is used up and
+  when it resets, before any wallet talk.
+
 ## [0.67.4] - 2026-10-23 — a golden row corrected
 
 ### Fixed

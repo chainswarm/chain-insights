@@ -91,6 +91,15 @@ The one case without the tool is at the end, Shell without the tool.
    sandboxed shell (Codex, Claude Code) has no network, the call fails with
    a DNS error, and the user is told the service is unreachable when it is
    not.
+11. When a graph call answers that payment is required, the free tier of the
+   day is the first thing to check, never the wallet. The hosted graph gives
+   every caller 5,000 free units a day and answers 402 only after they are
+   spent. Call `meta_usage_status` once (send `{}`): when `remaining_units`
+   is 0, tell the user "the free tier for today is used up, N of N units,
+   it resets at <reset_at as a UTC date and time>", and name paying per
+   call as the option until then. Lead with the wallet only when the free
+   units are not spent. A new user who reads "fund the wallet" first
+   believes the service must be paid for to try, and it must not.
 
 ## Pick the layer first
 

@@ -20,7 +20,7 @@ import {
   isAppOnlyTool,
 } from './tool-visibility.js'
 import { PaymentRequiredError } from './client.js'
-import { primitiveBackendUsageStatus } from './usage-status.js'
+import { freeTierSpentText, primitiveBackendUsageStatus } from './usage-status.js'
 import { unavailableSubscriptionStatus } from './subscription-status.js'
 import { mirrorGraphNetworkCapabilities } from './capabilities.js'
 import { ROUTING_NOT_SERVED, routingHead, routingHintLines } from './layer-routing.js'
@@ -1059,6 +1059,27 @@ export async function createProxy(): Promise<void> {
     })
   }
   const remoteToolNames = new Set((tools ?? []).map((tool) => tool.name))
+  // A payment failure right after the free tier of the day is spent reads as
+  // "pay to try" unless the quota is named first. One usage_status read, best
+  // effort, puts the free tier and its reset time ahead of the wallet steps.
+  async function paymentFailureText(toolName: string, err: unknown): Promise<string> {
+    const text = remoteCallFailureText(toolName, err)
+    const isPayment =
+      err instanceof PaymentRequiredError || /\b402\b|payment/i.test((err as Error).message ?? '')
+    if (!isPayment || !remoteConnected || !remoteToolNames.has('usage_status')) return text
+    try {
+      const result = (await remoteClient.callTool({
+        name: 'usage_status',
+        arguments: {},
+      })) as RemoteToolResult
+      const facts = isRecord(result.structuredContent) ? result.structuredContent['facts'] : undefined
+      const usage = isRecord(facts) ? facts['usage'] : undefined
+      const spent = freeTierSpentText(usage)
+      return spent ? `${spent} ${text}` : text
+    } catch {
+      return text
+    }
+  }
 
   // Build local stdio proxy server
   const server = new McpServer(
@@ -1564,7 +1585,7 @@ export async function createProxy(): Promise<void> {
         const limited = rateLimitedResult(tool.name, err)
         if (limited) return limited
         return {
-          content: [{ type: 'text' as const, text: remoteCallFailureText(tool.name, err) }],
+          content: [{ type: 'text' as const, text: await paymentFailureText(tool.name, err) }],
           isError: true,
         }
       }

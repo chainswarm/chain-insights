@@ -151,6 +151,7 @@ vi.mock('@modelcontextprotocol/sdk/client/index.js', () => ({
           { name: 'graph_query', description: 'Federated graph query' },
           { name: 'graph_query_batch', description: 'Federated graph query batch' },
           { name: 'topup', description: 'Unsupported top-up tool from stale remote schema' },
+          { name: 'usage_status', description: 'Free quota of the caller' },
         ],
       }),
       listPrompts: vi.fn().mockResolvedValue({
@@ -1088,6 +1089,61 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].type).toBe('text')
     expect(result.content[0].text).toContain('Payment required for trace_address')
     expect(result.content[0].text).toContain('cia wallet ready')
+  })
+
+  it('names the spent free tier before the wallet steps when the remote serves usage_status', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce(null)
+
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    const { PaymentRequiredError } = await import('../src/mcp/client.js')
+
+    await createProxy()
+
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    clientInstance.callTool
+      .mockRejectedValueOnce(
+        new PaymentRequiredError('Payment required — this tool costs USDC on Base via x402 micropayments.')
+      )
+      .mockResolvedValueOnce({
+        content: [],
+        structuredContent: {
+          schema: 'chain-insights.result.v1',
+          tool: 'usage_status',
+          facts: {
+            usage: {
+              access_mode: 'public_free',
+              identifier_kind: 'ip',
+              daily_units_used: 5000,
+              daily_units_limit: 5000,
+              remaining_units: 0,
+              reset_at: '2026-10-24T00:00:00Z',
+              paid_available: true,
+            },
+          },
+        },
+      })
+
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const handler = findToolHandler(serverInstance, 'graph_query')
+    const result = await handler({
+      network: 'robinhood',
+      query: 'USE chain MATCH (h:Head) RETURN h.block_height LIMIT 1',
+    })
+
+    expect(result.isError).toBe(true)
+    const text = String(result.content[0].text)
+    expect(text.startsWith('The free tier for today is used up')).toBe(true)
+    expect(text).toContain('5,000 of 5,000 free units')
+    expect(text).toContain('resets at 2026-10-24 00:00 UTC')
+    expect(text.indexOf('free tier')).toBeLessThan(text.indexOf('USDC'))
+    expect(clientInstance.callTool).toHaveBeenLastCalledWith({ name: 'usage_status', arguments: {} })
   })
 
   it('calls remoteClient.connect but not listTools when schema cache has tools (WR-01: always connect)', async () => {
