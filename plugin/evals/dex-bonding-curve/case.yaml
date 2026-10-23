@@ -16,7 +16,7 @@ graders:
   - type: regex
     name: brand-pool-or-factory-named
     target: last_message
-    pattern: '0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e|brand: "bonding-curve"'
+    pattern: '0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e|brand[^\n]{0,8}bonding-curve'
     match: contains
   - type: regex
     name: creator-is-tx-origin

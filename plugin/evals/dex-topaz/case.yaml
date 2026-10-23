@@ -1,10 +1,10 @@
 schema_version: "1.0"
-name: dex-balancer-v2
-expected_outcome: The agent resolves Balancer v2 from the memo with no address from the user, loads the vault trail, names the pool manager as the manager, and reads the buyer from the recipient of the facts SWAP row of the seller and the manager on one day, never with a topology hop out of the manager.
+name: dex-topaz
+expected_outcome: The agent resolves Topaz from the memo with no address from the user, finds its pools by brand or by its memo factory, loads the gauge trail, and names the router as the router, reading the buyer from the router's transfer in the seller's transaction.
 execution:
   prompt: |
-    A user asks: "A wallet swapped on Balancer v2 on robinhood. Who bought what it sold, and how
-    do you find out? Name every address you would follow, and what each one is."
+    A user asks: "Who sold into the busiest pool of Topaz on robinhood, and who bought?
+    Name every address you would follow, and what each one is."
 
     The Chain Insights graph_query tool is not reachable right now, so do
     not try to call it. Write the first graph queries you would send, in
@@ -16,26 +16,19 @@ graders:
   - type: regex
     name: brand-pool-or-factory-named
     target: last_message
-    pattern: '0xd315a9c38ec871068fec378e4ce78af528c76293|brand: "balancer-v2"'
+    pattern: '0xaa5865dc3a60b25d305226d66fd573021f0d8ffb|brand[^\n]{0,8}topaz'
     match: contains
   - type: regex
-    name: names-manager
+    name: names-router
     target: last_message
-    pattern: 'manager|vault'
+    pattern: 'router'
     flags: i
     match: contains
   - type: regex
-    name: reads-facts-swap
+    name: buyer-from-the-routers-transfer
     target: last_message
-    pattern: 'USE facts[\s\S]*:SWAP\]'
+    pattern: 'tx_id|same transaction|TRANSFER'
     match: contains
-  - type: llm
-    name: manager-not-buyer
-    criteria: >
-      The answer names the exchange's pool manager (or vault) for what it is,
-      reads the buyer from the recipient of the facts SWAP row of the seller
-      and the manager on one day, and never calls the manager the buyer.
-    weight: 1
   - type: regex
     name: contract-never-buyer
     target: last_message

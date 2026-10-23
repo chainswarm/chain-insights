@@ -1,0 +1,57 @@
+schema_version: "1.0"
+name: dex-swaap
+expected_outcome: The agent resolves Swaap from the memo with no address from the user, loads the vault trail, names the pool manager as the manager, and reads the buyer from the recipient of the facts SWAP row of the seller and the manager on one day, never with a topology hop out of the manager.
+execution:
+  prompt: |
+    A user asks: "A wallet swapped on Swaap on robinhood. Who bought what it sold, and how
+    do you find out? Name every address you would follow, and what each one is."
+
+    The Chain Insights graph_query tool is not reachable right now, so do
+    not try to call it. Write the first graph queries you would send, in
+    full, and one line each on what their rows tell you.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: brand-pool-or-factory-named
+    target: last_message
+    pattern: '0xd315a9c38ec871068fec378e4ce78af528c76293|brand[^\n]{0,8}swaap'
+    match: contains
+  - type: regex
+    name: names-manager
+    target: last_message
+    pattern: 'manager|vault'
+    flags: i
+    match: contains
+  - type: regex
+    name: reads-facts-swap
+    target: last_message
+    pattern: 'USE facts[\s\S]*:SWAP\]'
+    match: contains
+  - type: regex
+    name: buyer-from-the-swap-recipient
+    target: last_message
+    pattern: 'recipient'
+    flags: i
+    match: contains
+  - type: regex
+    name: contract-never-buyer
+    target: last_message
+    pattern: '(router|pool manager|manager|vault) (is|was) the buyer|buyer (is|was) the (router|pool manager|manager|vault)'
+    flags: i
+    match: not_contains
+  - type: regex
+    name: full-addresses
+    target: last_message
+    pattern: '0x[0-9a-fA-F]{2,10}(…|\.\.\.)'
+    match: not_contains
+  - type: regex
+    name: no-address-asked
+    target: last_message
+    pattern: '(give|send|share|provide|paste|tell) me (the |a |an |its )?(full )?((pool|factory|router|contract|exchange) )?address|what is the (pool|factory|router|contract) address|do you have (the|an?) ((pool|factory|router) )?address'
+    flags: i
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

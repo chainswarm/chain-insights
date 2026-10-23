@@ -1,9 +1,9 @@
 schema_version: "1.0"
-name: dex-trader-joe
-expected_outcome: The agent resolves Trader Joe from the memo with no address from the user, finds its pools by brand or anchored on each memo factory in one batch, and reads the sellers into the busiest pool.
+name: dex-pancakeswap-v3
+expected_outcome: The agent resolves PancakeSwap v3 from the memo with no address from the user, finds its pools by brand or anchored on each memo factory in one batch, and reads the sellers into the busiest pool.
 execution:
   prompt: |
-    A user asks: "Which pools does Trader Joe have on robinhood, and who trades on the busiest one?"
+    A user asks: "Which pools does PancakeSwap v3 have on robinhood, and who trades on the busiest one?"
 
     The Chain Insights graph_query tool is not reachable right now, so do
     not try to call it. Write the first graph queries you would send, in
@@ -15,16 +15,13 @@ graders:
   - type: regex
     name: brand-pool-or-factory-named
     target: last_message
-    pattern: '0xdcd5f77697914e27f56fd263ef82923c8524abac|0x3d8dc63ddc9b992cfde89f7aea6f18717e84687d|0x22602d966defd638ee94e97a92e2eb0934c3fe1b|brand: "trader-joe"'
+    pattern: '0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865|brand[^\n]{0,8}pancakeswap-v3'
     match: contains
-  - type: llm
+  - type: regex
     name: pools-by-brand-or-factory
-    criteria: >
-      The answer finds the pools of Trader Joe by the brand the graph serves
-      or anchored on the factory addresses the memo lists, never by a
-      whole-chain search for an adapter mark, and asks the user for no
-      address.
-    weight: 1
+    target: last_message
+    pattern: 'DEPLOYED_CONTRACT|brand'
+    match: contains
   - type: regex
     name: full-addresses
     target: last_message

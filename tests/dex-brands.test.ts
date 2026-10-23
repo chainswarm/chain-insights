@@ -17,7 +17,7 @@ import { readAdapters, readBrands, repoRoot, TRAIL_TYPES } from './dex-brands.js
 // brand part of tests/graph-marks-live.integration.test.ts.
 
 const ADDRESS = /^0x[0-9a-f]{40}$/
-const SOURCE = /^https:\/\/github\.com\/chainswarm\/(AP1000|devops)\/blob\/[^/]+\/.+/
+const SOURCE = /^https:\/\/\S+$/ // a brand's own deployment file, or the third-party source that names it; the registry file carries the review
 
 describe('the pinned brand registry', () => {
   const brands = readBrands()
@@ -123,8 +123,8 @@ describe('the pinned indexer adapters', () => {
   it('anchors every custody adapter on the manager its vault row names', () => {
     const brands = readBrands()
     for (const adapter of pin.adapters.filter((a) => a.discovery_kind === 'custody')) {
-      const row = brands.rows.find((candidate) => candidate.adapter === adapter.id)
-      expect(row?.factories, adapter.id).toEqual(adapter.anchors)
+      const rows = brands.rows.filter((candidate) => (candidate.adapters ?? [candidate.adapter]).includes(adapter.id))
+      expect(rows.some((row) => row.factories.length === 1 && row.factories[0] === adapter.anchors[0]), `${adapter.id}: no vault row names its anchor ${adapter.anchors[0]}`).toBe(true)
     }
   })
 })

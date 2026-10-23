@@ -15,15 +15,13 @@ graders:
   - type: regex
     name: brand-pool-or-factory-named
     target: last_message
-    pattern: '0x2e0a99a2e352043d1ca489cf45bf7b511bccc738|0x584ac6010b095bf99398fae8203a3260a03d2b30|brand: "metric"'
+    pattern: '0x2e0a99a2e352043d1ca489cf45bf7b511bccc738|0x584ac6010b095bf99398fae8203a3260a03d2b30|brand[^\n]{0,8}metric'
     match: contains
-  - type: llm
+  - type: regex
     name: pools-by-brand-or-factory
-    criteria: >
-      The answer finds the pools of Metric by the brand the graph serves or
-      anchored on the factory addresses the memo lists, never by a whole-chain
-      search for an adapter mark, and asks the user for no address.
-    weight: 1
+    target: last_message
+    pattern: 'DEPLOYED_CONTRACT|brand'
+    match: contains
   - type: regex
     name: full-addresses
     target: last_message

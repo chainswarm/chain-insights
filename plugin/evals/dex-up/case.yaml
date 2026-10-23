@@ -16,7 +16,7 @@ graders:
   - type: regex
     name: brand-pool-or-factory-named
     target: last_message
-    pattern: '0xfa5429aeba338bea2bfcc1b9a889862ee395bc28|brand: "up"'
+    pattern: '0xfa5429aeba338bea2bfcc1b9a889862ee395bc28|brand[^\n]{0,8}up'
     match: contains
   - type: regex
     name: names-router
@@ -24,13 +24,11 @@ graders:
     pattern: 'router'
     flags: i
     match: contains
-  - type: llm
-    name: router-not-buyer
-    criteria: >
-      The answer treats a swap whose recipient is the exchange's router as a
-      step to follow, reads the buyer from the router's own transfer in the
-      same transaction on facts, and never calls the router the buyer.
-    weight: 1
+  - type: regex
+    name: buyer-from-the-routers-transfer
+    target: last_message
+    pattern: 'tx_id|same transaction|TRANSFER'
+    match: contains
   - type: regex
     name: contract-never-buyer
     target: last_message

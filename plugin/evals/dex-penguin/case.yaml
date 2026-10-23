@@ -16,7 +16,7 @@ graders:
   - type: regex
     name: brand-pool-or-factory-named
     target: last_message
-    pattern: '0x09f1b640d53c9c4c1807bf5aa306745128ee4375|brand: "penguin"'
+    pattern: '0x09f1b640d53c9c4c1807bf5aa306745128ee4375|brand[^\n]{0,8}penguin'
     match: contains
   - type: regex
     name: creator-is-tx-origin
