@@ -10,7 +10,8 @@
         "Aero",
         "Aerodrome",
         "Velodrome",
-        "Aerodrome Finance"
+        "AERO",
+        "Aero Slipstream"
       ],
       "trail_type": "gauge",
       "adapter": "cl-gauge-v1",
@@ -19,18 +20,22 @@
       ],
       "roles": {
         "0xc63d7338c178e805c544b8f897066bd3bbcbe136": "factory",
-        "0x72e46c9edf828002fdbfdd0952419790576c0f18": "router"
+        "0x72e46c9edf828002fdbfdd0952419790576c0f18": "router",
+        "0x0fef9e88a7b76bcdbf451780c6774fe32965ee98": "router",
+        "0x9ee35bf1bd69a03c6f0393582030fce8bb93d418": "router"
       },
       "factories": [
         "0xc63d7338c178e805c544b8f897066bd3bbcbe136"
       ],
       "routers": [
-        "0x72e46c9edf828002fdbfdd0952419790576c0f18"
+        "0x72e46c9edf828002fdbfdd0952419790576c0f18",
+        "0x0fef9e88a7b76bcdbf451780c6774fe32965ee98",
+        "0x9ee35bf1bd69a03c6f0393582030fce8bb93d418"
       ],
       "example_pool": "0x7615926023bb149f36095645c2a81dc367d39750",
-      "pool_floor": 60,
+      "pool_floor": 30,
       "since_block": 93973839,
-      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/evidence/2026-10-23-dex-protocol-skills.md"
+      "source": "https://github.com/dromos-labs/metadex-slipstream-public/blob/main/deployment-addresses/cl-robinhood.json"
     },
     {
       "brand": "up",
@@ -38,7 +43,213 @@
       "aliases": [
         "up.",
         "up",
-        "up finance"
+        "UP",
+        "up33",
+        "UP33",
+        "up.finance"
+      ],
+      "trail_type": "gauge",
+      "adapter": "cl-gauge-v1",
+      "adapters": [
+        "cl-gauge-v1",
+        "solidly-v2"
+      ],
+      "roles": {
+        "0x1ac9db4a2608ba45d6127b1737949b51bb54b7f3": "factory",
+        "0xfa5429aeba338bea2bfcc1b9a889862ee395bc28": "factory",
+        "0xc062b870e813fca720f1e002c234369ab3ab9415": "router",
+        "0xf5198743240fac98db71868f34c70139b1eb0474": "router"
+      },
+      "factories": [
+        "0x1ac9db4a2608ba45d6127b1737949b51bb54b7f3",
+        "0xfa5429aeba338bea2bfcc1b9a889862ee395bc28"
+      ],
+      "routers": [
+        "0xc062b870e813fca720f1e002c234369ab3ab9415",
+        "0xf5198743240fac98db71868f34c70139b1eb0474"
+      ],
+      "example_pool": "0x4e8649be40ae67ebbcff99c291b92ee03015917b",
+      "pool_floor": 800,
+      "since_block": 6180950,
+      "source": "https://github.com/DefiLlama/dimension-adapters/blob/master/dexs/up-v3/index.ts"
+    },
+    {
+      "brand": "alandale",
+      "display": "Alandale",
+      "aliases": [
+        "Alandale",
+        "LUTE",
+        "alandale.xyz"
+      ],
+      "trail_type": "gauge",
+      "adapter": "cl-gauge-v1",
+      "adapters": [
+        "cl-gauge-v1"
+      ],
+      "roles": {
+        "0x2fadf533d9a098310007978730554f842547fc5f": "factory",
+        "0x8971d5a8f950f021e97583855925b021bfae2b35": "router"
+      },
+      "factories": [
+        "0x2fadf533d9a098310007978730554f842547fc5f"
+      ],
+      "routers": [
+        "0x8971d5a8f950f021e97583855925b021bfae2b35"
+      ],
+      "example_pool": "0x7a35168956f129c032ec035cc47383a605a71df0",
+      "pool_floor": 25,
+      "since_block": 27916288,
+      "source": "https://github.com/0xProject/0x-settler/blob/master/src/core/univ3forks/Alandale.sol"
+    },
+    {
+      "brand": "raphael",
+      "display": "Raphael Exchange",
+      "aliases": [
+        "Raphael",
+        "RAPH",
+        "Raphael Exchange",
+        "Raphael Finance"
+      ],
+      "trail_type": "gauge",
+      "adapter": "cl-gauge-v1",
+      "adapters": [
+        "cl-gauge-v1",
+        "solidly-v2"
+      ],
+      "roles": {
+        "0x5481864ddd46a2d798df0925c23b7846e776e5e3": "factory",
+        "0x1a6745f84099fa7e84d1f3b34c23482865194bd1": "factory",
+        "0x2f0e010edc989bb4dc3bfaf07750480bc16285d4": "router"
+      },
+      "factories": [
+        "0x5481864ddd46a2d798df0925c23b7846e776e5e3",
+        "0x1a6745f84099fa7e84d1f3b34c23482865194bd1"
+      ],
+      "routers": [
+        "0x2f0e010edc989bb4dc3bfaf07750480bc16285d4"
+      ],
+      "example_pool": null,
+      "pool_floor": 20,
+      "since_block": 0,
+      "source": "https://github.com/DefiLlama/dimension-adapters/blob/master/dexs/raphael-slipstream/index.ts"
+    },
+    {
+      "brand": "sheriff",
+      "display": "Sheriff",
+      "aliases": [
+        "Sheriff",
+        "Sheriff Exchange",
+        "sheriff.exchange"
+      ],
+      "trail_type": "gauge",
+      "adapter": "cl-gauge-v1",
+      "adapters": [
+        "cl-gauge-v1"
+      ],
+      "roles": {
+        "0x9ac30d72168a4498ae5c80226f4d3c86278e8f80": "factory",
+        "0xcb0615a1478838dea20e57447309be97f45dca0f": "router"
+      },
+      "factories": [
+        "0x9ac30d72168a4498ae5c80226f4d3c86278e8f80"
+      ],
+      "routers": [
+        "0xcb0615a1478838dea20e57447309be97f45dca0f"
+      ],
+      "example_pool": null,
+      "pool_floor": 7,
+      "since_block": 0,
+      "source": "https://github.com/0xProject/0x-settler/blob/master/src/core/univ3forks/Sheriff.sol"
+    },
+    {
+      "brand": "topaz",
+      "display": "Topaz DEX",
+      "aliases": [
+        "Topaz",
+        "TOPAZ",
+        "Topaz DEX",
+        "topazdex.com"
+      ],
+      "trail_type": "gauge",
+      "adapter": "cl-gauge-v1",
+      "adapters": [
+        "cl-gauge-v1"
+      ],
+      "roles": {
+        "0xaa5865dc3a60b25d305226d66fd573021f0d8ffb": "factory",
+        "0x2e7395a6e0de6ee1f390bece891069cd18ff8572": "router"
+      },
+      "factories": [
+        "0xaa5865dc3a60b25d305226d66fd573021f0d8ffb"
+      ],
+      "routers": [
+        "0x2e7395a6e0de6ee1f390bece891069cd18ff8572"
+      ],
+      "example_pool": null,
+      "pool_floor": 6,
+      "since_block": 0,
+      "source": "https://github.com/DefiLlama/dimension-adapters/blob/master/dexs/topaz-cl/index.ts"
+    },
+    {
+      "brand": "kittenswap",
+      "display": "Kittenswap",
+      "aliases": [
+        "Kittenswap",
+        "KITTEN",
+        "KittenSwap"
+      ],
+      "trail_type": "gauge",
+      "adapter": "cl-gauge-v1",
+      "adapters": [
+        "cl-gauge-v1"
+      ],
+      "roles": {
+        "0x45362763166cfed6174d312fa1449ea1fc37988a": "factory",
+        "0x7064c7bb85979f008212877c4ce41285ddf5374c": "router"
+      },
+      "factories": [
+        "0x45362763166cfed6174d312fa1449ea1fc37988a"
+      ],
+      "routers": [
+        "0x7064c7bb85979f008212877c4ce41285ddf5374c"
+      ],
+      "example_pool": "0x49ffa9b5cb6c94b2fc99e8649c3e4c18f619e149",
+      "pool_floor": 5,
+      "since_block": 0,
+      "source": "https://docs.kittenswap.finance/tokenomics/deployed-contracts.md"
+    },
+    {
+      "brand": "morpheus",
+      "display": "Morpheus",
+      "aliases": [
+        "Morpheus",
+        "Morpheus Farm"
+      ],
+      "trail_type": "gauge",
+      "adapter": "cl-gauge-v1",
+      "adapters": [
+        "cl-gauge-v1"
+      ],
+      "roles": {
+        "0xd7cb0e0692f2d55a17ba81c1fe5501d66774fc4a": "factory"
+      },
+      "factories": [
+        "0xd7cb0e0692f2d55a17ba81c1fe5501d66774fc4a"
+      ],
+      "routers": [],
+      "example_pool": null,
+      "pool_floor": 6,
+      "since_block": 0,
+      "source": "https://github.com/DefiLlama/DefiLlama-Adapters/blob/main/registries/uniswapV3.js"
+    },
+    {
+      "brand": "swaphood",
+      "display": "SwapHood",
+      "aliases": [
+        "SwapHood",
+        "SwapHood Finance",
+        "SWT",
+        "swaphood.finance"
       ],
       "trail_type": "gauge",
       "adapter": "solidly-v2",
@@ -46,43 +257,43 @@
         "solidly-v2"
       ],
       "roles": {
-        "0xfa5429aeba338bea2bfcc1b9a889862ee395bc28": "factory"
+        "0xe7206ecac3a51afe7e6179182ad4130a26068dd1": "factory",
+        "0x8f8056fec03159ebcc4aee1b8ea5a61d8fe405fc": "router"
       },
       "factories": [
-        "0xfa5429aeba338bea2bfcc1b9a889862ee395bc28"
-      ],
-      "routers": [],
-      "example_pool": "0x8697bb63743678640710b1270e98772a29642b3c",
-      "pool_floor": 30,
-      "since_block": 6180950,
-      "source": "https://github.com/chainswarm/devops/blob/de68f8676adac3e2f004fb0cd24c313f9516846e/charts/chainswarm-indexer-evm-dex/registry/robinhood-v24.json"
-    },
-    {
-      "brand": "uniswap-v4",
-      "display": "Uniswap v4",
-      "aliases": [
-        "Uniswap",
-        "Uniswap v4",
-        "Uni v4"
-      ],
-      "trail_type": "vault",
-      "adapter": "uniswap-v4",
-      "adapters": [
-        "uniswap-v4"
-      ],
-      "roles": {
-        "0x8366a39cc670b4001a1121b8f6a443a643e40951": "manager"
-      },
-      "factories": [
-        "0x8366a39cc670b4001a1121b8f6a443a643e40951"
+        "0xe7206ecac3a51afe7e6179182ad4130a26068dd1"
       ],
       "routers": [
-        "0x8366a39cc670b4001a1121b8f6a443a643e40951"
+        "0x8f8056fec03159ebcc4aee1b8ea5a61d8fe405fc"
       ],
       "example_pool": null,
-      "pool_floor": null,
+      "pool_floor": 20,
       "since_block": 0,
-      "source": "https://github.com/chainswarm/devops/blob/de68f8676adac3e2f004fb0cd24c313f9516846e/charts/chainswarm-indexer-evm-dex/registry/robinhood-v24.json"
+      "source": "https://swaphood-finance.gitbook.io/swaphood-finance-docs/contract-addresses.md"
+    },
+    {
+      "brand": "uniswap-v2",
+      "display": "Uniswap v2",
+      "aliases": [
+        "Uniswap v2",
+        "Uni v2"
+      ],
+      "trail_type": "plain",
+      "adapter": "uniswap-v2",
+      "adapters": [
+        "uniswap-v2"
+      ],
+      "roles": {
+        "0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f": "factory"
+      },
+      "factories": [
+        "0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f"
+      ],
+      "routers": [],
+      "example_pool": "0x4a6a85252a6f6b383a5f747259ee157e65ff1307",
+      "pool_floor": 10000,
+      "since_block": 0,
+      "source": "https://developers.uniswap.org/docs/protocols/v2/deployments"
     },
     {
       "brand": "uniswap-v3",
@@ -104,60 +315,38 @@
       ],
       "routers": [],
       "example_pool": "0x10cc6bd38112cac182db90b6a71d8bb5939526ba",
-      "pool_floor": 400000,
+      "pool_floor": 200000,
       "since_block": 0,
-      "source": "https://github.com/chainswarm/devops/blob/de68f8676adac3e2f004fb0cd24c313f9516846e/charts/chainswarm-indexer-evm-dex/registry/robinhood-v24.json"
+      "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-robinhood-chain-deployments"
     },
     {
-      "brand": "balancer-v2",
-      "display": "Balancer v2",
+      "brand": "uniswap-v4",
+      "display": "Uniswap v4",
       "aliases": [
-        "Balancer",
-        "Balancer v2"
+        "Uniswap",
+        "UNI",
+        "Uniswap v4",
+        "Uni v4",
+        "PoolManager"
       ],
       "trail_type": "vault",
-      "adapter": "balancer-v2",
+      "adapter": "uniswap-v4",
       "adapters": [
-        "balancer-v2"
+        "uniswap-v4"
       ],
       "roles": {
-        "0xd315a9c38ec871068fec378e4ce78af528c76293": "manager"
+        "0x8366a39cc670b4001a1121b8f6a443a643e40951": "manager"
       },
       "factories": [
-        "0xd315a9c38ec871068fec378e4ce78af528c76293"
+        "0x8366a39cc670b4001a1121b8f6a443a643e40951"
       ],
       "routers": [
-        "0xd315a9c38ec871068fec378e4ce78af528c76293"
+        "0x8366a39cc670b4001a1121b8f6a443a643e40951"
       ],
       "example_pool": null,
       "pool_floor": null,
       "since_block": 0,
-      "source": "https://github.com/chainswarm/devops/blob/de68f8676adac3e2f004fb0cd24c313f9516846e/charts/chainswarm-indexer-evm-dex/registry/robinhood-v24.json"
-    },
-    {
-      "brand": "balancer-v3",
-      "display": "Balancer v3",
-      "aliases": [
-        "Balancer v3"
-      ],
-      "trail_type": "vault",
-      "adapter": "balancer-v3",
-      "adapters": [
-        "balancer-v3"
-      ],
-      "roles": {
-        "0x28082618ba2073e602230188e4f4c46e9b2169eb": "manager"
-      },
-      "factories": [
-        "0x28082618ba2073e602230188e4f4c46e9b2169eb"
-      ],
-      "routers": [
-        "0x28082618ba2073e602230188e4f4c46e9b2169eb"
-      ],
-      "example_pool": null,
-      "pool_floor": null,
-      "since_block": 0,
-      "source": "https://github.com/chainswarm/devops/blob/de68f8676adac3e2f004fb0cd24c313f9516846e/charts/chainswarm-indexer-evm-dex/registry/robinhood-v24.json"
+      "source": "https://developers.uniswap.org/docs/protocols/v4/deployments"
     },
     {
       "brand": "pancakeswap",
@@ -165,7 +354,112 @@
       "aliases": [
         "PancakeSwap",
         "Pancake",
+        "CAKE",
         "PancakeSwap Infinity"
+      ],
+      "trail_type": "vault",
+      "adapter": "pancake-infinity-cl",
+      "adapters": [
+        "pancake-infinity-cl"
+      ],
+      "roles": {
+        "0xee04c68742e6bf434be8039580d2e89bbe55bc6f": "manager"
+      },
+      "factories": [
+        "0xee04c68742e6bf434be8039580d2e89bbe55bc6f"
+      ],
+      "routers": [
+        "0xee04c68742e6bf434be8039580d2e89bbe55bc6f"
+      ],
+      "example_pool": null,
+      "pool_floor": null,
+      "since_block": 0,
+      "source": "https://github.com/pancakeswap/infinity-periphery/blob/main/script/config/robinhood-mainnet.json"
+    },
+    {
+      "brand": "pancakeswap-v2",
+      "display": "PancakeSwap v2",
+      "aliases": [
+        "PancakeSwap v2",
+        "Pancake v2"
+      ],
+      "trail_type": "plain",
+      "adapter": "uniswap-v2",
+      "adapters": [
+        "uniswap-v2"
+      ],
+      "roles": {
+        "0x02a84c1b3bbd7401a5f7fa98a384ebc70bb5749e": "factory"
+      },
+      "factories": [
+        "0x02a84c1b3bbd7401a5f7fa98a384ebc70bb5749e"
+      ],
+      "routers": [],
+      "example_pool": null,
+      "pool_floor": 40,
+      "since_block": 0,
+      "source": "https://github.com/pancakeswap/infinity-periphery/blob/main/script/config/robinhood-mainnet.json"
+    },
+    {
+      "brand": "pancakeswap-v3",
+      "display": "PancakeSwap v3",
+      "aliases": [
+        "PancakeSwap v3",
+        "Pancake v3"
+      ],
+      "trail_type": "plain",
+      "adapter": "uniswap-v3",
+      "adapters": [
+        "uniswap-v3"
+      ],
+      "roles": {
+        "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865": "factory"
+      },
+      "factories": [
+        "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865"
+      ],
+      "routers": [],
+      "example_pool": null,
+      "pool_floor": null,
+      "since_block": 0,
+      "source": "https://github.com/pancakeswap/infinity-periphery/blob/main/script/config/robinhood-mainnet.json"
+    },
+    {
+      "brand": "sushiswap",
+      "display": "SushiSwap V4",
+      "aliases": [
+        "Sushi",
+        "SushiSwap",
+        "SUSHI",
+        "Sushi V4"
+      ],
+      "trail_type": "vault",
+      "adapter": "pancake-infinity-cl",
+      "adapters": [
+        "pancake-infinity-cl"
+      ],
+      "roles": {
+        "0x81d732702f87d2d652ae79e9f52bf44928eca210": "manager"
+      },
+      "factories": [
+        "0x81d732702f87d2d652ae79e9f52bf44928eca210"
+      ],
+      "routers": [
+        "0x81d732702f87d2d652ae79e9f52bf44928eca210"
+      ],
+      "example_pool": null,
+      "pool_floor": null,
+      "since_block": 0,
+      "source": "https://github.com/sushi-labs/infinity-deployments/blob/main/chains/robinhood-mainnet.json"
+    },
+    {
+      "brand": "orvex",
+      "display": "Orvex",
+      "aliases": [
+        "Orvex",
+        "Orvex MetaDEX",
+        "orvex.fi",
+        "ORVX"
       ],
       "trail_type": "vault",
       "adapter": "pancake-infinity-cl",
@@ -184,38 +478,200 @@
       "example_pool": null,
       "pool_floor": null,
       "since_block": 0,
-      "source": "https://github.com/chainswarm/devops/blob/de68f8676adac3e2f004fb0cd24c313f9516846e/charts/chainswarm-indexer-evm-dex/registry/robinhood-v24.json"
+      "source": "https://github.com/DefiLlama/dimension-adapters/blob/master/dexs/orvex.ts"
     },
     {
-      "brand": "metric",
-      "display": "Metric",
+      "brand": "swaap",
+      "display": "Swaap v2",
       "aliases": [
-        "Metric",
-        "Metric OMM"
+        "Swaap",
+        "Swaap Finance",
+        "swaap.xyz"
       ],
-      "trail_type": "plain",
-      "adapter": "metric-omm",
+      "trail_type": "vault",
+      "adapter": "balancer-v2",
       "adapters": [
-        "metric-omm"
+        "balancer-v2"
       ],
       "roles": {
-        "0x2e0a99a2e352043d1ca489cf45bf7b511bccc738": "factory"
+        "0xd315a9c38ec871068fec378e4ce78af528c76293": "manager"
       },
       "factories": [
-        "0x2e0a99a2e352043d1ca489cf45bf7b511bccc738"
+        "0xd315a9c38ec871068fec378e4ce78af528c76293"
+      ],
+      "routers": [
+        "0xd315a9c38ec871068fec378e4ce78af528c76293"
+      ],
+      "example_pool": null,
+      "pool_floor": null,
+      "since_block": 0,
+      "source": "https://docs.swaap.xyz/"
+    },
+    {
+      "brand": "balancer-v3",
+      "display": "unnamed Balancer v3 vault",
+      "aliases": [
+        "Balancer v3 vault"
+      ],
+      "trail_type": "vault",
+      "adapter": "balancer-v3",
+      "adapters": [
+        "balancer-v3"
+      ],
+      "roles": {
+        "0x28082618ba2073e602230188e4f4c46e9b2169eb": "manager"
+      },
+      "factories": [
+        "0x28082618ba2073e602230188e4f4c46e9b2169eb"
+      ],
+      "routers": [
+        "0x28082618ba2073e602230188e4f4c46e9b2169eb"
+      ],
+      "example_pool": null,
+      "pool_floor": null,
+      "since_block": 0,
+      "source": "https://sourcify.dev/server/v2/contract/4663/0x28082618ba2073e602230188e4f4c46e9b2169eb"
+    },
+    {
+      "brand": "ramses",
+      "display": "Ramses",
+      "aliases": [
+        "Ramses",
+        "Ramses Exchange",
+        "RAM",
+        "ramses.xyz",
+        "Ramses DLMM"
+      ],
+      "trail_type": "plain",
+      "adapter": "trader-joe-lb",
+      "adapters": [
+        "trader-joe-lb",
+        "uniswap-v2"
+      ],
+      "roles": {
+        "0xdcd5f77697914e27f56fd263ef82923c8524abac": "factory",
+        "0x43b2bf9f33036a02fc7a00935571c2a6b0108e66": "factory",
+        "0xd0019e86edb35e1fedaab03aed5c3c60f115d28b": "router"
+      },
+      "factories": [
+        "0xdcd5f77697914e27f56fd263ef82923c8524abac",
+        "0x43b2bf9f33036a02fc7a00935571c2a6b0108e66"
+      ],
+      "routers": [
+        "0xd0019e86edb35e1fedaab03aed5c3c60f115d28b"
+      ],
+      "example_pool": "0x06ffaa507a9c3e7025294a642f1e1c75da3dfb4a",
+      "pool_floor": 150,
+      "since_block": 0,
+      "source": "https://www.ramses.xyz/docs/contract-addresses"
+    },
+    {
+      "brand": "sectorone",
+      "display": "SectorOne",
+      "aliases": [
+        "SectorOne",
+        "SectorOne DLMM"
+      ],
+      "trail_type": "plain",
+      "adapter": "trader-joe-lb",
+      "adapters": [
+        "trader-joe-lb"
+      ],
+      "roles": {
+        "0x3d8dc63ddc9b992cfde89f7aea6f18717e84687d": "factory"
+      },
+      "factories": [
+        "0x3d8dc63ddc9b992cfde89f7aea6f18717e84687d"
       ],
       "routers": [],
-      "example_pool": "0x584ac6010b095bf99398fae8203a3260a03d2b30",
-      "pool_floor": 70,
+      "example_pool": null,
+      "pool_floor": 30,
       "since_block": 0,
-      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/evidence/2026-10-23-dex-protocol-skills.md"
+      "source": "https://github.com/DefiLlama/DefiLlama-Adapters/blob/main/registries/traderJoeV2.js"
+    },
+    {
+      "brand": "hoodit",
+      "display": "Hoodit",
+      "aliases": [
+        "Hoodit",
+        "hoodit.xyz"
+      ],
+      "trail_type": "plain",
+      "adapter": "trader-joe-lb",
+      "adapters": [
+        "trader-joe-lb"
+      ],
+      "roles": {
+        "0x22602d966defd638ee94e97a92e2eb0934c3fe1b": "factory"
+      },
+      "factories": [
+        "0x22602d966defd638ee94e97a92e2eb0934c3fe1b"
+      ],
+      "routers": [],
+      "example_pool": null,
+      "pool_floor": 5,
+      "since_block": 0,
+      "source": "https://github.com/DefiLlama/DefiLlama-Adapters/blob/main/registries/traderJoeV2.js"
+    },
+    {
+      "brand": "giga",
+      "display": "GIGA",
+      "aliases": [
+        "GIGA",
+        "GIGA DEX",
+        "GigaDEX",
+        "gigadex.fi"
+      ],
+      "trail_type": "plain",
+      "adapter": "uniswap-v2",
+      "adapters": [
+        "uniswap-v2"
+      ],
+      "roles": {
+        "0x6fdf38f92ead1adfc04b73aaa947ab254f6c0916": "factory"
+      },
+      "factories": [
+        "0x6fdf38f92ead1adfc04b73aaa947ab254f6c0916"
+      ],
+      "routers": [],
+      "example_pool": null,
+      "pool_floor": 15,
+      "since_block": 0,
+      "source": "https://hoodscan.co/project/giga"
+    },
+    {
+      "brand": "flap",
+      "display": "Flap",
+      "aliases": [
+        "Flap",
+        "Flap launchpad",
+        "flap.sh"
+      ],
+      "trail_type": "launchpad",
+      "adapter": "uniswap-v2",
+      "adapters": [
+        "uniswap-v2"
+      ],
+      "roles": {
+        "0x0d1ebb179cdbca88d74c923c4255cb2b17474afd": "factory"
+      },
+      "factories": [
+        "0x0d1ebb179cdbca88d74c923c4255cb2b17474afd"
+      ],
+      "routers": [],
+      "example_pool": null,
+      "pool_floor": 100000,
+      "since_block": 0,
+      "source": "https://hoodscan.co/project/flap"
     },
     {
       "brand": "curve",
       "display": "Curve",
       "aliases": [
         "Curve",
-        "Curve Finance"
+        "Curve Finance",
+        "CRV",
+        "curve.finance"
       ],
       "trail_type": "plain",
       "adapter": "curve-stable",
@@ -230,40 +686,36 @@
       ],
       "routers": [],
       "example_pool": "0x7e0539140f16b3a8ed23ad69d6fea6a38fb8b299",
-      "pool_floor": 55,
+      "pool_floor": 25,
       "since_block": 0,
-      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/evidence/2026-10-23-dex-protocol-skills.md"
+      "source": "https://github.com/curvefi/curve-core/blob/main/deployments/prod/robinhood.yaml"
     },
     {
-      "brand": "trader-joe",
-      "display": "Trader Joe",
+      "brand": "metric",
+      "display": "Metric",
       "aliases": [
-        "Trader Joe",
-        "LFJ",
-        "Joe"
+        "Metric",
+        "Metric OMM",
+        "metric.xyz"
       ],
       "trail_type": "plain",
-      "adapter": "trader-joe-lb",
+      "adapter": "metric-omm",
       "adapters": [
-        "trader-joe-lb"
+        "metric-omm"
       ],
       "roles": {
-        "0xdcd5f77697914e27f56fd263ef82923c8524abac": "factory",
-        "0x3d8dc63ddc9b992cfde89f7aea6f18717e84687d": "factory",
-        "0x22602d966defd638ee94e97a92e2eb0934c3fe1b": "factory",
-        "0xd60cf7876a1e7b8fcf963722a05039849fde5387": "factory"
+        "0x2e0a99a2e352043d1ca489cf45bf7b511bccc738": "factory",
+        "0x2a53833cc95548cf52c7b159110e22d3a9018f32": "factory"
       },
       "factories": [
-        "0xdcd5f77697914e27f56fd263ef82923c8524abac",
-        "0x3d8dc63ddc9b992cfde89f7aea6f18717e84687d",
-        "0x22602d966defd638ee94e97a92e2eb0934c3fe1b",
-        "0xd60cf7876a1e7b8fcf963722a05039849fde5387"
+        "0x2e0a99a2e352043d1ca489cf45bf7b511bccc738",
+        "0x2a53833cc95548cf52c7b159110e22d3a9018f32"
       ],
       "routers": [],
-      "example_pool": "0x06ffaa507a9c3e7025294a642f1e1c75da3dfb4a",
-      "pool_floor": 300,
+      "example_pool": "0x584ac6010b095bf99398fae8203a3260a03d2b30",
+      "pool_floor": 30,
       "since_block": 0,
-      "source": "https://github.com/chainswarm/devops/blob/de68f8676adac3e2f004fb0cd24c313f9516846e/charts/chainswarm-indexer-evm-dex/registry/robinhood-v24.json"
+      "source": "https://github.com/Metricxyz/sdk/blob/main/src/addresses.ts"
     },
     {
       "brand": "penguin",
@@ -290,10 +742,11 @@
       "source": "https://github.com/chainswarm/devops/blob/de68f8676adac3e2f004fb0cd24c313f9516846e/charts/chainswarm-indexer-evm-dex/registry/robinhood-v24.json"
     },
     {
-      "brand": "bonding-curve",
-      "display": "unnamed launchpad",
+      "brand": "pons",
+      "display": "pons",
       "aliases": [
-        "bonding curve launchpad"
+        "pons",
+        "pons launchpad"
       ],
       "trail_type": "launchpad",
       "adapter": "bonding-curve",
@@ -310,7 +763,7 @@
       "example_pool": null,
       "pool_floor": null,
       "since_block": 0,
-      "source": "https://github.com/chainswarm/devops/blob/de68f8676adac3e2f004fb0cd24c313f9516846e/charts/chainswarm-indexer-evm-dex/registry/robinhood-v24.json"
+      "source": "https://github.com/DefiLlama/DefiLlama-Adapters/blob/main/projects/pons-v2/index.js"
     },
     {
       "brand": "virtuals",
@@ -326,16 +779,14 @@
         "uniswap-v2"
       ],
       "roles": {
-        "0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f": "factory",
         "0xfc2e4da3edb2e18100473339c763705d263d20a9": "factory"
       },
       "factories": [
-        "0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f",
         "0xfc2e4da3edb2e18100473339c763705d263d20a9"
       ],
       "routers": [],
       "example_pool": null,
-      "pool_floor": 20000,
+      "pool_floor": null,
       "since_block": 0,
       "source": "https://github.com/chainswarm/AP1000/blob/main/openspec/changes/archive/2026-10-16-silent-factory-discovery-and-labels/design.md"
     }

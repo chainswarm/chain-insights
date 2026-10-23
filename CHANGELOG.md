@@ -3,6 +3,22 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.67.1] - 2026-10-23 — the brands the research names
+
+### Changed
+- `tests/fixtures/dex-brands.json`, the memo of `skills/chain-insights-dex`
+  and the Virtuals block: the pinned AP1000 brand registry now holds 29
+  brands and 45 rows, each with the brand's own deployment file or the
+  third-party source that names it. Trader Joe, Balancer and the PancakeSwap
+  custody were wrong names for Ramses, SectorOne and Hoodit (three Liquidity
+  Book forks), Swaap and Orvex; the biggest concentrated-liquidity factory is
+  up.'s; Alandale, Raphael, Sheriff, Topaz, Kittenswap, Morpheus, SwapHood,
+  SushiSwap, PancakeSwap v2 and v3, GIGA, Flap and pons join. The public
+  Virtuals pairs live on Uniswap's own v2 factory, which the memo lists under
+  `uniswap-v2`. One name-only eval per brand, 32 in all.
+- `tests/dex-brands-live.integration.test.ts`: the memo against a lane, the
+  memo never trusted over the graph.
+
 ## [0.67.0] - 2026-10-23 — exchanges by name
 
 ### Added

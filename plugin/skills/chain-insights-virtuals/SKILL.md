@@ -58,15 +58,17 @@ differ: find them first, never reuse these.
 | Launch contract | `0xd4ccbfa37e2f35611b3042e4096ad7a3459bd007` |
 | Token factory | `0x43e4c17b15365596caae8e7d00e42bc8e988c2d4` |
 
-The starting-pool factory and the Uniswap v2 pair factory come from the
-exchange memo, the same rows `chain-insights-dex` lists under Virtuals:
+The starting-pool (bonding) factory comes from the exchange memo, the row
+`chain-insights-dex` lists under Virtuals. The public pair of a graduated
+agent is created on Uniswap's own v2 factory
+`0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f` (the memo's `uniswap-v2` row):
+most of that factory's pairs are Virtuals agents.
 
 <!-- brands:start -->
 The factories of the brand registry, version 1, row `virtuals`:
 
 | Factory | Address |
 |---|---|
-| factory | `0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f` |
 | factory | `0xfc2e4da3edb2e18100473339c763705d263d20a9` |
 <!-- brands:end -->
 

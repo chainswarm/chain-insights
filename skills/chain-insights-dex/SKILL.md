@@ -39,19 +39,35 @@ Memo of the brand registry, version 1, robinhood, recorded 2026-10-23.
 
 | Brand | Key | Also written | Trail | Factories, or the manager | Router | Note |
 |---|---|---|---|---|---|---|
-| Aero (Aerodrome and Velodrome, merged) | `aero` | Aero, Aerodrome, Velodrome, Aerodrome Finance | gauge | `0xc63d7338c178e805c544b8f897066bd3bbcbe136` | `0x72e46c9edf828002fdbfdd0952419790576c0f18` |  |
-| up. | `up` | up., up, up finance | gauge | `0xfa5429aeba338bea2bfcc1b9a889862ee395bc28` | none proven yet |  |
-| Uniswap v4 | `uniswap-v4` | Uniswap, Uniswap v4, Uni v4 | vault | manager `0x8366a39cc670b4001a1121b8f6a443a643e40951` | the manager |  |
+| Aero (Aerodrome and Velodrome, merged) | `aero` | Aero, Aerodrome, Velodrome, AERO, Aero Slipstream | gauge | `0xc63d7338c178e805c544b8f897066bd3bbcbe136` | `0x72e46c9edf828002fdbfdd0952419790576c0f18`, `0x0fef9e88a7b76bcdbf451780c6774fe32965ee98`, `0x9ee35bf1bd69a03c6f0393582030fce8bb93d418` |  |
+| up. | `up` | up., up, UP, up33, UP33, up.finance | gauge | `0x1ac9db4a2608ba45d6127b1737949b51bb54b7f3`, `0xfa5429aeba338bea2bfcc1b9a889862ee395bc28` | `0xc062b870e813fca720f1e002c234369ab3ab9415`, `0xf5198743240fac98db71868f34c70139b1eb0474` |  |
+| Alandale | `alandale` | Alandale, LUTE, alandale.xyz | gauge | `0x2fadf533d9a098310007978730554f842547fc5f` | `0x8971d5a8f950f021e97583855925b021bfae2b35` |  |
+| Raphael Exchange | `raphael` | Raphael, RAPH, Raphael Exchange, Raphael Finance | gauge | `0x5481864ddd46a2d798df0925c23b7846e776e5e3`, `0x1a6745f84099fa7e84d1f3b34c23482865194bd1` | `0x2f0e010edc989bb4dc3bfaf07750480bc16285d4` |  |
+| Sheriff | `sheriff` | Sheriff, Sheriff Exchange, sheriff.exchange | gauge | `0x9ac30d72168a4498ae5c80226f4d3c86278e8f80` | `0xcb0615a1478838dea20e57447309be97f45dca0f` |  |
+| Topaz DEX | `topaz` | Topaz, TOPAZ, Topaz DEX, topazdex.com | gauge | `0xaa5865dc3a60b25d305226d66fd573021f0d8ffb` | `0x2e7395a6e0de6ee1f390bece891069cd18ff8572` |  |
+| Kittenswap | `kittenswap` | Kittenswap, KITTEN, KittenSwap | gauge | `0x45362763166cfed6174d312fa1449ea1fc37988a` | `0x7064c7bb85979f008212877c4ce41285ddf5374c` |  |
+| Morpheus | `morpheus` | Morpheus, Morpheus Farm | gauge | `0xd7cb0e0692f2d55a17ba81c1fe5501d66774fc4a` | none proven yet |  |
+| SwapHood | `swaphood` | SwapHood, SwapHood Finance, SWT, swaphood.finance | gauge | `0xe7206ecac3a51afe7e6179182ad4130a26068dd1` | `0x8f8056fec03159ebcc4aee1b8ea5a61d8fe405fc` |  |
+| Uniswap v2 | `uniswap-v2` | Uniswap v2, Uni v2 | plain | `0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f` | none |  |
 | Uniswap v3 | `uniswap-v3` | Uniswap v3, Uni v3 | plain | `0x1f7d7550b1b028f7571e69a784071f0205fd2efa` | none |  |
-| Balancer v2 | `balancer-v2` | Balancer, Balancer v2 | vault | manager `0xd315a9c38ec871068fec378e4ce78af528c76293` | the manager |  |
-| Balancer v3 | `balancer-v3` | Balancer v3 | vault | manager `0x28082618ba2073e602230188e4f4c46e9b2169eb` | the manager |  |
-| PancakeSwap Infinity | `pancakeswap` | PancakeSwap, Pancake, PancakeSwap Infinity | vault | manager `0xd01c774d4a66408326bc65728ac5ae5aaf004032` | the manager |  |
-| Metric | `metric` | Metric, Metric OMM | plain | `0x2e0a99a2e352043d1ca489cf45bf7b511bccc738` | none |  |
-| Curve | `curve` | Curve, Curve Finance | plain | `0x8271e06e5887fe5ba05234f5315c19f3ec90e8ad` | none |  |
-| Trader Joe | `trader-joe` | Trader Joe, LFJ, Joe | plain | `0xdcd5f77697914e27f56fd263ef82923c8524abac`, `0x3d8dc63ddc9b992cfde89f7aea6f18717e84687d`, `0x22602d966defd638ee94e97a92e2eb0934c3fe1b`, `0xd60cf7876a1e7b8fcf963722a05039849fde5387` | none |  |
+| Uniswap v4 | `uniswap-v4` | Uniswap, UNI, Uniswap v4, Uni v4, PoolManager | vault | manager `0x8366a39cc670b4001a1121b8f6a443a643e40951` | the manager |  |
+| PancakeSwap Infinity | `pancakeswap` | PancakeSwap, Pancake, CAKE, PancakeSwap Infinity | vault | manager `0xee04c68742e6bf434be8039580d2e89bbe55bc6f` | the manager |  |
+| PancakeSwap v2 | `pancakeswap-v2` | PancakeSwap v2, Pancake v2 | plain | `0x02a84c1b3bbd7401a5f7fa98a384ebc70bb5749e` | none |  |
+| PancakeSwap v3 | `pancakeswap-v3` | PancakeSwap v3, Pancake v3 | plain | `0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865` | none |  |
+| SushiSwap V4 | `sushiswap` | Sushi, SushiSwap, SUSHI, Sushi V4 | vault | manager `0x81d732702f87d2d652ae79e9f52bf44928eca210` | the manager |  |
+| Orvex | `orvex` | Orvex, Orvex MetaDEX, orvex.fi, ORVX | vault | manager `0xd01c774d4a66408326bc65728ac5ae5aaf004032` | the manager |  |
+| Swaap v2 | `swaap` | Swaap, Swaap Finance, swaap.xyz | vault | manager `0xd315a9c38ec871068fec378e4ce78af528c76293` | the manager |  |
+| unnamed Balancer v3 vault | `balancer-v3` | Balancer v3 vault | vault | manager `0x28082618ba2073e602230188e4f4c46e9b2169eb` | the manager |  |
+| Ramses | `ramses` | Ramses, Ramses Exchange, RAM, ramses.xyz, Ramses DLMM | plain | `0xdcd5f77697914e27f56fd263ef82923c8524abac`, `0x43b2bf9f33036a02fc7a00935571c2a6b0108e66` | `0xd0019e86edb35e1fedaab03aed5c3c60f115d28b` |  |
+| SectorOne | `sectorone` | SectorOne, SectorOne DLMM | plain | `0x3d8dc63ddc9b992cfde89f7aea6f18717e84687d` | none |  |
+| Hoodit | `hoodit` | Hoodit, hoodit.xyz | plain | `0x22602d966defd638ee94e97a92e2eb0934c3fe1b` | none |  |
+| GIGA | `giga` | GIGA, GIGA DEX, GigaDEX, gigadex.fi | plain | `0x6fdf38f92ead1adfc04b73aaa947ab254f6c0916` | none |  |
+| Flap | `flap` | Flap, Flap launchpad, flap.sh | launchpad | `0x0d1ebb179cdbca88d74c923c4255cb2b17474afd` | none |  |
+| Curve | `curve` | Curve, Curve Finance, CRV, curve.finance | plain | `0x8271e06e5887fe5ba05234f5315c19f3ec90e8ad` | none |  |
+| Metric | `metric` | Metric, Metric OMM, metric.xyz | plain | `0x2e0a99a2e352043d1ca489cf45bf7b511bccc738`, `0x2a53833cc95548cf52c7b159110e22d3a9018f32` | none |  |
 | Penguin | `penguin` | Penguin, Penguin launchpad | launchpad | `0x09f1b640d53c9c4c1807bf5aa306745128ee4375` | none |  |
-| unnamed launchpad | `bonding-curve` | bonding curve launchpad | launchpad | `0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e` | none |  |
-| Virtuals Protocol | `virtuals` | Virtuals, VIRTUAL, Virtuals Protocol | launchpad | `0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f`, `0xfc2e4da3edb2e18100473339c763705d263d20a9` | none |  |
+| pons | `pons` | pons, pons launchpad | launchpad | `0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e` | none |  |
+| Virtuals Protocol | `virtuals` | Virtuals, VIRTUAL, Virtuals Protocol | launchpad | `0xfc2e4da3edb2e18100473339c763705d263d20a9` | none |  |
 <!-- brands:end -->
 
 ## Name the exchange: memo, then the graph, never the user

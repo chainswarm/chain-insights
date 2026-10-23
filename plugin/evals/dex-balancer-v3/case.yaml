@@ -3,7 +3,7 @@ name: dex-balancer-v3
 expected_outcome: The agent resolves Balancer v3 from the memo with no address from the user, loads the vault trail, names the pool manager as the manager, and reads the buyer from the recipient of the facts SWAP row of the seller and the manager on one day, never with a topology hop out of the manager.
 execution:
   prompt: |
-    A user asks: "A wallet swapped on Balancer v3 on robinhood. Who bought what it sold, and how
+    A user asks: "A wallet swapped on the Balancer v3 vault on robinhood. Who bought what it sold, and how
     do you find out? Name every address you would follow, and what each one is."
 
     The Chain Insights graph_query tool is not reachable right now, so do
