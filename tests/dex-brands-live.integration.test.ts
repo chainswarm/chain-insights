@@ -170,7 +170,10 @@ describe.skipIf(!endpoint)('the exchange brand memo against a live Chain Insight
     if (served.size === 0) return // the brand roll has not landed on this lane: the memo path alone is judged
     const verdicts: string[] = []
     for (const row of memo.rows) {
-      if (!served.has(row.brand)) verdicts.push(`the lane's brand list lacks ${row.brand}`)
+      // A brand is in the pool list only when it has address-keyed pools: a vault's pools are keyed by id and
+      // never marked, and a launchpad with no pool yet marks nothing. Those rows are judged on their manager or factory node.
+      const expectsPools = row.trail_type !== 'vault' && Boolean(row.example_pool || row.pool_floor)
+      if (expectsPools && !served.has(row.brand)) verdicts.push(`the lane's brand list lacks ${row.brand}`)
       const id = row.trail_type === 'vault' ? `manager:${row.brand}` : `pool:${row.brand}`
       const [read] = answers.get(id)?.results ?? []
       if (read && read['brand'] !== row.brand) {

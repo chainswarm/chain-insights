@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/generate-query-corpus.mjs",
- "entry_count": 56,
+ "entry_count": 62,
  "entries": [
   {
    "builder": "addressFeatureQuery",
@@ -135,6 +135,35 @@
    },
    "scope": "chain",
    "query": "USE chain MATCH (t:Transaction {tx_id: \"0x350065e1a55d7272de562706fdea5f48ae83cf10e468e56b2209f8cfbaaf1901\"}) RETURN t.status, t.block_height, t.block_date"
+  },
+  {
+   "builder": "documented-recipe",
+   "params": {
+    "id": "recipe_facts_dex_swap_past_manager_01",
+    "features": [
+     "address-predicate",
+     "inline-property-map",
+     "swap-edge",
+     "day-predicate",
+     "recipient-field"
+    ]
+   },
+   "scope": "facts",
+   "query": "USE facts MATCH (s:Address {address: \"0x4b9364c8553c519a419b259f022865071fd7bfdf\"})-[x:SWAP]->(m:Address {address: \"0x8366a39cc670b4001a1121b8f6a443a643e40951\"}) WHERE x.block_date = \"2026-10-22\" RETURN s.address AS from_address, m.address AS to_address, x.recipient AS recipient, x.tx_id AS tx_id, x.sold_asset AS sold_asset, x.bought_asset AS bought_asset LIMIT 25"
+  },
+  {
+   "builder": "documented-recipe",
+   "params": {
+    "id": "recipe_facts_dex_swaps_seller_router_day_01",
+    "features": [
+     "address-predicate",
+     "inline-property-map",
+     "swap-edge",
+     "day-predicate"
+    ]
+   },
+   "scope": "facts",
+   "query": "USE facts MATCH (s:Address {address: \"0x4b9364c8553c519a419b259f022865071fd7bfdf\"})-[x:SWAP]->(r:Address {address: \"0x72e46c9edf828002fdbfdd0952419790576c0f18\"}) WHERE x.block_date = \"2026-10-22\" RETURN s.address AS from_address, r.address AS to_address, x.tx_id AS tx_id, x.sold_asset AS sold_asset, x.bought_asset AS bought_asset, x.amount_usd AS amount_usd LIMIT 25"
   },
   {
    "builder": "documented-recipe",
@@ -393,6 +422,64 @@
    },
    "scope": "topology",
    "query": "USE topology MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[l:LINKED]-(b:Address) WHERE a.network <> b.network RETURN a.address AS address, a.network AS network, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 25"
+  },
+  {
+   "builder": "documented-recipe",
+   "params": {
+    "id": "recipe_topology_dex_brand_list_01",
+    "features": [
+     "label-match",
+     "pool-label",
+     "brand-property",
+     "distinct"
+    ]
+   },
+   "scope": "topology",
+   "query": "USE topology MATCH (p:Pool) WHERE p.brand IS NOT NULL RETURN DISTINCT p.brand AS brand LIMIT 100"
+  },
+  {
+   "builder": "documented-recipe",
+   "params": {
+    "id": "recipe_topology_dex_pools_by_brand_01",
+    "features": [
+     "label-match",
+     "pool-label",
+     "inline-property-map",
+     "brand-property",
+     "order-by"
+    ]
+   },
+   "scope": "topology",
+   "query": "USE topology MATCH (p:Pool {brand: \"aero\"}) WHERE p.total_volume_usd IS NOT NULL RETURN p.address AS to_address, p.labels AS to_labels, p.brand AS brand, p.total_volume_usd AS total_volume_usd ORDER BY p.total_volume_usd DESC LIMIT 10"
+  },
+  {
+   "builder": "documented-recipe",
+   "params": {
+    "id": "recipe_topology_dex_pools_by_factory_01",
+    "features": [
+     "address-predicate",
+     "inline-property-map",
+     "deployed-contract-edge",
+     "pool-label",
+     "order-by"
+    ]
+   },
+   "scope": "topology",
+   "query": "USE topology MATCH (f:Address {address: \"0xc63d7338c178e805c544b8f897066bd3bbcbe136\"})-[:DEPLOYED_CONTRACT]->(p:Pool) WHERE p.total_volume_usd IS NOT NULL RETURN f.address AS from_address, p.address AS to_address, p.labels AS to_labels, p.total_volume_usd AS total_volume_usd ORDER BY p.total_volume_usd DESC LIMIT 10"
+  },
+  {
+   "builder": "documented-recipe",
+   "params": {
+    "id": "recipe_topology_dex_sellers_into_pool_01",
+    "features": [
+     "address-predicate",
+     "inline-property-map",
+     "flows-to-edge",
+     "order-by"
+    ]
+   },
+   "scope": "topology",
+   "query": "USE topology MATCH (s:Address)-[f:FLOWS_TO]->(p:Address {address: \"0x7615926023bb149f36095645c2a81dc367d39750\"}) WHERE NOT s:Pool AND NOT s:Protocol AND NOT s:System RETURN s.address AS from_address, p.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.last_seen_timestamp AS last_seen_timestamp, s.is_contract AS from_is_contract ORDER BY f.amount_usd_sum DESC LIMIT 25"
   },
   {
    "builder": "documented-recipe",
