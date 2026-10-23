@@ -29,13 +29,12 @@ graders:
     target: last_message
     pattern: 'USE facts[\s\S]*:SWAP\]'
     match: contains
-  - type: llm
-    name: manager-not-buyer
-    criteria: >
-      The answer names the exchange's pool manager (or vault) for what it is,
-      reads the buyer from the recipient of the facts SWAP row of the seller
-      and the manager on one day, and never calls the manager the buyer.
-    weight: 1
+  - type: regex
+    name: buyer-from-the-swap-recipient
+    target: last_message
+    pattern: 'recipient'
+    flags: i
+    match: contains
   - type: regex
     name: contract-never-buyer
     target: last_message

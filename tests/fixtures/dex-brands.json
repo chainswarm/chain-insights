@@ -704,12 +704,10 @@
         "metric-omm"
       ],
       "roles": {
-        "0x2e0a99a2e352043d1ca489cf45bf7b511bccc738": "factory",
-        "0x2a53833cc95548cf52c7b159110e22d3a9018f32": "factory"
+        "0x2e0a99a2e352043d1ca489cf45bf7b511bccc738": "factory"
       },
       "factories": [
-        "0x2e0a99a2e352043d1ca489cf45bf7b511bccc738",
-        "0x2a53833cc95548cf52c7b159110e22d3a9018f32"
+        "0x2e0a99a2e352043d1ca489cf45bf7b511bccc738"
       ],
       "routers": [],
       "example_pool": "0x584ac6010b095bf99398fae8203a3260a03d2b30",

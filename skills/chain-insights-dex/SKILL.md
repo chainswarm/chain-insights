@@ -64,7 +64,7 @@ Memo of the brand registry, version 1, robinhood, recorded 2026-10-23.
 | GIGA | `giga` | GIGA, GIGA DEX, GigaDEX, gigadex.fi | plain | `0x6fdf38f92ead1adfc04b73aaa947ab254f6c0916` | none |  |
 | Flap | `flap` | Flap, Flap launchpad, flap.sh | launchpad | `0x0d1ebb179cdbca88d74c923c4255cb2b17474afd` | none |  |
 | Curve | `curve` | Curve, Curve Finance, CRV, curve.finance | plain | `0x8271e06e5887fe5ba05234f5315c19f3ec90e8ad` | none |  |
-| Metric | `metric` | Metric, Metric OMM, metric.xyz | plain | `0x2e0a99a2e352043d1ca489cf45bf7b511bccc738`, `0x2a53833cc95548cf52c7b159110e22d3a9018f32` | none |  |
+| Metric | `metric` | Metric, Metric OMM, metric.xyz | plain | `0x2e0a99a2e352043d1ca489cf45bf7b511bccc738` | none |  |
 | Penguin | `penguin` | Penguin, Penguin launchpad | launchpad | `0x09f1b640d53c9c4c1807bf5aa306745128ee4375` | none |  |
 | pons | `pons` | pons, pons launchpad | launchpad | `0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e` | none |  |
 | Virtuals Protocol | `virtuals` | Virtuals, VIRTUAL, Virtuals Protocol | launchpad | `0xfc2e4da3edb2e18100473339c763705d263d20a9` | none |  |
