@@ -17,13 +17,15 @@ export type BrandRow = {
   aliases: string[]
   trail_type: TrailType
   adapter: string
+  adapters?: string[]
+  roles?: Record<string, string>
   /** The factories that deploy the brand's pools, or the one manager of a vault row. */
   factories: string[]
   routers: string[]
   /** Optional: the role of a factory or router in plain words, keyed by its address. */
   roles?: Record<string, string>
-  example_pool: string
-  pool_floor: number
+  example_pool: string | null
+  pool_floor: number | null
   since_block: number
   source: string
   /** Why a row lacks a factory, a router or an example pool. */
@@ -76,7 +78,7 @@ export function evalPrompt(caseYaml: string): string | null {
 //       skills/chain-insights-dex-<type>/SKILL.md, or type plain
 //         (served by skills/chain-insights-dex/SKILL.md)          else "no type skill: <type> (<brand>)"
 //       plugin/evals/dex-<brand>/case.yaml whose prompt holds the
-//         row's display and no 0x address                         else "no name-only eval: <brand>"
+//         row's display, key or an alias, and no 0x address                         else "no name-only eval: <brand>"
 //   for each row: row.adapter in dex-adapters.json                else "row names an unknown adapter: <brand> (<adapter>)"
 export function coverageGaps(adapterId: string | null, root = repoRoot): string[] {
   const brands = readBrands(root)
@@ -94,7 +96,7 @@ export function coverageGaps(adapterId: string | null, root = repoRoot): string[
     const prompt = existsSync(casePath) ? evalPrompt(readFileSync(casePath, 'utf8')) : null
     if (
       prompt === null ||
-      !prompt.toLowerCase().includes(row.display.toLowerCase()) ||
+      ![row.display, row.brand, ...row.aliases].some((name) => prompt.toLowerCase().includes(name.toLowerCase())) ||
       /0x[0-9a-f]/i.test(prompt)
     ) {
       out.push(`no name-only eval: ${row.brand}`)
@@ -103,13 +105,13 @@ export function coverageGaps(adapterId: string | null, root = repoRoot): string[
   }
   if (adapterId === null) {
     for (const row of brands.rows) {
-      if (!known.has(row.adapter)) {
-        gaps.push(`row names an unknown adapter: ${row.brand} (${row.adapter})`)
+      for (const id of row.adapters ?? [row.adapter]) if (!known.has(id)) {
+        gaps.push(`row names an unknown adapter: ${row.brand} (${id})`)
       }
     }
     return gaps
   }
-  const rows = brands.rows.filter((row) => row.adapter === adapterId)
+  const rows = brands.rows.filter((row) => (row.adapters ?? [row.adapter]).includes(adapterId))
   if (rows.length === 0) gaps.push(`no brand row: ${adapterId}`)
   for (const row of rows) gaps.push(...rowGaps(row))
   return gaps

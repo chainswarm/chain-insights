@@ -1,11 +1,11 @@
 {
   "recorded_on": "2026-10-23",
   "network": "robinhood",
-  "registry_version": 0,
+  "registry_version": 1,
   "rows": [
     {
       "brand": "aero",
-      "display": "Aero",
+      "display": "Aero (Aerodrome and Velodrome, merged)",
       "aliases": [
         "Aero",
         "Aerodrome",
@@ -14,6 +14,13 @@
       ],
       "trail_type": "gauge",
       "adapter": "cl-gauge-v1",
+      "adapters": [
+        "cl-gauge-v1"
+      ],
+      "roles": {
+        "0xc63d7338c178e805c544b8f897066bd3bbcbe136": "factory",
+        "0x72e46c9edf828002fdbfdd0952419790576c0f18": "router"
+      },
       "factories": [
         "0xc63d7338c178e805c544b8f897066bd3bbcbe136"
       ],
@@ -21,8 +28,8 @@
         "0x72e46c9edf828002fdbfdd0952419790576c0f18"
       ],
       "example_pool": "0x7615926023bb149f36095645c2a81dc367d39750",
-      "pool_floor": 70,
-      "since_block": 94021838,
+      "pool_floor": 60,
+      "since_block": 93973839,
       "source": "https://github.com/chainswarm/AP1000/blob/main/docs/evidence/2026-10-23-dex-protocol-skills.md"
     },
     {
@@ -35,15 +42,20 @@
       ],
       "trail_type": "gauge",
       "adapter": "solidly-v2",
+      "adapters": [
+        "solidly-v2"
+      ],
+      "roles": {
+        "0xfa5429aeba338bea2bfcc1b9a889862ee395bc28": "factory"
+      },
       "factories": [
         "0xfa5429aeba338bea2bfcc1b9a889862ee395bc28"
       ],
       "routers": [],
-      "example_pool": "",
-      "pool_floor": 67,
-      "since_block": 0,
-      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/evidence/2026-10-23-dex-protocol-skills.md",
-      "note": "no router proven yet: the SWAPPED recipient decides the step"
+      "example_pool": "0x8697bb63743678640710b1270e98772a29642b3c",
+      "pool_floor": 30,
+      "since_block": 6180950,
+      "source": "https://github.com/chainswarm/devops/blob/de68f8676adac3e2f004fb0cd24c313f9516846e/charts/chainswarm-indexer-evm-dex/registry/robinhood-v24.json"
     },
     {
       "brand": "uniswap-v4",
@@ -55,35 +67,72 @@
       ],
       "trail_type": "vault",
       "adapter": "uniswap-v4",
+      "adapters": [
+        "uniswap-v4"
+      ],
+      "roles": {
+        "0x8366a39cc670b4001a1121b8f6a443a643e40951": "manager"
+      },
       "factories": [
         "0x8366a39cc670b4001a1121b8f6a443a643e40951"
       ],
       "routers": [
         "0x8366a39cc670b4001a1121b8f6a443a643e40951"
       ],
-      "example_pool": "",
-      "pool_floor": 0,
+      "example_pool": null,
+      "pool_floor": null,
       "since_block": 0,
-      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/evidence/2026-10-23-dex-protocol-skills.md"
+      "source": "https://github.com/chainswarm/devops/blob/de68f8676adac3e2f004fb0cd24c313f9516846e/charts/chainswarm-indexer-evm-dex/registry/robinhood-v24.json"
+    },
+    {
+      "brand": "uniswap-v3",
+      "display": "Uniswap v3",
+      "aliases": [
+        "Uniswap v3",
+        "Uni v3"
+      ],
+      "trail_type": "plain",
+      "adapter": "uniswap-v3",
+      "adapters": [
+        "uniswap-v3"
+      ],
+      "roles": {
+        "0x1f7d7550b1b028f7571e69a784071f0205fd2efa": "factory"
+      },
+      "factories": [
+        "0x1f7d7550b1b028f7571e69a784071f0205fd2efa"
+      ],
+      "routers": [],
+      "example_pool": "0x10cc6bd38112cac182db90b6a71d8bb5939526ba",
+      "pool_floor": 400000,
+      "since_block": 0,
+      "source": "https://github.com/chainswarm/devops/blob/de68f8676adac3e2f004fb0cd24c313f9516846e/charts/chainswarm-indexer-evm-dex/registry/robinhood-v24.json"
     },
     {
       "brand": "balancer-v2",
       "display": "Balancer v2",
       "aliases": [
+        "Balancer",
         "Balancer v2"
       ],
       "trail_type": "vault",
       "adapter": "balancer-v2",
+      "adapters": [
+        "balancer-v2"
+      ],
+      "roles": {
+        "0xd315a9c38ec871068fec378e4ce78af528c76293": "manager"
+      },
       "factories": [
         "0xd315a9c38ec871068fec378e4ce78af528c76293"
       ],
       "routers": [
         "0xd315a9c38ec871068fec378e4ce78af528c76293"
       ],
-      "example_pool": "",
-      "pool_floor": 0,
+      "example_pool": null,
+      "pool_floor": null,
       "since_block": 0,
-      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/evidence/2026-10-23-dex-protocol-skills.md"
+      "source": "https://github.com/chainswarm/devops/blob/de68f8676adac3e2f004fb0cd24c313f9516846e/charts/chainswarm-indexer-evm-dex/registry/robinhood-v24.json"
     },
     {
       "brand": "balancer-v3",
@@ -93,20 +142,26 @@
       ],
       "trail_type": "vault",
       "adapter": "balancer-v3",
+      "adapters": [
+        "balancer-v3"
+      ],
+      "roles": {
+        "0x28082618ba2073e602230188e4f4c46e9b2169eb": "manager"
+      },
       "factories": [
         "0x28082618ba2073e602230188e4f4c46e9b2169eb"
       ],
       "routers": [
         "0x28082618ba2073e602230188e4f4c46e9b2169eb"
       ],
-      "example_pool": "",
-      "pool_floor": 0,
+      "example_pool": null,
+      "pool_floor": null,
       "since_block": 0,
-      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/evidence/2026-10-23-dex-protocol-skills.md"
+      "source": "https://github.com/chainswarm/devops/blob/de68f8676adac3e2f004fb0cd24c313f9516846e/charts/chainswarm-indexer-evm-dex/registry/robinhood-v24.json"
     },
     {
       "brand": "pancakeswap",
-      "display": "PancakeSwap",
+      "display": "PancakeSwap Infinity",
       "aliases": [
         "PancakeSwap",
         "Pancake",
@@ -114,31 +169,44 @@
       ],
       "trail_type": "vault",
       "adapter": "pancake-infinity-cl",
+      "adapters": [
+        "pancake-infinity-cl"
+      ],
+      "roles": {
+        "0xd01c774d4a66408326bc65728ac5ae5aaf004032": "manager"
+      },
       "factories": [
         "0xd01c774d4a66408326bc65728ac5ae5aaf004032"
       ],
       "routers": [
         "0xd01c774d4a66408326bc65728ac5ae5aaf004032"
       ],
-      "example_pool": "",
-      "pool_floor": 0,
+      "example_pool": null,
+      "pool_floor": null,
       "since_block": 0,
-      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/evidence/2026-10-23-dex-protocol-skills.md"
+      "source": "https://github.com/chainswarm/devops/blob/de68f8676adac3e2f004fb0cd24c313f9516846e/charts/chainswarm-indexer-evm-dex/registry/robinhood-v24.json"
     },
     {
       "brand": "metric",
       "display": "Metric",
       "aliases": [
-        "Metric"
+        "Metric",
+        "Metric OMM"
       ],
       "trail_type": "plain",
       "adapter": "metric-omm",
+      "adapters": [
+        "metric-omm"
+      ],
+      "roles": {
+        "0x2e0a99a2e352043d1ca489cf45bf7b511bccc738": "factory"
+      },
       "factories": [
         "0x2e0a99a2e352043d1ca489cf45bf7b511bccc738"
       ],
       "routers": [],
       "example_pool": "0x584ac6010b095bf99398fae8203a3260a03d2b30",
-      "pool_floor": 82,
+      "pool_floor": 70,
       "since_block": 0,
       "source": "https://github.com/chainswarm/AP1000/blob/main/docs/evidence/2026-10-23-dex-protocol-skills.md"
     },
@@ -151,12 +219,18 @@
       ],
       "trail_type": "plain",
       "adapter": "curve-stable",
+      "adapters": [
+        "curve-stable"
+      ],
+      "roles": {
+        "0x8271e06e5887fe5ba05234f5315c19f3ec90e8ad": "factory"
+      },
       "factories": [
         "0x8271e06e5887fe5ba05234f5315c19f3ec90e8ad"
       ],
       "routers": [],
-      "example_pool": "",
-      "pool_floor": 64,
+      "example_pool": "0x7e0539140f16b3a8ed23ad69d6fea6a38fb8b299",
+      "pool_floor": 55,
       "since_block": 0,
       "source": "https://github.com/chainswarm/AP1000/blob/main/docs/evidence/2026-10-23-dex-protocol-skills.md"
     },
@@ -165,21 +239,31 @@
       "display": "Trader Joe",
       "aliases": [
         "Trader Joe",
-        "Joe",
-        "LFJ"
+        "LFJ",
+        "Joe"
       ],
       "trail_type": "plain",
       "adapter": "trader-joe-lb",
+      "adapters": [
+        "trader-joe-lb"
+      ],
+      "roles": {
+        "0xdcd5f77697914e27f56fd263ef82923c8524abac": "factory",
+        "0x3d8dc63ddc9b992cfde89f7aea6f18717e84687d": "factory",
+        "0x22602d966defd638ee94e97a92e2eb0934c3fe1b": "factory",
+        "0xd60cf7876a1e7b8fcf963722a05039849fde5387": "factory"
+      },
       "factories": [
         "0xdcd5f77697914e27f56fd263ef82923c8524abac",
         "0x3d8dc63ddc9b992cfde89f7aea6f18717e84687d",
-        "0x22602d966defd638ee94e97a92e2eb0934c3fe1b"
+        "0x22602d966defd638ee94e97a92e2eb0934c3fe1b",
+        "0xd60cf7876a1e7b8fcf963722a05039849fde5387"
       ],
       "routers": [],
-      "example_pool": "",
-      "pool_floor": 257,
+      "example_pool": "0x06ffaa507a9c3e7025294a642f1e1c75da3dfb4a",
+      "pool_floor": 300,
       "since_block": 0,
-      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/evidence/2026-10-23-dex-protocol-skills.md"
+      "source": "https://github.com/chainswarm/devops/blob/de68f8676adac3e2f004fb0cd24c313f9516846e/charts/chainswarm-indexer-evm-dex/registry/robinhood-v24.json"
     },
     {
       "brand": "penguin",
@@ -190,14 +274,20 @@
       ],
       "trail_type": "launchpad",
       "adapter": "penguin-launchpad",
+      "adapters": [
+        "penguin-launchpad"
+      ],
+      "roles": {
+        "0x09f1b640d53c9c4c1807bf5aa306745128ee4375": "factory"
+      },
       "factories": [
         "0x09f1b640d53c9c4c1807bf5aa306745128ee4375"
       ],
       "routers": [],
-      "example_pool": "",
-      "pool_floor": 0,
+      "example_pool": null,
+      "pool_floor": null,
       "since_block": 0,
-      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/evidence/2026-10-23-dex-protocol-skills.md"
+      "source": "https://github.com/chainswarm/devops/blob/de68f8676adac3e2f004fb0cd24c313f9516846e/charts/chainswarm-indexer-evm-dex/registry/robinhood-v24.json"
     },
     {
       "brand": "bonding-curve",
@@ -207,14 +297,20 @@
       ],
       "trail_type": "launchpad",
       "adapter": "bonding-curve",
+      "adapters": [
+        "bonding-curve"
+      ],
+      "roles": {
+        "0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e": "factory"
+      },
       "factories": [
         "0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e"
       ],
       "routers": [],
-      "example_pool": "",
-      "pool_floor": 0,
+      "example_pool": null,
+      "pool_floor": null,
       "since_block": 0,
-      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/evidence/2026-10-23-dex-protocol-skills.md"
+      "source": "https://github.com/chainswarm/devops/blob/de68f8676adac3e2f004fb0cd24c313f9516846e/charts/chainswarm-indexer-evm-dex/registry/robinhood-v24.json"
     },
     {
       "brand": "virtuals",
@@ -226,55 +322,22 @@
       ],
       "trail_type": "launchpad",
       "adapter": "uniswap-v2",
+      "adapters": [
+        "uniswap-v2"
+      ],
+      "roles": {
+        "0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f": "factory",
+        "0xfc2e4da3edb2e18100473339c763705d263d20a9": "factory"
+      },
       "factories": [
         "0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f",
         "0xfc2e4da3edb2e18100473339c763705d263d20a9"
       ],
       "routers": [],
-      "roles": {
-        "0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f": "Uniswap v2 pair factory",
-        "0xfc2e4da3edb2e18100473339c763705d263d20a9": "Starting-pool factory"
-      },
-      "example_pool": "",
-      "pool_floor": 0,
+      "example_pool": null,
+      "pool_floor": 20000,
       "since_block": 0,
-      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/evidence/2026-10-23-dex-protocol-skills.md"
-    },
-    {
-      "brand": "uniswap-v3",
-      "display": "Uniswap v3",
-      "aliases": [
-        "Uniswap v3",
-        "Uni v3"
-      ],
-      "trail_type": "plain",
-      "adapter": "uniswap-v3",
-      "factories": [
-        "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865",
-        "0x1f7d7550b1b028f7571e69a784071f0205fd2efa"
-      ],
-      "routers": [],
-      "example_pool": "0x10cc6bd38112cac182db90b6a71d8bb5939526ba",
-      "pool_floor": 0,
-      "since_block": 0,
-      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/evidence/2026-10-23-dex-protocol-skills.md"
-    },
-    {
-      "brand": "uniswap-v2",
-      "display": "Uniswap v2",
-      "aliases": [
-        "Uniswap v2",
-        "Uni v2"
-      ],
-      "trail_type": "plain",
-      "adapter": "uniswap-v2",
-      "factories": [],
-      "routers": [],
-      "example_pool": "",
-      "pool_floor": 0,
-      "since_block": 0,
-      "source": "https://github.com/chainswarm/AP1000/blob/main/docs/evidence/2026-10-23-dex-protocol-skills.md",
-      "note": "no non-Virtuals v2 factory proven yet"
+      "source": "https://github.com/chainswarm/AP1000/blob/main/openspec/changes/archive/2026-10-16-silent-factory-discovery-and-labels/design.md"
     }
   ]
 }

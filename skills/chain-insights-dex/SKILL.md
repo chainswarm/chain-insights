@@ -35,24 +35,23 @@ The memo below is rendered from the brand registry. Every address in it is
 in full. Never edit it by hand.
 
 <!-- brands:start -->
-Memo of the brand registry, version 0, robinhood, recorded 2026-10-23.
+Memo of the brand registry, version 1, robinhood, recorded 2026-10-23.
 
 | Brand | Key | Also written | Trail | Factories, or the manager | Router | Note |
 |---|---|---|---|---|---|---|
-| Aero | `aero` | Aero, Aerodrome, Velodrome, Aerodrome Finance | gauge | `0xc63d7338c178e805c544b8f897066bd3bbcbe136` | `0x72e46c9edf828002fdbfdd0952419790576c0f18` |  |
-| up. | `up` | up., up, up finance | gauge | `0xfa5429aeba338bea2bfcc1b9a889862ee395bc28` | none proven yet | no router proven yet: the SWAPPED recipient decides the step |
+| Aero (Aerodrome and Velodrome, merged) | `aero` | Aero, Aerodrome, Velodrome, Aerodrome Finance | gauge | `0xc63d7338c178e805c544b8f897066bd3bbcbe136` | `0x72e46c9edf828002fdbfdd0952419790576c0f18` |  |
+| up. | `up` | up., up, up finance | gauge | `0xfa5429aeba338bea2bfcc1b9a889862ee395bc28` | none proven yet |  |
 | Uniswap v4 | `uniswap-v4` | Uniswap, Uniswap v4, Uni v4 | vault | manager `0x8366a39cc670b4001a1121b8f6a443a643e40951` | the manager |  |
-| Balancer v2 | `balancer-v2` | Balancer v2 | vault | manager `0xd315a9c38ec871068fec378e4ce78af528c76293` | the manager |  |
+| Uniswap v3 | `uniswap-v3` | Uniswap v3, Uni v3 | plain | `0x1f7d7550b1b028f7571e69a784071f0205fd2efa` | none |  |
+| Balancer v2 | `balancer-v2` | Balancer, Balancer v2 | vault | manager `0xd315a9c38ec871068fec378e4ce78af528c76293` | the manager |  |
 | Balancer v3 | `balancer-v3` | Balancer v3 | vault | manager `0x28082618ba2073e602230188e4f4c46e9b2169eb` | the manager |  |
-| PancakeSwap | `pancakeswap` | PancakeSwap, Pancake, PancakeSwap Infinity | vault | manager `0xd01c774d4a66408326bc65728ac5ae5aaf004032` | the manager |  |
-| Metric | `metric` | Metric | plain | `0x2e0a99a2e352043d1ca489cf45bf7b511bccc738` | none |  |
+| PancakeSwap Infinity | `pancakeswap` | PancakeSwap, Pancake, PancakeSwap Infinity | vault | manager `0xd01c774d4a66408326bc65728ac5ae5aaf004032` | the manager |  |
+| Metric | `metric` | Metric, Metric OMM | plain | `0x2e0a99a2e352043d1ca489cf45bf7b511bccc738` | none |  |
 | Curve | `curve` | Curve, Curve Finance | plain | `0x8271e06e5887fe5ba05234f5315c19f3ec90e8ad` | none |  |
-| Trader Joe | `trader-joe` | Trader Joe, Joe, LFJ | plain | `0xdcd5f77697914e27f56fd263ef82923c8524abac`, `0x3d8dc63ddc9b992cfde89f7aea6f18717e84687d`, `0x22602d966defd638ee94e97a92e2eb0934c3fe1b` | none |  |
+| Trader Joe | `trader-joe` | Trader Joe, LFJ, Joe | plain | `0xdcd5f77697914e27f56fd263ef82923c8524abac`, `0x3d8dc63ddc9b992cfde89f7aea6f18717e84687d`, `0x22602d966defd638ee94e97a92e2eb0934c3fe1b`, `0xd60cf7876a1e7b8fcf963722a05039849fde5387` | none |  |
 | Penguin | `penguin` | Penguin, Penguin launchpad | launchpad | `0x09f1b640d53c9c4c1807bf5aa306745128ee4375` | none |  |
 | unnamed launchpad | `bonding-curve` | bonding curve launchpad | launchpad | `0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e` | none |  |
 | Virtuals Protocol | `virtuals` | Virtuals, VIRTUAL, Virtuals Protocol | launchpad | `0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f`, `0xfc2e4da3edb2e18100473339c763705d263d20a9` | none |  |
-| Uniswap v3 | `uniswap-v3` | Uniswap v3, Uni v3 | plain | `0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865`, `0x1f7d7550b1b028f7571e69a784071f0205fd2efa` | none |  |
-| Uniswap v2 | `uniswap-v2` | Uniswap v2, Uni v2 | plain | none proven yet | none | no non-Virtuals v2 factory proven yet |
 <!-- brands:end -->
 
 ## Name the exchange: memo, then the graph, never the user

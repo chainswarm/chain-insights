@@ -62,12 +62,12 @@ The starting-pool factory and the Uniswap v2 pair factory come from the
 exchange memo, the same rows `chain-insights-dex` lists under Virtuals:
 
 <!-- brands:start -->
-The factories of the brand registry, version 0, row `virtuals`:
+The factories of the brand registry, version 1, row `virtuals`:
 
 | Factory | Address |
 |---|---|
-| Uniswap v2 pair factory | `0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f` |
-| Starting-pool factory | `0xfc2e4da3edb2e18100473339c763705d263d20a9` |
+| factory | `0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f` |
+| factory | `0xfc2e4da3edb2e18100473339c763705d263d20a9` |
 <!-- brands:end -->
 
 **Hubs.** These carry millions of transactions. Keep them out of buyer,

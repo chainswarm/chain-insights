@@ -3,6 +3,35 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.67.0] - 2026-10-23 — exchanges by name
+
+### Added
+- `skills/chain-insights-dex`: a question that names an exchange with no
+  address (Aero, up., Uniswap, Balancer, PancakeSwap, Trader Joe, Curve,
+  Metric, Penguin, Virtuals) is answered from a memo of each brand's factory,
+  manager and router addresses, rendered from the AP1000 DEX brand registry
+  (version 1), then from the brand the graph serves on its pools, and never
+  by asking the user for an address. Pools of a brand by brand, then by memo
+  factory; the plain trail.
+- `skills/chain-insights-dex-gauge` (Aero, up., Raphael, Topaz): the router
+  a seller's swap names is not the buyer; the buyer comes from the router's
+  transfer in the seller's transaction on facts.
+- `skills/chain-insights-dex-vault` (Uniswap v4, Balancer v2 and v3,
+  PancakeSwap Infinity): the pool manager is not the buyer; the buyer comes
+  from the facts swap row.
+- `skills/chain-insights-dex-launchpad` (Penguin, bonding curves): the curve
+  stage, the graduation and the first pool; Virtuals keeps its own skill.
+- `tests/fixtures/dex-brands.json` (the pinned brand registry) and
+  `tests/fixtures/dex-adapters.json` (the pinned indexer registry, v24);
+  `tests/dex-coverage.test.ts` fails when an indexer adapter has no brand
+  row, no trail skill or no name-only eval; `scripts/render-dex-brands.mjs`
+  renders the memo and `--check` fails on a hand edit; 14 name-only evals
+  under `plugin/evals/dex-*`.
+
+### Changed
+- `skills/chain-insights-virtuals`: its two factory addresses are the
+  rendered memo block, no longer typed by hand.
+
 ## [0.66.2] - 2026-10-22 — liquidity and bridge links, one per asset
 
 ### Changed

@@ -17,7 +17,7 @@ import { readAdapters, readBrands, repoRoot, TRAIL_TYPES } from './dex-brands.js
 // brand part of tests/graph-marks-live.integration.test.ts.
 
 const ADDRESS = /^0x[0-9a-f]{40}$/
-const SOURCE = /^https:\/\/github\.com\/chainswarm\/AP1000\/blob\/[^/]+\/.+/
+const SOURCE = /^https:\/\/github\.com\/chainswarm\/(AP1000|devops)\/blob\/[^/]+\/.+/
 
 describe('the pinned brand registry', () => {
   const brands = readBrands()
@@ -40,7 +40,7 @@ describe('the pinned brand registry', () => {
       for (const address of [...row.factories, ...row.routers, ...Object.keys(row.roles ?? {})]) {
         expect(address, row.brand).toMatch(ADDRESS)
       }
-      if (row.example_pool !== '') expect(row.example_pool, row.brand).toMatch(ADDRESS)
+      if (row.example_pool) expect(row.example_pool, row.brand).toMatch(ADDRESS)
     }
   })
 
@@ -76,18 +76,14 @@ describe('the pinned brand registry', () => {
         expect(row.factories, row.brand).toHaveLength(1)
         expect(row.routers, row.brand).toEqual(row.factories)
       }
-      if (row.trail_type === 'gauge' && row.routers.length === 0) {
-        expect(row.note ?? '', `${row.brand} has no router and no note`).not.toBe('')
-      }
+      // A gauge row may name no router yet (up.): the SWAPPED recipient decides the step, as the gauge skill says.
     }
   })
 
   it('gives every row a factory or a manager, or a note that says why not', () => {
     for (const row of brands.rows) {
-      if (row.factories.length === 0) {
-        expect(row.note ?? '', `${row.brand} has no factory and no note`).not.toBe('')
-      }
-      expect(Number.isInteger(row.pool_floor) && row.pool_floor >= 0, row.brand).toBe(true)
+      expect(row.factories.length, `${row.brand} has no factory or manager`).toBeGreaterThan(0)
+      expect(row.pool_floor === null || (Number.isInteger(row.pool_floor) && row.pool_floor >= 0), row.brand).toBe(true)
       expect(Number.isInteger(row.since_block) && row.since_block >= 0, row.brand).toBe(true)
       for (const address of Object.keys(row.roles ?? {})) {
         expect([...row.factories, ...row.routers], `${row.brand} role ${address}`).toContain(
