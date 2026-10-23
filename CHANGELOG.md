@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.67.3] - 2026-10-23 — the exchange recipes
+
+### Added
+- `tests/fixtures/documented-recipes.json`: six exchange recipes, each
+  anchored on a memo row of the brand registry and run by the live recipe
+  suite: pools by memo factory, pools by the brand the graph serves, the
+  brand list, sellers into a pool (with the pool guard), the swaps of a
+  seller and a router on one day, and the swap row past a pool manager.
+  The routing corpus lists them with their layer.
+
 ## [0.67.2] - 2026-10-23 — the memo first, no name search
 
 ### Changed
