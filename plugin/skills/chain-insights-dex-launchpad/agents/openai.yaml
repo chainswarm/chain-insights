@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Chain Insights Exchanges: launchpad trail'
+  short_description: 'Launches, curve traders and graduation on Penguin and other launchpads'
+  default_prompt: 'Load chain-insights-cypher and chain-insights-dex first. Read the launches from the factory, the creator from tx_origin, the curve traders from the launched contract, and the first pool from its liquidity. Hand every Virtuals question to chain-insights-virtuals.'

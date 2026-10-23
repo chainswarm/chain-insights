@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Chain Insights Exchanges: router trail'
+  short_description: 'Sellers, the router and the real buyer on Aero, up. and other gauge exchanges'
+  default_prompt: 'Load chain-insights-cypher and chain-insights-dex first. Read the sellers into the pool, their swaps, and when the swap names the router, read the buyer from the router transfer of the same transaction on facts. Name the router as router, never as buyer, and end with the next lead.'

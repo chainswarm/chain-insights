@@ -1,0 +1,38 @@
+schema_version: "1.0"
+name: dex-virtuals
+expected_outcome: The agent loads chain-insights-virtuals and counts agents from the starting-pool factory by tx_origin, never from the Uniswap v2 pair factory.
+execution:
+  prompt: |
+    A user asks: "Who created the most agents on Virtuals Protocol on robinhood?"
+
+    The Chain Insights graph_query tool is not reachable right now, so do
+    not try to call it. Write the first graph queries you would send, in
+    full, and one line each on what their rows tell you.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: starting-pool-factory
+    target: last_message
+    pattern: '0xfc2e4da3edb2e18100473339c763705d263d20a9'
+    match: contains
+  - type: regex
+    name: creator-is-tx-origin
+    target: last_message
+    pattern: 'tx_origin'
+    match: contains
+  - type: regex
+    name: full-addresses
+    target: last_message
+    pattern: '0x[0-9a-fA-F]{2,10}(…|\.\.\.)'
+    match: not_contains
+  - type: regex
+    name: no-address-asked
+    target: last_message
+    pattern: '(give|send|share|provide|paste|tell) me (the |a |an |its )?(full )?((pool|factory|router|contract|exchange) )?address|what is the (pool|factory|router|contract) address|do you have (the|an?) ((pool|factory|router) )?address'
+    flags: i
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

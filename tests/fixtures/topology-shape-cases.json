@@ -602,6 +602,118 @@
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
+   "id": "skill-dex-reference-1",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (p:Pool {brand: \"aero\"}) WHERE p.total_volume_usd IS NOT NULL RETURN p.address AS to_address, p.labels AS to_labels, p.total_volume_usd AS total_volume_usd, p.tx_total_count AS tx_total_count ORDER BY p.total_volume_usd DESC LIMIT 10",
+   "source": "skills/chain-insights-dex/reference.md"
+  },
+  {
+   "id": "skill-dex-reference-2",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (p:Pool) WHERE p.brand IS NOT NULL RETURN DISTINCT p.brand AS brand LIMIT 50",
+   "source": "skills/chain-insights-dex/reference.md"
+  },
+  {
+   "id": "skill-dex-reference-3",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (f:Address {address: \"0xc63d7338c178e805c544b8f897066bd3bbcbe136\"})-[:DEPLOYED_CONTRACT]->(p:Pool) WHERE p.total_volume_usd IS NOT NULL RETURN f.address AS from_address, p.address AS to_address, p.labels AS to_labels, p.total_volume_usd AS total_volume_usd, p.tx_total_count AS tx_total_count ORDER BY p.total_volume_usd DESC LIMIT 10",
+   "source": "skills/chain-insights-dex/reference.md"
+  },
+  {
+   "id": "skill-dex-reference-4",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (s:Address)-[f:FLOWS_TO]->(p:Address {address: \"0x7615926023bb149f36095645c2a81dc367d39750\"}) WHERE NOT s:Pool RETURN s.address AS from_address, p.address AS to_address, labels(s) AS from_node_labels, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, s.labels AS from_labels, p.labels AS to_labels, s.is_exchange AS from_is_exchange, p.is_exchange AS to_is_exchange ORDER BY f.amount_usd_sum DESC LIMIT 25",
+   "source": "skills/chain-insights-dex/reference.md"
+  },
+  {
+   "id": "skill-dex-reference-5",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (s:Address {address: \"0x4b9364c8553c519a419b259f022865071fd7bfdf\"})-[sw:SWAPPED]->(r:Address) RETURN s.address AS from_address, r.address AS to_address, labels(r) AS to_node_labels, sw.sold_asset AS sold_asset, sw.bought_asset AS bought_asset, sw.sold_usd AS sold_usd, sw.bought_usd AS bought_usd, sw.swap_count AS swap_count, sw.pools AS pools, sw.last_seen_height AS last_seen_height ORDER BY sw.swap_count DESC LIMIT 25",
+   "source": "skills/chain-insights-dex/reference.md"
+  },
+  {
+   "id": "skill-dex-gauge-1",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (s:Address)-[f:FLOWS_TO]->(p:Address {address: \"0x7615926023bb149f36095645c2a81dc367d39750\"}) WHERE NOT s:Pool RETURN s.address AS from_address, p.address AS to_address, labels(s) AS from_node_labels, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, s.labels AS from_labels, p.labels AS to_labels, s.is_exchange AS from_is_exchange, p.is_exchange AS to_is_exchange ORDER BY f.amount_usd_sum DESC LIMIT 25",
+   "source": "skills/chain-insights-dex-gauge/SKILL.md"
+  },
+  {
+   "id": "skill-dex-gauge-2",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (s:Address {address: \"0x4b9364c8553c519a419b259f022865071fd7bfdf\"})-[sw:SWAPPED]->(r:Address) RETURN s.address AS from_address, r.address AS to_address, labels(r) AS to_node_labels, sw.sold_asset AS sold_asset, sw.bought_asset AS bought_asset, sw.sold_usd AS sold_usd, sw.bought_usd AS bought_usd, sw.swap_count AS swap_count, sw.pools AS pools, sw.last_seen_height AS last_seen_height ORDER BY sw.swap_count DESC LIMIT 25",
+   "source": "skills/chain-insights-dex-gauge/SKILL.md"
+  },
+  {
+   "id": "skill-dex-gauge-3",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (a:Address)-[l:ADDED_LIQUIDITY]->(p:Address {address: \"0x7615926023bb149f36095645c2a81dc367d39750\"}) RETURN a.address AS from_address, p.address AS to_address, labels(a) AS from_node_labels, l.asset AS asset, l.usd AS usd, l.event_count AS event_count, l.first_seen_height AS first_seen_height, l.last_seen_height AS last_seen_height ORDER BY l.usd DESC LIMIT 25",
+   "source": "skills/chain-insights-dex-gauge/SKILL.md"
+  },
+  {
+   "id": "skill-dex-gauge-4",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (p:Address {address: \"0x7615926023bb149f36095645c2a81dc367d39750\"})-[r:REMOVED_LIQUIDITY]->(b:Address) RETURN p.address AS from_address, b.address AS to_address, sum(r.usd) AS removed_usd, max(r.receiver_added_usd) AS receiver_added_usd ORDER BY removed_usd DESC LIMIT 25",
+   "source": "skills/chain-insights-dex-gauge/SKILL.md"
+  },
+  {
+   "id": "skill-dex-launchpad-1",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (f:Address {address: \"0x09f1b640d53c9c4c1807bf5aa306745128ee4375\"})-[d:DEPLOYED_CONTRACT]->(t:Address) RETURN f.address AS from_address, t.address AS to_address, labels(t) AS to_node_labels, t.labels AS to_labels, d.tx_origin AS creator, d.tx_id AS tx_id, d.block_height AS block_height, d.block_timestamp AS created_timestamp ORDER BY d.block_height DESC LIMIT 25",
+   "source": "skills/chain-insights-dex-launchpad/SKILL.md"
+  },
+  {
+   "id": "skill-dex-launchpad-2",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (t:Address {address: \"0xf3b01a81dc8a4216d92e74b40113e9e1b10a4dac\"})-[f:FLOWS_TO]-(b:Address) WHERE NOT t:Pool RETURN startNode(f).address AS from_address, endNode(f).address AS to_address, labels(b) AS node_labels, f.tx_count AS tx_count, f.amount_usd_sum AS amount_usd_sum, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp ORDER BY f.tx_count DESC LIMIT 25",
+   "source": "skills/chain-insights-dex-launchpad/SKILL.md"
+  },
+  {
+   "id": "skill-dex-launchpad-3",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (t:Address {address: \"0xf3b01a81dc8a4216d92e74b40113e9e1b10a4dac\"})-[l:ADDED_LIQUIDITY]->(p:Pool) RETURN t.address AS from_address, p.address AS to_address, p.labels AS to_labels, l.asset AS asset, l.usd AS usd, l.first_seen_height AS first_seen_height ORDER BY l.first_seen_height ASC LIMIT 5",
+   "source": "skills/chain-insights-dex-launchpad/SKILL.md"
+  },
+  {
+   "id": "skill-dex-vault-1",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (s:Address {address: \"0x705da6eb557a987960294597954d75e9be2a1983\"})-[sw:SWAPPED]->(r:Address) RETURN s.address AS from_address, r.address AS to_address, labels(r) AS to_node_labels, sw.sold_asset AS sold_asset, sw.bought_asset AS bought_asset, sw.sold_usd AS sold_usd, sw.bought_usd AS bought_usd, sw.swap_count AS swap_count, sw.pools AS pools, sw.last_seen_height AS last_seen_height ORDER BY sw.swap_count DESC LIMIT 25",
+   "source": "skills/chain-insights-dex-vault/SKILL.md"
+  },
+  {
+   "id": "skill-dex-vault-2",
+   "expect": "admit",
+   "rule": null,
+   "code": null,
+   "query": "USE topology MATCH (s:Address)-[sw:SWAPPED]->(m:Address {address: \"0x8366a39cc670b4001a1121b8f6a443a643e40951\"}) RETURN s.address AS from_address, m.address AS to_address, sw.sold_usd AS sold_usd, sw.swap_count AS swap_count, sw.pools AS pools, sw.last_seen_height AS last_seen_height ORDER BY sw.sold_usd DESC LIMIT 25",
+   "source": "skills/chain-insights-dex-vault/SKILL.md"
+  },
+  {
    "id": "skill-virtuals-reference-1",
    "expect": "admit",
    "rule": null,
