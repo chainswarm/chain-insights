@@ -1,10 +1,11 @@
 {
-  "recorded_on": "2026-10-23",
+  "schema": "chain-insights.dex-registry.v1",
   "network": "robinhood",
-  "registry_version": 1,
+  "registry_version": 2,
+  "recorded_on": "2026-10-24",
   "rows": [
     {
-      "brand": "aero",
+      "dex": "aero",
       "display": "Aero (Aerodrome and Velodrome, merged)",
       "aliases": [
         "Aero",
@@ -14,7 +15,6 @@
         "Aero Slipstream"
       ],
       "trail_type": "gauge",
-      "adapter": "cl-gauge-v1",
       "adapters": [
         "cl-gauge-v1"
       ],
@@ -38,7 +38,7 @@
       "source": "https://github.com/dromos-labs/metadex-slipstream-public/blob/main/deployment-addresses/cl-robinhood.json"
     },
     {
-      "brand": "up",
+      "dex": "up",
       "display": "up.",
       "aliases": [
         "up.",
@@ -49,7 +49,6 @@
         "up.finance"
       ],
       "trail_type": "gauge",
-      "adapter": "cl-gauge-v1",
       "adapters": [
         "cl-gauge-v1",
         "solidly-v2"
@@ -74,7 +73,7 @@
       "source": "https://github.com/DefiLlama/dimension-adapters/blob/master/dexs/up-v3/index.ts"
     },
     {
-      "brand": "alandale",
+      "dex": "alandale",
       "display": "Alandale",
       "aliases": [
         "Alandale",
@@ -82,7 +81,6 @@
         "alandale.xyz"
       ],
       "trail_type": "gauge",
-      "adapter": "cl-gauge-v1",
       "adapters": [
         "cl-gauge-v1"
       ],
@@ -102,7 +100,7 @@
       "source": "https://github.com/0xProject/0x-settler/blob/master/src/core/univ3forks/Alandale.sol"
     },
     {
-      "brand": "raphael",
+      "dex": "raphael",
       "display": "Raphael Exchange",
       "aliases": [
         "Raphael",
@@ -111,7 +109,6 @@
         "Raphael Finance"
       ],
       "trail_type": "gauge",
-      "adapter": "cl-gauge-v1",
       "adapters": [
         "cl-gauge-v1",
         "solidly-v2"
@@ -134,7 +131,7 @@
       "source": "https://github.com/DefiLlama/dimension-adapters/blob/master/dexs/raphael-slipstream/index.ts"
     },
     {
-      "brand": "sheriff",
+      "dex": "sheriff",
       "display": "Sheriff",
       "aliases": [
         "Sheriff",
@@ -142,7 +139,6 @@
         "sheriff.exchange"
       ],
       "trail_type": "gauge",
-      "adapter": "cl-gauge-v1",
       "adapters": [
         "cl-gauge-v1"
       ],
@@ -162,7 +158,7 @@
       "source": "https://github.com/0xProject/0x-settler/blob/master/src/core/univ3forks/Sheriff.sol"
     },
     {
-      "brand": "topaz",
+      "dex": "topaz",
       "display": "Topaz DEX",
       "aliases": [
         "Topaz",
@@ -171,7 +167,6 @@
         "topazdex.com"
       ],
       "trail_type": "gauge",
-      "adapter": "cl-gauge-v1",
       "adapters": [
         "cl-gauge-v1"
       ],
@@ -191,7 +186,7 @@
       "source": "https://github.com/DefiLlama/dimension-adapters/blob/master/dexs/topaz-cl/index.ts"
     },
     {
-      "brand": "kittenswap",
+      "dex": "kittenswap",
       "display": "Kittenswap",
       "aliases": [
         "Kittenswap",
@@ -199,7 +194,6 @@
         "KittenSwap"
       ],
       "trail_type": "gauge",
-      "adapter": "cl-gauge-v1",
       "adapters": [
         "cl-gauge-v1"
       ],
@@ -219,14 +213,13 @@
       "source": "https://docs.kittenswap.finance/tokenomics/deployed-contracts.md"
     },
     {
-      "brand": "morpheus",
+      "dex": "morpheus",
       "display": "Morpheus",
       "aliases": [
         "Morpheus",
         "Morpheus Farm"
       ],
       "trail_type": "gauge",
-      "adapter": "cl-gauge-v1",
       "adapters": [
         "cl-gauge-v1"
       ],
@@ -243,7 +236,7 @@
       "source": "https://github.com/DefiLlama/DefiLlama-Adapters/blob/main/registries/uniswapV3.js"
     },
     {
-      "brand": "swaphood",
+      "dex": "swaphood",
       "display": "SwapHood",
       "aliases": [
         "SwapHood",
@@ -252,7 +245,6 @@
         "swaphood.finance"
       ],
       "trail_type": "gauge",
-      "adapter": "solidly-v2",
       "adapters": [
         "solidly-v2"
       ],
@@ -272,14 +264,13 @@
       "source": "https://swaphood-finance.gitbook.io/swaphood-finance-docs/contract-addresses.md"
     },
     {
-      "brand": "uniswap-v2",
+      "dex": "uniswap-v2",
       "display": "Uniswap v2",
       "aliases": [
         "Uniswap v2",
         "Uni v2"
       ],
       "trail_type": "plain",
-      "adapter": "uniswap-v2",
       "adapters": [
         "uniswap-v2"
       ],
@@ -296,14 +287,13 @@
       "source": "https://developers.uniswap.org/docs/protocols/v2/deployments"
     },
     {
-      "brand": "uniswap-v3",
+      "dex": "uniswap-v3",
       "display": "Uniswap v3",
       "aliases": [
         "Uniswap v3",
         "Uni v3"
       ],
       "trail_type": "plain",
-      "adapter": "uniswap-v3",
       "adapters": [
         "uniswap-v3"
       ],
@@ -320,7 +310,7 @@
       "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-robinhood-chain-deployments"
     },
     {
-      "brand": "uniswap-v4",
+      "dex": "uniswap-v4",
       "display": "Uniswap v4",
       "aliases": [
         "Uniswap",
@@ -330,7 +320,6 @@
         "PoolManager"
       ],
       "trail_type": "vault",
-      "adapter": "uniswap-v4",
       "adapters": [
         "uniswap-v4"
       ],
@@ -349,7 +338,7 @@
       "source": "https://developers.uniswap.org/docs/protocols/v4/deployments"
     },
     {
-      "brand": "pancakeswap",
+      "dex": "pancakeswap",
       "display": "PancakeSwap Infinity",
       "aliases": [
         "PancakeSwap",
@@ -358,7 +347,6 @@
         "PancakeSwap Infinity"
       ],
       "trail_type": "vault",
-      "adapter": "pancake-infinity-cl",
       "adapters": [
         "pancake-infinity-cl"
       ],
@@ -377,14 +365,13 @@
       "source": "https://github.com/pancakeswap/infinity-periphery/blob/main/script/config/robinhood-mainnet.json"
     },
     {
-      "brand": "pancakeswap-v2",
+      "dex": "pancakeswap-v2",
       "display": "PancakeSwap v2",
       "aliases": [
         "PancakeSwap v2",
         "Pancake v2"
       ],
       "trail_type": "plain",
-      "adapter": "uniswap-v2",
       "adapters": [
         "uniswap-v2"
       ],
@@ -401,14 +388,13 @@
       "source": "https://github.com/pancakeswap/infinity-periphery/blob/main/script/config/robinhood-mainnet.json"
     },
     {
-      "brand": "pancakeswap-v3",
+      "dex": "pancakeswap-v3",
       "display": "PancakeSwap v3",
       "aliases": [
         "PancakeSwap v3",
         "Pancake v3"
       ],
       "trail_type": "plain",
-      "adapter": "uniswap-v3",
       "adapters": [
         "uniswap-v3"
       ],
@@ -425,7 +411,7 @@
       "source": "https://github.com/pancakeswap/infinity-periphery/blob/main/script/config/robinhood-mainnet.json"
     },
     {
-      "brand": "sushiswap",
+      "dex": "sushiswap",
       "display": "SushiSwap V4",
       "aliases": [
         "Sushi",
@@ -434,7 +420,6 @@
         "Sushi V4"
       ],
       "trail_type": "vault",
-      "adapter": "pancake-infinity-cl",
       "adapters": [
         "pancake-infinity-cl"
       ],
@@ -453,7 +438,7 @@
       "source": "https://github.com/sushi-labs/infinity-deployments/blob/main/chains/robinhood-mainnet.json"
     },
     {
-      "brand": "orvex",
+      "dex": "orvex",
       "display": "Orvex",
       "aliases": [
         "Orvex",
@@ -462,7 +447,6 @@
         "ORVX"
       ],
       "trail_type": "vault",
-      "adapter": "pancake-infinity-cl",
       "adapters": [
         "pancake-infinity-cl"
       ],
@@ -481,15 +465,17 @@
       "source": "https://github.com/DefiLlama/dimension-adapters/blob/master/dexs/orvex.ts"
     },
     {
-      "brand": "swaap",
+      "dex": "swaap",
       "display": "Swaap v2",
       "aliases": [
         "Swaap",
         "Swaap Finance",
-        "swaap.xyz"
+        "swaap.xyz",
+        "Balancer",
+        "Balancer v2",
+        "Balancer v2 vault"
       ],
       "trail_type": "vault",
-      "adapter": "balancer-v2",
       "adapters": [
         "balancer-v2"
       ],
@@ -508,13 +494,14 @@
       "source": "https://docs.swaap.xyz/"
     },
     {
-      "brand": "balancer-v3",
+      "dex": "balancer-v3",
       "display": "unnamed Balancer v3 vault",
       "aliases": [
+        "Balancer",
+        "Balancer v3",
         "Balancer v3 vault"
       ],
       "trail_type": "vault",
-      "adapter": "balancer-v3",
       "adapters": [
         "balancer-v3"
       ],
@@ -533,7 +520,7 @@
       "source": "https://sourcify.dev/server/v2/contract/4663/0x28082618ba2073e602230188e4f4c46e9b2169eb"
     },
     {
-      "brand": "ramses",
+      "dex": "ramses",
       "display": "Ramses",
       "aliases": [
         "Ramses",
@@ -543,7 +530,6 @@
         "Ramses DLMM"
       ],
       "trail_type": "plain",
-      "adapter": "trader-joe-lb",
       "adapters": [
         "trader-joe-lb",
         "uniswap-v2"
@@ -566,14 +552,13 @@
       "source": "https://www.ramses.xyz/docs/contract-addresses"
     },
     {
-      "brand": "sectorone",
+      "dex": "sectorone",
       "display": "SectorOne",
       "aliases": [
         "SectorOne",
         "SectorOne DLMM"
       ],
       "trail_type": "plain",
-      "adapter": "trader-joe-lb",
       "adapters": [
         "trader-joe-lb"
       ],
@@ -590,14 +575,13 @@
       "source": "https://github.com/DefiLlama/DefiLlama-Adapters/blob/main/registries/traderJoeV2.js"
     },
     {
-      "brand": "hoodit",
+      "dex": "hoodit",
       "display": "Hoodit",
       "aliases": [
         "Hoodit",
         "hoodit.xyz"
       ],
       "trail_type": "plain",
-      "adapter": "trader-joe-lb",
       "adapters": [
         "trader-joe-lb"
       ],
@@ -614,7 +598,7 @@
       "source": "https://github.com/DefiLlama/DefiLlama-Adapters/blob/main/registries/traderJoeV2.js"
     },
     {
-      "brand": "giga",
+      "dex": "giga",
       "display": "GIGA",
       "aliases": [
         "GIGA",
@@ -623,7 +607,6 @@
         "gigadex.fi"
       ],
       "trail_type": "plain",
-      "adapter": "uniswap-v2",
       "adapters": [
         "uniswap-v2"
       ],
@@ -640,7 +623,7 @@
       "source": "https://hoodscan.co/project/giga"
     },
     {
-      "brand": "flap",
+      "dex": "flap",
       "display": "Flap",
       "aliases": [
         "Flap",
@@ -648,7 +631,6 @@
         "flap.sh"
       ],
       "trail_type": "launchpad",
-      "adapter": "uniswap-v2",
       "adapters": [
         "uniswap-v2"
       ],
@@ -665,7 +647,7 @@
       "source": "https://hoodscan.co/project/flap"
     },
     {
-      "brand": "curve",
+      "dex": "curve",
       "display": "Curve",
       "aliases": [
         "Curve",
@@ -674,7 +656,6 @@
         "curve.finance"
       ],
       "trail_type": "plain",
-      "adapter": "curve-stable",
       "adapters": [
         "curve-stable"
       ],
@@ -691,7 +672,7 @@
       "source": "https://github.com/curvefi/curve-core/blob/main/deployments/prod/robinhood.yaml"
     },
     {
-      "brand": "metric",
+      "dex": "metric",
       "display": "Metric",
       "aliases": [
         "Metric",
@@ -699,7 +680,6 @@
         "metric.xyz"
       ],
       "trail_type": "plain",
-      "adapter": "metric-omm",
       "adapters": [
         "metric-omm"
       ],
@@ -716,14 +696,13 @@
       "source": "https://github.com/Metricxyz/sdk/blob/main/src/addresses.ts"
     },
     {
-      "brand": "penguin",
+      "dex": "penguin",
       "display": "Penguin",
       "aliases": [
         "Penguin",
         "Penguin launchpad"
       ],
       "trail_type": "launchpad",
-      "adapter": "penguin-launchpad",
       "adapters": [
         "penguin-launchpad"
       ],
@@ -740,14 +719,13 @@
       "source": "https://github.com/chainswarm/devops/blob/de68f8676adac3e2f004fb0cd24c313f9516846e/charts/chainswarm-indexer-evm-dex/registry/robinhood-v24.json"
     },
     {
-      "brand": "pons",
+      "dex": "pons",
       "display": "pons",
       "aliases": [
         "pons",
         "pons launchpad"
       ],
       "trail_type": "launchpad",
-      "adapter": "bonding-curve",
       "adapters": [
         "bonding-curve"
       ],
@@ -764,7 +742,7 @@
       "source": "https://github.com/DefiLlama/DefiLlama-Adapters/blob/main/projects/pons-v2/index.js"
     },
     {
-      "brand": "virtuals",
+      "dex": "virtuals",
       "display": "Virtuals Protocol",
       "aliases": [
         "Virtuals",
@@ -772,7 +750,6 @@
         "Virtuals Protocol"
       ],
       "trail_type": "launchpad",
-      "adapter": "uniswap-v2",
       "adapters": [
         "uniswap-v2"
       ],

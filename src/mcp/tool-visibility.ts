@@ -41,6 +41,8 @@ export const PUBLIC_MCP_TOOL_ALLOWED_ARGS: Record<string, string[]> = {
   // `time_scope` narrows a `USE topology` query to a temporal-shard subset
   graph_query: ['query', 'network', 'time_scope'],
   graph_query_batch: ['network', 'queries', 'per_query_timeout_seconds', 'time_scope'],
+  // A local tool of the proxy (src/mcp/dex-tool.ts): the exchange by name.
+  meta_dex_lookup: ['network', 'name', 'pools'],
 }
 
 export function isHiddenRemoteToolName(name: string): boolean {

@@ -3,6 +3,62 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.69.0] - 2026-10-24 — an exchange by name, in every host
+
+### Added
+- `meta_dex_lookup`, a local tool of the proxy: an exchange's name becomes
+  its factories, routers or pool manager, its biggest pools, the lag of each
+  family and the first reads of its trail, every address in full. A typo
+  within two letters is taken and named in `took_for`; a name that fits two
+  exchanges ("Balancer") is listed, never guessed; a name that is not
+  covered sends no graph read and costs nothing. The contracts are confirmed
+  with one anchored `graph_query_batch`, billed as any read; `pools: false`
+  drops the pool reads. Claude Desktop chat, which loads no skill, now gets
+  the exchange rule from the tool's description.
+- `registry/robinhood.md` and `registry/robinhood.json`: the exchange
+  registry lives in this repository, registry version 2, 29 exchanges, 44
+  served rows. The proxy reads the copy on `main`, cached one hour in
+  `~/.chain-insights/cache/dex-registry-<network>.json`, with the packaged
+  copy as the offline fallback, so a row merged on `main` reaches every
+  running proxy within the hour. `CHAIN_INSIGHTS_DEX_REGISTRY_URL` points the
+  fetch elsewhere. `package.json` `files` ships `registry`.
+- `scripts/pin-dex-registry.mjs`: writes the served copy from the table, and
+  `--check` (run by CI on every pull request) fails on a refused row or a
+  drift, naming both registry versions.
+- `tests/host-parity.test.ts`: every protocol skill names a tool door in its
+  frontmatter (`door: meta_dex_lookup` for the exchange and Virtuals
+  skills), the door is a local tool, and its description names the skill's
+  trigger words. The host matrix is in `docs/mcp-proxy.md` and `AGENTS.md`.
+- Evals `dex-aerodrome-by-name` (the Desktop question of 2026-10-24, graded
+  on the tool call before any graph query) and `dex-not-covered` ("Kyber").
+
+### Changed
+- The `graph_query` description gains one sentence: "A question that names
+  an exchange and no address starts with meta_dex_lookup, never with a scan
+  of :Protocol, :Pool or labels."
+- `chain-insights-dex`: step 1 is `meta_dex_lookup`, step 2 the memo when
+  the host offers no tool, step 3 not covered. The pools come from the
+  factories, never from a graph property, and no read waits on a family
+  lag. The key is `dex` and the prose word is "exchange" in every skill.
+- `scripts/render-dex-registry.mjs` replaces `render-dex-brands.mjs`; the
+  memo block is `<!-- dex-registry:start -->`, and the check also refuses a
+  factory, router or manager address an exchange skill holds that the
+  registry lacks.
+- Every `dex-*` eval is graded on the `meta_dex_lookup` step.
+- `tests/dex-registry-live.integration.test.ts` replaces the brand live
+  suite: every factory, manager and router is a contract on the lane, every
+  pool floor holds, every example pool is a `:Pool` with its adapter mark
+  deployed by its factory. `tests/graph-marks-live.integration.test.ts`
+  reads the registry example pools too.
+
+### Removed
+- The two reads of the retired `brand` property on `:Pool` (reference R1 and
+  R2 of `chain-insights-dex`) and their recipes in
+  `tests/fixtures/documented-recipes.json`; the graph no longer serves the
+  property once the data-pipeline release that stops writing it is rolled.
+- `tests/fixtures/dex-brands.json`, `tests/dex-brands.ts` and
+  `tests/dex-brands.test.ts`: `registry/robinhood.json` is the one copy.
+
 ## [0.68.2] - 2026-10-24 — how an exchange reaches the skills is written down
 
 ### Changed

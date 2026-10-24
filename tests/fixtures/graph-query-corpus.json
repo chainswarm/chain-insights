@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/generate-query-corpus.mjs",
- "entry_count": 62,
+ "entry_count": 61,
  "entries": [
   {
    "builder": "addressFeatureQuery",
@@ -426,31 +426,14 @@
   {
    "builder": "documented-recipe",
    "params": {
-    "id": "recipe_topology_dex_brand_list_01",
+    "id": "recipe_topology_dex_contract_confirm_01",
     "features": [
-     "label-match",
-     "pool-label",
-     "brand-property",
-     "distinct"
+     "address-predicate",
+     "inline-property-map"
     ]
    },
    "scope": "topology",
-   "query": "USE topology MATCH (p:Pool) WHERE p.brand IS NOT NULL RETURN DISTINCT p.brand AS brand LIMIT 100"
-  },
-  {
-   "builder": "documented-recipe",
-   "params": {
-    "id": "recipe_topology_dex_pools_by_brand_01",
-    "features": [
-     "label-match",
-     "pool-label",
-     "inline-property-map",
-     "brand-property",
-     "order-by"
-    ]
-   },
-   "scope": "topology",
-   "query": "USE topology MATCH (p:Pool {brand: \"aero\"}) WHERE p.total_volume_usd IS NOT NULL RETURN p.address AS to_address, p.labels AS to_labels, p.brand AS brand, p.total_volume_usd AS total_volume_usd ORDER BY p.total_volume_usd DESC LIMIT 10"
+   "query": "USE topology MATCH (a:Address {address: \"0x72e46c9edf828002fdbfdd0952419790576c0f18\"}) RETURN a.address AS address, labels(a) AS node_labels, a.labels AS labels, a.is_contract AS is_contract LIMIT 1"
   },
   {
    "builder": "documented-recipe",
@@ -465,7 +448,7 @@
     ]
    },
    "scope": "topology",
-   "query": "USE topology MATCH (f:Address {address: \"0xc63d7338c178e805c544b8f897066bd3bbcbe136\"})-[:DEPLOYED_CONTRACT]->(p:Pool) WHERE p.total_volume_usd IS NOT NULL RETURN f.address AS from_address, p.address AS to_address, p.labels AS to_labels, p.total_volume_usd AS total_volume_usd ORDER BY p.total_volume_usd DESC LIMIT 10"
+   "query": "USE topology MATCH (f:Address {address: \"0xc63d7338c178e805c544b8f897066bd3bbcbe136\"})-[:DEPLOYED_CONTRACT]->(p:Pool) WHERE p.total_volume_usd IS NOT NULL RETURN f.address AS from_address, p.address AS to_address, p.labels AS to_labels, p.total_volume_usd AS total_volume_usd, p.tx_total_count AS tx_total_count ORDER BY p.total_volume_usd DESC LIMIT 10"
   },
   {
    "builder": "documented-recipe",

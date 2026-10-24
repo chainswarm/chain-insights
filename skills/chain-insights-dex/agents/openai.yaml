@@ -1,4 +1,4 @@
 interface:
   display_name: 'Chain Insights Exchanges'
   short_description: 'Find an exchange by name, its pools, and who traded on them'
-  default_prompt: 'Load chain-insights-cypher first. For a question that names an exchange on robinhood, resolve the name from the memo in this skill, then from the brands the graph serves, and never ask the user for an address. Find the pools by brand, then by the memo factories, load the trail-type skill the memo names, and use the tested queries in reference.md.'
+  default_prompt: 'Load chain-insights-cypher first. For a question that names an exchange on robinhood, call meta_dex_lookup with the name first; use the memo in this skill only when the tool is not offered, and never ask the user for an address. Take the pools the tool returns, or read them by factory, load the trail-type skill the tool names, and use the tested queries in reference.md.'

@@ -1,22 +1,22 @@
 schema_version: "1.0"
 name: dex-up
-expected_outcome: The agent resolves up. from the memo with no address from the user, finds its pools by brand or by its memo factory, loads the gauge trail, and names the router as the router, reading the buyer from the router's transfer in the seller's transaction.
+expected_outcome: The agent resolves up. with meta_dex_lookup first, the memo only when the tool is absent, with no address from the user, finds its pools by its factory, loads the gauge trail, and names the router as the router, reading the buyer from the router's transfer in the seller's transaction.
 execution:
   prompt: |
     A user asks: "Who sold into the busiest pool of up. on robinhood, and who bought?
     Name every address you would follow, and what each one is."
 
-    The Chain Insights graph_query tool is not reachable right now, so do
-    not try to call it. Write the first graph queries you would send, in
-    full, and one line each on what their rows tell you.
+    The Chain Insights tools are not reachable right now, so do not try
+    to call them. Write the first tool calls and graph queries you would
+    send, in full, and one line each on what their answers tell you.
   max_turns: 10
   allowed_tools: [Read, Glob, Grep, Skill]
 runs: 3
 graders:
   - type: regex
-    name: brand-pool-or-factory-named
+    name: pool-or-factory-named
     target: last_message
-    pattern: '0xfa5429aeba338bea2bfcc1b9a889862ee395bc28|brand[^\n]{0,8}up'
+    pattern: '0xfa5429aeba338bea2bfcc1b9a889862ee395bc28|meta_dex_lookup'
     match: contains
   - type: regex
     name: names-router
@@ -46,6 +46,11 @@ graders:
     pattern: '(give|send|share|provide|paste|tell) me (the |a |an |its )?(full )?((pool|factory|router|contract|exchange) )?address|what is the (pool|factory|router|contract) address|do you have (the|an?) ((pool|factory|router) )?address'
     flags: i
     match: not_contains
+  - type: regex
+    name: door-first
+    target: last_message
+    pattern: 'meta_dex_lookup'
+    match: contains
   - type: tool_used
     name: skill-fired
     tool: Skill

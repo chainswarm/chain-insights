@@ -255,21 +255,14 @@
    "id": "recipe_topology_dex_pools_by_factory_01",
    "layer": "topology",
    "anchor": "address",
-   "query": "USE topology MATCH (f:Address {address: \"0xc63d7338c178e805c544b8f897066bd3bbcbe136\"})-[:DEPLOYED_CONTRACT]->(p:Pool) WHERE p.total_volume_usd IS NOT NULL RETURN f.address AS from_address, p.address AS to_address, p.labels AS to_labels, p.total_volume_usd AS total_volume_usd ORDER BY p.total_volume_usd DESC LIMIT 10",
+   "query": "USE topology MATCH (f:Address {address: \"0xc63d7338c178e805c544b8f897066bd3bbcbe136\"})-[:DEPLOYED_CONTRACT]->(p:Pool) WHERE p.total_volume_usd IS NOT NULL RETURN f.address AS from_address, p.address AS to_address, p.labels AS to_labels, p.total_volume_usd AS total_volume_usd, p.tx_total_count AS tx_total_count ORDER BY p.total_volume_usd DESC LIMIT 10",
    "source": "tests/fixtures/documented-recipes.json"
   },
   {
-   "id": "recipe_topology_dex_pools_by_brand_01",
+   "id": "recipe_topology_dex_contract_confirm_01",
    "layer": "topology",
-   "anchor": "probe",
-   "query": "USE topology MATCH (p:Pool {brand: \"aero\"}) WHERE p.total_volume_usd IS NOT NULL RETURN p.address AS to_address, p.labels AS to_labels, p.brand AS brand, p.total_volume_usd AS total_volume_usd ORDER BY p.total_volume_usd DESC LIMIT 10",
-   "source": "tests/fixtures/documented-recipes.json"
-  },
-  {
-   "id": "recipe_topology_dex_brand_list_01",
-   "layer": "topology",
-   "anchor": "probe",
-   "query": "USE topology MATCH (p:Pool) WHERE p.brand IS NOT NULL RETURN DISTINCT p.brand AS brand LIMIT 100",
+   "anchor": "address",
+   "query": "USE topology MATCH (a:Address {address: \"0x72e46c9edf828002fdbfdd0952419790576c0f18\"}) RETURN a.address AS address, labels(a) AS node_labels, a.labels AS labels, a.is_contract AS is_contract LIMIT 1",
    "source": "tests/fixtures/documented-recipes.json"
   },
   {
@@ -555,47 +548,33 @@
   {
    "id": "skill-dex-reference-1",
    "layer": "topology",
-   "anchor": "probe",
-   "query": "USE topology MATCH (p:Pool {brand: \"aero\"}) WHERE p.total_volume_usd IS NOT NULL RETURN p.address AS to_address, p.labels AS to_labels, p.total_volume_usd AS total_volume_usd, p.tx_total_count AS tx_total_count ORDER BY p.total_volume_usd DESC LIMIT 10",
-   "source": "skills/chain-insights-dex/reference.md"
-  },
-  {
-   "id": "skill-dex-reference-2",
-   "layer": "topology",
-   "anchor": "probe",
-   "query": "USE topology MATCH (p:Pool) WHERE p.brand IS NOT NULL RETURN DISTINCT p.brand AS brand LIMIT 50",
-   "source": "skills/chain-insights-dex/reference.md"
-  },
-  {
-   "id": "skill-dex-reference-3",
-   "layer": "topology",
    "anchor": "address",
    "query": "USE topology MATCH (f:Address {address: \"0xc63d7338c178e805c544b8f897066bd3bbcbe136\"})-[:DEPLOYED_CONTRACT]->(p:Pool) WHERE p.total_volume_usd IS NOT NULL RETURN f.address AS from_address, p.address AS to_address, p.labels AS to_labels, p.total_volume_usd AS total_volume_usd, p.tx_total_count AS tx_total_count ORDER BY p.total_volume_usd DESC LIMIT 10",
    "source": "skills/chain-insights-dex/reference.md"
   },
   {
-   "id": "skill-dex-reference-4",
+   "id": "skill-dex-reference-2",
    "layer": "topology",
    "anchor": "address",
    "query": "USE topology MATCH (s:Address)-[f:FLOWS_TO]->(p:Address {address: \"0x7615926023bb149f36095645c2a81dc367d39750\"}) WHERE NOT s:Pool RETURN s.address AS from_address, p.address AS to_address, labels(s) AS from_node_labels, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, s.labels AS from_labels, p.labels AS to_labels, s.is_exchange AS from_is_exchange, p.is_exchange AS to_is_exchange ORDER BY f.amount_usd_sum DESC LIMIT 25",
    "source": "skills/chain-insights-dex/reference.md"
   },
   {
-   "id": "skill-dex-reference-5",
+   "id": "skill-dex-reference-3",
    "layer": "topology",
    "anchor": "address",
    "query": "USE topology MATCH (s:Address {address: \"0x4b9364c8553c519a419b259f022865071fd7bfdf\"})-[sw:SWAPPED]->(r:Address) RETURN s.address AS from_address, r.address AS to_address, labels(r) AS to_node_labels, sw.sold_asset AS sold_asset, sw.bought_asset AS bought_asset, sw.sold_usd AS sold_usd, sw.bought_usd AS bought_usd, sw.swap_count AS swap_count, sw.pools AS pools, sw.last_seen_height AS last_seen_height ORDER BY sw.swap_count DESC LIMIT 25",
    "source": "skills/chain-insights-dex/reference.md"
   },
   {
-   "id": "skill-dex-reference-6",
+   "id": "skill-dex-reference-4",
    "layer": "facts",
    "anchor": "pair_day",
    "query": "USE facts MATCH (s:Address {address: \"0x4b9364c8553c519a419b259f022865071fd7bfdf\"})-[x:SWAP]->(r:Address {address: \"0x72e46c9edf828002fdbfdd0952419790576c0f18\"}) WHERE x.block_date = \"2026-10-22\" RETURN x.tx_id AS tx_id, x.block_timestamp AS block_timestamp, x.payer AS payer, x.recipient AS recipient, x.sold_asset_symbol AS sold_asset_symbol, x.sold_usd AS sold_usd, x.bought_asset_symbol AS bought_asset_symbol, x.bought_usd AS bought_usd LIMIT 50",
    "source": "skills/chain-insights-dex/reference.md"
   },
   {
-   "id": "skill-dex-reference-7",
+   "id": "skill-dex-reference-5",
    "layer": "chain",
    "anchor": "key",
    "query": "USE chain MATCH (b:Block {block_height: 95254047}) RETURN b.block_date, b.block_timestamp",

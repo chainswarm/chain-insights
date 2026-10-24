@@ -838,6 +838,16 @@ const mcpCommand = program
             }
           }
           console.log(formatToolsTable(visibleRemoteTools(tools)))
+          // The local tool doors the proxy serves beside the remote tools.
+          const { META_DEX_LOOKUP_DESCRIPTION, META_DEX_LOOKUP_TITLE, META_DEX_LOOKUP_TOOL } =
+            await import('./mcp/dex-tool.js')
+          console.log('')
+          console.log(
+            formatToolsTable(
+              [{ name: META_DEX_LOOKUP_TOOL, description: `${META_DEX_LOOKUP_TITLE}. ${META_DEX_LOOKUP_DESCRIPTION}` }],
+              'Local proxy tool'
+            )
+          )
         } catch (err) {
           console.error((err as Error).message)
           process.exit(1)
@@ -876,6 +886,31 @@ mcpCommand.addCommand(
             json: opts.json,
             refresh: String(args['refresh'] ?? '').toLowerCase() === 'true',
           })
+          return
+        }
+
+        if (tool === 'meta_dex_lookup') {
+          // The proxy's local tool, run here with the CLI's own graph session.
+          const { handleMetaDexLookup } = await import('./mcp/dex-tool.js')
+          const { loadRegistry } = await import('./mcp/dex-registry.js')
+          const pools = args['pools'] === undefined ? undefined : String(args['pools']).toLowerCase() !== 'false'
+          const result = await withGraphMcpClient('chain-insights-cli-dex-lookup', (client) =>
+            handleMetaDexLookup(
+              { network: args['network'], name: args['name'], ...(pools === undefined ? {} : { pools }) },
+              {
+                loadRegistry: (network) => loadRegistry(network),
+                graphQueryBatch: async (batchArgs) =>
+                  (await client.callTool({ name: 'graph_query_batch', arguments: batchArgs })) as {
+                    content?: unknown[]
+                    structuredContent?: unknown
+                    isError?: boolean
+                  },
+                describeFailure: (err) => (err as Error).message,
+              }
+            )
+          )
+          console.log(result.content[0]?.text ?? '')
+          if (result.isError) process.exitCode = 1
           return
         }
 

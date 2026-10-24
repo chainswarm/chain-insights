@@ -39,35 +39,68 @@ risk screening and fund-flow tracing.
   - `npm test`
   - `npm run release:check`
 
-## Exchanges and brands
+## Exchanges
 
-An exchange (DEX) reaches the skills through two pinned files.
+An exchange (DEX) reaches every host through one served file and one tool.
 
+- `registry/robinhood.md` is the reviewed exchange registry: one row per
+  exchange and role, with a source link and a chain check. The review rule is
+  in `registry/README.md`. The key column is `dex`; the prose word is
+  "exchange".
+- `registry/robinhood.json` is its served copy. Regenerate it with
+  `node scripts/pin-dex-registry.mjs registry/robinhood.md`. CI runs
+  `node scripts/pin-dex-registry.mjs --check registry/robinhood.md` on every
+  pull request, and `tests/dex-registry.test.ts` runs it too. Bump
+  `Registry version:` in every row change.
+- The proxy tool `meta_dex_lookup` (`src/mcp/dex-tool.ts`) reads the served
+  copy from `main` over `raw.githubusercontent.com`, cached one hour, with the
+  packaged copy as the offline fallback. A row merged on `main` reaches every
+  running proxy within the hour, with no release.
 - `tests/fixtures/dex-adapters.json` pins the adapters of the indexer
   registry file. Refresh it with
   `node scripts/pin-dex-adapters.mjs <registry.json> --write`.
-- `tests/fixtures/dex-brands.json` is the brand registry pin. It is generated
-  outside this repository and committed here.
-- `node scripts/render-dex-brands.mjs` renders the brand memo between
-  `<!-- brands:start -->` and `<!-- brands:end -->` in the
-  `chain-insights-dex` and `chain-insights-virtuals` skills.
-  `tests/dex-brands.test.ts` runs its `--check`.
-- `tests/dex-coverage.test.ts` holds every adapter to three things: a brand
-  row, a trail-type skill, and a name-only eval. The trail skills are
+- `node scripts/render-dex-registry.mjs` renders the exchange memo between
+  `<!-- dex-registry:start -->` and `<!-- dex-registry:end -->` in the
+  `chain-insights-dex` and `chain-insights-virtuals` skills. The memo is for a
+  host with no `meta_dex_lookup` tool. `tests/dex-registry.test.ts` runs its
+  `--check`.
+- `tests/dex-coverage.test.ts` holds every adapter to three things: an
+  exchange row, a trail-type skill, and a name-only eval. The trail skills are
   `chain-insights-dex-gauge`, `-vault`, `-launchpad`, or plain in
-  `chain-insights-dex`. The eval is `plugin/evals/dex-<brand>/case.yaml`. Its
-  prompt names the brand and holds no `0x` address.
-- A new brand of a known trail type is one brand row plus one eval. No skill
-  edit.
+  `chain-insights-dex`. The eval is `plugin/evals/dex-<dex>/case.yaml`. Its
+  prompt names the exchange and holds no `0x` address.
+- A new exchange of a known trail type is one registry row plus one eval. No
+  skill edit.
 - A hand-typed exchange address belongs only inside a rendered block.
 - `plugin/skills/` must equal `skills/`. Run
   `node scripts/sync-plugin-skills.mjs`; `tests/plugin.test.ts` fails on drift.
 - Every trail skill keeps one shared rule: a contract recipient (a router, a
   pool manager) is never the buyer.
-- The live suites are `tests/dex-brands-live.integration.test.ts` and
+- The live suites are `tests/dex-registry-live.integration.test.ts` and
   `tests/graph-recipes-live.integration.test.ts`. Run them per release with
   `vitest --project integration`, `CHAIN_INSIGHTS_LIVE_GRAPH_MCP_ENDPOINT` and
   `CHAIN_INSIGHTS_LIVE_GRAPH_MCP_TOKEN`. They never run in the push gate.
+
+## Host parity
+
+A rule a host never loads does not exist for that host. Claude Desktop chat
+and claude.ai load no skill file, ignore the server instructions and never
+call `meta_rules`. They read only tool descriptions and result hints.
+
+- Every protocol skill, `skills/chain-insights-<protocol>/SKILL.md`, names a
+  tool door in its frontmatter: `door: meta_dex_lookup` for the exchange and
+  Virtuals skills.
+- The door is a local tool of the proxy, listed in `LOCAL_TOOL_NAMES` of
+  `src/mcp/proxy.ts`. Its description carries the rule the skill opens with
+  and names the skill's trigger words.
+- The skill names the door as its first step.
+- `tests/host-parity.test.ts` fails on a skill with no door, a door that is
+  not a local tool, or a door whose description misses the skill's trigger
+  words. The core skill `chain-insights-cypher` is exempt: its door is
+  `meta_rules` plus the `graph_query` description.
+- A new door is proven in Claude Desktop normal chat with a name-only
+  question before its release is called done.
+- The host matrix is in `docs/mcp-proxy.md`, section "Host parity".
 
 ## Release Metadata
 

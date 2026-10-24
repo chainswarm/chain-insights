@@ -1,29 +1,11 @@
 # Exchange queries (Robinhood Chain)
 
-Change only the values: the brand key, an address from the memo in
-[SKILL.md](SKILL.md) or from a row you read, a day, a block. Every address
-stays in full. Send related reads in one `graph_query_batch`.
+The first step for a named exchange is the `meta_dex_lookup` tool: it
+returns the exchange's addresses and fills these reads in. Change only the
+values: an address from the tool, from the memo in [SKILL.md](SKILL.md) or
+from a row you read, a day, a block. Every address stays in full. Send related reads in one `graph_query_batch`.
 
-## R1. Pools of a brand, by the brand the graph serves
-
-```cypher
-USE topology
-MATCH (p:Pool {brand: "aero"}) WHERE p.total_volume_usd IS NOT NULL
-RETURN p.address AS to_address, p.labels AS to_labels, p.total_volume_usd AS total_volume_usd, p.tx_total_count AS tx_total_count ORDER BY p.total_volume_usd DESC LIMIT 10
-```
-
-Zero rows means the lane does not serve the brand yet, or the brand is not
-this key. Go to R3 with the memo's factories, and R2 when the memo has no row.
-
-## R2. The brands the graph serves
-
-```cypher
-USE topology
-MATCH (p:Pool) WHERE p.brand IS NOT NULL
-RETURN DISTINCT p.brand AS brand LIMIT 50
-```
-
-## R3. Pools of a brand, by one memo factory
+## R3. Pools of an exchange, by one factory
 
 One batch member per factory of the row, each with its own `id`. Merge the
 members into one ranking by `total_volume_usd`.
@@ -34,13 +16,12 @@ MATCH (f:Address {address: "0xc63d7338c178e805c544b8f897066bd3bbcbe136"})-[:DEPL
 RETURN f.address AS from_address, p.address AS to_address, p.labels AS to_labels, p.total_volume_usd AS total_volume_usd, p.tx_total_count AS tx_total_count ORDER BY p.total_volume_usd DESC LIMIT 10
 ```
 
-Trader Joe has three factories: three members of one batch.
+up. has two factories: two members of one batch.
 
 ```json
 {"network": "robinhood", "queries": [
-  {"id": "trader-joe-1", "query": "<R3 with 0xdcd5f77697914e27f56fd263ef82923c8524abac>"},
-  {"id": "trader-joe-2", "query": "<R3 with 0x3d8dc63ddc9b992cfde89f7aea6f18717e84687d>"},
-  {"id": "trader-joe-3", "query": "<R3 with 0x22602d966defd638ee94e97a92e2eb0934c3fe1b>"}
+  {"id": "up-1", "query": "<R3 with 0x1ac9db4a2608ba45d6127b1737949b51bb54b7f3>"},
+  {"id": "up-2", "query": "<R3 with 0xfa5429aeba338bea2bfcc1b9a889862ee395bc28>"}
 ]}
 ```
 
