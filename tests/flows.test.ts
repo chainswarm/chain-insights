@@ -189,6 +189,37 @@ describe('graph_expand, node form', () => {
     expect(reads).toHaveLength(3)
   })
 
+  it('a failed read answers the structured refusal when the proxy builds one, the plain text otherwise', async () => {
+    const boom = new Error('x402 payment failed: insufficient_funds')
+    const failing = endpoint(() => {
+      throw boom
+    })
+    const plain = await expandNode(failing.deps, SCAM)
+    expect(plain).toEqual({
+      content: [{ type: 'text', text: 'MCP call failed: x402 payment failed: insufficient_funds' }],
+      isError: true,
+    })
+    const usage = { access_mode: 'public_free', daily_units_used: 5000, daily_units_limit: 5000, remaining_units: 0 }
+    const structured = await expandNode(
+      {
+        ...failing.deps,
+        refusal: async (err) => ({
+          content: [{ type: 'text', text: `The free tier for today is used up. ${(err as Error).message}` }],
+          isError: true,
+          structuredContent: { schema: 'chain-insights.refusal.v1', code: 'free_tier_spent', usage },
+        }),
+      },
+      SCAM
+    )
+    expect(structured.isError).toBe(true)
+    expect(structured.structuredContent).toEqual({ schema: 'chain-insights.refusal.v1', code: 'free_tier_spent', usage })
+    expect(structured.content[0]?.text).toMatch(/^The free tier for today is used up/)
+    // A refusal builder that itself fails still names the cause.
+    const broken = await expandNode({ ...failing.deps, refusal: async () => { throw new Error('usage read died') } }, SCAM)
+    expect(broken).toEqual(plain)
+  })
+
+
   it('answers an address the graph does not hold as an error, after one read', async () => {
     const { reads, deps } = sceneEndpoint()
     const result = await expandNode(deps, ABSENT)

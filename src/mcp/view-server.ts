@@ -19,6 +19,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
  *                                 requests to local hosts) still draws
  *   GET  /api/view/<id>           {"arguments": ..., "result": ...}, or 404
  *   POST /api/tools/graph_expand  {"arguments": {...}} -> the CallToolResult
+ *   POST /api/tools/meta_usage_status {"arguments": {}} -> the free credits left today
  *
  * The server binds to 127.0.0.1 only, refuses a Host header that does not
  * name it (DNS rebinding), and keeps at most 50 answers in memory.
@@ -26,8 +27,8 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 
 export const VIEW_STORE_LIMIT = 50
 export const VIEW_BODY_LIMIT_BYTES = 64 * 1024
-// The one tool the page may call: the view's own click tool.
-export const VIEW_PAGE_TOOLS = new Set(['graph_expand'])
+// The tools the page may call: the view's own click tool, and the free-credits read behind its meter.
+export const VIEW_PAGE_TOOLS = new Set(['graph_expand', 'meta_usage_status'])
 
 export interface ViewEntry {
   toolName: string
