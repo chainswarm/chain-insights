@@ -147,6 +147,14 @@ describe('the view server', () => {
     expect(runTool).toHaveBeenCalledTimes(1)
   })
 
+  it('runs meta_usage_status for the page: the free-credits meter behind the drawing', async () => {
+    const json = { 'content-type': 'application/json' }
+    const ran = await raw(server.port, 'POST', '/api/tools/meta_usage_status', json, JSON.stringify({ arguments: {} }))
+    expect(ran.status).toBe(200)
+    expect(runTool).toHaveBeenCalledWith('meta_usage_status', {})
+    expect(runTool).toHaveBeenCalledTimes(1)
+  })
+
   it('refuses a click from another site, a form post, a bad body and a body over 64 KB', async () => {
     const path = '/api/tools/graph_expand'
     const json = { 'content-type': 'application/json' }

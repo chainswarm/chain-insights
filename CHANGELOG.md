@@ -3,6 +3,27 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.69.1] - 2026-10-24 — out of credits is said on the page
+
+### Fixed
+- A click or double-click in the graph view that the free tier or the
+  wallet could not pay for did nothing visible: the drawing stood still and
+  the details panel read "Unavailable" (#523, #524). The page now shows a
+  toast that names the free tier, its counts and when it is back in the
+  viewer's own time ("Out of free credits: 5,000 of 5,000 free units used
+  today. They are back at 02:00 your time."), the details panel says why
+  its totals could not be read, and the title carries the free credits left
+  today, turning to a warning under one fifth and to "back at HH:MM" when
+  spent. A paid caller sees no meter.
+- `graph_expand` on the page path refuses the same way the remote tools do:
+  the text names the quota before the wallet steps, and the answer carries
+  `structuredContent {schema: "chain-insights.refusal.v1", tool, code:
+  free_tier_spent | payment_failed, usage}` so a host can draw the refusal
+  instead of echoing a wallet error. The page may read
+  `meta_usage_status` beside `graph_expand`; no other tool is reachable
+  from it.
+- `apps/claude-view.html` refreshed from chain-insights-ui.
+
 ## [0.69.0] - 2026-10-24 — an exchange by name, in every host
 
 ### Added

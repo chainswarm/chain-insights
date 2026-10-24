@@ -137,6 +137,13 @@ export type FlowsToolResult = {
 export type FlowsDependencies = {
   /** One graph_query call through the proxy's remote client. */
   graphQuery: (args: { network: string; query: string }) => Promise<GraphQueryAnswer>
+  /**
+   * The whole refusal of a failed read, text and structured facts
+   * (chain-insights.refusal.v1: the free tier spent, a wallet that cannot
+   * pay). When given it replaces describeFailure, so the view can say why in
+   * the viewer's own words and time.
+   */
+  refusal?: (err: unknown) => Promise<FlowsToolResult>
   /** The text of a call that threw (payment required, transport failure). */
   describeFailure: (err: unknown) => string
   /** Why no read can run (the graph endpoint is not connected), checked after the arguments. */
@@ -644,6 +651,18 @@ function errorResult(text: string): FlowsToolResult {
   return { content: [{ type: 'text', text }], isError: true }
 }
 
+/** The result of a failed read: the structured refusal when the proxy builds one, else the text. */
+async function failedRead(deps: FlowsDependencies, err: unknown): Promise<FlowsToolResult> {
+  if (deps.refusal) {
+    try {
+      return await deps.refusal(err)
+    } catch {
+      // The refusal builder itself failed: the plain text still names the cause.
+    }
+  }
+  return errorResult(deps.describeFailure(err))
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
 }
@@ -771,7 +790,7 @@ async function runNode(
     try {
       answer = await deps.graphQuery({ network, query: read.query })
     } catch (err) {
-      return errorResult(deps.describeFailure(err))
+      return failedRead(deps, err)
     }
     if (answer.isError === true) return errorResult(refusalText(answer))
     const found = rowsOf(answer)
@@ -815,7 +834,7 @@ async function runLink(
   try {
     answer = await deps.graphQuery({ network, query: transfersReadFor(from, to, day) })
   } catch (err) {
-    return errorResult(deps.describeFailure(err))
+    return failedRead(deps, err)
   }
   if (answer.isError === true) return errorResult(refusalText(answer))
   const rows = rowsOf(answer)
@@ -940,7 +959,7 @@ async function runDetails(
   try {
     answer = await deps.graphQuery({ network, query: detailsReadFor(address) })
   } catch (err) {
-    return errorResult(deps.describeFailure(err))
+    return failedRead(deps, err)
   }
   if (answer.isError === true) return errorResult(refusalText(answer))
   const rows = rowsOf(answer)

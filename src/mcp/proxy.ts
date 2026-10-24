@@ -40,6 +40,7 @@ import {
   TRANSFERS_MAX,
   handleGraphExpand,
   type FlowsDependencies,
+  type FlowsToolResult,
   type GraphQueryAnswer,
 } from './flows.js'
 import { newViewId, startViewServer, type ViewServer } from './view-server.js'
@@ -72,6 +73,8 @@ export const LOCAL_TOOL_NAMES = new Set([
 ])
 // Local tools only the view calls (visibility ["app"]): never named to the model.
 export const APP_ONLY_LOCAL_TOOL_NAMES = new Set([GRAPH_EXPAND_TOOL])
+/** The structured refusal of a click refused for money; the view reads it (chain-insights-ui apps/claude-view/credits.ts). */
+export const REFUSAL_SCHEMA = 'chain-insights.refusal.v1'
 const GRAPH_ARRAY_KEYS = ['nodes', 'edges', 'flows', 'edge_anchors'] as const
 
 // The Chain Insights view: one HTML file, served by this proxy and by nothing
@@ -1078,22 +1081,53 @@ export async function createProxy(): Promise<void> {
   // A payment failure right after the free tier of the day is spent reads as
   // "pay to try" unless the quota is named first. One usage_status read, best
   // effort, puts the free tier and its reset time ahead of the wallet steps.
-  async function paymentFailureText(toolName: string, err: unknown): Promise<string> {
+  type PaymentRefusal = {
+    text: string
+    payment: boolean
+    /** facts.usage of usage_status when it could be read. */
+    usage?: Record<string, unknown>
+    /** The free tier of the day is spent: the cause a free caller must hear first. */
+    spent: boolean
+  }
+  async function paymentRefusal(toolName: string, err: unknown): Promise<PaymentRefusal> {
     const text = remoteCallFailureText(toolName, err)
     const isPayment =
       err instanceof PaymentRequiredError || /\b402\b|payment/i.test((err as Error).message ?? '')
-    if (!isPayment || !remoteConnected || !remoteToolNames.has('usage_status')) return text
+    if (!isPayment || !remoteConnected || !remoteToolNames.has('usage_status'))
+      return { text, payment: isPayment, spent: false }
     try {
       const result = (await remoteClient.callTool({
         name: 'usage_status',
         arguments: {},
       })) as RemoteToolResult
       const facts = isRecord(result.structuredContent) ? result.structuredContent['facts'] : undefined
-      const usage = isRecord(facts) ? facts['usage'] : undefined
+      const usage = isRecord(facts) && isRecord(facts['usage']) ? facts['usage'] : undefined
       const spent = freeTierSpentText(usage)
-      return spent ? `${spent} ${text}` : text
+      return { text: spent ? `${spent} ${text}` : text, payment: true, usage, spent: Boolean(spent) }
     } catch {
-      return text
+      return { text, payment: true, spent: false }
+    }
+  }
+  async function paymentFailureText(toolName: string, err: unknown): Promise<string> {
+    return (await paymentRefusal(toolName, err)).text
+  }
+  // The refusal of a click (graph_expand): the text, and for a money refusal
+  // the structured facts the view turns into "out of free credits, back at
+  // 02:00" in the viewer's own time (chain-insights.refusal.v1).
+  async function clickRefusal(toolName: string, err: unknown): Promise<FlowsToolResult> {
+    const refusal = await paymentRefusal(toolName, err)
+    const structuredContent = refusal.payment
+      ? {
+          schema: REFUSAL_SCHEMA,
+          tool: toolName,
+          code: refusal.spent ? 'free_tier_spent' : 'payment_failed',
+          ...(refusal.usage ? { usage: refusal.usage } : {}),
+        }
+      : undefined
+    return {
+      content: [{ type: 'text' as const, text: refusal.text }],
+      isError: true,
+      ...(structuredContent ? { structuredContent } : {}),
     }
   }
 
@@ -1247,21 +1281,8 @@ export async function createProxy(): Promise<void> {
     async (args) => handleMetaDexLookup(args, dexDependencies)
   )
 
-  server.registerTool(
-    'meta_usage_status',
-    {
-      title: 'Usage Status',
-      description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.meta_usage_status,
-      inputSchema: EMPTY_INPUT_SCHEMA,
-      _meta: VIEW_TOOL_META,
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-    },
-    async () => {
+  // One reader for the tool and for the browser page's free-credits meter.
+  const readUsageStatus = async () => {
       try {
         await ensureRemote()
         if (!remoteConnected) {
@@ -1301,7 +1322,22 @@ export async function createProxy(): Promise<void> {
           isError: true,
         }
       }
-    }
+  }
+  server.registerTool(
+    'meta_usage_status',
+    {
+      title: 'Usage Status',
+      description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS.meta_usage_status,
+      inputSchema: EMPTY_INPUT_SCHEMA,
+      _meta: VIEW_TOOL_META,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    async () => readUsageStatus()
   )
 
   server.registerTool(
@@ -1434,6 +1470,7 @@ export async function createProxy(): Promise<void> {
       )) as GraphQueryAnswer
     },
     describeFailure: (err) => remoteCallFailureText('graph_query', err),
+    refusal: (err) => clickRefusal('graph_query', err),
     unavailable: () =>
       remoteConnected
         ? undefined
@@ -1452,6 +1489,8 @@ export async function createProxy(): Promise<void> {
       html: readClaudeViewHtml,
       runTool: async (name, args) => {
         if (name === GRAPH_EXPAND_TOOL) return runGraphExpand(args)
+        // The page's free-credits meter; it costs nothing and takes no arguments.
+        if (name === 'meta_usage_status') return readUsageStatus()
         throw new Error(`The browser page cannot call ${name}`)
       },
       log: (event, fields) => {
