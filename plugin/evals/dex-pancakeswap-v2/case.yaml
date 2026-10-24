@@ -1,26 +1,26 @@
 schema_version: "1.0"
 name: dex-pancakeswap-v2
-expected_outcome: The agent resolves PancakeSwap v2 from the memo with no address from the user, finds its pools by brand or anchored on each memo factory in one batch, and reads the sellers into the busiest pool.
+expected_outcome: The agent resolves PancakeSwap v2 with meta_dex_lookup first, the memo only when the tool is absent, with no address from the user, finds its pools anchored on each factory in one batch, and reads the sellers into the busiest pool.
 execution:
   prompt: |
     A user asks: "Which pools does PancakeSwap v2 have on robinhood, and who trades on the busiest one?"
 
-    The Chain Insights graph_query tool is not reachable right now, so do
-    not try to call it. Write the first graph queries you would send, in
-    full, and one line each on what their rows tell you.
+    The Chain Insights tools are not reachable right now, so do not try
+    to call them. Write the first tool calls and graph queries you would
+    send, in full, and one line each on what their answers tell you.
   max_turns: 10
   allowed_tools: [Read, Glob, Grep, Skill]
 runs: 3
 graders:
   - type: regex
-    name: brand-pool-or-factory-named
+    name: pool-or-factory-named
     target: last_message
-    pattern: '0x02a84c1b3bbd7401a5f7fa98a384ebc70bb5749e|brand[^\n]{0,8}pancakeswap-v2'
+    pattern: '0x02a84c1b3bbd7401a5f7fa98a384ebc70bb5749e|meta_dex_lookup'
     match: contains
   - type: regex
-    name: pools-by-brand-or-factory
+    name: pools-by-door-or-factory
     target: last_message
-    pattern: 'DEPLOYED_CONTRACT|brand'
+    pattern: 'DEPLOYED_CONTRACT|meta_dex_lookup'
     match: contains
   - type: regex
     name: full-addresses
@@ -33,6 +33,11 @@ graders:
     pattern: '(give|send|share|provide|paste|tell) me (the |a |an |its )?(full )?((pool|factory|router|contract|exchange) )?address|what is the (pool|factory|router|contract) address|do you have (the|an?) ((pool|factory|router) )?address'
     flags: i
     match: not_contains
+  - type: regex
+    name: door-first
+    target: last_message
+    pattern: 'meta_dex_lookup'
+    match: contains
   - type: tool_used
     name: skill-fired
     tool: Skill

@@ -106,6 +106,7 @@ Never touches:
 | `graph_query_batch`         | Run related read-only graph queries as one MCP call                                |
 | `meta_network_capabilities` | Check supported Chain Insights networks and graph tools                            |
 | `meta_schema`               | Read the live graph schema of a network: labels, link types, fields, indexes       |
+| `meta_dex_lookup`           | Turn an exchange name (Aero, Uniswap, Virtuals) into its contracts, pools, reads   |
 | `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                           |
 | `meta_subscription_status`  | Check the caller's $CIA subscription window and allowance                          |
 | `meta_rules`                | Read the answer rules when the `chain-insights-cypher` skill is not loaded         |

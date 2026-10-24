@@ -1,0 +1,50 @@
+schema_version: "1.0"
+name: dex-aerodrome-by-name
+expected_outcome: The agent turns "Aerodrome" into Aero with a meta_dex_lookup call before any graph query, scans no :Protocol, :Pool or labels by name, asks the user for no address, and plans the router trail of the gauge skill from the addresses the tool returns.
+execution:
+  prompt: |
+    A user asks, in Claude Desktop: "What was the biggest trade route through Aerodrome on Robinhood Chain in the last day? Show me who sold, what they sold, where the money went after the router, and the single largest swap with its transaction hash."
+
+    The Chain Insights tools are not reachable right now, so do not try
+    to call them. Write, in order, the first tool calls and graph queries
+    you would send, in full, and one line each on what their answers tell
+    you.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: door-before-any-graph-read
+    target: last_message
+    pattern: '^(?:(?!graph_query|USE topology|USE facts|USE chain)[\s\S])*meta_dex_lookup'
+    match: contains
+  - type: regex
+    name: takes-aero
+    target: last_message
+    pattern: '\bAero\b|0xc63d7338c178e805c544b8f897066bd3bbcbe136|0x72e46c9edf828002fdbfdd0952419790576c0f18'
+    match: contains
+  - type: regex
+    name: no-protocol-or-name-scan
+    target: last_message
+    pattern: 'MATCH \((\w+):Protocol\)|labels CONTAINS|\.name CONTAINS|\{b[r]and:|\.b[r]and\b'
+    match: not_contains
+  - type: regex
+    name: names-router
+    target: last_message
+    pattern: 'router'
+    flags: i
+    match: contains
+  - type: regex
+    name: full-addresses
+    target: last_message
+    pattern: '0x[0-9a-fA-F]{2,10}(…|\.\.\.)'
+    match: not_contains
+  - type: regex
+    name: no-address-asked
+    target: last_message
+    pattern: '(give|send|share|provide|paste|tell) me (the |a |an |its )?(full )?((pool|factory|router|contract|exchange) )?address|what is the (pool|factory|router|contract) address|do you have (the|an?) ((pool|factory|router) )?address'
+    flags: i
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

@@ -50,6 +50,13 @@ jobs:
           # restoring the saved archive (5.2 GB on 2026-10-02) took longer than the
           # job's 20-minute limit.
 
+      # The served exchange registry equals its reviewed table, and the skill
+      # memo equals the served copy (registry/README.md). No install needed.
+      - name: Exchange registry pin
+        run: |
+          node scripts/pin-dex-registry.mjs --check registry/robinhood.md
+          node scripts/render-dex-registry.mjs --check
+
       - name: T1
         run: bash ci/t1.sh
 

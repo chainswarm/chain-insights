@@ -1,12 +1,14 @@
 ---
 name: chain-insights-dex-gauge
+door: meta_dex_lookup
 description: Use for the dex-gauge trail - exchanges whose swaps go through a router and whose liquidity is staked in gauges, such as Aero (Aerodrome, Velodrome), up., Raphael and Topaz on robinhood - when a question asks who sold into a pool of one of them, who bought, who provides liquidity or took the most out, or who to trace next past the router. Loaded by chain-insights-dex for a gauge row of its memo.
 ---
 
 # Chain Insights: the gauge trail (Aero, up., Raphael, Topaz)
 
-Load `chain-insights-cypher` first, then `chain-insights-dex` for the memo:
-the brand's factories, its router and its pools come from there. Their answer
+Load `chain-insights-cypher` first, then `chain-insights-dex`: the
+exchange's factories, its routers and its pools come from `meta_dex_lookup`,
+or from the memo there when the host offers no such tool. Their answer
 rules hold here: every address in full, tokens worth an amount in USD, no
 query text in the answer, times from the `_utc` twins.
 
@@ -25,8 +27,8 @@ the router's own transfer in the seller's transaction.
 
 ## Sellers and the buyer, in order
 
-1. **The pool.** Take it from `chain-insights-dex` (pools by brand, then by
-   memo factory). The busiest Aero pool is
+1. **The pool.** Take it from `meta_dex_lookup` (its pools, by lifetime
+   volume), or from `chain-insights-dex` (pools by memo factory). The busiest Aero pool is
    `0x7615926023bb149f36095645c2a81dc367d39750`.
 2. **Sellers into the pool** (G1): its senders on `FLOWS_TO`, ranked by
    lifetime volume. Most of the biggest are contracts: aggregators,

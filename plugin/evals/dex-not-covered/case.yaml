@@ -1,0 +1,39 @@
+schema_version: "1.0"
+name: dex-not-covered
+expected_outcome: The agent says Kyber is not covered, names the covered exchanges, and sends no graph query for the name; it asks the user for no address.
+execution:
+  prompt: |
+    A user asks: "Who are the biggest traders on Kyber on Robinhood Chain this week?"
+
+    The Chain Insights tools are not reachable right now, so do not try
+    to call them. Write, in order, the first tool calls and graph queries
+    you would send, in full, and what you would tell the user.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: says-not-covered
+    target: last_message
+    pattern: 'not covered|is not in the (registry|memo|list)|does not cover|no (row|entry) for Kyber'
+    flags: i
+    match: contains
+  - type: regex
+    name: names-covered-exchanges
+    target: last_message
+    pattern: '(Aero|Uniswap|PancakeSwap|Curve)[\s\S]{0,200}(Aero|Uniswap|PancakeSwap|Curve|Ramses|Metric|up\.)'
+    match: contains
+  - type: regex
+    name: no-graph-query-for-the-name
+    target: last_message
+    pattern: 'USE (topology|facts|chain)[^\n]*(Kyber|kyber)|CONTAINS|MATCH \((\w+):Protocol\)'
+    match: not_contains
+  - type: regex
+    name: no-address-asked
+    target: last_message
+    pattern: '(give|send|share|provide|paste|tell) me (the |a |an |its )?(full )?((pool|factory|router|contract|exchange) )?address|what is the (pool|factory|router|contract) address|do you have (the|an?) ((pool|factory|router) )?address'
+    flags: i
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

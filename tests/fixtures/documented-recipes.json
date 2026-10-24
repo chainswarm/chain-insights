@@ -274,7 +274,7 @@
       "id": "recipe_topology_20",
       "query": "USE topology MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[l:LINKED]-(owned:Address)-[r:FLOWS_TO|SWAPPED]-(b:Address) WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT owned:Pool AND NOT owned:Protocol AND NOT owned:System AND NOT owned.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND owned.address <> b.address AND a.address <> b.address RETURN a.address AS subject_address, owned.address AS linked_via_address, b.address AS counterparty_address, type(r) AS edge, coalesce(r.amount_usd_sum, r.bought_usd) AS amount_usd_sum, coalesce(r.tx_count, r.swap_count) AS tx_count LIMIT 25",
       "layer": "topology",
-      "description": "AC11: FLOWS_TO and SWAPPED reachability UNIONed over one LINKED hop \u2014 actor-level exposure surfaced through an ownership-linked address, not only the subject's own edges. The pool guards NOT a:Pool AND NOT owned:Pool keep the pool trace rule (skills/chain-insights-cypher, Pool trace rule): the walk never starts at a :Pool, the money hop never leaves one on FLOWS_TO, and SWAPPED counts a swap counterparty. A SWAPPED hop reports bought_usd and swap_count. The system guard NOT x:Protocol AND NOT x:System AND NOT x.address IN [the zero and the dead address] on the start and on every address in the middle keeps the walk off a protocol contract (a PoolManager) and the mint and burn addresses, which link millions of unrelated wallets.",
+      "description": "AC11: FLOWS_TO and SWAPPED reachability UNIONed over one LINKED hop — actor-level exposure surfaced through an ownership-linked address, not only the subject's own edges. The pool guards NOT a:Pool AND NOT owned:Pool keep the pool trace rule (skills/chain-insights-cypher, Pool trace rule): the walk never starts at a :Pool, the money hop never leaves one on FLOWS_TO, and SWAPPED counts a swap counterparty. A SWAPPED hop reports bought_usd and swap_count. The system guard NOT x:Protocol AND NOT x:System AND NOT x.address IN [the zero and the dead address] on the start and on every address in the middle keeps the walk off a protocol contract (a PoolManager) and the mint and burn addresses, which link millions of unrelated wallets.",
       "features": [
         "fixed-hop",
         "label-match",
@@ -288,7 +288,7 @@
       "id": "recipe_topology_21",
       "query": "USE topology MATCH (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"})-[l:LINKED]-(b:Address) WHERE a.network <> b.network RETURN a.address AS address, a.network AS network, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 25",
       "layer": "topology",
-      "description": "AC5: cross-space LINKED probe \u2014 the only edge bridging the bittensor and bittensor_evm address-grain networks",
+      "description": "AC5: cross-space LINKED probe — the only edge bridging the bittensor and bittensor_evm address-grain networks",
       "features": [
         "fixed-hop",
         "label-match",
@@ -463,10 +463,10 @@
     },
     {
       "id": "recipe_topology_dex_pools_by_factory_01",
-      "query": "USE topology MATCH (f:Address {address: \"0xc63d7338c178e805c544b8f897066bd3bbcbe136\"})-[:DEPLOYED_CONTRACT]->(p:Pool) WHERE p.total_volume_usd IS NOT NULL RETURN f.address AS from_address, p.address AS to_address, p.labels AS to_labels, p.total_volume_usd AS total_volume_usd ORDER BY p.total_volume_usd DESC LIMIT 10",
+      "query": "USE topology MATCH (f:Address {address: \"0xc63d7338c178e805c544b8f897066bd3bbcbe136\"})-[:DEPLOYED_CONTRACT]->(p:Pool) WHERE p.total_volume_usd IS NOT NULL RETURN f.address AS from_address, p.address AS to_address, p.labels AS to_labels, p.total_volume_usd AS total_volume_usd, p.tx_total_count AS tx_total_count ORDER BY p.total_volume_usd DESC LIMIT 10",
       "layer": "topology",
       "expect_rows": true,
-      "description": "The pools of an exchange brand by one memo factory (skill chain-insights-dex, reference R3): the :Pool contracts the Aero concentrated-liquidity factory deployed, ranked by lifetime volume. Anchored on the factory, so it is admitted on any lane and answers in under 100 ms; the memo row comes from the AP1000 DEX brand registry.",
+      "description": "The pools of an exchange by one factory (skill chain-insights-dex, reference R3, and the pool read of meta_dex_lookup): the :Pool contracts the Aero concentrated-liquidity factory deployed, ranked by lifetime volume. Anchored on the factory, so it is admitted on any lane and answers in under 100 ms, however far behind the exchange family is; the factory comes from registry/robinhood.json.",
       "features": [
         "address-predicate",
         "inline-property-map",
@@ -476,30 +476,14 @@
       ]
     },
     {
-      "id": "recipe_topology_dex_pools_by_brand_01",
-      "query": "USE topology MATCH (p:Pool {brand: \"aero\"}) WHERE p.total_volume_usd IS NOT NULL RETURN p.address AS to_address, p.labels AS to_labels, p.brand AS brand, p.total_volume_usd AS total_volume_usd ORDER BY p.total_volume_usd DESC LIMIT 10",
+      "id": "recipe_topology_dex_contract_confirm_01",
+      "query": "USE topology MATCH (a:Address {address: \"0x72e46c9edf828002fdbfdd0952419790576c0f18\"}) RETURN a.address AS address, labels(a) AS node_labels, a.labels AS labels, a.is_contract AS is_contract LIMIT 1",
       "layer": "topology",
       "expect_rows": true,
-      "description": "The pools of an exchange brand by the brand the graph serves (skill chain-insights-dex, reference R1): brand is written on every :Pool by the dex_pools layer from core_dex_brands, the loaded DEX brand registry. The skill sends it only when the memo lacks the name or gave zero pools, and only when Head says the exchange family is within 100,000 blocks.",
+      "description": "One registry contract read by its address (the contract read of meta_dex_lookup): the Aero router is confirmed when the graph shows it as a contract. One member per factory, manager and router of the exchange, in one batch with Head and the pools read.",
       "features": [
-        "label-match",
-        "pool-label",
-        "inline-property-map",
-        "brand-property",
-        "order-by"
-      ]
-    },
-    {
-      "id": "recipe_topology_dex_brand_list_01",
-      "query": "USE topology MATCH (p:Pool) WHERE p.brand IS NOT NULL RETURN DISTINCT p.brand AS brand LIMIT 100",
-      "layer": "topology",
-      "expect_rows": true,
-      "description": "The exchange brands the graph serves (skill chain-insights-dex, reference R2): one row per distinct brand on :Pool, read when a name is not in the memo and the lane can search. A refusal (family_behind, anchor_missing, query_timeout) ends the read.",
-      "features": [
-        "label-match",
-        "pool-label",
-        "brand-property",
-        "distinct"
+        "address-predicate",
+        "inline-property-map"
       ]
     },
     {

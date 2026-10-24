@@ -42,14 +42,14 @@ function wrapText(value: string, maxWidth: number): string[] {
  * Returns "No tools available." for an empty array.
  * Caller controls output — use console.log(formatToolsTable(tools)).
  */
-export function formatToolsTable(tools: McpTool[]): string {
+export function formatToolsTable(tools: McpTool[], heading = 'Remote GraphRAG tool'): string {
   if (tools.length === 0) return 'No tools available.'
   const nameWidth = Math.max(
     NAME_WIDTH,
-    'Remote GraphRAG tool'.length,
+    heading.length,
     ...tools.map((t) => t.name.length)
   )
-  const header = `${'Remote GraphRAG tool'.padEnd(nameWidth)}  Description`
+  const header = `${heading.padEnd(nameWidth)}  Description`
   const divider = '-'.repeat(nameWidth) + '  ' + '-'.repeat(DESC_MAX)
   const rows = tools.flatMap((tool) => {
     const descriptionLines = wrapText(tool.description ?? '', DESC_MAX)

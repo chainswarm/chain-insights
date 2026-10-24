@@ -81,6 +81,7 @@ The proxy:
 | --------------------------- | ------------------------------------------------------------------------------------ |
 | `meta_network_capabilities` | Show the current Chain Insights network/tool support matrix                          |
 | `meta_schema`               | Show the live graph schema of a network: labels, link types, fields, indexes         |
+| `meta_dex_lookup`           | Turn an exchange name into its factories, routers or manager, pools and first reads  |
 | `meta_rules`                | Read the answer rules when the `chain-insights-cypher` skill is not loaded           |
 | `meta_help`                 | Show Chain Insights tool and workflow guidance                                       |
 | `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                             |
@@ -100,6 +101,76 @@ note, and such a schema is kept for 10 minutes, not 24 hours. In the terminal,
 `cia network robinhood --schema` prints the same schema, with `--json` for the
 structured form and `--refresh` to rebuild it.
 `cia mcp call meta_schema network=robinhood` does the same.
+
+`meta_dex_lookup` turns the name of a decentralized exchange, a launchpad or a
+vault into its addresses. It takes `network` (required), `name` (optional:
+with no name it lists every covered exchange) and `pools` (default `true`).
+
+1. The name is matched against the exchange registry,
+   [`registry/robinhood.json`](../registry/robinhood.json): exact on the key,
+   the display name and the aliases, then within two letters of an alias of
+   four or more characters. One winner is `matched`; a misspelling is named in
+   `took_for`. A tie is listed in `candidates`, never guessed. No hit returns
+   `covered`, every covered exchange, and sends no graph read.
+2. For a match, one `graph_query_batch` reads `Head` for the three family
+   lags, each factory, manager and router by its address (`confirmed` is true
+   when the graph shows a contract), and the ten biggest pools each factory
+   deployed. It is billed as any read; the match itself costs nothing.
+   `pools: false` drops the pool reads.
+3. The answer carries `recipe`, the first reads of the exchange's trail type
+   with its addresses filled in, and the answer `hint` every graph reply
+   carries.
+
+The registry is read from the public file on `main`,
+`https://raw.githubusercontent.com/chainswarm/chain-insights/main/registry/<network>.json`,
+within 3 seconds, and cached for one hour in
+`~/.chain-insights/cache/dex-registry-<network>.json` (mode 0600). When the
+fetch fails, the stale cache answers; with no cache, the copy packaged with
+the installed version does. A malformed public file never replaces a good
+cache. `registry_source` in the answer says which copy answered: `fetched`,
+`cached` or `packaged`. `CHAIN_INSIGHTS_DEX_REGISTRY_URL` points the fetch
+somewhere else, for tests and the lab; `{network}` in it is filled in.
+
+## Host parity
+
+**A rule a host never loads does not exist for that host.** Each host loads a
+different part of what this package ships:
+
+| What a host loads | Claude Code | Desktop Code mode | Codex | Hermes | scout agent | Desktop chat / claude.ai |
+|---|---|---|---|---|---|---|
+| skill files (`cia setup`) | yes | yes | yes | yes | copied, 2 of 6 | no |
+| server instructions | yes | yes | yes | yes | yes | no (ignored) |
+| `meta_rules` | yes | yes | yes | yes | yes | no (never called) |
+| tool descriptions | yes | yes | yes | yes | yes | yes |
+| result `hint` | yes | yes | yes | yes | yes | yes |
+| protocol tool doors | yes | yes | yes | yes | yes | yes |
+
+The scout agent pins the CLI by version in its image and copies only
+`chain-insights-cypher` and `chain-insights-virtuals` into its project, yet asks
+an exchange question by name every run. Until 0.69.0 that question ran with no
+exchange skill: the same gap as Desktop chat. From 0.69.0 the door answers it.
+
+```mermaid
+flowchart LR
+    Q["a question that names an exchange"] --> D["meta_dex_lookup<br/>the tool door, read by every host"]
+    Q --> S["skills/chain-insights-dex*<br/>read by hosts that load skills"]
+    S -->|"step 1"| D
+    D --> R["addresses, pools, first reads, hint"]
+```
+
+The rule:
+
+1. A protocol skill ships with a tool door: frontmatter `door: <tool>`.
+2. The door's description carries the rule the skill opens with, and names
+   the skill's trigger words.
+3. The skill names the door as its first step.
+
+A host that loads skills gets both. A host that loads none gets the door.
+`tests/host-parity.test.ts` checks it: every
+`skills/chain-insights-<protocol>/SKILL.md` has a door, the door is in
+`LOCAL_TOOL_NAMES` of `src/mcp/proxy.ts`, and its description names the
+skill's trigger words. The core skill `chain-insights-cypher` is exempt: its
+door is `meta_rules` plus the `graph_query` description.
 
 ## Views in Claude
 

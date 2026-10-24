@@ -3,14 +3,14 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 
-import { coverageGaps, evalPrompt, readAdapters, repoRoot } from './dex-brands.js'
+import { coverageGaps, evalPrompt, readAdapters, repoRoot } from './dex-registry.js'
 
 // Every adapter the DEX indexer reads (the pinned registry,
-// tests/fixtures/dex-adapters.json) is covered: a brand row names it, a
-// trail-type skill serves that row's type, and a name-only eval asks for the
-// brand by name with no address. A new adapter with no brand, a brand of a
-// type no skill serves, or a brand nobody asks for by name is red here, and
-// the failure names it.
+// tests/fixtures/dex-adapters.json) is covered: an exchange row of
+// registry/robinhood.json names it, a trail-type skill serves that row's type,
+// and a name-only eval asks for the exchange by name with no address. A new
+// adapter with no exchange, an exchange of a type no skill serves, or an
+// exchange nobody asks for by name is red here, and the failure names it.
 
 describe('every adapter of the indexer registry is covered', () => {
   const { adapters } = readAdapters()
@@ -20,12 +20,12 @@ describe('every adapter of the indexer registry is covered', () => {
   })
 
   for (const adapter of adapters) {
-    it(`${adapter.id}: a brand row, a trail-type skill and a name-only eval`, () => {
+    it(`${adapter.id}: an exchange row, a trail-type skill and a name-only eval`, () => {
       expect(coverageGaps(adapter.id)).toEqual([])
     })
   }
 
-  it('every brand row names an adapter of the pinned registry', () => {
+  it('every exchange row names an adapter of the pinned registry', () => {
     expect(coverageGaps(null)).toEqual([])
   })
 })
@@ -33,11 +33,11 @@ describe('every adapter of the indexer registry is covered', () => {
 describe('the coverage rule names what is missing', () => {
   const copy = mkdtempSync(join(tmpdir(), 'dex-coverage-'))
   afterAll(() => rmSync(copy, { recursive: true, force: true }))
-  for (const dir of ['tests/fixtures', 'skills', 'plugin/evals']) {
+  for (const dir of ['tests/fixtures', 'registry', 'skills', 'plugin/evals']) {
     cpSync(join(repoRoot, dir), join(copy, dir), { recursive: true })
   }
 
-  it('names the type when its skill is gone, and the brand when its eval is gone', () => {
+  it('names the type when its skill is gone, and the exchange when its eval is gone', () => {
     rmSync(join(copy, 'skills/chain-insights-dex-vault'), { recursive: true })
     rmSync(join(copy, 'plugin/evals/dex-aero'), { recursive: true })
     expect(coverageGaps('uniswap-v4', copy)).toEqual(['no type skill: vault (uniswap-v4)'])

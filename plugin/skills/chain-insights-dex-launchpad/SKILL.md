@@ -1,12 +1,15 @@
 ---
 name: chain-insights-dex-launchpad
+door: meta_dex_lookup
 description: Use for the dex-launchpad trail - token launchpads with a bonding curve on robinhood other than Virtuals, such as Penguin and the unnamed bonding-curve launchpad - when a question asks who launched a token there, who bought or sold on its curve, whether and when it graduated, or which pool it moved to. Loaded by chain-insights-dex for a launchpad row of its memo. Virtuals questions belong to chain-insights-virtuals.
 ---
 
 # Chain Insights: the launchpad trail (Penguin, bonding curves)
 
-Load `chain-insights-cypher` first, then `chain-insights-dex` for the memo:
-the launchpad's factory comes from there. Their answer rules hold here:
+Load `chain-insights-cypher` first. The first step for a launchpad named
+with no address is `meta_dex_lookup` (Penguin, pons, Flap): it returns the
+launchpad's factory and its first reads. With no such tool, the memo of
+`chain-insights-dex` names the factory. Their answer rules hold here:
 every address in full, tokens worth an amount in USD, no query text in the
 answer, times from the `_utc` twins.
 
@@ -59,7 +62,7 @@ name you have not read.
 6. When L3 is empty, say the graduation is not in the graph yet. Never guess
    a pool from the token's name.
 7. After graduation the token trades on that pool. Load `chain-insights-dex`
-   for the pool's brand and its trail.
+   for the pool's exchange and its trail.
 
 ## The next lead
 

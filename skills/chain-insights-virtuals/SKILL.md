@@ -1,5 +1,6 @@
 ---
 name: chain-insights-virtuals
+door: meta_dex_lookup
 description: Use when investigating Virtuals Protocol agents with Chain Insights - who created an agent or thousands of agents, who is behind a creator wallet, whether a creator earned on its agents, whether an agent was rugged or dumped, whether agents are run by a cartel of linked wallets or snipers, who holds or bought an agent token, whether a buyer or receiver of an agent pool with Scam or Victim labels is really a scammer, why an agent token shows no USD value, what happened after an agent graduated, whether Virtuals contract addresses or queries carry over to another network such as Base, or when a question names Virtuals, an agent token, VIRTUAL, a bonding curve, a launchpad or a creator wallet.
 ---
 
@@ -17,7 +18,10 @@ three hold even when it cannot load:
 
 This skill adds what Virtuals needs on top: how an agent is built on
 chain, where its creator is recorded, and one tested query per
-investigation. The queries are in [reference.md](reference.md).
+investigation. When the question names Virtuals and no address, the first
+step is `meta_dex_lookup` with the name "Virtuals": it returns the bonding
+factory and its launches. The contracts below hold when the tool is not
+offered. The queries are in [reference.md](reference.md).
 
 ## How an agent is built
 
@@ -64,13 +68,13 @@ agent is created on Uniswap's own v2 factory
 `0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f` (the memo's `uniswap-v2` row):
 most of that factory's pairs are Virtuals agents.
 
-<!-- brands:start -->
-The factories of the brand registry, version 1, row `virtuals`:
+<!-- dex-registry:start -->
+The factories of the exchange registry, version 2, row `virtuals`:
 
 | Factory | Address |
 |---|---|
 | factory | `0xfc2e4da3edb2e18100473339c763705d263d20a9` |
-<!-- brands:end -->
+<!-- dex-registry:end -->
 
 **Hubs.** These carry millions of transactions. Keep them out of buyer,
 funder and shared-wallet lists **by address**: the graph does not mark

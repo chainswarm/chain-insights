@@ -18,12 +18,13 @@ Exit codes are contract. Scripts and agent harnesses may rely on them.
 
 ### MCP tool names
 
-The public MCP surface is these ten tools:
+The public MCP surface is these eleven tools:
 
 - `graph_query`
 - `graph_query_batch`
 - `meta_network_capabilities`
 - `meta_schema`
+- `meta_dex_lookup`
 - `meta_rules`
 - `meta_help`
 - `meta_usage_status`
@@ -31,7 +32,7 @@ The public MCP surface is these ten tools:
 - `wallet_balance`
 - `wallet_topup`
 
-`graph_expand` is the eleventh tool the proxy registers. The view calls it
+`graph_expand` is the twelfth tool the proxy registers. The view calls it
 when you click in a picture; hosts keep it out of the model's tool list. It
 is not part of the public surface.
 

@@ -5,6 +5,7 @@ import { validateMcpEndpoint } from '../src/config/mcp-endpoint.js'
 import { applyMcpAuthHeaders } from '../src/mcp/client.js'
 import { callGraphQueryBatch, type ToolCaller } from '../src/mcp/graph-client.js'
 import { PACKAGE_VERSION } from '../src/version.js'
+import { readRegistry } from './dex-registry.js'
 import { readGolden, type GoldenCountRow, type GoldenMarkRow } from './graph-marks-golden.js'
 
 // Live read of the golden mark set (tests/fixtures/graph-marks-golden.json)
@@ -18,6 +19,11 @@ import { readGolden, type GoldenCountRow, type GoldenMarkRow } from './graph-mar
 // with the row's name and source link in the message. A count asserts at
 // least the recorded floor: the chain grows, so equality would fail on
 // health.
+//
+// The example pool of every row of the exchange registry
+// (registry/robinhood.json) is read the same way: it is :Pool and its labels
+// hold one of the row's adapters. Nothing about an exchange name is read: the
+// graph carries none.
 //
 //   CHAIN_INSIGHTS_LIVE_GRAPH_MCP_ENDPOINT=http://127.0.0.1:8012/mcp \
 //   CHAIN_INSIGHTS_LIVE_GRAPH_MCP_TOKEN=<the lane's debug bearer> \
@@ -48,6 +54,13 @@ type MarkRead = {
 export function rowQuery(row: GoldenMarkRow): string {
   return (
     `USE topology MATCH (a:Address {address: "${row.address}"}) ` +
+    'RETURN a.address AS address, labels(a) AS node_labels, a.token_standard AS token_standard, a.labels AS labels LIMIT 1'
+  )
+}
+
+export function examplePoolMarkQuery(pool: string): string {
+  return (
+    `USE topology MATCH (a:Address {address: "${pool}"}) ` +
     'RETURN a.address AS address, labels(a) AS node_labels, a.token_standard AS token_standard, a.labels AS labels LIMIT 1'
   )
 }
@@ -84,6 +97,7 @@ function chunk<T>(items: T[], size: number): T[][] {
 
 describe.skipIf(!endpoint)('the golden mark set against a live Chain Insights Graph', () => {
   const golden = readGolden()
+  const pools = readRegistry().rows.filter((row) => row.example_pool && row.trail_type !== 'vault')
   let client: Client
   let caller: ToolCaller
   const answers = new Map<string, BatchEntry>()
@@ -110,6 +124,7 @@ describe.skipIf(!endpoint)('the golden mark set against a live Chain Insights Gr
     const queries = [
       ...golden.rows.map((row) => ({ id: `row:${row.address}`, query: rowQuery(row) })),
       ...golden.counts.map((count) => ({ id: `count:${count.mark}`, query: countQuery(count) })),
+      ...pools.map((row) => ({ id: `pool:${row.dex}`, query: examplePoolMarkQuery(row.example_pool!) })),
     ]
     for (const batch of chunk(queries, BATCH_SIZE)) {
       const result = await callGraphQueryBatch({ client: caller, network, queries: batch })
@@ -130,7 +145,7 @@ describe.skipIf(!endpoint)('the golden mark set against a live Chain Insights Gr
       failed.map((entry) => `${entry.id}: ${entry.error ?? ''}`),
       'every read of the batch is served'
     ).toEqual([])
-    expect(answers.size).toBe(golden.rows.length + golden.counts.length)
+    expect(answers.size).toBe(golden.rows.length + golden.counts.length + pools.length)
   })
 
   it('serves every golden mark on every row, and no forbidden one', () => {
@@ -153,5 +168,23 @@ describe.skipIf(!endpoint)('the golden mark set against a live Chain Insights Gr
       }
     }
     expect(under, 'marks under their floor').toEqual([])
+  })
+
+  it('serves every registry example pool as :Pool with one of its adapter marks', () => {
+    const verdicts: string[] = []
+    for (const row of pools) {
+      const [read] = (answers.get(`pool:${row.dex}`)?.results ?? []) as MarkRead[]
+      const where = `${row.dex} example pool ${row.example_pool} (source ${row.source})`
+      if (!read) {
+        verdicts.push(`${where}: the lane served no node`)
+        continue
+      }
+      const marks = read.labels ?? []
+      if (!read.node_labels.includes('Pool')) verdicts.push(`${where}: not :Pool, served [${read.node_labels.join(', ')}]`)
+      if (!row.adapters.some((adapter) => marks.includes(adapter))) {
+        verdicts.push(`${where}: lacks the mark ${row.adapters.join(' or ')}, served [${marks.join(', ')}]`)
+      }
+    }
+    expect(verdicts, 'example pools the lane does not mark').toEqual([])
   })
 })

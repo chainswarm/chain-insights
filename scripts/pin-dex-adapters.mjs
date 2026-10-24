@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Pins the adapter list of the DEX indexer registry into
 // tests/fixtures/dex-adapters.json, so tests/dex-coverage.test.ts can hold every
-// adapter the indexer reads to a brand row, a trail-type skill and a name-only
+// adapter the indexer reads to an exchange row, a trail-type skill and a name-only
 // eval, without a checkout of the registry at test time.
 //
 //   node scripts/pin-dex-adapters.mjs <registry.json>

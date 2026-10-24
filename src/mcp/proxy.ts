@@ -47,6 +47,16 @@ import { GRAPH_OPTIONAL_COLUMNS, flowsRecipeReturn } from './graph-row-columns.j
 import { connectFresh, connectRemote } from './remote-connect.js'
 import { withTimestampTextResult, withoutUtcProperties } from './timestamp-text.js'
 import { withAnswerHintResult } from './answer-hint.js'
+import {
+  META_DEX_LOOKUP_ANNOTATIONS,
+  META_DEX_LOOKUP_DESCRIPTION,
+  META_DEX_LOOKUP_TITLE,
+  META_DEX_LOOKUP_TOOL,
+  handleMetaDexLookup,
+  type BatchAnswer,
+  type DexToolDependencies,
+} from './dex-tool.js'
+import { loadRegistry } from './dex-registry.js'
 
 export const LOCAL_TOOL_NAMES = new Set([
   'meta_network_capabilities',
@@ -55,6 +65,7 @@ export const LOCAL_TOOL_NAMES = new Set([
   'meta_subscription_status',
   'meta_help',
   'meta_rules',
+  META_DEX_LOOKUP_TOOL,
   'wallet_balance',
   'wallet_topup',
   GRAPH_EXPAND_TOOL,
@@ -132,10 +143,15 @@ const GRAPH_LAYERS_TEXT =
 const TOOL_RULES_FIRST =
   'Rules first: if the chain-insights-cypher skill is not loaded in this chat, call meta_rules once before this tool. For a graph, alias the columns from_address and to_address; the host draws the picture from the answer itself. Never draw it again with another tool, such as a visualize or widget tool.'
 
-const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
+// The one sentence that sends a named exchange to the door, never to a scan.
+export const GRAPH_QUERY_DEX_DOOR_SENTENCE =
+  'A question that names an exchange and no address starts with meta_dex_lookup, never with a scan of :Protocol, :Pool or labels.'
+
+export const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   meta_network_capabilities:
     'Return the current Chain Insights network and tool support matrix. Takes no arguments: send {}.',
   meta_schema: META_SCHEMA_DESCRIPTION,
+  [META_DEX_LOOKUP_TOOL]: META_DEX_LOOKUP_DESCRIPTION,
   meta_usage_status: "Return the caller's public free graph_query quota for the current UTC day.",
   meta_subscription_status:
     "Return the caller's CIA subscription window end, daily allowance, consumption, and tier.",
@@ -144,7 +160,7 @@ const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
     'Return the Chain Insights rules: how to write graph_query and graph_query_batch reads that are served, how to name columns so the answer is drawn as a graph, a time series or a table, and how to write the answer. Call it once per chat, before the first graph query, when the chain-insights-cypher skill is not loaded. Takes no arguments: send {}.',
   wallet_balance:
     'Show the local Chain Insights payment wallet address, payment network, token, and amount.',
-  graph_query: `${TOOL_RULES_FIRST} Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. ${GRAPH_LAYERS_TEXT} ${ROUTING_NOT_SERVED} Preserve full addresses exactly, and write every address in full, all 42 characters, in your answer: never shorten one with ... or ….`,
+  graph_query: `${TOOL_RULES_FIRST} Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. ${GRAPH_LAYERS_TEXT} ${GRAPH_QUERY_DEX_DOOR_SENTENCE} ${ROUTING_NOT_SERVED} Preserve full addresses exactly, and write every address in full, all 42 characters, in your answer: never shorten one with ... or ….`,
   graph_query_batch: `${TOOL_RULES_FIRST} Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads. For a time series across days, send one USE facts total per day with the query id set to the day, "YYYY-MM-DD": the view joins them into one series. Write every address in full in your answer, all 42 characters.`,
 }
 // Titles for proxied tools whose graph endpoint definition carries none.
@@ -1182,6 +1198,55 @@ export async function createProxy(): Promise<void> {
     async (args) => handleMetaSchema(args, schemaDependencies)
   )
 
+  // meta_dex_lookup: an exchange's name becomes its addresses, from the exchange
+  // registry (cached 1 hour, packaged copy offline), confirmed by one anchored
+  // graph_query_batch billed as any read. A name that is not covered sends no read.
+  const dexDependencies: DexToolDependencies = {
+    loadRegistry: (network) =>
+      loadRegistry(network, {
+        log: (line) => {
+          void logger.info('dex_registry.fault', { line })
+        },
+      }),
+    graphQueryBatch: async (args) => {
+      const options = remoteToolRequestOptions('graph_query_batch')
+      const call = (requestArgs: Record<string, unknown>) =>
+        withRateLimitRetry(() =>
+          options
+            ? remoteClient.callTool({ name: 'graph_query_batch', arguments: requestArgs }, undefined, options)
+            : remoteClient.callTool({ name: 'graph_query_batch', arguments: requestArgs })
+        ) as Promise<BatchResult>
+      return (await withBusyMemberRetry(args, call)) as BatchAnswer
+    },
+    unavailable: async () => {
+      await ensureRemote()
+      return remoteConnected
+        ? undefined
+        : `${remoteUnavailableMessage ?? `Chain Insights Graph is not connected at ${graphMcpEndpoint}`}.`
+    },
+    describeFailure: (err) => remoteCallFailureText('graph_query_batch', err),
+  }
+  server.registerTool(
+    META_DEX_LOOKUP_TOOL,
+    {
+      title: META_DEX_LOOKUP_TITLE,
+      description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS[META_DEX_LOOKUP_TOOL],
+      inputSchema: {
+        network: NETWORK_SCHEMA,
+        name: z
+          .string()
+          .optional()
+          .describe('The exchange as the user wrote it: Aero, Aerodrome, uni v4. With no name, every covered exchange is listed.'),
+        pools: z
+          .boolean()
+          .optional()
+          .describe('Read the biggest pools of the exchange (default true). false sends only Head and the contract reads.'),
+      },
+      annotations: META_DEX_LOOKUP_ANNOTATIONS,
+    },
+    async (args) => handleMetaDexLookup(args, dexDependencies)
+  )
+
   server.registerTool(
     'meta_usage_status',
     {
@@ -1498,6 +1563,7 @@ export async function createProxy(): Promise<void> {
                 'Investigation tools:',
                 '- meta_network_capabilities: supported networks and available tools. Takes no arguments.',
                 '- meta_schema: read the live graph schema of one network: labels, link types and field names. Cached for 24 hours.',
+                '- meta_dex_lookup: turn an exchange name (Aero, Uniswap, Virtuals) into its factories, routers, pools and first reads. Call it first when a question names an exchange and gives no address.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
                 '- meta_subscription_status: check the caller CIA subscription window end, daily allowance, consumption, and tier.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
@@ -1516,6 +1582,7 @@ export async function createProxy(): Promise<void> {
                 'Available graph-backed tools:',
                 '- meta_network_capabilities: supported networks and available tools. Takes no arguments.',
                 '- meta_schema: read the live graph schema of one network: labels, link types and field names. Cached for 24 hours.',
+                '- meta_dex_lookup: turn an exchange name (Aero, Uniswap, Virtuals) into its factories, routers, pools and first reads. Call it first when a question names an exchange and gives no address.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
                 '- meta_subscription_status: check the caller CIA subscription window end, daily allowance, consumption, and tier.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',

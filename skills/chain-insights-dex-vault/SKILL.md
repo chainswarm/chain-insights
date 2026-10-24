@@ -1,12 +1,14 @@
 ---
 name: chain-insights-dex-vault
+door: meta_dex_lookup
 description: Use for the dex-vault trail - exchanges where one pool manager contract holds every pool, such as Uniswap v4, Balancer v2, Balancer v3 and PancakeSwap Infinity on robinhood - when a seller's swap names the pool manager or vault, when a question asks who bought past the manager, or which pools such an exchange has. Loaded by chain-insights-dex for a vault row of its memo.
 ---
 
 # Chain Insights: the vault trail (Uniswap v4, Balancer, PancakeSwap Infinity)
 
-Load `chain-insights-cypher` first, then `chain-insights-dex` for the memo:
-the brand's manager comes from there. Their answer rules hold here: every
+Load `chain-insights-cypher` first, then `chain-insights-dex`: the
+exchange's manager comes from `meta_dex_lookup`, or from the memo there when
+the host offers no such tool. Their answer rules hold here: every
 address in full, tokens worth an amount in USD, no query text in the answer,
 times from the `_utc` twins.
 

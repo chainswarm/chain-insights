@@ -34,8 +34,9 @@ cloud cannot start it.
   whether its buyers form a cartel.
 - **`chain-insights-dex`**: exchanges by name, loaded when a question names
   Aero, Uniswap, Balancer, PancakeSwap, Trader Joe, Curve, Metric, Penguin
-  or another exchange with no address: the memo of each brand's factories
-  and router, the pools of a brand, the plain trail. It loads one of three
+  or another exchange with no address: `meta_dex_lookup` first, the memo of
+  each exchange's factories and router when the tool is absent, the pools of
+  an exchange, the plain trail. It loads one of three
   trail skills: **`chain-insights-dex-gauge`** (Aero, up., Raphael, Topaz:
   the router is not the buyer), **`chain-insights-dex-vault`** (Uniswap v4,
   Balancer, PancakeSwap Infinity: the pool manager is not the buyer) and
