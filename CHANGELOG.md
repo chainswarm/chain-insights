@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.68.2] - 2026-10-24 — how an exchange reaches the skills is written down
+
+### Changed
+- `AGENTS.md`: a new "Exchanges and brands" section names the adapter pin,
+  the brand registry pin, the scripts that refresh and render them, the
+  coverage rule (a brand row, a trail-type skill and a name-only eval per
+  adapter), the plugin skill sync, and when the live suites run.
+- `tests/fixtures/dex-adapters.json`: the adapter pin moves to registry
+  version 25, the version both lanes run. The 13 adapters are unchanged.
+
 ## [0.68.1] - 2026-10-23 — the exchange recipe reads the SWAP row's own USD columns
 
 ### Fixed
