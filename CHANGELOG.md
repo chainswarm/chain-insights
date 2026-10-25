@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.71.4] - 2026-10-25 — the CLI hands the lookup its address
+
+### Fixed
+- `cia mcp call meta_dex_lookup network=robinhood address=0x…` passed the gate
+  since 0.71.3 but the CLI builds the lookup call itself and handed it network,
+  name and pools only, so the address never reached the tool and every address
+  answered `matched: null` with the full covered list. The CLI's argument
+  builder (`metaDexLookupArgs`) now carries address, with a T1 test. Found by
+  running the scout's own call against 0.71.3 (AP1000 #1716).
+
 ## [0.71.3] - 2026-10-25 — the CLI admits the lookup's address argument
 
 ### Fixed

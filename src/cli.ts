@@ -893,10 +893,10 @@ mcpCommand.addCommand(
           // The proxy's local tool, run here with the CLI's own graph session.
           const { handleMetaDexLookup } = await import('./mcp/dex-tool.js')
           const { loadRegistry } = await import('./mcp/dex-registry.js')
-          const pools = args['pools'] === undefined ? undefined : String(args['pools']).toLowerCase() !== 'false'
+          const { metaDexLookupArgs } = await import('./mcp/call-args.js')
           const result = await withGraphMcpClient('chain-insights-cli-dex-lookup', (client) =>
             handleMetaDexLookup(
-              { network: args['network'], name: args['name'], ...(pools === undefined ? {} : { pools }) },
+              metaDexLookupArgs(args),
               {
                 loadRegistry: (network) => loadRegistry(network),
                 graphQueryBatch: async (batchArgs) =>
