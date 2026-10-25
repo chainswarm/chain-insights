@@ -34,7 +34,7 @@ describe('the reviewed table and its served copy', () => {
       cwd: repoRoot,
       encoding: 'utf8',
     })
-    expect(out).toContain('rows: 44 served, 0 refused, 1 not served')
+    expect(out).toContain('rows: 44 served, 0 refused, 3 not served')
     expect(out).toContain('registry/robinhood.json up to date, registry version 2')
   })
 
