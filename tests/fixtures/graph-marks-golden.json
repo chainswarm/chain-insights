@@ -755,6 +755,63 @@
       "token_standard": "ERC20",
       "since_block": 93690626,
       "source": "https://github.com/chainswarm/data-pipeline/blob/main/internal/labels/infrastructureregistry/factories.go"
+    },
+    {
+      "address": "0xc33acc93942105c57602e59e8e448c20ba718a85",
+      "name": "Arbitrage bot, WETH and USDG between the Aero and Uniswap v3 pools; 111,647 self swaps on 2026-10-24 (chain-insights #527)",
+      "marks": [
+        "Address",
+        "Contract",
+        "SelfTrader"
+      ],
+      "never": [
+        "Token",
+        "NFT",
+        "Pool",
+        "Launchpad",
+        "Mixer",
+        "SmartAccount"
+      ],
+      "since_block": 97160802,
+      "source": "https://github.com/chainswarm/data-pipeline/blob/main/internal/graphrag/sync/dex/dozerdb/swaps.go"
+    },
+    {
+      "address": "0x2192bc3b4028acc1113f2cd9ac2cba70c36520db",
+      "name": "Self-trading contract, the biggest sender into the top Aero pool; 1,321 self swaps on 2026-10-24 (chain-insights #527)",
+      "marks": [
+        "Address",
+        "Contract",
+        "SelfTrader"
+      ],
+      "never": [
+        "Token",
+        "NFT",
+        "Pool",
+        "Launchpad",
+        "Mixer",
+        "SmartAccount"
+      ],
+      "since_block": 97153689,
+      "source": "https://github.com/chainswarm/data-pipeline/blob/main/internal/graphrag/sync/dex/dozerdb/swaps.go"
+    },
+    {
+      "address": "0xc2eedf3bc7f93366c00c6074df0e6f122fa2445c",
+      "name": "Self-trading contract, the third biggest sender into the top Aero pool; 246 self swaps on 2026-10-24 (chain-insights #527)",
+      "marks": [
+        "Address",
+        "Contract",
+        "SelfTrader"
+      ],
+      "never": [
+        "Token",
+        "NFT",
+        "Pool",
+        "Launchpad",
+        "Mixer",
+        "SmartAccount"
+      ],
+      "since_block": 97138439,
+      "source": "https://github.com/chainswarm/data-pipeline/blob/main/internal/graphrag/sync/dex/dozerdb/swaps.go"
     }
   ],
   "counts": [
@@ -793,6 +850,12 @@
       "floor": 1000913,
       "lane": "b",
       "read_at": "2026-10-21T02:55:00Z"
+    },
+    {
+      "mark": "SelfTrader",
+      "floor": 50,
+      "lane": "b",
+      "read_at": "2026-10-25T07:29:00Z"
     }
   ]
 }

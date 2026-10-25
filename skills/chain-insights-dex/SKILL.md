@@ -155,6 +155,9 @@ pool and the pool pays the buyer:
 1. **Sellers into the pool** (reference R4): the senders of the pool on
    `FLOWS_TO`, ranked by lifetime volume. A seller that is a contract is
    often an aggregator or a router: say "a contract", never "a trader". A
+   seller that carries `SelfTrader` is a self-trading contract, such as an
+   arbitrage or market-making bot: say so, never "a trader". It trades for
+   itself: its swaps are on its self link, and there is no buyer to name. A
    sender that also adds liquidity to the pool pays its deposits on this
    link: it is a liquidity provider, not a seller.
 2. **Who bought** (reference R5): the seller's `SWAPPED` links. Keep the

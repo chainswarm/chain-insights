@@ -261,7 +261,7 @@ export function buildAddressView(network: string, address: string, row: Row): Ad
 /** The one line of a details answer. */
 export function addressSummary(view: AddressView): string {
   return (
-    `${view.address} on ${view.network}: ${view.role}; lifetime ${formatFlowsUsd(view.total_in_usd)} in, ` +
+    `${view.address} on ${view.network}: ${roleWord(view.role)}; lifetime ${formatFlowsUsd(view.total_in_usd)} in, ` +
     `${formatFlowsUsd(view.total_out_usd)} out; ${view.degree_in} senders and ${view.degree_out} receivers in the topology graph` +
     (view.labels.length ? `; labels ${view.labels.join(', ')}` : '') +
     '.'
@@ -323,7 +323,13 @@ export function flowsRole(row: Row): string {
   if (row.is_scam === true) return 'scam'
   if (row.is_victim === true) return 'victim'
   if (row.pool === true) return 'pool'
+  if (Array.isArray(row.labels) && row.labels.includes('SelfTrader')) return 'self_trader'
   return 'other'
+}
+
+/** The role as the text answers write it: a role code becomes words. */
+function roleWord(role: string): string {
+  return role === 'self_trader' ? 'self-trading contract' : role
 }
 
 function flowsFloat(value: unknown): number {
@@ -472,8 +478,9 @@ function formatFlowsAge(lastSeenMs: number, now: Date): string {
 /** The role word, with up to three address labels beside it. */
 function roleText(node: FlowNode | undefined): string {
   if (!node) return 'other'
-  if (node.labels.length === 0) return node.role
-  return `${node.role} (${node.labels.slice(0, 3).join(', ')})`
+  const word = roleWord(node.role)
+  if (node.labels.length === 0) return word
+  return `${word} (${node.labels.slice(0, 3).join(', ')})`
 }
 
 function sideLines(title: string, parties: string[]): string[] {

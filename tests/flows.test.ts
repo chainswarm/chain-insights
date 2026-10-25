@@ -1161,9 +1161,44 @@ describe('flows.v1 page budget and summary', () => {
     [{ is_scam: true, is_victim: true }, 'scam'],
     [{ is_victim: true, pool: true }, 'victim'],
     [{ pool: true }, 'pool'],
+    [{ pool: true, labels: ['SelfTrader'] }, 'pool'],
+    [{ is_victim: true, labels: ['SelfTrader'] }, 'victim'],
+    [{ pool: false, labels: ['SelfTrader'] }, 'self_trader'],
     [{ is_exchange: null, pool: false, labels: ['Victim'] }, 'other'],
   ])('names the role of %o as %s', (row, want) => {
     expect(flowsRole(row)).toBe(want)
+  })
+
+  it('writes the self_trader role as "self-trading contract" in the node and the details answers', async () => {
+    // 0xc33acc93942105c57602e59e8e448c20ba718a85 swaps with itself on robinhood
+    // (chain-insights #527): the graph marks it SelfTrader.
+    const bot = '0xc33acc93942105c57602e59e8e448c20ba718a85'
+    const botRow = {
+      address: bot,
+      labels: ['SelfTrader'],
+      is_exchange: false,
+      is_sanctioned: false,
+      is_scam: false,
+      is_victim: false,
+      pool: false,
+      total_in_usd: 10,
+      total_out_usd: 20,
+      degree_in: 3,
+      degree_out: 4,
+      first_activity_timestamp: 1781822282000,
+      last_activity_timestamp: 1783693032000,
+    }
+    const { deps } = endpoint(() => rowsAnswer([botRow]))
+    const result = await handleGraphExpand({ network: 'robinhood', address: bot, details: true }, deps)
+    expect(result.isError).toBe(false)
+    expect(result.structuredContent).toMatchObject({ address: bot, role: 'self_trader', labels: ['SelfTrader'] })
+    expect(result.content[0].text).toBe(
+      `${bot} on robinhood: self-trading contract; lifetime $10.00 in, $20.00 out; 3 senders and 4 receivers in the topology graph; labels SelfTrader.`
+    )
+
+    const view = buildFlowView('robinhood', { center: botRow, senders: [], receivers: [], inOffset: 0, outOffset: 0 })
+    expect(view.nodes[0]).toMatchObject({ address: bot, role: 'self_trader' })
+    expect(flowsSummary(view, NOW)).toContain(`Money flows of ${bot} on robinhood: self-trading contract (SelfTrader);`)
   })
 
   it('names every counterparty of a full page in at most 20 lines', () => {
