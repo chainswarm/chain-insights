@@ -3,6 +3,14 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.70.1] - 2026-10-25 — SPCX launchpad rows, not served yet
+
+### Added
+- `registry/robinhood.md` holds the key `spcx` (SPCX launchpad, trail
+  launchpad, adapter `spcx-launchpad`): the curve factory and the router,
+  `not served: adapter not rolled` until registry version 26 runs on both
+  lanes. The served json is unchanged. AP1000 #1716.
+
 ## [0.70.0] - 2026-10-25 — self-trading contracts carry the SelfTrader mark
 
 ### Added
