@@ -69,6 +69,10 @@ An exchange (DEX) reaches every host through one served file and one tool.
   `chain-insights-dex-gauge`, `-vault`, `-launchpad`, or plain in
   `chain-insights-dex`. The eval is `plugin/evals/dex-<dex>/case.yaml`. Its
   prompt names the exchange and holds no `0x` address.
+- An adapter of discovery kind `launch` (`v4-launch-factory-v1`) is a generic
+  rule with no exchange and no registry row, on purpose. It is covered when
+  the launchpad trail skill names its id and a `plugin/evals/dex-*` case
+  names it too.
 - A new exchange of a known trail type is one registry row plus one eval. No
   skill edit.
 - A hand-typed exchange address belongs only inside a rendered block.

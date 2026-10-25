@@ -14,10 +14,13 @@
 //
 // The input is the indexer's network registry (format dex-registry-v2). The
 // output keeps the registry version and, per adapter, its id, its discovery
-// kind (factory, custody or emitter) and its anchors: the discovery factories,
-// else the discovery address (the custody contract of a custody adapter), else
-// none (an emitter adapter is found by its event alone). Everything else in the
-// registry (profiles, deployments, event signatures, code profiles) is dropped.
+// kind (factory, custody, emitter or launch) and its anchors: the discovery
+// factories, else the discovery address (the custody contract of a custody
+// adapter, the pool manager whose Initialize a launch adapter reads), else none
+// (an emitter adapter is found by its event alone). A launch adapter is a
+// generic rule: its factories are found on the chain, never named in the
+// registry. Everything else in the registry (profiles, deployments, event
+// signatures, code profiles) is dropped.
 import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -69,9 +72,9 @@ export function pinDexAdapters(registryText) {
   const adapters = registry.adapters.map((adapter) => {
     if (!adapter.id) fail('an adapter has no id')
     const discovery = adapter.discovery ?? {}
-    if (!['factory', 'custody', 'emitter'].includes(discovery.kind)) {
+    if (!['factory', 'custody', 'emitter', 'launch'].includes(discovery.kind)) {
       fail(
-        `${adapter.id}: discovery kind ${String(discovery.kind)} is not factory, custody or emitter`
+        `${adapter.id}: discovery kind ${String(discovery.kind)} is not factory, custody, emitter or launch`
       )
     }
     return {

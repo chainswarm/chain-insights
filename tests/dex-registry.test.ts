@@ -169,24 +169,35 @@ describe('the served copy', () => {
 describe('the pinned indexer adapters', () => {
   const pin = readAdapters()
 
-  it('holds the 15 adapters of the registry version it names, each once, with full anchors', () => {
+  it('holds the 16 adapters of the registry version it names, each once, with full anchors', () => {
     expect(Number.isInteger(pin.registry_version) && pin.registry_version > 0).toBe(true)
     expect(pin.network).toBe('robinhood')
-    expect(pin.adapters).toHaveLength(15)
-    expect(new Set(pin.adapters.map((adapter) => adapter.id)).size).toBe(15)
+    expect(pin.adapters).toHaveLength(16)
+    expect(new Set(pin.adapters.map((adapter) => adapter.id)).size).toBe(16)
     for (const adapter of pin.adapters) {
-      expect(['factory', 'custody', 'emitter'], adapter.id).toContain(adapter.discovery_kind)
+      expect(['factory', 'custody', 'emitter', 'launch'], adapter.id).toContain(
+        adapter.discovery_kind
+      )
       for (const anchor of adapter.anchors) expect(anchor, adapter.id).toMatch(ADDRESS)
-      if (adapter.discovery_kind === 'custody') expect(adapter.anchors, adapter.id).toHaveLength(1)
+      if (adapter.discovery_kind === 'custody' || adapter.discovery_kind === 'launch')
+        expect(adapter.anchors, adapter.id).toHaveLength(1)
       if (adapter.discovery_kind === 'factory')
         expect(adapter.anchors.length, adapter.id).toBeGreaterThan(0)
     }
   })
 
-  it('anchors every custody adapter on the manager its vault row names', () => {
+  // A launch adapter reads the Initialize of a pool manager, the manager a
+  // vault row serves; its factories are found on the chain and no row names them.
+  it('anchors every custody and launch adapter on the manager its vault row names', () => {
     const registry = readRegistry()
-    for (const adapter of pin.adapters.filter((a) => a.discovery_kind === 'custody')) {
-      const rows = registry.rows.filter((candidate) => candidate.adapters.includes(adapter.id))
+    for (const adapter of pin.adapters.filter(
+      (a) => a.discovery_kind === 'custody' || a.discovery_kind === 'launch'
+    )) {
+      const rows = registry.rows.filter((candidate) =>
+        adapter.discovery_kind === 'launch'
+          ? candidate.trail_type === 'vault'
+          : candidate.adapters.includes(adapter.id)
+      )
       expect(
         rows.some((row) => row.factories.length === 1 && row.factories[0] === adapter.anchors[0]),
         `${adapter.id}: no vault row names its anchor ${adapter.anchors[0]}`
