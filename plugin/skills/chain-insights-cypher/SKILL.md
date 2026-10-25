@@ -197,7 +197,7 @@ Marks say what an address is. They sit beside the kind and are never an anchor:
 - `:Mixer` is a mixer contract from the mixer registry: a pool, the router or the relayer of a Tornado-style mixer (Hearsay on robinhood). Its `labels` carry the word `Mixer` and `label_risk_levels` carries `high`.
 - `:Protocol` is a protocol's own contract: a pool, a router, a position manager, a stock token's proxy. It is never given for a token name alone.
 - `:SmartAccount` is a contract wallet, beside `:Account` or `:Contract`.
-- `:SelfTrader` is a contract that swaps with itself: it pays the pool and gets the bought side back, such as an arbitrage bot, a vault or a treasury. A smart account is never `:SelfTrader`. Its `labels` carry the word `SelfTrader`. Its callers are its operator keys: trace its ETH payouts to them. Find these contracts by mark, `MATCH (a:SelfTrader)`. Its own swaps sit on its self link, `MATCH (a:Address {address: "<full address>"})-[w:SWAPPED]->(a)`, anchored on the full 42-character address:
+- `:SelfTrader` is a contract that swaps with itself: it pays the pool and gets the bought side back, such as an arbitrage bot, a vault or a treasury. In the answer call it a **self-trading contract**, never a trader, a wallet or a user. A smart account is never `:SelfTrader`. Its `labels` carry the word `SelfTrader`. Its callers are its operator keys: trace its ETH payouts to them. Find these contracts by mark, `MATCH (a:SelfTrader)`. Its own swaps sit on its self link, `MATCH (a:Address {address: "<full address>"})-[w:SWAPPED]->(a)`, anchored on the full 42-character address:
 
   ```cypher
   USE topology

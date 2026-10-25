@@ -3,6 +3,21 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.70.0] - 2026-10-25 — self-trading contracts carry the SelfTrader mark
+
+### Added
+- The graph's `SelfTrader` mark, a contract that swaps with itself, such as
+  an arbitrage bot, is read as the role `self_trader` and written as
+  "self-trading contract" in the node and details answers. The cypher skill
+  carries the mark, the find-by-mark read and the self-link read; the dex
+  skill names a self-trading seller for what it is, never "a trader". The
+  golden marks gain the three bots of #527 and a floor of 50 `SelfTrader`,
+  read on lane B once its `dex_swaps` layer replays with self links
+  (data-pipeline #1529). New eval `self-trader-by-mark`: with 1.00, without
+  0.33.
+- The graph view draws a `self_trader` node in the infrastructure tone with
+  the word "Self-trading contract" (chain-insights-ui #24).
+
 ## [0.69.1] - 2026-10-24 — out of credits is said on the page
 
 ### Fixed
