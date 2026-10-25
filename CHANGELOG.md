@@ -3,6 +3,15 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.71.0] - 2026-10-25 — meta_dex_lookup answers an address
+
+### Added
+- `meta_dex_lookup` takes an optional `address` beside `name`: a factory,
+  router or manager address (0x plus 40 hex, any case) answers the exchange
+  that holds it, with `took_for` naming the role and its verification cell.
+  An address no row holds answers `matched: null` and sends no read. A name
+  together with an address is refused.
+
 ## [0.70.1] - 2026-10-25 — SPCX launchpad rows, not served yet
 
 ### Added

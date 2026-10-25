@@ -21,6 +21,7 @@ import {
   normalizeDexNetwork,
   type DexCandidate,
   type DexEntry,
+  type DexMatchResult,
   type LoadedRegistry,
   type RegistrySource,
   type Role,
@@ -29,7 +30,7 @@ import {
 
 export const META_DEX_LOOKUP_TOOL = 'meta_dex_lookup'
 export const META_DEX_LOOKUP_SCHEMA = 'chain-insights.meta-dex-lookup.v1' as const
-export const META_DEX_LOOKUP_TITLE = 'Exchange by name'
+export const META_DEX_LOOKUP_TITLE = 'Exchange by name or address'
 export const META_DEX_LOOKUP_DESCRIPTION =
   'Call this first when a question names a decentralized exchange, a launchpad or a vault ' +
   '(Aero, Aerodrome, Velodrome, up., Raphael, Topaz, Uniswap, PancakeSwap, Balancer, Curve, ' +
@@ -37,13 +38,17 @@ export const META_DEX_LOOKUP_DESCRIPTION =
   'factories, routers or pool manager, its biggest pools, and the first reads to send, ' +
   'with every address in full. A misspelling within two letters is taken and named in ' +
   'took_for. When matched is null the name is not covered: say so, list covered, and send ' +
-  'no graph query for the name. Never ask the user for a pool, factory or router address.'
+  'no graph query for the name. Never ask the user for a pool, factory or router address. ' +
+  'When the user gives a contract address instead of a name, send it as address (0x plus 40 hex, ' +
+  'any case, with no name): the answer is the exchange whose factory, router or manager it is, ' +
+  'and took_for names the role it holds. When matched is null no exchange row holds the address: ' +
+  'send no read for it. Give a name or an address, not both.'
 export const META_DEX_LOOKUP_ANNOTATIONS = {
   readOnlyHint: true,
   idempotentHint: true,
   openWorldHint: false,
 } as const
-export const META_DEX_LOOKUP_ARGS = ['network', 'name', 'pools'] as const
+export const META_DEX_LOOKUP_ARGS = ['network', 'name', 'address', 'pools'] as const
 
 /** The pools returned per exchange, and per factory read. */
 export const POOLS_LIMIT = 10
@@ -97,6 +102,7 @@ export interface MetaDexLookupResult {
   registry_version: number
   registry_source: RegistrySource
   matched: DexMatch | null
+  /** A near name hit: the name as typed. An address hit: the role it holds and the verification cell. */
   took_for?: string
   candidates: DexCandidate[]
   covered: string[]
@@ -277,7 +283,25 @@ function readMatch(
   return { contracts, pools, families, notes }
 }
 
-function hintFor(result: Omit<MetaDexLookupResult, 'hint'>, name: string | null): string {
+const ADDRESS_FORM = /^0x[0-9a-fA-F]{40}$/
+
+function hintFor(
+  result: Omit<MetaDexLookupResult, 'hint'>,
+  name: string | null,
+  address: string | null = null
+): string {
+  if (address !== null && !result.matched) {
+    return `${ANSWER_HINT} No exchange row holds ${address}. Send no read for it.`
+  }
+  if (address !== null && result.matched) {
+    const { matched } = result
+    return (
+      `${ANSWER_HINT} Say in one line: "${address} is a ${result.took_for} row of ${matched.display}." Ask nothing. ` +
+      `Exchange ${matched.display}, trail ${matched.trail_type}: send the first reads of recipe, ` +
+      `anchored on the addresses above, and load ${matched.skill} when this host has skills. ` +
+      'Read families before a SWAPPED search: it is sent when behind_dex is at most 100000. Never ask the user for an address.'
+    )
+  }
   if (name === null) {
     return `${ANSWER_HINT} These are the exchanges the registry covers. Call meta_dex_lookup with a name for its addresses and first reads.`
   }
@@ -309,7 +333,7 @@ function textResult(structured: MetaDexLookupResult): MetaDexLookupToolResult {
   }
 }
 
-/** meta_dex_lookup, {network, name?, pools?}. Every argument is checked before the registry is read. */
+/** meta_dex_lookup, {network, name?, address?, pools?}. Every argument is checked before the registry is read. */
 export async function handleMetaDexLookup(
   args: unknown,
   deps: DexToolDependencies
@@ -326,6 +350,16 @@ export async function handleMetaDexLookup(
     return errorResult('invalid_name: name must be the exchange name as text')
   }
   const name = typeof rawName === 'string' && rawName.trim() !== '' ? rawName.trim() : null
+  const rawAddress = record.address
+  if (rawAddress !== undefined && rawAddress !== null && typeof rawAddress !== 'string') {
+    return errorResult('invalid_address: address must be 0x plus 40 hex characters')
+  }
+  const addressText = typeof rawAddress === 'string' && rawAddress.trim() !== '' ? rawAddress.trim() : null
+  if (name !== null && addressText !== null) return errorResult('Give a name or an address, not both.')
+  if (addressText !== null && !ADDRESS_FORM.test(addressText)) {
+    return errorResult('invalid_address: address must be 0x plus 40 hex characters')
+  }
+  const address = addressText === null ? null : addressText.toLowerCase()
   const rawPools = record.pools
   if (rawPools !== undefined && rawPools !== null && typeof rawPools !== 'boolean') {
     return errorResult('invalid_pools: pools must be true or false')
@@ -350,7 +384,7 @@ export async function handleMetaDexLookup(
     registry_source: loaded.source,
   }
 
-  if (name === null) {
+  if (name === null && address === null) {
     const result = {
       ...base,
       matched: null,
@@ -368,7 +402,18 @@ export async function handleMetaDexLookup(
     return textResult({ ...result, hint: hintFor(result, null) })
   }
 
-  const match = matchDex(name, document.rows)
+  let match: DexMatchResult
+  if (address !== null) {
+    const holder = document.rows.find((row) => address in row.roles)
+    match = {
+      matched: holder ?? null,
+      ...(holder ? { took_for: `${holder.roles[address]}, served` } : {}),
+      candidates: [],
+      covered: document.rows.map((row) => row.display),
+    }
+  } else {
+    match = matchDex(name as string, document.rows)
+  }
   if (!match.matched) {
     const result = {
       ...base,
@@ -377,7 +422,7 @@ export async function handleMetaDexLookup(
       covered: match.covered,
       families: null,
     }
-    return textResult({ ...result, hint: hintFor(result, name) })
+    return textResult({ ...result, hint: hintFor(result, name, address) })
   }
 
   const entry = match.matched
@@ -428,5 +473,5 @@ export async function handleMetaDexLookup(
     families: read.families,
     ...(notes.length > 0 ? { notes } : {}),
   }
-  return textResult({ ...result, hint: hintFor(result, name) })
+  return textResult({ ...result, hint: hintFor(result, name, address) })
 }
