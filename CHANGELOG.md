@@ -3,6 +3,15 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.71.3] - 2026-10-25 — the CLI admits the lookup's address argument
+
+### Fixed
+- `cia mcp call meta_dex_lookup network=robinhood address=0x…` was refused by
+  the CLI's argument check ("Unsupported argument for meta_dex_lookup: address")
+  before the proxy ran, although the proxy has answered the address form since
+  0.71.0. The allowed arguments now list `address`. Found by the AP1000 close-out
+  of scout-dex-lookup: the scout's own call (scout-agent 0.6.3) hit it.
+
 ## [0.71.2] - 2026-10-25 — the v4 launch factory trail
 
 ### Added
