@@ -1,0 +1,44 @@
+schema_version: "1.0"
+name: dex-spcx
+expected_outcome: The agent takes the SPCX launchpad's factory from meta_dex_lookup, or the memo when the tool is absent, with no address from the user, loads the launchpad trail, reads the launches with the creator from tx_origin, and reads graduation from the first pool.
+execution:
+  prompt: |
+    A user asks: "Who launched tokens on the SPCX launchpad on robinhood, and did any of them graduate
+    to an exchange pool?"
+
+    The Chain Insights tools are not reachable right now, so do not try
+    to call them. Write the first tool calls and graph queries you would
+    send, in full, and one line each on what their answers tell you.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: pool-or-factory-named
+    target: last_message
+    pattern: '0x3d6ea4e97b8ab9e1a1b4943febffe22d8c920091|meta_dex_lookup'
+    match: contains
+  - type: regex
+    name: creator-is-tx-origin
+    target: last_message
+    pattern: 'tx_origin'
+    match: contains
+  - type: regex
+    name: full-addresses
+    target: last_message
+    pattern: '0x[0-9a-fA-F]{2,10}(…|\.\.\.)'
+    match: not_contains
+  - type: regex
+    name: no-address-asked
+    target: last_message
+    pattern: '(give|send|share|provide|paste|tell) me (the |a |an |its )?(full )?((pool|factory|router|contract|exchange) )?address|what is the (pool|factory|router|contract) address|do you have (the|an?) ((pool|factory|router) )?address'
+    flags: i
+    match: not_contains
+  - type: regex
+    name: door-first
+    target: last_message
+    pattern: 'meta_dex_lookup'
+    match: contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

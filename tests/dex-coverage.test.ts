@@ -15,8 +15,8 @@ import { coverageGaps, evalPrompt, readAdapters, repoRoot } from './dex-registry
 describe('every adapter of the indexer registry is covered', () => {
   const { adapters } = readAdapters()
 
-  it('reads the 13 adapters of the pinned registry', () => {
-    expect(adapters.length).toBe(13)
+  it('reads the 15 adapters of the pinned registry', () => {
+    expect(adapters.length).toBe(15)
   })
 
   for (const adapter of adapters) {

@@ -57,11 +57,11 @@ describe('matchDex over the served registry', () => {
     ])
   })
 
-  it('says Kyber is not covered and names the 29 covered exchanges', () => {
+  it('says Kyber is not covered and names the 31 covered exchanges', () => {
     const result = matchDex('Kyber', rows)
     expect(result.matched).toBeNull()
     expect(result.candidates).toEqual([])
-    expect(result.covered).toHaveLength(29)
+    expect(result.covered).toHaveLength(31)
     expect(result.covered).toContain('Aero (Aerodrome and Velodrome, merged)')
   })
 

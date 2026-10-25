@@ -3,6 +3,28 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.71.1] - 2026-10-25 — SPCX and Ekubo rows served
+
+### Changed
+- `registry/robinhood.md` serves the key `spcx` (SPCX launchpad, trail
+  launchpad): the curve factory and the router flip to `served`, because
+  indexer registry version 27 runs the `spcx-launchpad` adapter on both lanes
+  since 21:42 CET. Registry version 3, recorded 2026-10-25. AP1000 #1716.
+- The launchpad trail skill names the SPCX launchpad, and says its curve is a
+  contract of its own whose traders are the `SWAPPED` links into it.
+- `tests/fixtures/dex-adapters.json` pins indexer registry version 27: 15
+  adapters, `ekubo-core` and `spcx-launchpad` added.
+
+### Added
+- `registry/robinhood.md` holds the key `ekubo` (Ekubo, trail vault, adapter
+  `ekubo-core`): the core `0x00000000000014aa86c5d3c41765bb24e11bd701` as the
+  manager, served, from Ekubo's robinhood deployment file. The positions NFT
+  `0xda38ac72ce7220c4dd7719d114ef94edadb8f068` has a row of role `positions`,
+  not served: it creates no pool, holds no pool and forwards no swap, and the
+  served copy admits only factory, manager and router.
+- The vault trail skill names Ekubo's core and its positions NFT.
+- Name-only evals `dex-spcx` and `dex-ekubo`.
+
 ## [0.71.0] - 2026-10-25 — meta_dex_lookup answers an address
 
 ### Added

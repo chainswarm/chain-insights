@@ -1,8 +1,8 @@
 {
   "schema": "chain-insights.dex-registry.v1",
   "network": "robinhood",
-  "registry_version": 2,
-  "recorded_on": "2026-10-24",
+  "registry_version": 3,
+  "recorded_on": "2026-10-25",
   "rows": [
     {
       "dex": "aero",
@@ -520,6 +520,32 @@
       "source": "https://sourcify.dev/server/v2/contract/4663/0x28082618ba2073e602230188e4f4c46e9b2169eb"
     },
     {
+      "dex": "ekubo",
+      "display": "Ekubo",
+      "aliases": [
+        "Ekubo",
+        "Ekubo Protocol",
+        "ekubo.org"
+      ],
+      "trail_type": "vault",
+      "adapters": [
+        "ekubo-core"
+      ],
+      "roles": {
+        "0x00000000000014aa86c5d3c41765bb24e11bd701": "manager"
+      },
+      "factories": [
+        "0x00000000000014aa86c5d3c41765bb24e11bd701"
+      ],
+      "routers": [
+        "0x00000000000014aa86c5d3c41765bb24e11bd701"
+      ],
+      "example_pool": null,
+      "pool_floor": null,
+      "since_block": 33534,
+      "source": "https://github.com/EkuboProtocol/evm-contracts/blob/933c813ca154475a3c7eab8234869f6db151c682/broadcast/DeployAll.s.sol/4663/run-latest.json"
+    },
+    {
       "dex": "ramses",
       "display": "Ramses",
       "aliases": [
@@ -717,6 +743,33 @@
       "pool_floor": null,
       "since_block": 0,
       "source": "https://github.com/chainswarm/devops/blob/de68f8676adac3e2f004fb0cd24c313f9516846e/charts/chainswarm-indexer-evm-dex/registry/robinhood-v24.json"
+    },
+    {
+      "dex": "spcx",
+      "display": "SPCX launchpad",
+      "aliases": [
+        "SPCX",
+        "SPCX launchpad",
+        "spcx launchpad"
+      ],
+      "trail_type": "launchpad",
+      "adapters": [
+        "spcx-launchpad"
+      ],
+      "roles": {
+        "0x3d6ea4e97b8ab9e1a1b4943febffe22d8c920091": "factory",
+        "0x190b452d16e12e3beedd76a030ea991fe3856c33": "router"
+      },
+      "factories": [
+        "0x3d6ea4e97b8ab9e1a1b4943febffe22d8c920091"
+      ],
+      "routers": [
+        "0x190b452d16e12e3beedd76a030ea991fe3856c33"
+      ],
+      "example_pool": "0x1de3f839184cf48696cbb9cc283855eb32dc2c51",
+      "pool_floor": 1,
+      "since_block": 0,
+      "source": "https://github.com/chainswarm/AP1000/blob/main/openspec/changes/spcx-launchpad-adapter/design.md"
     },
     {
       "dex": "pons",

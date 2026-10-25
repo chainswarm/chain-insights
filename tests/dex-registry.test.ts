@@ -34,8 +34,8 @@ describe('the reviewed table and its served copy', () => {
       cwd: repoRoot,
       encoding: 'utf8',
     })
-    expect(out).toContain('rows: 44 served, 0 refused, 3 not served')
-    expect(out).toContain('registry/robinhood.json up to date, registry version 2')
+    expect(out).toContain('rows: 47 served, 0 refused, 2 not served')
+    expect(out).toContain('registry/robinhood.json up to date, registry version 3')
   })
 
   it('fails on a hand edit of the served copy, naming both versions', () => {
@@ -49,7 +49,7 @@ describe('the reviewed table and its served copy', () => {
     const { ok, lines } = checkRegistry(join(dir, 'robinhood.md'))
     expect(ok).toBe(false)
     expect(lines.join('\n')).toMatch(
-      /the file gives registry version 2, the committed copy says registry version 1/
+      /the file gives registry version 3, the committed copy says registry version 1/
     )
   })
 
@@ -82,8 +82,8 @@ describe('the served copy', () => {
     expect(registry.schema).toBe('chain-insights.dex-registry.v1')
     expect(registry.network).toBe('robinhood')
     expect(registry.recorded_on).toMatch(/^\d{4}-\d{2}-\d{2}$/)
-    expect(registry.registry_version).toBe(2)
-    expect(registry.rows).toHaveLength(29)
+    expect(registry.registry_version).toBe(3)
+    expect(registry.rows).toHaveLength(31)
   })
 
   it("holds the registry version the package's chainInsights.dexRegistryVersion names", () => {
@@ -169,11 +169,11 @@ describe('the served copy', () => {
 describe('the pinned indexer adapters', () => {
   const pin = readAdapters()
 
-  it('holds the 13 adapters of the registry version it names, each once, with full anchors', () => {
+  it('holds the 15 adapters of the registry version it names, each once, with full anchors', () => {
     expect(Number.isInteger(pin.registry_version) && pin.registry_version > 0).toBe(true)
     expect(pin.network).toBe('robinhood')
-    expect(pin.adapters).toHaveLength(13)
-    expect(new Set(pin.adapters.map((adapter) => adapter.id)).size).toBe(13)
+    expect(pin.adapters).toHaveLength(15)
+    expect(new Set(pin.adapters.map((adapter) => adapter.id)).size).toBe(15)
     for (const adapter of pin.adapters) {
       expect(['factory', 'custody', 'emitter'], adapter.id).toContain(adapter.discovery_kind)
       for (const anchor of adapter.anchors) expect(anchor, adapter.id).toMatch(ADDRESS)
