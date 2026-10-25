@@ -3,6 +3,32 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.71.2] - 2026-10-25 — the v4 launch factory trail
+
+### Added
+
+- `meta_dex_lookup` by an address no row holds says the address is not a registered exchange contract and that the graph is where its activity is read, instead of "send no read".
+- The launchpad trail skill gains "A v4 launch factory": a contract that
+  creates a token and has the Uniswap v4 pool manager open a pool for it in
+  one transaction, the rule `v4-launch-factory-v1` of indexer registry
+  version 28. No registry row names these factories, on purpose. The section
+  reads the launches from the factory's `DEPLOYED_CONTRACT` links, the
+  creator from `tx_origin`, the first pool as a pool id of the pool manager,
+  and sends the trades to the vault trail. It says a `matched: null` from
+  `meta_dex_lookup` means no row, not no data. It also says the graph does
+  not mark these factories yet: no `:Launchpad`, no `:Pool`. AP1000 change
+  `v4-launch-factory-rule`.
+- Eval `dex-v4-launch`: who launched tokens through
+  `0x34206bfc7f94d3c1b254d9cf77047fb0ccbf0e29`.
+
+### Changed
+- `tests/fixtures/dex-adapters.json` pins indexer registry version 28: 16
+  adapters, `v4-launch-factory-v1` added with discovery kind `launch`.
+  `scripts/pin-dex-adapters.mjs` admits that kind, anchored on the pool
+  manager whose `Initialize` it reads.
+- The coverage rule holds a `launch` adapter to the launchpad trail skill and
+  an eval naming it, never to an exchange row.
+
 ## [0.71.1] - 2026-10-25 — SPCX and Ekubo rows served
 
 ### Changed

@@ -1,0 +1,49 @@
+schema_version: "1.0"
+name: dex-v4-launch
+expected_outcome: The agent loads the launchpad trail and reads the factory as a v4 launch factory of the rule v4-launch-factory-v1 with no registry row - a matched null from meta_dex_lookup is no reason to stop - reads the factory's DEPLOYED_CONTRACT launches anchored on its address, names the creator from tx_origin, reads the first pool as a pool of the Uniswap v4 pool manager, gives the factory no invented name, and asks the user for no address.
+execution:
+  prompt: |
+    A user asks: "Who launched tokens through 0x34206bfc7f94d3c1b254d9cf77047fb0ccbf0e29 on robinhood?"
+
+    The Chain Insights tools are not reachable right now, so do not try
+    to call them. Write the first tool calls and graph queries you would
+    send, in full, and one line each on what their answers tell you.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: launches-anchored-on-the-factory
+    target: last_message
+    pattern: '0x34206bfc7f94d3c1b254d9cf77047fb0ccbf0e29"\}\)-\[\w*:DEPLOYED_CONTRACT\]'
+    match: contains
+  - type: regex
+    name: creator-is-tx-origin
+    target: last_message
+    pattern: 'tx_origin'
+    match: contains
+  - type: regex
+    name: v4-pool-manager
+    target: last_message
+    pattern: '0x8366a39cc670b4001a1121b8f6a443a643e40951|Uniswap v4 pool manager'
+    flags: i
+    match: contains
+  - type: regex
+    name: no-mark-for-the-factory
+    target: last_message
+    pattern: 'MATCH \(\w*:Launchpad\)|0x34206bfc7f94d3c1b254d9cf77047fb0ccbf0e29"\}\)\s*WHERE\s+\w+:Launchpad'
+    match: not_contains
+  - type: regex
+    name: full-addresses
+    target: last_message
+    pattern: '0x[0-9a-fA-F]{2,10}(…|\.\.\.)'
+    match: not_contains
+  - type: regex
+    name: no-address-asked
+    target: last_message
+    pattern: '(give|send|share|provide|paste|tell) me (the |a |an |its )?(full )?((pool|factory|router|contract|exchange) )?address|what is the (pool|factory|router|contract) address|do you have (the|an?) ((pool|factory|router) )?address'
+    flags: i
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

@@ -1,5 +1,5 @@
 {
-  "registry_version": 27,
+  "registry_version": 28,
   "network": "robinhood",
   "adapters": [
     {
@@ -105,6 +105,13 @@
     {
       "id": "uniswap-v4",
       "discovery_kind": "custody",
+      "anchors": [
+        "0x8366a39cc670b4001a1121b8f6a443a643e40951"
+      ]
+    },
+    {
+      "id": "v4-launch-factory-v1",
+      "discovery_kind": "launch",
       "anchors": [
         "0x8366a39cc670b4001a1121b8f6a443a643e40951"
       ]

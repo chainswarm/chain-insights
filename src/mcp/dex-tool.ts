@@ -291,7 +291,7 @@ function hintFor(
   address: string | null = null
 ): string {
   if (address !== null && !result.matched) {
-    return `${ANSWER_HINT} No exchange row holds ${address}. Send no read for it.`
+    return `${ANSWER_HINT} No exchange row holds ${address}: it is not a registered exchange contract. Send no exchange read for it; read the graph for what the address did.`
   }
   if (address !== null && result.matched) {
     const { matched } = result

@@ -271,7 +271,7 @@ describe('meta_dex_lookup by address', () => {
     expect(structured.matched).toBeNull()
     expect(structured.candidates).toEqual([])
     expect(structured.covered).toHaveLength(31)
-    expect(structured.hint).toContain(`No exchange row holds ${unknown}. Send no read for it.`)
+    expect(structured.hint).toContain(`No exchange row holds ${unknown}: it is not a registered exchange contract.`)
     expect(calls).toHaveLength(0)
   })
 

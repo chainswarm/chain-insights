@@ -651,6 +651,13 @@
    "source": "skills/chain-insights-dex-launchpad/SKILL.md"
   },
   {
+   "id": "skill-dex-launchpad-4",
+   "layer": "topology",
+   "anchor": "address",
+   "query": "USE topology MATCH (c:Address {address: \"0x705da6eb557a987960294597954d75e9be2a1983\"})-[sw:SWAPPED]->(m:Address {address: \"0x8366a39cc670b4001a1121b8f6a443a643e40951\"}) WHERE sw.sold_asset = \"0xf3b01a81dc8a4216d92e74b40113e9e1b10a4dac\" OR sw.bought_asset = \"0xf3b01a81dc8a4216d92e74b40113e9e1b10a4dac\" RETURN c.address AS from_address, m.address AS to_address, sw.sold_asset AS sold_asset, sw.bought_asset AS bought_asset, sw.sold_usd AS sold_usd, sw.bought_usd AS bought_usd, sw.swap_count AS swap_count, sw.pools AS pools, sw.last_seen_height AS last_seen_height ORDER BY sw.last_seen_height ASC LIMIT 25",
+   "source": "skills/chain-insights-dex-launchpad/SKILL.md"
+  },
+  {
    "id": "skill-dex-vault-1",
    "layer": "topology",
    "anchor": "address",

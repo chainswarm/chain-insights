@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -70,7 +70,11 @@ export function evalPrompt(caseYaml: string): string | null {
 
 // What the coverage rule finds missing, one line per gap:
 //
-//   for each adapter of dex-adapters.json:
+//   for each adapter of dex-adapters.json of discovery kind launch (a generic
+//   rule whose factories no registry row names, on purpose):
+//     skills/chain-insights-dex-launchpad/SKILL.md holding the id    else "no launchpad skill section: <id>"
+//     a plugin/evals/dex-*/case.yaml holding the id                  else "no launch eval: <id>"
+//   for each other adapter of dex-adapters.json:
 //     a row of registry/robinhood.json whose adapters hold the id    else "no exchange row: <id>"
 //     for each such row:
 //       skills/chain-insights-dex-<type>/SKILL.md, or type plain
@@ -82,6 +86,8 @@ export function coverageGaps(adapterId: string | null, root = repoRoot): string[
   const registry = readRegistry(root)
   const adapters = readAdapters(root)
   const known = new Set(adapters.adapters.map((adapter) => adapter.id))
+  const pin = adapters.adapters.find((adapter) => adapter.id === adapterId)
+  if (adapterId !== null && pin?.discovery_kind === 'launch') return launchGaps(adapterId, root)
   const gaps: string[] = []
   const rowGaps = (row: DexRow): string[] => {
     const out: string[] = []
@@ -112,5 +118,29 @@ export function coverageGaps(adapterId: string | null, root = repoRoot): string[
   const rows = registry.rows.filter((row) => row.adapters.includes(adapterId))
   if (rows.length === 0) gaps.push(`no exchange row: ${adapterId}`)
   for (const row of rows) gaps.push(...rowGaps(row))
+  return gaps
+}
+
+// A launch adapter (discovery kind launch) has no exchange to name: its
+// factories are found on the chain by their shape. The launchpad trail skill
+// teaches the shape under the adapter id, and an eval asks for one factory.
+function launchGaps(adapterId: string, root: string): string[] {
+  const gaps: string[] = []
+  const skill = join(root, 'skills/chain-insights-dex-launchpad/SKILL.md')
+  if (!existsSync(skill) || !readFileSync(skill, 'utf8').includes(adapterId)) {
+    gaps.push(`no launchpad skill section: ${adapterId}`)
+  }
+  const evals = join(root, 'plugin/evals')
+  const asked =
+    existsSync(evals) &&
+    readdirSync(evals).some((dir) => {
+      const casePath = join(evals, dir, 'case.yaml')
+      return (
+        dir.startsWith('dex-') &&
+        existsSync(casePath) &&
+        readFileSync(casePath, 'utf8').includes(adapterId)
+      )
+    })
+  if (!asked) gaps.push(`no launch eval: ${adapterId}`)
   return gaps
 }
