@@ -66,3 +66,9 @@ describe('MCP CLI error guidance', () => {
     )
   })
 })
+
+describe('meta_dex_lookup admits the address form through the CLI', () => {
+  it('lists address beside name, so `cia mcp call meta_dex_lookup address=0x…` is not refused before the proxy runs', () => {
+    expect(PUBLIC_MCP_TOOL_ALLOWED_ARGS['meta_dex_lookup']).toEqual(['network', 'name', 'address', 'pools'])
+  })
+})
