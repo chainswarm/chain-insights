@@ -41,3 +41,24 @@ export function parseMcpCallArgs(rawArgs: string[]): Record<string, unknown> {
   }
   return args
 }
+
+/**
+ * The arguments `cia mcp call meta_dex_lookup` hands the lookup: network, name
+ * and address as typed, pools as a boolean when given. The CLI builds this call
+ * itself, so every argument the tool admits must be carried here; 0.71.3
+ * admitted `address` at the gate and dropped it here (AP1000 #1716).
+ */
+export function metaDexLookupArgs(args: Record<string, unknown>): {
+  network: unknown
+  name?: unknown
+  address?: unknown
+  pools?: boolean
+} {
+  const pools = args['pools'] === undefined ? undefined : String(args['pools']).toLowerCase() !== 'false'
+  return {
+    network: args['network'],
+    ...(args['name'] === undefined ? {} : { name: args['name'] }),
+    ...(args['address'] === undefined ? {} : { address: args['address'] }),
+    ...(pools === undefined ? {} : { pools }),
+  }
+}
