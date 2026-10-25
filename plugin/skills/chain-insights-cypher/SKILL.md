@@ -197,15 +197,22 @@ Marks say what an address is. They sit beside the kind and are never an anchor:
 - `:Mixer` is a mixer contract from the mixer registry: a pool, the router or the relayer of a Tornado-style mixer (Hearsay on robinhood). Its `labels` carry the word `Mixer` and `label_risk_levels` carries `high`.
 - `:Protocol` is a protocol's own contract: a pool, a router, a position manager, a stock token's proxy. It is never given for a token name alone.
 - `:SmartAccount` is a contract wallet, beside `:Account` or `:Contract`.
+- `:SelfTrader` is a contract that swaps with itself: it pays the pool and gets the bought side back, such as an arbitrage bot, a vault or a treasury. In the answer call it a **self-trading contract**, never a trader, a wallet or a user. A smart account is never `:SelfTrader`. Its `labels` carry the word `SelfTrader`. Its callers are its operator keys: trace its ETH payouts to them. Find these contracts by mark, `MATCH (a:SelfTrader)`. Its own swaps sit on its self link, `MATCH (a:Address {address: "<full address>"})-[w:SWAPPED]->(a)`, anchored on the full 42-character address:
+
+  ```cypher
+  USE topology
+  MATCH (a:Address {address: "0xc33acc93942105c57602e59e8e448c20ba718a85"})-[w:SWAPPED]->(a)
+  RETURN w.swap_count AS swap_count, w.sold_usd AS sold_usd, w.bought_usd AS bought_usd, w.pools AS pools LIMIT 1
+  ```
 - A basket is a Robinhood stock-basket token: one token that holds several stock tokens in near-equal USD weights. One factory, `0xe78b036bd6da158cd61a3dac3f67e18f62ecddfd`, creates every basket, and one router, `0xb672a5d825f82dea8574711d1da696fcc48d2ae0`, mints and redeems them. A basket is `:Protocol` and `:Token`, and its `labels` carry the word `Basket`. The factory is `:Protocol` and its `labels` carry `BasketFactory`. The router has no mark of its own beyond `:Contract`. See [Baskets](#baskets-is-this-a-basket-and-what-does-it-trade).
 
-**Ask by mark.** A question that names a kind of thing (mixers, launchpad pools, NFT collections, tokens of one standard) is a label match on the mark, a probe the server answers from the label index: nine `:Mixer` rows come back in 13 ms, a count of 2.4 million `:Token` in 4 s.
+**Ask by mark.** A question that names a kind of thing (mixers, launchpad pools, NFT collections, tokens of one standard, arbitrage bots) is a label match on the mark, a probe the server answers from the label index: nine `:Mixer` rows come back in 13 ms, a count of 2.4 million `:Token` in 4 s.
 
 ```cypher
 USE topology MATCH (a:Mixer) RETURN a.address AS address, labels(a) AS node_labels, a.labels AS labels LIMIT 25
 ```
 
-Never write `MATCH (a:Address) WHERE a.labels CONTAINS "mixer"` with no address: `labels` is a list on every address, the scan touches all of them and the query times out. Read `a.labels` only beside an anchor, or beside a mark. The marks a lane serves, and a golden set of 41 addresses with the marks each must carry, are pinned in `tests/fixtures/graph-marks-golden.json`.
+Never write `MATCH (a:Address) WHERE a.labels CONTAINS "mixer"` with no address: `labels` is a list on every address, the scan touches all of them and the query times out. Read `a.labels` only beside an anchor, or beside a mark. The marks a lane serves, and a golden set of 44 addresses with the marks each must carry, are pinned in `tests/fixtures/graph-marks-golden.json`.
 
 A token name from an explorer gives `:Token`, not `:Protocol`. `:Token` is a mark, not a stop: the walk guard below does not name it. One contract can carry both marks: a Uniswap v2 pair is itself an ERC20 token of its liquidity providers, so it is `:Pool` and, when the asset scan lists it, `:Token` too. Ask which tokens or pools an address touched with the mark: `WHERE t:Token` or `WHERE p:Pool`.
 

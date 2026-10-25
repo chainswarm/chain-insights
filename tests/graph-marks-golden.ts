@@ -40,6 +40,7 @@ export const SERVED_MARKS = [
   'Mixer',
   'Protocol',
   'System',
+  'SelfTrader',
 ] as const
 
 export const TOKEN_STANDARDS = ['ERC20', 'ERC721', 'ERC1155', 'ERC6909'] as const

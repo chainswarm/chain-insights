@@ -87,9 +87,22 @@ describe('the golden mark set', () => {
     }
   })
 
+  it('holds the three self-trading contracts of chain-insights #527, never as a smart account', () => {
+    const bots = golden.rows.filter((row) => row.marks.includes('SelfTrader')).map((row) => row.address)
+    expect(bots.sort()).toEqual([
+      '0x2192bc3b4028acc1113f2cd9ac2cba70c36520db',
+      '0xc2eedf3bc7f93366c00c6074df0e6f122fa2445c',
+      '0xc33acc93942105c57602e59e8e448c20ba718a85',
+    ])
+    for (const row of golden.rows.filter((row) => row.marks.includes('SelfTrader'))) {
+      expect(row.marks, row.address).toContain('Contract')
+      expect(row.never, row.address).toContain('SmartAccount')
+    }
+  })
+
   it('holds one count floor per mark family, read on a named lane at a named time', () => {
     const marks = golden.counts.map((count) => count.mark).sort()
-    expect(marks).toEqual(['Launchpad', 'Mixer', 'NFT', 'Pool', 'SmartAccount', 'Token'])
+    expect(marks).toEqual(['Launchpad', 'Mixer', 'NFT', 'Pool', 'SelfTrader', 'SmartAccount', 'Token'])
     for (const count of golden.counts) {
       expect(Number.isInteger(count.floor) && count.floor > 0, count.mark).toBe(true)
       expect(['a', 'b'], count.mark).toContain(count.lane)

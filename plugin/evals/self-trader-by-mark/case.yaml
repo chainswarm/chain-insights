@@ -1,0 +1,32 @@
+schema_version: "1.0"
+name: self-trader-by-mark
+expected_outcome: Self-trading contracts (arbitrage bots) are asked for by the :SelfTrader mark, never by a text match over the labels property and never by walking SWAPPED or FLOWS_TO over the chain; the answer calls one a self-trading contract.
+execution:
+  prompt: |
+    You are an AML analyst assistant with the Chain Insights graph_query tool. The tool is not reachable right now, so do not try to call it.
+    A user asks: "List 25 arbitrage bots on robinhood, contracts that swap with themselves, with their labels."
+    Write only the first graph query you would send, then one sentence saying what kind of address the rows are.
+  max_turns: 6
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: asks-by-mark
+    target: last_message
+    pattern: ':SelfTrader'
+    match: contains
+  - type: regex
+    name: no-text-scan
+    target: last_message
+    flags: i
+    pattern: 'labels CONTAINS|CONTAINS "selftrader|CONTAINS ''selftrader|\(a\)-\[[^\]]*SWAPPED[^\]]*\]->\(a\)\s*RETURN|FLOWS_TO'
+    match: not_contains
+  - type: regex
+    name: names-the-kind
+    target: last_message
+    flags: i
+    pattern: 'self-trading contract'
+    match: contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
