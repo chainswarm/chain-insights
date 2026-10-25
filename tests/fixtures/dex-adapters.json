@@ -1,5 +1,5 @@
 {
-  "registry_version": 25,
+  "registry_version": 27,
   "network": "robinhood",
   "adapters": [
     {
@@ -36,6 +36,13 @@
       "anchors": []
     },
     {
+      "id": "ekubo-core",
+      "discovery_kind": "custody",
+      "anchors": [
+        "0x00000000000014aa86c5d3c41765bb24e11bd701"
+      ]
+    },
+    {
       "id": "metric-omm",
       "discovery_kind": "factory",
       "anchors": [
@@ -61,6 +68,13 @@
       "discovery_kind": "factory",
       "anchors": [
         "0xfa5429aeba338bea2bfcc1b9a889862ee395bc28"
+      ]
+    },
+    {
+      "id": "spcx-launchpad",
+      "discovery_kind": "factory",
+      "anchors": [
+        "0x3d6ea4e97b8ab9e1a1b4943febffe22d8c920091"
       ]
     },
     {

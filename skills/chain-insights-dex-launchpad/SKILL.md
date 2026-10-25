@@ -1,13 +1,13 @@
 ---
 name: chain-insights-dex-launchpad
 door: meta_dex_lookup
-description: Use for the dex-launchpad trail - token launchpads with a bonding curve on robinhood other than Virtuals, such as Penguin and the unnamed bonding-curve launchpad - when a question asks who launched a token there, who bought or sold on its curve, whether and when it graduated, or which pool it moved to. Loaded by chain-insights-dex for a launchpad row of its memo. Virtuals questions belong to chain-insights-virtuals.
+description: Use for the dex-launchpad trail - token launchpads with a bonding curve on robinhood other than Virtuals, such as Penguin, the SPCX launchpad and the unnamed bonding-curve launchpad - when a question asks who launched a token there, who bought or sold on its curve, whether and when it graduated, or which pool it moved to. Loaded by chain-insights-dex for a launchpad row of its memo. Virtuals questions belong to chain-insights-virtuals.
 ---
 
-# Chain Insights: the launchpad trail (Penguin, bonding curves)
+# Chain Insights: the launchpad trail (Penguin, SPCX, bonding curves)
 
 Load `chain-insights-cypher` first. The first step for a launchpad named
-with no address is `meta_dex_lookup` (Penguin, pons, Flap): it returns the
+with no address is `meta_dex_lookup` (Penguin, SPCX, pons, Flap): it returns the
 launchpad's factory and its first reads. With no such tool, the memo of
 `chain-insights-dex` names the factory. Their answer rules hold here:
 every address in full, tokens worth an amount in USD, no query text in the
@@ -31,6 +31,7 @@ A launchpad token lives in two stages:
 | Launchpad | Factory | What the factory deploys |
 |---|---|---|
 | Penguin | `0x09f1b640d53c9c4c1807bf5aa306745128ee4375` | the launched token, which is also its own curve |
+| SPCX launchpad | `0x3d6ea4e97b8ab9e1a1b4943febffe22d8c920091` | the launched token and its curve, a contract of its own, quoted in SPCX or another stock token |
 | unnamed launchpad | `0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e` | a launch contract; its name is not proven yet |
 
 Call the second one "an unnamed bonding-curve launchpad". Never give it a
@@ -50,7 +51,9 @@ name you have not read.
 3. **Who bought and sold on the curve** (L2): the launched contract's own
    `FLOWS_TO` links, both directions, ranked by transactions. Money in is a
    buy, money out is a payout. On Penguin the token contract is the curve,
-   so these are its traders.
+   so these are its traders. On the SPCX launchpad the curve is a contract
+   of its own and a `:Pool`: its traders are the `SWAPPED` links into the
+   curve, and the token's own links are not the curve stage.
 4. A fresh token has no price: its `amount_usd` can be empty. Value a buy by
    what was paid for it, and say when no price exists.
 

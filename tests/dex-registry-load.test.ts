@@ -89,8 +89,8 @@ describe('loadRegistry', () => {
     const first = await loadRegistry('robinhood', { env: env(OFFLINE), log })
     expect(Date.now() - started).toBeLessThan(3_000)
     expect(first.source).toBe('packaged')
-    expect(first.document.registry_version).toBe(2)
-    expect(first.document.rows).toHaveLength(29)
+    expect(first.document.registry_version).toBe(3)
+    expect(first.document.rows).toHaveLength(31)
     expect(lines).toHaveLength(1)
     expect(lines[0]).toMatch(/127\.0\.0\.1:1\/robinhood\.json unreachable/)
     // A second start within the hour sends no fetch and still says packaged.
@@ -155,7 +155,7 @@ describe('loadRegistry', () => {
     writeCache({ registry_version: 1, cached_at_ms: Date.now(), checked_at_ms: Date.now() })
     const loaded = await loadRegistry('robinhood', { env: env(OFFLINE), log })
     expect(loaded.source).toBe('packaged')
-    expect(loaded.document.registry_version).toBe(2)
+    expect(loaded.document.registry_version).toBe(3)
   })
 
   it('shares one fetch between two calls at once', async () => {

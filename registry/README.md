@@ -22,8 +22,8 @@ flowchart LR
 
 | File | Rows served | Why |
 |---|---|---|
-| [robinhood.md](robinhood.md) | 44 | registry version 2, recorded 2026-10-24; the one `dyor` row is not served |
-| [robinhood.json](robinhood.json) | 29 exchanges | the served copy of `robinhood.md`, never edited by hand |
+| [robinhood.md](robinhood.md) | 47 | registry version 3, recorded 2026-10-25; the `dyor` row and the Ekubo positions row are not served |
+| [robinhood.json](robinhood.json) | 31 exchanges | the served copy of `robinhood.md`, never edited by hand |
 
 A change to the rows merged on `main` reaches every running proxy within one
 hour. No release is needed for a data change.

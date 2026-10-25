@@ -69,7 +69,7 @@ agent is created on Uniswap's own v2 factory
 most of that factory's pairs are Virtuals agents.
 
 <!-- dex-registry:start -->
-The factories of the exchange registry, version 2, row `virtuals`:
+The factories of the exchange registry, version 3, row `virtuals`:
 
 | Factory | Address |
 |---|---|

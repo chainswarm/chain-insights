@@ -86,7 +86,7 @@ describe('meta_dex_lookup for Aero, against the recorded batch', () => {
     const { result, structured } = await lookup({ network: 'robinhood', name: 'Aerodrome' })
     expect(result.isError).toBe(false)
     expect(structured.schema).toBe('chain-insights.meta-dex-lookup.v1')
-    expect(structured.registry_version).toBe(2)
+    expect(structured.registry_version).toBe(3)
     expect(structured.registry_source).toBe('packaged')
     const matched = structured.matched!
     expect(matched.dex).toBe('aero')
@@ -198,13 +198,13 @@ describe('meta_dex_lookup for Aero, against the recorded batch', () => {
 })
 
 describe('meta_dex_lookup without a graph read', () => {
-  it('says Kyber is not covered, lists the 29 covered exchanges, and sends no batch', async () => {
+  it('says Kyber is not covered, lists the 31 covered exchanges, and sends no batch', async () => {
     const { calls, lookup } = harness()
     const { structured } = await lookup({ network: 'robinhood', name: 'Kyber' })
     expect(calls).toHaveLength(0)
     expect(structured.matched).toBeNull()
     expect(structured.candidates).toEqual([])
-    expect(structured.covered).toHaveLength(29)
+    expect(structured.covered).toHaveLength(31)
     expect(structured.hint).toContain('Kyber is not covered. Send no query for the name')
   })
 
@@ -223,7 +223,7 @@ describe('meta_dex_lookup without a graph read', () => {
     const { calls, lookup } = harness()
     const { structured } = await lookup({ network: 'robinhood' })
     expect(calls).toHaveLength(0)
-    expect(structured.exchanges).toHaveLength(29)
+    expect(structured.exchanges).toHaveLength(31)
     expect(structured.exchanges![0]).toMatchObject({
       dex: 'aero',
       display: 'Aero (Aerodrome and Velodrome, merged)',
@@ -270,7 +270,7 @@ describe('meta_dex_lookup by address', () => {
     const { structured } = await lookup({ network: 'robinhood', address: unknown })
     expect(structured.matched).toBeNull()
     expect(structured.candidates).toEqual([])
-    expect(structured.covered).toHaveLength(29)
+    expect(structured.covered).toHaveLength(31)
     expect(structured.hint).toContain(`No exchange row holds ${unknown}. Send no read for it.`)
     expect(calls).toHaveLength(0)
   })
@@ -297,7 +297,7 @@ describe('meta_dex_lookup by address', () => {
 })
 
 describe('the reads of every exchange', () => {
-  it('stay anchored and within one batch for all 29 rows', () => {
+  it('stay anchored and within one batch for all 31 rows', () => {
     for (const entry of document.rows) {
       const queries = lookupQueries(entry, true)
       expect(queries.length, entry.dex).toBeLessThanOrEqual(20)

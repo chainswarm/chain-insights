@@ -6,9 +6,9 @@ columns and the check are in the [README](README.md). The served copy is
 [robinhood.json](robinhood.json), written by
 `node scripts/pin-dex-registry.mjs registry/robinhood.md`.
 
-Registry version: 2.
+Registry version: 3.
 
-Recorded on: 2026-10-24.
+Recorded on: 2026-10-25.
 
 ## Rows
 
@@ -46,6 +46,8 @@ Recorded on: 2026-10-24.
 | orvex | Orvex | Orvex, Orvex MetaDEX, orvex.fi, ORVX | vault | pancake-infinity-cl | manager | `0xd01c774d4a66408326bc65728ac5ae5aaf004032` | 0 | - | - | [DefiLlama orvex](https://github.com/DefiLlama/dimension-adapters/blob/master/dexs/orvex.ts) | served |
 | swaap | Swaap v2 | Swaap, Swaap Finance, swaap.xyz, Balancer, Balancer v2, Balancer v2 vault | vault | balancer-v2 | manager | `0xd315a9c38ec871068fec378e4ce78af528c76293` | 0 | - | - | [Swaap docs](https://docs.swaap.xyz/) | served |
 | balancer-v3 | unnamed Balancer v3 vault | Balancer, Balancer v3, Balancer v3 vault | vault | balancer-v3 | manager | `0x28082618ba2073e602230188e4f4c46e9b2169eb` | 0 | - | - | [Sourcify verified source](https://sourcify.dev/server/v2/contract/4663/0x28082618ba2073e602230188e4f4c46e9b2169eb) | served |
+| ekubo | Ekubo | Ekubo, Ekubo Protocol, ekubo.org | vault | ekubo-core | manager | `0x00000000000014aa86c5d3c41765bb24e11bd701` | 33534 | - | - | [Ekubo robinhood deployment](https://github.com/EkuboProtocol/evm-contracts/blob/933c813ca154475a3c7eab8234869f6db151c682/broadcast/DeployAll.s.sol/4663/run-latest.json) | served |
+| ekubo | Ekubo |  | vault | ekubo-core | positions | `0xda38ac72ce7220c4dd7719d114ef94edadb8f068` | 18272006 | - | - | [Ekubo robinhood Ve33 deployment](https://github.com/EkuboProtocol/evm-contracts/blob/933c813ca154475a3c7eab8234869f6db151c682/broadcast/DeployVe33.s.sol/4663/run-latest.json) | not served: the positions NFT creates no pool, holds no pool and forwards no swap; the registry serves the roles factory, manager and router only |
 | ramses | Ramses | Ramses, Ramses Exchange, RAM, ramses.xyz, Ramses DLMM | plain | trader-joe-lb | factory | `0xdcd5f77697914e27f56fd263ef82923c8524abac` | 0 | 0x06ffaa507a9c3e7025294a642f1e1c75da3dfb4a | 150 | [Ramses contract addresses](https://www.ramses.xyz/docs/contract-addresses) | served |
 | ramses | Ramses |  | plain | uniswap-v2 | factory | `0x43b2bf9f33036a02fc7a00935571c2a6b0108e66` | 0 | - | - | [Ramses contract addresses](https://www.ramses.xyz/docs/contract-addresses) | served |
 | ramses | Ramses |  | plain | trader-joe-lb | router | `0xd0019e86edb35e1fedaab03aed5c3c60f115d28b` | 0 | - | - | [Ramses contract addresses](https://www.ramses.xyz/docs/contract-addresses) | served |
@@ -57,8 +59,8 @@ Recorded on: 2026-10-24.
 | curve | Curve | Curve, Curve Finance, CRV, curve.finance | plain | curve-stable | factory | `0x8271e06e5887fe5ba05234f5315c19f3ec90e8ad` | 0 | 0x7e0539140f16b3a8ed23ad69d6fea6a38fb8b299 | 25 | [curve-core deployments](https://github.com/curvefi/curve-core/blob/main/deployments/prod/robinhood.yaml) | served |
 | metric | Metric | Metric, Metric OMM, metric.xyz | plain | metric-omm | factory | `0x2e0a99a2e352043d1ca489cf45bf7b511bccc738` | 0 | 0x584ac6010b095bf99398fae8203a3260a03d2b30 | 30 | [Metric SDK addresses](https://github.com/Metricxyz/sdk/blob/main/src/addresses.ts) | served |
 | penguin | Penguin | Penguin, Penguin launchpad | launchpad | penguin-launchpad | factory | `0x09f1b640d53c9c4c1807bf5aa306745128ee4375` | 0 | - | - | [devops registry v24](https://github.com/chainswarm/devops/blob/de68f8676adac3e2f004fb0cd24c313f9516846e/charts/chainswarm-indexer-evm-dex/registry/robinhood-v24.json) | served |
-| spcx | SPCX launchpad | SPCX, SPCX launchpad, spcx launchpad | launchpad | spcx-launchpad | factory | `0x3d6ea4e97b8ab9e1a1b4943febffe22d8c920091` | 0 | 0x1de3f839184cf48696cbb9cc283855eb32dc2c51 | 1 | [AP1000 change spcx-launchpad-adapter](https://github.com/chainswarm/AP1000/blob/main/openspec/changes/spcx-launchpad-adapter/design.md) | not served: adapter not rolled |
-| spcx | SPCX launchpad |  | launchpad | spcx-launchpad | router | `0x190b452d16e12e3beedd76a030ea991fe3856c33` | 0 | - | - | [AP1000 change spcx-launchpad-adapter](https://github.com/chainswarm/AP1000/blob/main/openspec/changes/spcx-launchpad-adapter/design.md) | not served: adapter not rolled |
+| spcx | SPCX launchpad | SPCX, SPCX launchpad, spcx launchpad | launchpad | spcx-launchpad | factory | `0x3d6ea4e97b8ab9e1a1b4943febffe22d8c920091` | 0 | 0x1de3f839184cf48696cbb9cc283855eb32dc2c51 | 1 | [AP1000 change spcx-launchpad-adapter](https://github.com/chainswarm/AP1000/blob/main/openspec/changes/spcx-launchpad-adapter/design.md) | served |
+| spcx | SPCX launchpad |  | launchpad | spcx-launchpad | router | `0x190b452d16e12e3beedd76a030ea991fe3856c33` | 0 | - | - | [AP1000 change spcx-launchpad-adapter](https://github.com/chainswarm/AP1000/blob/main/openspec/changes/spcx-launchpad-adapter/design.md) | served |
 | pons | pons | pons, pons launchpad | launchpad | bonding-curve | factory | `0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e` | 0 | - | - | [pons deployment](https://github.com/DefiLlama/DefiLlama-Adapters/blob/main/projects/pons-v2/index.js) | served |
 | virtuals | Virtuals Protocol | Virtuals, VIRTUAL, Virtuals Protocol | launchpad | uniswap-v2 | factory | `0xfc2e4da3edb2e18100473339c763705d263d20a9` | 0 | - | - | [change silent-factory-discovery-and-labels](https://github.com/chainswarm/AP1000/blob/main/openspec/changes/archive/2026-10-16-silent-factory-discovery-and-labels/design.md) | served |
 
@@ -88,6 +90,10 @@ swaps it forwarded.
 | `0x09f1b640d53c9c4c1807bf5aa306745128ee4375` | factory | created 48 contracts; none carries `:Pool` on lane A yet |
 | `0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e` | factory | 1,469,383 transactions on the contract itself; created 1 contract, no `:Pool` yet |
 | `0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f` | factory | 27,926 `uniswap-v2` pools, 10,573,207,859 USD. Uniswap's own v2 factory per its deployments page; Virtuals agents create most of its pairs, which is why the indexer registry stacks it as `virtuals`. The exchange row is `uniswap-v2`; `0xfc2e4da3edb2e18100473339c763705d263d20a9` is the Virtuals bonding factory per the Virtuals change |
+| `0x3d6ea4e97b8ab9e1a1b4943febffe22d8c920091` | factory | read from the production node on 2026-10-25: its creation event names the launched token, its curve and the creator (sample transaction `0x77b1bcc700d5f1d7513d080d3fe265831529c237065fffed83e665f89cc3f019`, block 95,797,703); 2,182 curves, quoted in SPCX `0x4a0e65a3eccec6dbe60ae065f2e7bb85fae35eea` and two other stock tokens. The example curve `0x1de3f839184cf48696cbb9cc283855eb32dc2c51` logged 1,028 trades in 7M blocks. No source names the operator, so the key stays `spcx` |
+| `0x190b452d16e12e3beedd76a030ea991fe3856c33` | router | the SPCX legs of the sample trade `0xe200a831908a9b937e08eb4c16fdefd016f606980b9ef71f788994c76020708e` run trader, this contract, curve. The trader stays the payer: the router is never a swap end |
+| `0x00000000000014aa86c5d3c41765bb24e11bd701` | manager | the Ekubo core, deployed at block 33,534 per Ekubo's robinhood deployment file. Read from the production node on 2026-10-25 over 20,000 blocks: 111 swaps and 65 position updates logged by the core itself, 28 pools initialized, each pool kept by a 32-byte pool id. Sample transaction `0x7926c9fab003029a42e7f398e3183611c49583a082b4aac781003cb43f5a96d9`, block 97,745,015 |
+| `0xda38ac72ce7220c4dd7719d114ef94edadb8f068` | positions | "Ekubo Ve33 Positions", deployed at block 18,272,006 with the core as its first argument per Ekubo's Ve33 deployment file. It owns the core's position updates and mints one NFT per position. It is not served: it creates no pool, holds no pool and forwards no swap, and a liquidity owner is the NFT's holder, never this contract |
 
 `0x0d1ebb179cdbca88d74c923c4255cb2b17474afd` created 254,650 `uniswap-v2`
 pairs with 38 USD of volume in all: the Flap launchpad's pair factory per
@@ -102,3 +108,8 @@ Registry version 2 (2026-10-24) moved the file from the private registry of
 version 1 to this repository, renamed the key column `dex`, and gave `Balancer`
 to the two Balancer vaults (`balancer-v3` and `swaap`), so a question that says
 "Balancer" lists both instead of guessing one.
+
+Registry version 3 (2026-10-25) serves the SPCX launchpad and Ekubo. Both
+adapters (`spcx-launchpad`, `ekubo-core`) run on lane A and lane B from
+indexer registry version 27, rolled at 21:42 CET. Their backfills were still
+running at the flip, so neither exchange carries a pool floor yet.

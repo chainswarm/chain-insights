@@ -1,10 +1,10 @@
 ---
 name: chain-insights-dex-vault
 door: meta_dex_lookup
-description: Use for the dex-vault trail - exchanges where one pool manager contract holds every pool, such as Uniswap v4, Balancer v2, Balancer v3 and PancakeSwap Infinity on robinhood - when a seller's swap names the pool manager or vault, when a question asks who bought past the manager, or which pools such an exchange has. Loaded by chain-insights-dex for a vault row of its memo.
+description: Use for the dex-vault trail - exchanges where one pool manager contract holds every pool, such as Uniswap v4, Balancer v2, Balancer v3, PancakeSwap Infinity and Ekubo on robinhood - when a seller's swap names the pool manager or vault, when a question asks who bought past the manager, or which pools such an exchange has. Loaded by chain-insights-dex for a vault row of its memo.
 ---
 
-# Chain Insights: the vault trail (Uniswap v4, Balancer, PancakeSwap Infinity)
+# Chain Insights: the vault trail (Uniswap v4, Balancer, PancakeSwap Infinity, Ekubo)
 
 Load `chain-insights-cypher` first, then `chain-insights-dex`: the
 exchange's manager comes from `meta_dex_lookup`, or from the memo there when
@@ -13,8 +13,8 @@ address in full, tokens worth an amount in USD, no query text in the answer,
 times from the `_utc` twins.
 
 On a vault exchange one contract, the **pool manager** (Balancer calls it
-the vault), holds the tokens of every pool. A swap pays the manager and the
-manager pays out:
+the vault, Ekubo the core), holds the tokens of every pool. A swap pays the
+manager and the manager pays out:
 
 ```
  seller ──SWAPPED──▶ pool manager ──▶ buyer
@@ -32,6 +32,7 @@ buyer.** Name it for what it is, in full: "the Uniswap v4 pool manager
 | Balancer v2 | `0xd315a9c38ec871068fec378e4ce78af528c76293` |
 | Balancer v3 | `0x28082618ba2073e602230188e4f4c46e9b2169eb` |
 | PancakeSwap Infinity | `0xd01c774d4a66408326bc65728ac5ae5aaf004032` |
+| Ekubo | `0x00000000000014aa86c5d3c41765bb24e11bd701` |
 
 ## The buyer past the manager
 
@@ -64,7 +65,12 @@ the `pools` of the swaps it settles:
 2. **The events of one pool**: take one seller from V4 and read its facts
    `SWAP` rows with the manager on one day (V3).
 3. A pool id here may name the pool, not a contract of its own. Say "a pool
-   of the Uniswap v4 pool manager", never "a pool contract".
+   of the Uniswap v4 pool manager", never "a pool contract". Ekubo keeps
+   every pool by a 32-byte pool id the same way.
+4. On Ekubo, every position is opened through the positions NFT
+   `0xda38ac72ce7220c4dd7719d114ef94edadb8f068` (Ekubo Ve33 Positions). It is
+   shared infrastructure, never a liquidity provider: the provider is the
+   holder of the position's NFT.
 
 ## The next lead
 

@@ -85,7 +85,7 @@ hand. When the tool and the memo differ, follow the tool: it reads the
 newest file.
 
 <!-- dex-registry:start -->
-Memo of the exchange registry, version 2, robinhood, recorded 2026-10-24.
+Memo of the exchange registry, version 3, robinhood, recorded 2026-10-25.
 
 | Exchange | Key | Also written | Trail | Factories, or the manager | Router |
 |---|---|---|---|---|---|
@@ -108,6 +108,7 @@ Memo of the exchange registry, version 2, robinhood, recorded 2026-10-24.
 | Orvex | `orvex` | Orvex, Orvex MetaDEX, orvex.fi, ORVX | vault | manager `0xd01c774d4a66408326bc65728ac5ae5aaf004032` | the manager |
 | Swaap v2 | `swaap` | Swaap, Swaap Finance, swaap.xyz, Balancer, Balancer v2, Balancer v2 vault | vault | manager `0xd315a9c38ec871068fec378e4ce78af528c76293` | the manager |
 | unnamed Balancer v3 vault | `balancer-v3` | Balancer, Balancer v3, Balancer v3 vault | vault | manager `0x28082618ba2073e602230188e4f4c46e9b2169eb` | the manager |
+| Ekubo | `ekubo` | Ekubo, Ekubo Protocol, ekubo.org | vault | manager `0x00000000000014aa86c5d3c41765bb24e11bd701` | the manager |
 | Ramses | `ramses` | Ramses, Ramses Exchange, RAM, ramses.xyz, Ramses DLMM | plain | `0xdcd5f77697914e27f56fd263ef82923c8524abac`, `0x43b2bf9f33036a02fc7a00935571c2a6b0108e66` | `0xd0019e86edb35e1fedaab03aed5c3c60f115d28b` |
 | SectorOne | `sectorone` | SectorOne, SectorOne DLMM | plain | `0x3d8dc63ddc9b992cfde89f7aea6f18717e84687d` | none |
 | Hoodit | `hoodit` | Hoodit, hoodit.xyz | plain | `0x22602d966defd638ee94e97a92e2eb0934c3fe1b` | none |
@@ -116,6 +117,7 @@ Memo of the exchange registry, version 2, robinhood, recorded 2026-10-24.
 | Curve | `curve` | Curve, Curve Finance, CRV, curve.finance | plain | `0x8271e06e5887fe5ba05234f5315c19f3ec90e8ad` | none |
 | Metric | `metric` | Metric, Metric OMM, metric.xyz | plain | `0x2e0a99a2e352043d1ca489cf45bf7b511bccc738` | none |
 | Penguin | `penguin` | Penguin, Penguin launchpad | launchpad | `0x09f1b640d53c9c4c1807bf5aa306745128ee4375` | none |
+| SPCX launchpad | `spcx` | SPCX, SPCX launchpad, spcx launchpad | launchpad | `0x3d6ea4e97b8ab9e1a1b4943febffe22d8c920091` | `0x190b452d16e12e3beedd76a030ea991fe3856c33` |
 | pons | `pons` | pons, pons launchpad | launchpad | `0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e` | none |
 | Virtuals Protocol | `virtuals` | Virtuals, VIRTUAL, Virtuals Protocol | launchpad | `0xfc2e4da3edb2e18100473339c763705d263d20a9` | none |
 <!-- dex-registry:end -->

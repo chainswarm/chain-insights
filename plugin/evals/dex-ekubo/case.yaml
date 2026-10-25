@@ -1,0 +1,62 @@
+schema_version: "1.0"
+name: dex-ekubo
+expected_outcome: The agent resolves Ekubo with meta_dex_lookup first, the memo only when the tool is absent, with no address from the user, loads the vault trail, names the Ekubo core as the manager, and reads the buyer from the recipient of the facts SWAP row of the seller and the manager on one day, never with a topology hop out of the manager.
+execution:
+  prompt: |
+    A user asks: "A wallet swapped on Ekubo on robinhood. Who bought what it sold, and how
+    do you find out? Name every address you would follow, and what each one is."
+
+    The Chain Insights tools are not reachable right now, so do not try
+    to call them. Write the first tool calls and graph queries you would
+    send, in full, and one line each on what their answers tell you.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: pool-or-factory-named
+    target: last_message
+    pattern: '0x00000000000014aa86c5d3c41765bb24e11bd701|meta_dex_lookup'
+    match: contains
+  - type: regex
+    name: names-manager
+    target: last_message
+    pattern: 'manager|vault'
+    flags: i
+    match: contains
+  - type: regex
+    name: reads-facts-swap
+    target: last_message
+    pattern: 'USE facts[\s\S]*:SWAP\]'
+    match: contains
+  - type: regex
+    name: buyer-from-the-swap-recipient
+    target: last_message
+    pattern: 'recipient'
+    flags: i
+    match: contains
+  - type: regex
+    name: contract-never-buyer
+    target: last_message
+    pattern: '\b(router|pool manager|the manager|vault)\b[^.\n]{0,20}\b(is|was) the buyer\b|\bthe buyer (is|was) the (router|pool manager|manager|vault)\b(?!''s| pays| passes| forwards)'
+    flags: i
+    match: not_contains
+  - type: regex
+    name: full-addresses
+    target: last_message
+    pattern: '0x[0-9a-fA-F]{2,10}(…|\.\.\.)'
+    match: not_contains
+  - type: regex
+    name: no-address-asked
+    target: last_message
+    pattern: '(give|send|share|provide|paste|tell) me (the |a |an |its )?(full )?((pool|factory|router|contract|exchange) )?address|what is the (pool|factory|router|contract) address|do you have (the|an?) ((pool|factory|router) )?address'
+    flags: i
+    match: not_contains
+  - type: regex
+    name: door-first
+    target: last_message
+    pattern: 'meta_dex_lookup'
+    match: contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
