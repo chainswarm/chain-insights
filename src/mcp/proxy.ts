@@ -1270,7 +1270,11 @@ export async function createProxy(): Promise<void> {
         name: z
           .string()
           .optional()
-          .describe('The exchange as the user wrote it: Aero, Aerodrome, uni v4. With no name, every covered exchange is listed.'),
+          .describe('The exchange as the user wrote it: Aero, Aerodrome, uni v4. With no name and no address, every covered exchange is listed.'),
+        address: z
+          .string()
+          .optional()
+          .describe('A contract address (0x plus 40 hex, any case) instead of a name: the exchange whose factory, router or manager it is, with took_for naming the role. Not with name.'),
         pools: z
           .boolean()
           .optional()

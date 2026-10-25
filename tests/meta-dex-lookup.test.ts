@@ -243,6 +243,59 @@ describe('meta_dex_lookup without a graph read', () => {
   })
 })
 
+describe('meta_dex_lookup by address', () => {
+  it('answers a known router as its exchange, with the role and the verification cell', async () => {
+    const { calls, lookup } = harness()
+    const { structured } = await lookup({ network: 'robinhood', address: AERO_ROUTERS[0] })
+    expect(structured.matched).toMatchObject({ dex: 'aero', trail_type: 'gauge' })
+    expect(structured.matched!.display).toBe('Aero (Aerodrome and Velodrome, merged)')
+    expect(structured.matched!.routers.map((router) => router.address)).toEqual(AERO_ROUTERS)
+    expect(structured.took_for).toBe('router, served')
+    expect(structured.hint).toContain('is a router, served row of')
+    // the same reads as the name path: the recorded request
+    expect(calls).toEqual([recorded.request])
+  })
+
+  it('takes a factory of any role and a mixed-case address', async () => {
+    const { lookup } = harness()
+    const mixed = AERO_FACTORY.replace('0x', '0X').toUpperCase().replace('0X', '0x')
+    const { structured } = await lookup({ network: 'robinhood', address: `  ${mixed}  ` })
+    expect(structured.matched!.dex).toBe('aero')
+    expect(structured.took_for).toBe('factory, served')
+  })
+
+  it('answers an unknown address with no match and no read', async () => {
+    const { calls, lookup } = harness()
+    const unknown = '0x00000000000000000000000000000000000000aa'
+    const { structured } = await lookup({ network: 'robinhood', address: unknown })
+    expect(structured.matched).toBeNull()
+    expect(structured.candidates).toEqual([])
+    expect(structured.covered).toHaveLength(29)
+    expect(structured.hint).toContain(`No exchange row holds ${unknown}. Send no read for it.`)
+    expect(calls).toHaveLength(0)
+  })
+
+  it('refuses a name together with an address', async () => {
+    const { calls, lookup } = harness()
+    const { result } = await lookup({ network: 'robinhood', name: 'Aero', address: AERO_ROUTERS[0] })
+    expect(result.isError).toBe(true)
+    expect(result.content[0]!.text).toBe('Give a name or an address, not both.')
+    expect(calls).toHaveLength(0)
+  })
+
+  it('refuses a malformed address', async () => {
+    const { lookup } = harness()
+    const { result } = await lookup({ network: 'robinhood', address: '0x1234' })
+    expect(result.isError).toBe(true)
+    expect(result.content[0]!.text).toMatch(/^invalid_address/)
+  })
+
+  it('names the address form in the description', () => {
+    expect(META_DEX_LOOKUP_DESCRIPTION).toContain('address')
+    expect(META_DEX_LOOKUP_DESCRIPTION).toContain('Give a name or an address, not both.')
+  })
+})
+
 describe('the reads of every exchange', () => {
   it('stay anchored and within one batch for all 29 rows', () => {
     for (const entry of document.rows) {
