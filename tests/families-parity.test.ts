@@ -103,7 +103,7 @@ describe('the family table', () => {
       for (const type of family.link_types) expect(familyOfLinkType(type)?.name).toBe(family.name)
     }
     expect(LAYER_FAMILIES.find((family) => family.name === 'annotations')?.link_types).toEqual([])
-    expect(familyOfLinkType('FLOWS_TO')?.name).toBe('money')
+    expect(familyOfLinkType('FLOWED_TO')?.name).toBe('money')
     expect(familyOfLinkType('SWAPPED')?.name).toBe('dex')
     expect(familyOfLinkType('TRANSFERRED')?.name).toBe('transfers')
     expect(familyOfLinkType('NOT_A_LINK')).toBeUndefined()
@@ -122,7 +122,7 @@ describe('the whole-chain rule and the family table', () => {
   }
 
   it('pairs each link type it names with the Head property of that link type family', () => {
-    // "a `FLOWS_TO` search is sent when `behind_money` ...; a `SWAPPED`,
+    // "a `FLOWED_TO` search is sent when `behind_money` ...; a `SWAPPED`,
     // `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY` search when `behind_dex` ...; a
     // `TRANSFERRED` search when `behind_transfers` ..."
     const pairs = [
@@ -134,7 +134,7 @@ describe('the whole-chain rule and the family table', () => {
       family: match[2]!,
     }))
     expect(pairs).toEqual([
-      { types: ['FLOWS_TO'], family: 'money' },
+      { types: ['FLOWED_TO'], family: 'money' },
       { types: ['SWAPPED', 'ADDED_LIQUIDITY', 'REMOVED_LIQUIDITY'], family: 'dex' },
       { types: ['TRANSFERRED'], family: 'transfers' },
     ])

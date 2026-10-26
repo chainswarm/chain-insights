@@ -51,7 +51,7 @@ name you have not read.
 ## The curve stage
 
 3. **Who bought and sold on the curve** (L2): the launched contract's own
-   `FLOWS_TO` links, both directions, ranked by transactions. Money in is a
+   `FLOWED_TO` links, both directions, ranked by transactions. Money in is a
    buy, money out is a payout. On Penguin the token contract is the curve,
    so these are its traders. On the SPCX launchpad the curve is a contract
    of its own and a `:Pool`: its traders are the `SWAPPED` links into the
@@ -134,7 +134,7 @@ RETURN f.address AS from_address, t.address AS to_address, labels(t) AS to_node_
 
 ```cypher
 USE topology
-MATCH (t:Address {address: "0xf3b01a81dc8a4216d92e74b40113e9e1b10a4dac"})-[f:FLOWS_TO]-(b:Address) WHERE NOT t:Pool
+MATCH (t:Address {address: "0xf3b01a81dc8a4216d92e74b40113e9e1b10a4dac"})-[f:FLOWED_TO]-(b:Address) WHERE NOT t:Pool
 RETURN startNode(f).address AS from_address, endNode(f).address AS to_address, labels(b) AS node_labels, f.tx_count AS tx_count, f.amount_usd_sum AS amount_usd_sum, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp ORDER BY f.tx_count DESC LIMIT 25
 ```
 

@@ -6,8 +6,8 @@ const ROUTER = '0xb672a5d825f82dea8574711d1da696fcc48d2ae0'
 
 describe('a label or link type in the wrong case', () => {
   it.each([
-    [`USE topology MATCH (a:address {address:'${ROUTER}'})-[f:flows_to]->(b:address) RETURN b.address LIMIT 5`,
-      `USE topology MATCH (a:Address {address:'${ROUTER}'})-[f:FLOWS_TO]->(b:Address) RETURN b.address LIMIT 5`],
+    [`USE topology MATCH (a:address {address:'${ROUTER}'})-[f:flowed_to]->(b:address) RETURN b.address LIMIT 5`,
+      `USE topology MATCH (a:Address {address:'${ROUTER}'})-[f:FLOWED_TO]->(b:Address) RETURN b.address LIMIT 5`],
     ['MATCH (:address)-[:Transfer|swap]->( x : token :contract) RETURN x LIMIT 1',
       'MATCH (:Address)-[:TRANSFER|SWAP]->( x : Token :Contract) RETURN x LIMIT 1'],
     ['USE chain MATCH (h:head) RETURN h.behind_money', 'USE chain MATCH (h:Head) RETURN h.behind_money'],

@@ -57,7 +57,7 @@ read as it is.
 USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network LIMIT 20
 
 -- Anchored: an address in the pattern
-USE topology MATCH (a:Address {address: "0x…"})-[f:FLOWS_TO]->(b:Address)
+USE topology MATCH (a:Address {address: "0x…"})-[f:FLOWED_TO]->(b:Address)
 WHERE NOT a:Pool
 RETURN b.address AS address LIMIT 100
 ```
@@ -88,7 +88,7 @@ admission + bounds gate below. This includes clause- and pattern-level `WHERE`,
 `WITH` pipelines, `CASE`, `collect()`, temporal functions, `UNWIND`, map
 projections, `UNION`, and the full traversal surface. The topology graph serves
 `Address` nodes (with the role labels and flags),
-`FLOWS_TO` lifetime money-flow edges, `OPERATED_BY` operator-mediated topology
+`FLOWED_TO` lifetime money-flow edges, `OPERATED_BY` operator-mediated topology
 edges (the next section), the `LINKED` ownership overlay, the links from
 approvals, contract creations and smart accounts (`APPROVED`,
 `DEPLOYED_CONTRACT`, `SPONSORED`, `BUNDLED`, `SIGNED_FOR` and
@@ -250,7 +250,7 @@ newer run replaces them. None is money flow.
 ### Swap attribution
 
 Swap attribution is read from `SWAPPED`, the aggregate (`strength`, pools,
-families), or from the facts `SWAP` row, one route. `FLOWS_TO` carries value
+families), or from the facts `SWAP` row, one route. `FLOWED_TO` carries value
 only.
 
 ### `LINKED` and `BRIDGED` properties
@@ -268,13 +268,13 @@ asset, with `asset` and `amount_raw_sum` (and `fees_raw_sum` on a removal).
 
 | Form              | Syntax                                                                                                                                                                                    | Supported          |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| Quantified path   | `MATCH p = (a:Address WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWS_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWS_TO\|SWAPPED]-(b:Address)`                                              | ✅ upper bound ≤ 5 |
-| One shortest path | `MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWS_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWS_TO\|SWAPPED]-(b:Address {address: $to})`   | ✅ upper bound ≤ 5 |
-| Any shortest path | `MATCH p = ANY SHORTEST (a:Address {address: $from} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWS_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWS_TO\|SWAPPED]-(b:Address {address: $to})` | ✅ upper bound ≤ 5 |
-| Open target       | `MATCH SHORTEST 1 (a:Address {address: $addr} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWS_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWS_TO\|SWAPPED]-(b:Address)`                      | ✅ upper bound ≤ 5 |
+| Quantified path   | `MATCH p = (a:Address WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWED_TO\|SWAPPED]-(b:Address)`                                              | ✅ upper bound ≤ 5 |
+| One shortest path | `MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWED_TO\|SWAPPED]-(b:Address {address: $to})`   | ✅ upper bound ≤ 5 |
+| Any shortest path | `MATCH p = ANY SHORTEST (a:Address {address: $from} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWED_TO\|SWAPPED]-(b:Address {address: $to})` | ✅ upper bound ≤ 5 |
+| Open target       | `MATCH SHORTEST 1 (a:Address {address: $addr} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWED_TO\|SWAPPED]-(b:Address)`                      | ✅ upper bound ≤ 5 |
 
 Every form above carries the pool guard and walks `SWAPPED` beside
-`FLOWS_TO`. `WHERE NOT a:Pool` keeps the walk from starting at a `:Pool`, the
+`FLOWED_TO`. `WHERE NOT a:Pool` keeps the walk from starting at a `:Pool`, the
 inner `WHERE NOT via:Pool` keeps each address in the middle of the walk off
 one, and `SWAPPED` crosses a swap from payer to recipient, per the
 [pool trace rule](../skills/chain-insights-cypher/SKILL.md#pool-trace-rule).
@@ -297,8 +297,8 @@ bounded so an admitted query cannot become an unbounded graph walk:
 
 | Bound                             | Limit     | Rejected example                                                                         |
 | --------------------------------- | --------- | ---------------------------------------------------------------------------------------- |
-| Traversal depth (upper hop bound) | ≤ 5       | `-[:FLOWS_TO]-{1,9}(b)` → _traversal depth 9 exceeds the maximum of 5_                   |
-| Unbounded traversal               | forbidden | `(a)-[:FLOWS_TO]-(b)` with no quantifier bound → fail closed                             |
+| Traversal depth (upper hop bound) | ≤ 5       | `-[:FLOWED_TO]-{1,9}(b)` → _traversal depth 9 exceeds the maximum of 5_                   |
+| Unbounded traversal               | forbidden | `(a)-[:FLOWED_TO]-(b)` with no quantifier bound → fail closed                             |
 | Non-GQL path operators/functions  | forbidden | Legacy path functions and starred path algorithms return a dialect error                 |
 | `UNWIND` literal list length      | ≤ 1000    | `UNWIND [ …1001 items… ] AS x` → _UNWIND list of 1001 items exceeds the maximum of 1000_ |
 
@@ -322,7 +322,7 @@ and the server admits exactly that shape:
 
 | Construct                                      | Notes                                                                                                                                                                                                                                                                                                 |
 | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `MATCH` on a mapped node / single relationship | `(from:Address {address:"…"})-[t:TRANSFER]->(to:Address {address:"…"})`. `SWAP`, `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and `BRIDGE_CROSSING` are single-event rows on the same pattern. Never serves `FLOWS_TO`, `OPERATED_BY`, `LINKED`, `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY` or `BRIDGED`. |
+| `MATCH` on a mapped node / single relationship | `(from:Address {address:"…"})-[t:TRANSFER]->(to:Address {address:"…"})`. `SWAP`, `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and `BRIDGE_CROSSING` are single-event rows on the same pattern. Never serves `FLOWED_TO`, `OPERATED_BY`, `LINKED`, `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY` or `BRIDGED`. |
 | The pair                                       | Both addresses, from then to, each as `{address: "…"}`. One address alone is refused (`facts_no_anchor`). `IN` is refused: one read per pair, several in one `graph_query_batch`.                                                                                                                  |
 | The day                                        | `t.block_date = "YYYY-MM-DD"`. A day alone, a window of days, a block range and a bare `LIMIT` are not enough. For more days, send one read per day.                                                                                                                                                |
 | A time window inside the day                   | `t.block_timestamp >= 1783738500000 AND t.block_timestamp < 1783738560000` beside the day equality narrows the day to a window. `block_timestamp` is epoch milliseconds. On its own it bounds nothing.                                                                                              |
@@ -339,7 +339,7 @@ its `example` once.
 
 Every `TRANSFER` row has a `kind`: `token`, `native` or `internal`. An `internal`
 row is ETH a contract sends while it runs a call, such as the ETH leg of a wrap.
-The `FLOWS_TO` link counts all three, so the rows of a pair are the transfers its
+The `FLOWED_TO` link counts all three, so the rows of a pair are the transfers its
 link counts, up to the height the link was built to. `kind` is a column and a
 filter. Add `t.kind = "internal"` to the pair and the day to read only the
 internal rows. A `kind` filter narrows the read of a pair and one day. It never
@@ -366,7 +366,7 @@ StarRocks. Use the topology graph, or restructure:
 
 | Construct                                                                       | Instead                                                                                                                 |
 | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `FLOWS_TO` / `OPERATED_BY` topology edges                                       | The topology graph — facts never serves either                                                                          |
+| `FLOWED_TO` / `OPERATED_BY` topology edges                                       | The topology graph — facts never serves either                                                                          |
 | A hop: two relationships in one pattern                                         | The topology graph — a facts read has one relationship                                                                  |
 | `ORDER BY`                                                                      | Sort the page yourself                                                                                                  |
 | One address with no counterparty, a day range, a block range, a bare `LIMIT`    | Name the pair and one day; pick the pairs on the topology graph first                                                   |

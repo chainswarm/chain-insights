@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [Unreleased]
+
+## [0.72.0] - 2026-10-27 — the money link is FLOWED_TO
+
+### Changed
+- Graph link FLOWS_TO renamed to FLOWED_TO; no alias. Every link type is now
+  past tense (`SWAPPED`, `TRANSFERRED`, `BRIDGED`, `APPROVED`, `FLOWED_TO`).
+  Skills, recipes, tool descriptions, server instructions, golden sets and
+  tests name `FLOWED_TO` only; a read of `FLOWS_TO` is not translated.
+
 ## [0.71.4] - 2026-10-25 — the CLI hands the lookup its address
 
 ### Fixed

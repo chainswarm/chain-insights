@@ -151,11 +151,11 @@ For a `plain` row (Metric, Curve, Trader Joe, Uniswap v3), a swap pays the
 pool and the pool pays the buyer:
 
 ```
- seller ──FLOWS_TO──▶ pool        seller ──SWAPPED──▶ buyer
+ seller ──FLOWED_TO──▶ pool        seller ──SWAPPED──▶ buyer
 ```
 
 1. **Sellers into the pool** (reference R4): the senders of the pool on
-   `FLOWS_TO`, ranked by lifetime volume. A seller that is a contract is
+   `FLOWED_TO`, ranked by lifetime volume. A seller that is a contract is
    often an aggregator or a router: say "a contract", never "a trader". A
    seller that carries `SelfTrader` is a self-trading contract, such as an
    arbitrage or market-making bot: say so, never "a trader". It trades for

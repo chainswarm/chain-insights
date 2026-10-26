@@ -112,20 +112,20 @@ Route by what the question names: an address, a pair with a day, a transaction o
 `USE chain` with `Address` reads the balance, the nonce or the kind of one address, now or at a past block with `at_block`. A past block must be at least `chain_admission.at_block_min_depth` blocks below the tip. To find the counterparties of an address, search `USE topology`, then read the pair and one day on `USE facts`.
 A transaction is a chain question: read it on `USE chain` by its `tx_id`. Chain gives its `block_date`; the transfers between a pair on that day are a `USE facts` read. "Every token that moved inside this transaction": read the chain record for `from_address`, `to_address` and `block_date`, then the facts `TRANSFER` rows of that pair on that day and keep the rows whose `tx_id` matches; a `kind` of `internal` is ETH a contract moved while it ran. Tokens the transaction moved between other pairs are not reachable from the hash alone: say so, and name the pairs you did read.
 The layers hand each other keys, and each key keeps its name. Topology gives the pair and the first and last seen time. Facts gives the `tx_id` and the `block_height`. Chain takes an `address`, a `tx_id`, a `block_height` or a `block_hash`, and gives the `block_date` of a transaction or a block.
-A question about the whole chain (recent activity, the biggest senders, a top list) is a `USE topology` search: bound it by time with `f.last_seen_timestamp >= <epoch ms>` on the `FLOWS_TO` link, then sort and `LIMIT`. A search has 10 s. Read `Head` first (`USE chain MATCH (h:Head) RETURN h.behind_money, h.behind_dex, h.behind_transfers`, under a second): a `FLOWS_TO` search is sent when `behind_money` is at most 100000; a `SWAPPED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY` search when `behind_dex` is at most 100000; a `TRANSFERRED` search when `behind_transfers` is at most 100000 (100000 blocks is a few hours: a robinhood block is about a tenth of a second apart from the next). When the family is further behind, the search cannot finish, so do not send it: say which family, how many blocks, and ask for an address. On a server whose Head has no `behind_money`, read `h.graph_blocks_behind` and hold it to the same limit. On a server whose Head has no `behind_transfers`, it serves no `TRANSFERRED` link: send no `TRANSFERRED` search. Never turn the block count into days or hours by head. To say how fresh the data is, give the newest `_utc` time you read on the layer you used: a family's lag counts its slowest layer, and the links of an address and the facts rows are often newer than it. If the server refuses the search with `anchor_missing` or `family_behind`, or stops it with `query_timeout`, it cannot search the whole chain now: say so in one line, name the family the refusal names, and ask for an address or drop the link type that is behind. A narrower window times out the same way, so do not send it again.
+A question about the whole chain (recent activity, the biggest senders, a top list) is a `USE topology` search: bound it by time with `f.last_seen_timestamp >= <epoch ms>` on the `FLOWED_TO` link, then sort and `LIMIT`. A search has 10 s. Read `Head` first (`USE chain MATCH (h:Head) RETURN h.behind_money, h.behind_dex, h.behind_transfers`, under a second): a `FLOWED_TO` search is sent when `behind_money` is at most 100000; a `SWAPPED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY` search when `behind_dex` is at most 100000; a `TRANSFERRED` search when `behind_transfers` is at most 100000 (100000 blocks is a few hours: a robinhood block is about a tenth of a second apart from the next). When the family is further behind, the search cannot finish, so do not send it: say which family, how many blocks, and ask for an address. On a server whose Head has no `behind_money`, read `h.graph_blocks_behind` and hold it to the same limit. On a server whose Head has no `behind_transfers`, it serves no `TRANSFERRED` link: send no `TRANSFERRED` search. Never turn the block count into days or hours by head. To say how fresh the data is, give the newest `_utc` time you read on the layer you used: a family's lag counts its slowest layer, and the links of an address and the facts rows are often newer than it. If the server refuses the search with `anchor_missing` or `family_behind`, or stops it with `query_timeout`, it cannot search the whole chain now: say so in one line, name the family the refusal names, and ask for an address or drop the link type that is behind. A narrower window times out the same way, so do not send it again.
 
 The graph's layers are grouped into six families, and a family is as fresh as its slowest layer. The family of a link type decides which `Head` lag a whole-chain search on it waits for.
 
 | Family           | Layers                                         | Link types                                                    | `Head` property         |
 | ---------------- | ---------------------------------------------- | ------------------------------------------------------------- | ----------------------- |
-| money            | `flows`, `operated_by`                         | `FLOWS_TO`, `OPERATED_BY`                                     | `behind_money`          |
+| money            | `flows`, `operated_by`                         | `FLOWED_TO`, `OPERATED_BY`                                     | `behind_money`          |
 | dex              | `dex_swaps`, `dex_liquidity`, `dex_pools`      | `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`             | `behind_dex`            |
 | interactions     | `approvals`, `bridged`, `contracts`, `authorization` | `APPROVED`, `BRIDGED`, `DEPLOYED_CONTRACT`, `SIGNED_AUTHORIZATION` | `behind_interactions`   |
 | smart_accounts   | `sponsored`, `bundled`, `signers`, `owners`    | `SPONSORED`, `BUNDLED`, `SIGNED_FOR`, `LINKED`                | `behind_smart_accounts` |
 | annotations      | `labels`, `ml`, `inferred`, `kinds`, `assets`  | none                                                          | `annotations_fresh`     |
 | transfers        | `transfers_by_asset`                           | `TRANSFERRED`                                                 | `behind_transfers`      |
 
-`transfers` is its own family: a `FLOWS_TO` search never waits for it, and a `TRANSFERRED` search never waits for `money`.
+`transfers` is its own family: a `FLOWED_TO` search never waits for it, and a `TRANSFERRED` search never waits for `money`.
 
 Find the question in this table. Send its first query, once, with the addresses the user gave.
 
@@ -157,13 +157,13 @@ A link's `amount_usd_sum` and `tx_count` are the pair's lifetime totals. The tim
 Recent activity, newest first:
 
 ```cypher
-USE topology MATCH (a:Address)-[f:FLOWS_TO]->(b:Address) WHERE f.last_seen_timestamp >= 1791244800000 RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, a.labels AS from_labels, b.labels AS to_labels, a.is_exchange AS from_is_exchange, b.is_exchange AS to_is_exchange ORDER BY f.last_seen_timestamp DESC LIMIT 25
+USE topology MATCH (a:Address)-[f:FLOWED_TO]->(b:Address) WHERE f.last_seen_timestamp >= 1791244800000 RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, a.labels AS from_labels, b.labels AS to_labels, a.is_exchange AS from_is_exchange, b.is_exchange AS to_is_exchange ORDER BY f.last_seen_timestamp DESC LIMIT 25
 ```
 
 The biggest senders of the period:
 
 ```cypher
-USE topology MATCH (a:Address)-[f:FLOWS_TO]->(b:Address) WHERE f.last_seen_timestamp >= 1791244800000 RETURN a.address AS sender, sum(f.amount_usd_sum) AS sent_usd, count(*) AS links ORDER BY sent_usd DESC LIMIT 10
+USE topology MATCH (a:Address)-[f:FLOWED_TO]->(b:Address) WHERE f.last_seen_timestamp >= 1791244800000 RETURN a.address AS sender, sum(f.amount_usd_sum) AS sent_usd, count(*) AS links ORDER BY sent_usd DESC LIMIT 10
 ```
 
 If the server answers `anchor_missing`, or `query_timeout` on a search bounded only by time, it cannot search the whole chain now. Say: "This server cannot search the whole chain right now. Give me an address, a pair with a day, or a transaction hash." Send no narrower window: it times out the same way, and each try costs the user 10 seconds. If it answers `family_behind`, the refusal names the family that is behind and its link types: drop the link type the server names, or give an address.
@@ -257,17 +257,17 @@ How to answer:
 
 ## Topology
 
-`USE topology` is the address graph: `FLOWS_TO` money flow, swaps, liquidity,
+`USE topology` is the address graph: `FLOWED_TO` money flow, swaps, liquidity,
 bridges and the `LINKED` overlay. The server checks these before it runs:
 
 - Anchor every pattern on a full address: `{address: "<address>"}` in the node, or `WHERE a.address = "<address>"`. A list of at most 25 addresses is an anchor. An address in `RETURN`, in an `OR` or in a `$parameter` is no anchor.
 - The one read with no anchor is a probe: one node or one hop, no `WHERE`, no `ORDER BY`, no aggregate, and a small `LIMIT`. Its rows are arbitrary: never call them recent, top or biggest.
 - A sort, an aggregate, `DISTINCT`, `collect()` or a filter on a link property needs an anchor on every pattern.
 - End every read with a literal `LIMIT`: at most 5,000 rows, 100 for a probe. A path has at most 5 hops and a query at most 8. The live numbers are in `topology_admission` (`cia network robinhood --json`).
-- Paths use bounded quantifiers such as `-[:FLOWS_TO]-{1,5}`. A `*` range, the legacy path functions, `PROFILE`, writes and `CALL` are refused.
+- Paths use bounded quantifiers such as `-[:FLOWED_TO]-{1,5}`. A `*` range, the legacy path functions, `PROFILE`, writes and `CALL` are refused.
 - Role flags `is_exchange`, `is_scam`, `is_victim` and `is_sanctioned` are absent unless true: use `IS NULL` or `IS NOT NULL`, never `= false`.
 - A kind label sits beside `:Address`: `WHERE a:Contract` or `WHERE a:Account` tests it, as `:Pool` is tested. It is no anchor.
-- A `FLOWS_TO` read written without an arrow, `-[f:FLOWS_TO]-`, matches both directions and tells you nothing about which end sent. Return `startNode(f).address AS from_address, endNode(f).address AS to_address`, or send two directed reads, before you call either address the sender: one answer named the receiver as the sender and had to take it back.
+- A `FLOWED_TO` read written without an arrow, `-[f:FLOWED_TO]-`, matches both directions and tells you nothing about which end sent. Return `startNode(f).address AS from_address, endNode(f).address AS to_address`, or send two directed reads, before you call either address the sender: one answer named the receiver as the sender and had to take it back.
 
 ## Graph searches
 
@@ -277,13 +277,13 @@ Newest links of one address, its receivers. Its newest senders are the same read
 
 ```cypher
 USE topology
-MATCH (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"})-[f:FLOWS_TO]->(b:Address) WHERE NOT a:Pool
+MATCH (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"})-[f:FLOWED_TO]->(b:Address) WHERE NOT a:Pool
 RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, a.labels AS from_labels, b.labels AS to_labels, a.is_exchange AS from_is_exchange, b.is_exchange AS to_is_exchange ORDER BY f.last_seen_timestamp DESC LIMIT 25
 ```
 
 ```cypher
 USE topology
-MATCH (b:Address)-[f:FLOWS_TO]->(a:Address {address: "0x7e3702e9dfaa847f9829a258f1e26fa431160662"}) WHERE NOT a:Pool
+MATCH (b:Address)-[f:FLOWED_TO]->(a:Address {address: "0x7e3702e9dfaa847f9829a258f1e26fa431160662"}) WHERE NOT a:Pool
 RETURN b.address AS from_address, a.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, b.labels AS from_labels, a.labels AS to_labels, b.is_exchange AS from_is_exchange, a.is_exchange AS to_is_exchange ORDER BY f.last_seen_timestamp DESC LIMIT 25
 ```
 
@@ -295,10 +295,10 @@ asks for.
 
 ```cypher
 USE topology
-MATCH (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"})-[f:FLOWS_TO]->(b:Address) WHERE NOT a:Pool
+MATCH (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"})-[f:FLOWED_TO]->(b:Address) WHERE NOT a:Pool
 RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, a.labels AS from_labels, b.labels AS to_labels, a.is_exchange AS from_is_exchange, b.is_exchange AS to_is_exchange ORDER BY f.last_seen_timestamp DESC LIMIT 25
 UNION ALL
-MATCH (c:Address)-[g:FLOWS_TO]->(d:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"}) WHERE NOT d:Pool
+MATCH (c:Address)-[g:FLOWED_TO]->(d:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"}) WHERE NOT d:Pool
 RETURN c.address AS from_address, d.address AS to_address, g.amount_usd_sum AS amount_usd_sum, g.tx_count AS tx_count, g.first_seen_timestamp AS first_seen_timestamp, g.last_seen_timestamp AS last_seen_timestamp, c.labels AS from_labels, d.labels AS to_labels, c.is_exchange AS from_is_exchange, d.is_exchange AS to_is_exchange ORDER BY g.last_seen_timestamp DESC LIMIT 25
 ```
 
@@ -314,7 +314,7 @@ Which exchange an address cashed out to: its receivers that carry the exchange f
 
 ```cypher
 USE topology
-MATCH (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"})-[f:FLOWS_TO]->(b:Address) WHERE NOT a:Pool AND b.is_exchange IS NOT NULL
+MATCH (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"})-[f:FLOWED_TO]->(b:Address) WHERE NOT a:Pool AND b.is_exchange IS NOT NULL
 RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, a.labels AS from_labels, b.labels AS to_labels, a.is_exchange AS from_is_exchange, b.is_exchange AS to_is_exchange ORDER BY f.last_seen_timestamp DESC ORDER BY f.amount_usd_sum DESC LIMIT 25
 ```
 
@@ -324,7 +324,7 @@ Route between two addresses, one path. Only `MATCH SHORTEST 1` and `MATCH ANY SH
 
 ```cypher
 USE topology
-MATCH p = SHORTEST 1 (a:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "0x7e3702e9dfaa847f9829a258f1e26fa431160662"})
+MATCH p = SHORTEST 1 (a:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: "0x7e3702e9dfaa847f9829a258f1e26fa431160662"})
 RETURN [n IN nodes(p) | n.address] AS route
 LIMIT 5
 ```
@@ -333,7 +333,7 @@ Several routes, up to 3 hops, in no set order. Add no `ORDER BY`: it can end in 
 
 ```cypher
 USE topology
-MATCH p = (a:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,2} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "0x7e3702e9dfaa847f9829a258f1e26fa431160662"})
+MATCH p = (a:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,2} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: "0x7e3702e9dfaa847f9829a258f1e26fa431160662"})
 RETURN [n IN nodes(p) | n.address] AS route, length(p) AS hops LIMIT 5
 ```
 
@@ -341,7 +341,7 @@ Where the money went, up to 3 hops out:
 
 ```cypher
 USE topology
-MATCH p = (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWS_TO|SWAPPED]->(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,2} ()-[:FLOWS_TO|SWAPPED]->(b:Address)
+MATCH p = (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO|SWAPPED]->(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,2} ()-[:FLOWED_TO|SWAPPED]->(b:Address)
 RETURN b.address AS to_address, length(p) AS hops LIMIT 25
 ```
 
@@ -349,7 +349,7 @@ Where the money came from, up to 3 hops in:
 
 ```cypher
 USE topology
-MATCH p = (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()<-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,2} ()<-[:FLOWS_TO|SWAPPED]-(b:Address)
+MATCH p = (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()<-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,2} ()<-[:FLOWED_TO|SWAPPED]-(b:Address)
 RETURN b.address AS from_address, length(p) AS hops LIMIT 25
 ```
 
@@ -357,7 +357,7 @@ Counterparties that two addresses share:
 
 ```cypher
 USE topology
-MATCH (a:Address {address: "0x7e3702e9dfaa847f9829a258f1e26fa431160662"})-[:FLOWS_TO|SWAPPED]-(c:Address)-[:FLOWS_TO|SWAPPED]-(b:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c"}) WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND NOT c:Pool AND NOT c:Protocol AND NOT c:System AND NOT c.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]
+MATCH (a:Address {address: "0x7e3702e9dfaa847f9829a258f1e26fa431160662"})-[:FLOWED_TO|SWAPPED]-(c:Address)-[:FLOWED_TO|SWAPPED]-(b:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c"}) WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND NOT c:Pool AND NOT c:Protocol AND NOT c:System AND NOT c.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]
 RETURN DISTINCT c.address AS shared_address LIMIT 25
 ```
 
@@ -388,14 +388,14 @@ RETURN b.address AS recipient, s.sold_usd AS sold_usd, s.bought_usd AS bought_us
 What a pool is, and who trades through it. A pool is the `:Pool` node label,
 read with `labels(p)`; the `labels` property is a different thing (named
 labels such as a vault), and a pool usually has none. The traders are the
-senders into the pool on `FLOWS_TO`, ranked by `tx_count`: one read, and that
+senders into the pool on `FLOWED_TO`, ranked by `tx_count`: one read, and that
 is the answer. Add no swap check: `SWAPPED` filtered on `s.pools`, on a list
 of traders or on the pool times out, and a busy trader's swap links time out
 even anchored on that one trader (two answers lost 86 seconds that way).
 
 ```cypher
 USE topology
-MATCH (b:Address)-[f:FLOWS_TO]->(p:Address {address: "0xd42a491087a15e5afd51feb3606066cc152d2b09"}) WHERE NOT b:Pool
+MATCH (b:Address)-[f:FLOWED_TO]->(p:Address {address: "0xd42a491087a15e5afd51feb3606066cc152d2b09"}) WHERE NOT b:Pool
 RETURN b.address AS from_address, p.address AS to_address, labels(p) AS to_node_labels, f.tx_count AS tx_count, f.amount_usd_sum AS amount_usd_sum, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, b.labels AS from_labels, p.labels AS to_labels, b.is_exchange AS from_is_exchange, p.is_exchange AS to_is_exchange ORDER BY f.tx_count DESC LIMIT 25
 ```
 
@@ -403,7 +403,7 @@ Pool trace: who took liquidity out of the pools an address paid into.
 
 ```cypher
 USE topology
-MATCH (a:Address {address: "0x7a31dd32a880827477ab2bbeff47db188c896815"})-[:FLOWS_TO]->(p:Pool)-[r:REMOVED_LIQUIDITY]->(b:Address) WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND b.address <> a.address
+MATCH (a:Address {address: "0x7a31dd32a880827477ab2bbeff47db188c896815"})-[:FLOWED_TO]->(p:Pool)-[r:REMOVED_LIQUIDITY]->(b:Address) WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND b.address <> a.address
 RETURN p.address AS pool, b.address AS receiver, sum(r.usd) AS removed_usd, max(r.receiver_added_usd) AS receiver_added_usd, max(r.receiver_provided) AS receiver_provided LIMIT 25
 ```
 
@@ -421,7 +421,7 @@ RETURN c.network AS remote_network, c.address AS endpoint, x.kind AS kind, x.ass
 
 ### Tokens: one link per sender, receiver and token
 
-`FLOWS_TO` is the pair's total over every token. `TRANSFERRED` splits that total by token: one link for each sender, receiver and token. `FLOWS_TO` stays the pair total, and the `TRANSFERRED` links of a pair add up to it. A link carries these properties:
+`FLOWED_TO` is the pair's total over every token. `TRANSFERRED` splits that total by token: one link for each sender, receiver and token. `FLOWED_TO` stays the pair total, and the `TRANSFERRED` links of a pair add up to it. A link carries these properties:
 
 - `asset`: the token's contract, in lowercase and in full (42 characters), or `native` for the chain's own coin.
 - `asset_key`: bookkeeping, the number the server keeps beside `asset`. Never name a token by it and never copy one into a query: it differs from server to server and changes when a graph is rebuilt. Write `asset` with the full contract; the server turns it into the key itself.
@@ -474,17 +474,17 @@ How to answer from these rows:
 ## Pool trace rule
 
 `:Pool` is a second label on an `Address`: a pool contract the DEX indexer
-knows, traded or not. A pool with no swap yet is `:Pool` too. A trace that walks out of a pool on `FLOWS_TO` lands on every
+knows, traded or not. A pool with no swap yet is `:Pool` too. A trace that walks out of a pool on `FLOWED_TO` lands on every
 trader who used it. Every trace follows this rule:
 
 1. Enter a `:Pool` on any edge.
 2. Leave a `:Pool` only on `REMOVED_LIQUIDITY`, to the address the liquidity
    was paid to.
-3. Never leave a `:Pool` on `FLOWS_TO`.
+3. Never leave a `:Pool` on `FLOWED_TO`.
 4. Across a swap, follow `SWAPPED` from payer to recipient, between two
    different addresses. Do not walk through the pool.
 
-So a walk never starts at a pool and never passes through one. It may end at one. Guard the start with `WHERE NOT a:Pool` and each address in the middle with `WHERE NOT via:Pool`, and follow `FLOWS_TO|SWAPPED`, as above. Exchange hot wallets end a trace: pass through an address only when `is_exchange IS NULL`.
+So a walk never starts at a pool and never passes through one. It may end at one. Guard the start with `WHERE NOT a:Pool` and each address in the middle with `WHERE NOT via:Pool`, and follow `FLOWED_TO|SWAPPED`, as above. Exchange hot wallets end a trace: pass through an address only when `is_exchange IS NULL`.
 
 ### System guard
 
@@ -531,7 +531,7 @@ MATCH (a:Address) RETURN keys(a) AS keys LIMIT 20
 
 ```cypher
 USE topology
-MATCH ()-[r:FLOWS_TO]->() RETURN keys(r) AS keys LIMIT 5
+MATCH ()-[r:FLOWED_TO]->() RETURN keys(r) AS keys LIMIT 5
 ```
 
 Name another link type to read its keys: `SWAPPED`, `LINKED`, `OPERATED_BY`, `BRIDGED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY`. The keys of an address and of a link include `network`: it is the query's `network`, computed on every node and link. `synced_through_height` and `pair_key` are bookkeeping: never filter or sort on them.
@@ -599,7 +599,7 @@ with the arrow reversed, and both go in one `graph_query_batch`:
 
 ```cypher
 USE topology
-MATCH (a:Address {address: "0x9f73873740c799d74741ad2d15cee7fb33572e4a"})-[f:FLOWS_TO]->(b:Address) WHERE NOT a:Pool AND f.first_seen_timestamp <= 1790812799000 AND f.last_seen_timestamp >= 1788220800000
+MATCH (a:Address {address: "0x9f73873740c799d74741ad2d15cee7fb33572e4a"})-[f:FLOWED_TO]->(b:Address) WHERE NOT a:Pool AND f.first_seen_timestamp <= 1790812799000 AND f.last_seen_timestamp >= 1788220800000
 RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, a.labels AS from_labels, b.labels AS to_labels, a.is_exchange AS from_is_exchange, b.is_exchange AS to_is_exchange ORDER BY f.last_seen_timestamp DESC LIMIT 50
 ```
 

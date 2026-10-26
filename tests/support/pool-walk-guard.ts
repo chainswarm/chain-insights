@@ -1,16 +1,16 @@
 // Test support for the pool trace rule (skills/chain-insights-cypher,
-// "Pool trace rule"): a served FLOWS_TO walk may end at a :Pool, but never
+// "Pool trace rule"): a served FLOWED_TO walk may end at a :Pool, but never
 // starts at one or passes through one, and a trace follows SWAPPED beside
-// FLOWS_TO.
+// FLOWED_TO.
 //
-// unguardedPoolWalks(query) returns one line per address a FLOWS_TO walk may
+// unguardedPoolWalks(query) returns one line per address a FLOWED_TO walk may
 // leave without the pool guard: its start and every address in its middle.
-// A FLOWS_TO walk is every walk with a relationship that may be FLOWS_TO, and
+// A FLOWED_TO walk is every walk with a relationship that may be FLOWED_TO, and
 // it may leave an address on any relationship: a pool left on LINKED is a
 // pool passed through. Only REMOVED_LIQUIDITY may leave a pool (step 2 of the
 // rule), so an address the walk leaves on REMOVED_LIQUIDITY alone needs no
 // guard. traceHopsWithoutSwapped(query) returns one line per address in the
-// middle whose FLOWS_TO hop does not also follow SWAPPED. Both read the whole
+// middle whose FLOWED_TO hop does not also follow SWAPPED. Both read the whole
 // query, one UNION branch at a time:
 //   - every MATCH and OPTIONAL MATCH clause, and every comma-separated
 //     pattern in it, joined by their shared variables, so a walk split across
@@ -19,16 +19,16 @@
 //     matched again, and `WITH m AS mid` keeps the address under a new name;
 //   - named, labelled, unlabelled and anonymous node patterns;
 //   - relationships in either direction, typed or untyped, with a type union;
-//   - backquoted names: -[:`FLOWS_TO`]- is FLOWS_TO and `Pool` is Pool;
-//   - quantified relationships (-[:FLOWS_TO]-{1,5}, +, *, legacy *1..5);
-//   - quantified path patterns ((x)-[:FLOWS_TO]-(y) WHERE ...){0,4}, whose
+//   - backquoted names: -[:`FLOWED_TO`]- is FLOWED_TO and `Pool` is Pool;
+//   - quantified relationships (-[:FLOWED_TO]-{1,5}, +, *, legacy *1..5);
+//   - quantified path patterns ((x)-[:FLOWED_TO]-(y) WHERE ...){0,4}, whose
 //     nodes merge with the node patterns written next to them, and whose
 //     variables are new addresses on every repetition;
 //   - SHORTEST, ANY SHORTEST and ALL SHORTEST selectors;
 //   - the legacy shortestPath() and allShortestPaths() functions;
-//   - pattern predicates, such as WHERE (a)-[:FLOWS_TO]->()-[:FLOWS_TO]->(b)
+//   - pattern predicates, such as WHERE (a)-[:FLOWED_TO]->()-[:FLOWED_TO]->(b)
 //     or exists((a)-->(b)), and pattern comprehensions,
-//     [(a)-[:FLOWS_TO]->(m) WHERE ... | m.address], wherever they are written:
+//     [(a)-[:FLOWED_TO]->(m) WHERE ... | m.address], wherever they are written:
 //     each is a walk joined to the query's variables, and a comprehension's
 //     own variables and WHERE are its own;
 //   - EXISTS, COUNT, COLLECT and CALL subqueries, each read as its own query.
@@ -62,7 +62,7 @@
 // other walk with no anchor at all is a listing, not a trace: it has no
 // start, and only its middle is checked, except that an end it labels :Pool
 // may not be left (along the arrow, or either way when the relationship has
-// no direction). An address labelled :Pool that a FLOWS_TO walk leaves on
+// no direction). An address labelled :Pool that a FLOWED_TO walk leaves on
 // anything but REMOVED_LIQUIDITY is always a violation.
 //
 // The system guard. A walk of two or more hops also never starts at, and
@@ -126,8 +126,8 @@ const IDENT = /^[A-Za-z_]\w*$/
 
 // Blank string literals and comments so that nothing inside them reads as
 // syntax. A literal keeps its quotes, so `{address: "0x…"}` stays an address
-// map. A backquoted name becomes the plain name it escapes (`FLOWS_TO` reads
-// as FLOWS_TO), with any character a plain name cannot hold written as `_`.
+// map. A backquoted name becomes the plain name it escapes (`FLOWED_TO` reads
+// as FLOWED_TO), with any character a plain name cannot hold written as `_`.
 function blankLiteralsAndComments(query: string): string {
   let out = ''
   let i = 0
@@ -666,8 +666,8 @@ function labelledPool(labels: string): boolean {
   return flat.split(/[&:]/).some((part) => part === 'Pool')
 }
 
-function mayBeFlowsTo(rel: WalkRel): boolean {
-  return rel.types === null || rel.types.includes('FLOWS_TO')
+function mayBeFlowedTo(rel: WalkRel): boolean {
+  return rel.types === null || rel.types.includes('FLOWED_TO')
 }
 
 function followsSwapped(rel: WalkRel): boolean {
@@ -898,7 +898,7 @@ function buildWalks(clauses: Clause[], choice: Step[][]): Walks {
   return walks
 }
 
-// `trace` is whether the query holds a FLOWS_TO walk that is a trace: one
+// `trace` is whether the query holds a FLOWED_TO walk that is a trace: one
 // with an anchored address, or a shortest-path walk.
 type Findings = {
   unguarded: string[]
@@ -960,15 +960,15 @@ function evaluate(walks: Walks, findings: Findings): void {
   }
   const reachesAnchor = (root: string, start: string): boolean =>
     [...reach(root, start)].some((key) => nodes.get(key)?.anchored)
-  // The walk `root` is on, and whether it walks FLOWS_TO anywhere.
+  // The walk `root` is on, and whether it walks FLOWED_TO anywhere.
   const componentOf = (root: string): Set<string> => {
     const first = incidentOf(root)[0]
     return first ? new Set([root, ...reach(root, neighbour(root, first) as string)]) : new Set()
   }
-  const walksFlowsTo = (component: Set<string>): boolean =>
-    edges.some((e) => component.has(e.a) && mayBeFlowsTo(e.rel))
+  const walksFlowedTo = (component: Set<string>): boolean =>
+    edges.some((e) => component.has(e.a) && mayBeFlowedTo(e.rel))
   for (const [root, node] of nodes) {
-    if ((node.anchored || node.inRoute) && walksFlowsTo(componentOf(root))) findings.trace = true
+    if ((node.anchored || node.inRoute) && walksFlowedTo(componentOf(root))) findings.trace = true
   }
 
   const guarded = (root: string, node: GraphNode): boolean => {
@@ -1052,21 +1052,21 @@ function evaluate(walks: Walks, findings: Findings): void {
 
   for (const { root, exits, role } of leaves) {
     const node = nodes.get(root) as GraphNode
-    // The rule governs walks that walk FLOWS_TO. On one, the walk may leave an
+    // The rule governs walks that walk FLOWED_TO. On one, the walk may leave an
     // address on any relationship but REMOVED_LIQUIDITY only when it is no pool.
-    if (!walksFlowsTo(componentOf(root))) continue
+    if (!walksFlowedTo(componentOf(root))) continue
     const guardedExits = exits.filter((e) => !onlyRemovedLiquidity(e.rel))
     if (guardedExits.length === 0) continue
     if (node.labels.some(labelledPool)) {
-      const other = guardedExits.find((e) => !mayBeFlowsTo(e.rel))
+      const other = guardedExits.find((e) => !mayBeFlowedTo(e.rel))
       findings.unguarded.push(
-        guardedExits.some((e) => mayBeFlowsTo(e.rel))
-          ? `${describe(node)} is a :Pool the walk leaves on FLOWS_TO`
+        guardedExits.some((e) => mayBeFlowedTo(e.rel))
+          ? `${describe(node)} is a :Pool the walk leaves on FLOWED_TO`
           : `${describe(node)} is a :Pool the walk leaves on ${typesOf((other as Edge).rel)}, not on REMOVED_LIQUIDITY`
       )
       continue
     }
-    // A one-hop read that arrives at the anchor, `(b)-[:FLOWS_TO]->(p {address})`,
+    // A one-hop read that arrives at the anchor, `(b)-[:FLOWED_TO]->(p {address})`,
     // reads the senders into p, a pool among them. The walk starts at b, so
     // a guard on b satisfies the rule as well as one on p. The live server
     // admits that shape and returns a pool's traders.
@@ -1090,17 +1090,17 @@ function evaluate(walks: Walks, findings: Findings): void {
     if (!guarded(root, node) && !guardedAtOpenEnd) {
       findings.unguarded.push(
         role === 'start'
-          ? `${describe(node)} starts a FLOWS_TO walk without the pool guard`
-          : `${describe(node)} is in the middle of a FLOWS_TO walk without the pool guard`
+          ? `${describe(node)} starts a FLOWED_TO walk without the pool guard`
+          : `${describe(node)} is in the middle of a FLOWED_TO walk without the pool guard`
       )
     }
     if (
       role === 'middle' &&
-      exits.some((e) => mayBeFlowsTo(e.rel)) &&
-      incidentOf(root).some((e) => mayBeFlowsTo(e.rel) && !followsSwapped(e.rel))
+      exits.some((e) => mayBeFlowedTo(e.rel)) &&
+      incidentOf(root).some((e) => mayBeFlowedTo(e.rel) && !followsSwapped(e.rel))
     ) {
       findings.noSwapped.push(
-        `${describe(node)} is in the middle of a FLOWS_TO trace whose hop does not also follow SWAPPED`
+        `${describe(node)} is in the middle of a FLOWED_TO trace whose hop does not also follow SWAPPED`
       )
     }
   }
@@ -1169,9 +1169,9 @@ export function traceHopsWithoutSwapped(query: string): string[] {
   return findings(query).noSwapped
 }
 
-// Whether the query walks FLOWS_TO from an address it anchors, in any form
+// Whether the query walks FLOWED_TO from an address it anchors, in any form
 // the check reads, or walks it on a shortest-path search.
-export function isFlowsToTrace(query: string): boolean {
+export function isFlowedToTrace(query: string): boolean {
   return findings(query).trace
 }
 

@@ -310,7 +310,7 @@ export function moneyTrailSummarySentence(block: MoneyTrailBlock): string {
     : `This address sits on a money trail (${block.class}, min hop ${block.min_hop}).`
 }
 
-// Pool guard (cypher skill, "Pool trace rule"): a FLOWS_TO walk never starts
+// Pool guard (cypher skill, "Pool trace rule"): a FLOWED_TO walk never starts
 // at a :Pool and never passes through one, and each guard is its own AND term
 // (inside an OR it would guard nothing). Fixed-hop form of
 // skills/chain-insights-cypher: `WHERE NOT src:Pool AND NOT mid:Pool`.
@@ -369,7 +369,7 @@ function exchangeOutflowQueryAtDepth(
     .map((edgeVariable, index) => {
       const targetVariable =
         index === edgeVariables.length - 1 ? 'exchange' : intermediateVariables[index]!
-      return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Address)`
+      return `-[${edgeVariable}:FLOWED_TO]->(${targetVariable}:Address)`
     })
     .join('')
   const intermediatePredicates = intermediateVariables.map(
@@ -409,7 +409,7 @@ function exchangeInflowQueryAtDepth(address: string, depth: number): { id: strin
     .map((edgeVariable, index) => {
       const targetVariable =
         index === edgeVariables.length - 1 ? 'a' : intermediateVariables[index]!
-      return `-[${edgeVariable}:FLOWS_TO]->(${targetVariable}:Address)`
+      return `-[${edgeVariable}:FLOWED_TO]->(${targetVariable}:Address)`
     })
     .join('')
   const intermediatePredicates = intermediateVariables.map(
@@ -441,7 +441,7 @@ function connectionProbeQuery(
   return {
     id: 'connection_probe',
     query: [
-      `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[r:FLOWS_TO]-(b:Address {address: "${escapeCypherString(compareAddress)}"})`,
+      `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[r:FLOWED_TO]-(b:Address {address: "${escapeCypherString(compareAddress)}"})`,
       'RETURN [a.address, b.address] AS addresses, 1 AS hops',
       'LIMIT 5',
     ].join(' '),
@@ -467,7 +467,7 @@ function compareAddressExistsQuery(address: string): { id: string; query: string
 // be a pool. The direct
 // read is a counterparty listing of one address, not a trace, and stays
 // unguarded (ruling: a pool's own counterparty list is a listing).
-// AC11: FLOWS_TO reachability UNIONed over one -[:LINKED]- hop, so an
+// AC11: FLOWED_TO reachability UNIONed over one -[:LINKED]- hop, so an
 // investigator surveying an address's exposure also sees exposure carried by
 // an address that is only ownership-LINKED to it (LINKED is undirected).
 function linkedExposureQueries(address: string): Array<{ id: string; query: string }> {
@@ -475,7 +475,7 @@ function linkedExposureQueries(address: string): Array<{ id: string; query: stri
     {
       id: 'linked_exposure_direct',
       query: [
-        `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[r:FLOWS_TO]-(b:Address)`,
+        `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[r:FLOWED_TO]-(b:Address)`,
         'WHERE a.address <> b.address',
         `RETURN a.address AS subject_address, b.address AS counterparty_address, b.network AS counterparty_network, "direct" AS exposure_basis, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count`,
         'LIMIT 200',
@@ -484,7 +484,7 @@ function linkedExposureQueries(address: string): Array<{ id: string; query: stri
     {
       id: 'linked_exposure_via_linked',
       query: [
-        `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[l:LINKED]-(owned:Address)-[r:FLOWS_TO]-(b:Address)`,
+        `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[l:LINKED]-(owned:Address)-[r:FLOWED_TO]-(b:Address)`,
         `WHERE ${walkGuardTerms(['a', 'owned'], 2)} AND owned.address <> b.address AND a.address <> b.address`,
         `RETURN a.address AS subject_address, b.address AS counterparty_address, b.network AS counterparty_network, "via_linked" AS exposure_basis, owned.address AS linked_via_address, l.basis AS link_basis, l.confidence AS link_confidence, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count`,
         'LIMIT 200',
@@ -518,7 +518,7 @@ function crossSpaceLinkedQuery(address: string): { id: string; query: string } {
 //
 // Pool trace rule (cypher skill, "Pool trace rule"): a route never starts at
 // a :Pool and never passes through one, and it may end at one. It follows
-// FLOWS_TO and SWAPPED, so it crosses a swap from payer to recipient. The
+// FLOWED_TO and SWAPPED, so it crosses a swap from payer to recipient. The
 // guard sits inside the path pattern, so the search finds the shortest route
 // that avoids pools instead of dropping a shortest route that crosses one.
 //
@@ -546,8 +546,8 @@ export function connectionRouteQueries(
   const routeQuery = (fromAddress: string, toAddress: string): string =>
     [
       `MATCH p = SHORTEST 1 (a:Address {address: "${escapeCypherString(fromAddress)}"} WHERE ${walkGuardTerms(['a'], 2)})`,
-      ` (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE ${walkGuardTerms(['via'], 2)}){0,${CONNECTION_ROUTE_DEPTH_BOUND}}`,
-      ` ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "${escapeCypherString(toAddress)}"}) RETURN p LIMIT 1`,
+      ` (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE ${walkGuardTerms(['via'], 2)}){0,${CONNECTION_ROUTE_DEPTH_BOUND}}`,
+      ` ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: "${escapeCypherString(toAddress)}"}) RETURN p LIMIT 1`,
     ].join('')
   return [
     { id: 'connection_route_outbound', query: routeQuery(address, compareAddress) },
@@ -601,7 +601,7 @@ export function isExchangeMarker(value: unknown): boolean {
 }
 
 // Shape-tolerant hydrated-path reader: walks the returned path value for
-// ordered address nodes and FLOWS_TO edge amounts without pinning the
+// ordered address nodes and FLOWED_TO edge amounts without pinning the
 // backend's exact path envelope.
 export function routeFromPathValue(value: unknown): RouteEvidenceSide | null {
   if (!value || typeof value !== 'object') return null
@@ -1045,7 +1045,7 @@ function buildRiskGraph(
       edges.push({
         source: path[index],
         target: path[index + 1],
-        edge_type: 'flows_to',
+        edge_type: 'flowed_to',
         usd_amount: edge['amount_usd_sum'] ?? 0,
         amount_usd_sum: edge['amount_usd_sum'] ?? 0,
         tx_count: edge['tx_count'] ?? 0,
@@ -1608,7 +1608,7 @@ export function pairAnchorQuery(from: string, to: string, day: string): string {
 export function inlineAverageFlowQuery(address: string, limit = 25): { query: string } {
   return {
     query: [
-      `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[r:FLOWS_TO]->(b:Address)`,
+      `MATCH (a:Address {address: "${escapeCypherString(address)}"})-[r:FLOWED_TO]->(b:Address)`,
       'RETURN b.address AS neighbor, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count,',
       '       r.amount_usd_sum / toFloat(r.tx_count) AS avg_tx_size_usd',
       `ORDER BY r.amount_usd_sum DESC LIMIT ${limit}`,

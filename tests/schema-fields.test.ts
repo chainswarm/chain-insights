@@ -11,7 +11,7 @@ import { flat, markdownFiles, read, runtimeSkill, servedGraphHints } from './sup
 const root = process.cwd()
 
 const SYNC_MARKER_KINDS = [
-  'FLOWS_TO',
+  'FLOWED_TO',
   'SWAPPED',
   'OPERATED_BY',
   'ADDED_LIQUIDITY',
@@ -39,7 +39,7 @@ describe('the served hints name the fields of the links', () => {
     ]) {
       expect(hints, `hints miss ${name}`).toContain(name)
     }
-    for (const kind of SYNC_MARKER_KINDS.filter((kind) => kind !== 'FLOWS_TO')) {
+    for (const kind of SYNC_MARKER_KINDS.filter((kind) => kind !== 'FLOWED_TO')) {
       expect(hints.split('synced_through_height is also on')[1] ?? '', kind).toContain(kind)
     }
     expect(hints).toContain('a floor unless valuation_complete is true')

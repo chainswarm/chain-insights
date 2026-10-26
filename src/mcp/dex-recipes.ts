@@ -41,10 +41,10 @@ export function poolsByFactoryQuery(factory: string, limit = 10): string {
   )
 }
 
-/** The senders of one pool on FLOWS_TO, by lifetime volume (R4, G1). */
+/** The senders of one pool on FLOWED_TO, by lifetime volume (R4, G1). */
 function sellersIntoPoolQuery(pool: string): string {
   return (
-    `USE topology MATCH (s:Address)-[f:FLOWS_TO]->(p:Address {address: "${pool}"}) WHERE NOT s:Pool ` +
+    `USE topology MATCH (s:Address)-[f:FLOWED_TO]->(p:Address {address: "${pool}"}) WHERE NOT s:Pool ` +
     'RETURN s.address AS from_address, p.address AS to_address, labels(s) AS from_node_labels, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, s.labels AS from_labels, p.labels AS to_labels, s.is_exchange AS from_is_exchange, p.is_exchange AS to_is_exchange ' +
     'ORDER BY f.amount_usd_sum DESC LIMIT 25'
   )
@@ -126,7 +126,7 @@ export function recipeFor(entry: DexEntry, topPool: string | null): RecipeStep[]
       if (pool) {
         steps.push({
           step: 'Sellers into the busiest pool',
-          why: `The senders of ${pool} on FLOWS_TO. A sender that also adds liquidity is a liquidity provider, not a seller.`,
+          why: `The senders of ${pool} on FLOWED_TO. A sender that also adds liquidity is a liquidity provider, not a seller.`,
           query: sellersIntoPoolQuery(pool),
         })
       } else {
@@ -181,7 +181,7 @@ export function recipeFor(entry: DexEntry, topPool: string | null): RecipeStep[]
         step: 'Traders on the curve of one launched token',
         why: 'Fill a launched token from the first step.',
         query:
-          `USE topology MATCH (t:Address {address: "${TOKEN}"})-[f:FLOWS_TO]-(b:Address) WHERE NOT t:Pool ` +
+          `USE topology MATCH (t:Address {address: "${TOKEN}"})-[f:FLOWED_TO]-(b:Address) WHERE NOT t:Pool ` +
           'RETURN startNode(f).address AS from_address, endNode(f).address AS to_address, labels(b) AS node_labels, f.tx_count AS tx_count, f.amount_usd_sum AS amount_usd_sum, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp ORDER BY f.tx_count DESC LIMIT 25',
       })
       steps.push({
@@ -197,7 +197,7 @@ export function recipeFor(entry: DexEntry, topPool: string | null): RecipeStep[]
       if (pool) {
         steps.push({
           step: 'Sellers into the busiest pool',
-          why: `The senders of ${pool} on FLOWS_TO, by lifetime volume. A seller that is a contract is often an aggregator or a router: say "a contract".`,
+          why: `The senders of ${pool} on FLOWED_TO, by lifetime volume. A seller that is a contract is often an aggregator or a router: say "a contract".`,
           query: sellersIntoPoolQuery(pool),
         })
       } else {

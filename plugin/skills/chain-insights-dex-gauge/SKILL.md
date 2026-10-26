@@ -16,7 +16,7 @@ On a gauge exchange a swap usually goes through the exchange's **router**.
 The pool pays the router, and the router pays on in the same transaction:
 
 ```
- seller ──FLOWS_TO──▶ pool ──▶ router ──▶ buyer
+ seller ──FLOWED_TO──▶ pool ──▶ router ──▶ buyer
                        │
                        └── SWAPPED from the seller names the router
 ```
@@ -30,7 +30,7 @@ the router's own transfer in the seller's transaction.
 1. **The pool.** Take it from `meta_dex_lookup` (its pools, by lifetime
    volume), or from `chain-insights-dex` (pools by memo factory). The busiest Aero pool is
    `0x7615926023bb149f36095645c2a81dc367d39750`.
-2. **Sellers into the pool** (G1): its senders on `FLOWS_TO`, ranked by
+2. **Sellers into the pool** (G1): its senders on `FLOWED_TO`, ranked by
    lifetime volume. Most of the biggest are contracts: aggregators,
    routers and liquidity managers. Say "a contract", never "a trader". A
    sender that also adds liquidity to the pool (G6) pays its deposits on
@@ -76,7 +76,7 @@ End every answer with who to trace next, in one short paragraph:
 - for a seller that is a contract, the accounts that paid it: the same read
   with the arrow flipped.
 
-Never walk out of the router or the pool on `FLOWS_TO`: the router has
+Never walk out of the router or the pool on `FLOWED_TO`: the router has
 thousands of receivers, and the buyer is noise there.
 
 ## Queries
@@ -85,7 +85,7 @@ thousands of receivers, and the buyer is noise there.
 
 ```cypher
 USE topology
-MATCH (s:Address)-[f:FLOWS_TO]->(p:Address {address: "0x7615926023bb149f36095645c2a81dc367d39750"}) WHERE NOT s:Pool
+MATCH (s:Address)-[f:FLOWED_TO]->(p:Address {address: "0x7615926023bb149f36095645c2a81dc367d39750"}) WHERE NOT s:Pool
 RETURN s.address AS from_address, p.address AS to_address, labels(s) AS from_node_labels, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, s.labels AS from_labels, p.labels AS to_labels, s.is_exchange AS from_is_exchange, p.is_exchange AS to_is_exchange ORDER BY f.amount_usd_sum DESC LIMIT 25
 ```
 

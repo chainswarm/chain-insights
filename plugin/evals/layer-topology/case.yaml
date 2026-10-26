@@ -1,6 +1,6 @@
 schema_version: "1.0"
 name: layer-topology
-expected_outcome: The query anchors on the given address on USE topology with a FLOWS_TO link, a LIMIT, and the address written in full lowercase.
+expected_outcome: The query anchors on the given address on USE topology with a FLOWED_TO link, a LIMIT, and the address written in full lowercase.
 execution:
   prompt: |
     You are an AML analyst assistant with the Chain Insights graph_query tool. The tool is not reachable right now, so do not try to call it.
@@ -16,9 +16,9 @@ graders:
     pattern: 'USE topology'
     match: contains
   - type: regex
-    name: flows-to-link
+    name: flowed-to-link
     target: last_message
-    pattern: 'FLOWS_TO'
+    pattern: 'FLOWED_TO'
     match: contains
   - type: regex
     name: lowercase-full-address
