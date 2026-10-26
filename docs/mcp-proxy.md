@@ -468,7 +468,7 @@ LIMIT 10
 ```text
 Use Chain Insights graph_query_batch on network robinhood with these read-only Cypher queries:
 1. USE topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1
-2. USE topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum LIMIT 3
+2. USE topology MATCH (src:Address)-[f:FLOWED_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum LIMIT 3
 ```
 
 ```text

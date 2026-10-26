@@ -169,7 +169,7 @@ Graph queries choose the read graph explicitly:
 
 | Graph      | Use it for                                                                                                                                                                                                                                                                      |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `topology` | The unified address / FLOWS_TO / OPERATED_BY / LINKED graph — recent and full historical fund-flow traversal, and swap, liquidity-pool and bridge totals (see [Graph tools](docs/graph-tools.md#swaps-liquidity-pools-and-bridges)) |
+| `topology` | The unified address / FLOWED_TO / OPERATED_BY / LINKED graph — recent and full historical fund-flow traversal, and swap, liquidity-pool and bridge totals (see [Graph tools](docs/graph-tools.md#swaps-liquidity-pools-and-bridges)) |
 | `facts`    | Bounded individual `TRANSFER` rows with amount, `amount_usd`, asset, transaction, and block facts, plus single `SWAP`, `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and `BRIDGE_CROSSING` rows                                                                                           |
 | `chain`    | One keyed lookup on the chain node: a transaction by `tx_id`, a block by `block_height` or `block_hash`, an address at one block (balance, nonce, kind), or the head                                                                                                            |
 
@@ -280,7 +280,7 @@ Batch across graph views:
 ```bash
 cia mcp call graph_query_batch \
   network=robinhood \
-  'queries=[{"id":"count","query":"USE topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1"},{"id":"flows","query":"USE topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 3"},{"id":"linked","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 3"},{"id":"node_metrics","query":"USE topology MATCH (a:Address {address:\"FULL_ADDRESS\"}) RETURN a.address AS address, a.tx_out_count AS tx_out_count, a.tx_in_count AS tx_in_count LIMIT 1"}]'
+  'queries=[{"id":"count","query":"USE topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1"},{"id":"flows","query":"USE topology MATCH (src:Address)-[f:FLOWED_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 3"},{"id":"linked","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 3"},{"id":"node_metrics","query":"USE topology MATCH (a:Address {address:\"FULL_ADDRESS\"}) RETURN a.address AS address, a.tx_out_count AS tx_out_count, a.tx_in_count AS tx_in_count LIMIT 1"}]'
 ```
 
 More query examples (manual fund-flow reads, pagination):

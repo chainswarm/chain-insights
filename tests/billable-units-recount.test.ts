@@ -8,7 +8,7 @@ const node = (id: string) => ({
 })
 const edge = (id: string) => ({
   id: `r:${id}`,
-  type: 'FLOWS_TO',
+  type: 'FLOWED_TO',
   start: 'n:1',
   end: 'n:2',
   properties: {},

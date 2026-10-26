@@ -110,7 +110,7 @@ describe('the graph schema built from the recorded catalog answers', () => {
       'USE topology CALL db.propertyKeys()',
       'USE topology SHOW INDEXES',
       'USE topology MATCH (a:Address) RETURN keys(a) AS keys LIMIT 20',
-      'USE topology MATCH ()-[r:FLOWS_TO]->() RETURN keys(r) AS keys LIMIT 5',
+      'USE topology MATCH ()-[r:FLOWED_TO]->() RETURN keys(r) AS keys LIMIT 5',
       'USE topology MATCH ()-[r:OPERATED_BY]->() RETURN keys(r) AS keys LIMIT 5',
       'USE topology MATCH ()-[r:LINKED]->() RETURN keys(r) AS keys LIMIT 5',
       'USE topology MATCH ()-[r:SWAPPED]->() RETURN keys(r) AS keys LIMIT 5',
@@ -186,7 +186,7 @@ describe('the graph schema built from the recorded catalog answers', () => {
         .sort()
     )
     expect(topology.link_types).toHaveLength(13)
-    expect(topology.link_types).toEqual(expect.arrayContaining(['FLOWS_TO', 'SWAPPED', 'LINKED']))
+    expect(topology.link_types).toEqual(expect.arrayContaining(['FLOWED_TO', 'SWAPPED', 'LINKED']))
     expect(topology.property_keys).toHaveLength(recordedRows(PROPERTY_KEYS).length)
     expect(topology.property_keys).toEqual([...topology.property_keys].sort())
     expect(topology.property_keys).toContain('amount_usd_sum')
@@ -205,9 +205,9 @@ describe('the graph schema built from the recorded catalog answers', () => {
       state: 'ONLINE',
     })
     expect(indexes).toContainEqual({
-      name: 'flows_to_pair_key_idx',
+      name: 'flowed_to_pair_key_idx',
       entity: 'link',
-      types: ['FLOWS_TO'],
+      types: ['FLOWED_TO'],
       properties: ['pair_key'],
       state: 'ONLINE',
     })
@@ -226,7 +226,7 @@ describe('the graph schema built from the recorded catalog answers', () => {
     const { samples } = document.layers.topology
 
     expect(Object.keys(samples)).toEqual(['Address', ...SAMPLED_LINK_TYPES])
-    expect(samples['FLOWS_TO']).toEqual([
+    expect(samples['FLOWED_TO']).toEqual([
       'amount_usd_sum',
       'first_seen_timestamp',
       'last_seen_timestamp',
@@ -305,7 +305,7 @@ describe('the graph schema built from the recorded catalog answers', () => {
 
     expect(calls).not.toContain(linkSampleQuery('BRIDGED'))
     expect(document.layers.topology.samples).not.toHaveProperty('BRIDGED')
-    expect(document.layers.topology.samples).toHaveProperty('FLOWS_TO')
+    expect(document.layers.topology.samples).toHaveProperty('FLOWED_TO')
   })
 
   it('reads the rows from the JSON text when a reply carries no structuredContent', async () => {
@@ -745,7 +745,7 @@ describe('the meta_schema answer', () => {
     expect(text).toContain('USE topology')
     expect(text).toContain('Labels: Address, Bundler, Chain')
     expect(text).toContain('- node Address(address) ONLINE')
-    expect(text).toContain('- FLOWS_TO: amount_usd_sum, first_seen_timestamp')
+    expect(text).toContain('- FLOWED_TO: amount_usd_sum, first_seen_timestamp')
     expect(text).toContain('USE facts\nRelationships: TRANSFER, BRIDGE_CROSSING')
     expect(text).toContain('USE chain\nLookups: Transaction, Block, Head')
     expect(text).toContain('read now for 1019 billed units and cached for 24 hours')

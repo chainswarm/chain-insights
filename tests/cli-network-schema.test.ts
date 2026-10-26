@@ -77,7 +77,7 @@ describe('cia network <name> --schema', () => {
     expect(lines[1]).toContain('from the cache, kept 24 hours; refresh=true rebuilds it')
     expect(result.stdout).toContain('USE topology\nLabels: Address, Bundler, Chain')
     expect(result.stdout).toContain('- node Address(address) ONLINE')
-    expect(result.stdout).toContain('- FLOWS_TO: amount_usd_sum, first_seen_timestamp')
+    expect(result.stdout).toContain('- FLOWED_TO: amount_usd_sum, first_seen_timestamp')
     expect(result.stdout).toContain('USE facts\nRelationships: TRANSFER, BRIDGE_CROSSING')
     expect(result.stdout).toContain('USE chain\nLookups: Transaction, Block, Head')
     expect(result.stdout).toContain('Notes:\n- Link types with no sample: APPROVED')
@@ -100,7 +100,7 @@ describe('cia network <name> --schema', () => {
       source: 'live catalog',
       cached: true,
     })
-    expect(schema.layers.topology.samples['FLOWS_TO']).toContain('tx_count')
+    expect(schema.layers.topology.samples['FLOWED_TO']).toContain('tx_count')
     expect(schema.layers.chain.lookups).toEqual(['Transaction', 'Block', 'Head'])
   })
 

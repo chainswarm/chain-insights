@@ -173,11 +173,11 @@ Before the first investigation query, capture the live graph schema into:
 \`\`\`
 
 Use \`graph_query_batch\` for schema capture. Prefix topology reads with
-\`USE topology\` (address/FLOWS_TO/OPERATED_BY/LINKED graph, unified recent+historical)
+\`USE topology\` (address/FLOWED_TO/OPERATED_BY/LINKED graph, unified recent+historical)
 and fact reads with \`USE facts\`, for example:
 
 \`\`\`bash
-cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"USE topology MATCH (n:Address) RETURN \\"Address\\" AS node_label, count(n) AS sample_count LIMIT 1"},{"id":"flow_sample","query":"USE topology MATCH (:Address)-[f:FLOWS_TO]->(:Address) RETURN f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 20"},{"id":"linked_sample","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 20"},{"id":"operated_by_sample","query":"USE topology MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: \\"0x...\\"}) RETURN owner.address AS owner_address, operation.tx_count AS tx_count, operation.amount_usd_sum AS amount_usd_sum LIMIT 20"}]'
+cia mcp call graph_query_batch network=<network> 'queries=[{"id":"node_labels","query":"USE topology MATCH (n:Address) RETURN \\"Address\\" AS node_label, count(n) AS sample_count LIMIT 1"},{"id":"flow_sample","query":"USE topology MATCH (:Address)-[f:FLOWED_TO]->(:Address) RETURN f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 20"},{"id":"linked_sample","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 20"},{"id":"operated_by_sample","query":"USE topology MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: \\"0x...\\"}) RETURN owner.address AS owner_address, operation.tx_count AS tx_count, operation.amount_usd_sum AS amount_usd_sum LIMIT 20"}]'
 \`\`\`
 
 Then update this file with observed labels, relationship types, and allowed
@@ -199,7 +199,7 @@ The address-grain graph schema:
   \`source_event\`, \`declared_owner\`, \`owner_state\`) asserting the two
   addresses are controlled by the same actor. \`LINKED\` is the ownership edge within the
   advertised network — a same-network query traces
-  (\`LINKED\` or \`FLOWS_TO\`) with no network switch. Walk
+  (\`LINKED\` or \`FLOWED_TO\`) with no network switch. Walk
   one visible \`LINKED\` hop to surface actor-level exposure; never treat
   linked addresses
   as a single collapsed node. \`LINKED\` is served on the topology graph
@@ -223,7 +223,7 @@ The address-grain graph schema:
   (in minus out; positive = net receiver) — all computed from external
   flows only — and \`first_activity_timestamp\`/
   \`last_activity_timestamp\`/\`activity_span_days\`, which include all
-  flows (self-loops included). FLOWS_TO edges serve four fields:
+  flows (self-loops included). FLOWED_TO edges serve four fields:
   \`tx_count\`, \`amount_usd_sum\` (total money flow, token and native value
   merged), \`first_seen_timestamp\`, \`last_seen_timestamp\`. \`pair_key\` and
   \`synced_through_height\` are internal sync bookkeeping, not to be queried.
@@ -242,7 +242,7 @@ The address-grain graph schema:
   \`last_seen_timestamp\` of the link:
   \`USE facts MATCH (a:Address {address: $from})-[t:TRANSFER]->(b:Address {address: $to}) WHERE t.block_date = "YYYY-MM-DD" RETURN t.tx_id, t.block_timestamp LIMIT 1\`.
   Lifetime aggregates are the only serving window.
-- Money flow is \`(:Address)-[:FLOWS_TO]->(:Address)\`. Public AML tools
+- Money flow is \`(:Address)-[:FLOWED_TO]->(:Address)\`. Public AML tools
   accept the raw blockchain address directly — there is no resolution step.
 - The risk verdict lives on topology nodes (\`risk_score\`/\`risk_level\`).
   An absent \`risk_score\` means \`UNSCORED\`: no verdict, never low risk.
@@ -278,7 +278,7 @@ Rules:
 - Prefer \`graph_query\` and \`graph_query_batch\` for graph-language reads.
 - The graph choice stays inside the query via \`USE ...\`; there is no
   tool argument to select a graph.
-- Use \`USE topology\` for topology (the address/FLOWS_TO/OPERATED_BY/LINKED graph,
+- Use \`USE topology\` for topology (the address/FLOWED_TO/OPERATED_BY/LINKED graph,
   covering unified recent and full historical activity in one graph, plus
   the node \`risk_score\`/\`risk_level\` verdict, and labels + per-label
   risk) and \`USE facts\` for bounded individual \`TRANSFER\` rows and their
@@ -308,7 +308,7 @@ Rules:
 - Keep persisted outputs compact: select only the fields needed to support the claim.
   Avoid storing whole node or relationship property blobs unless
   the purpose of the query is schema discovery or debugging.
-- When using BFS, fixed-depth traversal fallbacks, or any manual \`FLOWS_TO\`
+- When using BFS, fixed-depth traversal fallbacks, or any manual \`FLOWED_TO\`
   traversal, treat exchange hot wallets as terminal endpoints only. Do not
   expand from, through, or classify exchange nodes as deposit, suspect, or
   intermediate candidates. In Cypher, require every non-terminal traversal node

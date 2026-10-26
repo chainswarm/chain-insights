@@ -499,7 +499,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).not.toContain('Graph visualization behavior')
     expect(instructions).not.toContain('prepares the graph view automatically')
     expect(instructions).not.toContain('iframe')
-    expect(instructions).toContain('FLOWS_TO')
+    expect(instructions).toContain('FLOWED_TO')
     expect(instructions).not.toContain('first_tx_id')
     expect(instructions).toContain('total money flow')
     expect(instructions).toContain('LINKED is served on the topology graph only')
@@ -527,10 +527,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).not.toContain('bittensor')
     expect(instructions).toContain('Pool trace rule, for every trace')
     expect(instructions).toContain(
-      'MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: $to})'
+      'MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: $to})'
     )
     expect(instructions).toContain(
-      'MATCH SHORTEST 1 (a:Address {address: $addr} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address)'
+      'MATCH SHORTEST 1 (a:Address {address: $addr} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address)'
     )
     expect(instructions).toContain('A walk may end at a Pool, but never starts at one')
     expect(instructions).toContain(
@@ -540,7 +540,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       'A walk of two or more hops also never starts at or passes through a Protocol contract'
     )
     expect(instructions).toContain(
-      '-[r:FLOWS_TO|SWAPPED]-(b:Address) WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND NOT owned:Pool AND NOT owned:Protocol AND NOT owned:System AND NOT owned.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]'
+      '-[r:FLOWED_TO|SWAPPED]-(b:Address) WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND NOT owned:Pool AND NOT owned:Protocol AND NOT owned:System AND NOT owned.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]'
     )
     expect(instructions).toContain('(:Pool)-[:REMOVED_LIQUIDITY]->(:Address)')
     expect(instructions).toContain('(:Address)-[:SWAPPED]->(:Address)')
@@ -688,7 +688,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(text).not.toMatch(/\b(?:4|four) slots\b/)
   })
 
-  it('reads swap attribution from SWAPPED or the facts SWAP row, never from FLOWS_TO', async () => {
+  it('reads swap attribution from SWAPPED or the facts SWAP row, never from FLOWED_TO', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce(null)
 
@@ -699,9 +699,9 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     const instructions = String(vi.mocked(McpServer).mock.calls[0]?.[1]?.instructions)
     expect(instructions).toContain(
-      'Swap attribution is read from SWAPPED, the aggregate (strength, pools, families), or from the USE facts SWAP row, one route. FLOWS_TO carries value only.'
+      'Swap attribution is read from SWAPPED, the aggregate (strength, pools, families), or from the USE facts SWAP row, one route. FLOWED_TO carries value only.'
     )
-    // FLOWS_TO carries value only: no swap property is named on it.
+    // FLOWED_TO carries value only: no swap property is named on it.
     for (const stamp of [
       'swap.kind',
       'swap.family',
@@ -714,7 +714,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       expect(instructions).not.toContain(stamp)
     }
     expect(instructions).toContain(
-      'FLOWS_TO properties are tx_count, amount_usd_sum, first_seen_timestamp, last_seen_timestamp.'
+      'FLOWED_TO properties are tx_count, amount_usd_sum, first_seen_timestamp, last_seen_timestamp.'
     )
   })
 
@@ -756,7 +756,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).not.toContain('no reviewed family')
   })
 
-  it('lists the four served FLOWS_TO fields and names the sync bookkeeping as internal', async () => {
+  it('lists the four served FLOWED_TO fields and names the sync bookkeeping as internal', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce(null)
 
@@ -768,7 +768,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     const instructions = String(vi.mocked(McpServer).mock.calls[0]?.[1]?.instructions)
     // The four served fields, then the two internal ones, named and not to be queried.
     expect(instructions).toContain(
-      'FLOWS_TO properties are tx_count, amount_usd_sum, first_seen_timestamp, last_seen_timestamp. pair_key and synced_through_height are internal sync bookkeeping, not to be queried.'
+      'FLOWED_TO properties are tx_count, amount_usd_sum, first_seen_timestamp, last_seen_timestamp. pair_key and synced_through_height are internal sync bookkeeping, not to be queried.'
     )
     // Readers are never told the two internal fields do not exist.
     expect(instructions).not.toContain('No other edge fields exist')
@@ -3203,7 +3203,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     const args = {
       query:
-        'USE topology MATCH (a:Address)-[f:FLOWS_TO]->(b:Address) RETURN a.address AS from_address, b.address AS to_address LIMIT 1',
+        'USE topology MATCH (a:Address)-[f:FLOWED_TO]->(b:Address) RETURN a.address AS from_address, b.address AS to_address LIMIT 1',
       network: 'robinhood',
     }
     const answer = await findToolHandler(serverInstance, 'graph_query')(args)
@@ -3593,7 +3593,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).not.toContain('Claude Desktop')
     expect(result.content[0].text).not.toContain('iframe')
     expect(result.content[0].text).not.toContain('Graph query hints for network=bittensor')
-    expect(result.content[0].text).not.toContain('FLOWS_TO')
+    expect(result.content[0].text).not.toContain('FLOWED_TO')
     expect(result.content[0].text).not.toContain('first_tx_id')
     expect(result.content[0].text).not.toContain('archive member-address lookup')
     expect(result.content[0].text).not.toContain('(:Identity)-[:HAS_ADDRESS]->(:Address)')

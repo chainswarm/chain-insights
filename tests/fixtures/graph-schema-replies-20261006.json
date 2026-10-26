@@ -341,7 +341,7 @@
                 "relationshipType": "OPERATED_BY"
               },
               {
-                "relationshipType": "FLOWS_TO"
+                "relationshipType": "FLOWED_TO"
               }
             ],
             "timeout_seconds": 60,
@@ -872,10 +872,10 @@
                 "id": 15,
                 "indexProvider": "range-1.0",
                 "labelsOrTypes": [
-                  "FLOWS_TO"
+                  "FLOWED_TO"
                 ],
                 "lastRead": null,
-                "name": "flows_to_last_seen_timestamp_idx",
+                "name": "flowed_to_last_seen_timestamp_idx",
                 "owningConstraint": null,
                 "populationPercent": 100,
                 "properties": [
@@ -890,10 +890,10 @@
                 "id": 14,
                 "indexProvider": "range-1.0",
                 "labelsOrTypes": [
-                  "FLOWS_TO"
+                  "FLOWED_TO"
                 ],
                 "lastRead": "2026-10-06T01:17:26.765Z",
-                "name": "flows_to_pair_key_idx",
+                "name": "flowed_to_pair_key_idx",
                 "owningConstraint": null,
                 "populationPercent": 100,
                 "properties": [
@@ -1597,7 +1597,7 @@
         }
       }
     },
-    "USE topology MATCH ()-[r:FLOWS_TO]->() RETURN keys(r) AS keys LIMIT 5": {
+    "USE topology MATCH ()-[r:FLOWED_TO]->() RETURN keys(r) AS keys LIMIT 5": {
       "structuredContent": {
         "schema": "chain-insights.result.v1",
         "tool": "graph_query",

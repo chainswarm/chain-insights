@@ -52,10 +52,10 @@ A transaction is a chain question: read it on `USE chain` by its `tx_id`. Chain 
 
 The layers hand each other keys, and each key keeps its name. Topology gives the pair and the first and last seen time. Facts gives the `tx_id` and the `block_height`. Chain takes an `address`, a `tx_id`, a `block_height` or a `block_hash`, and gives the `block_date` of a transaction or a block.
 
-A question about the whole chain (recent activity, the biggest senders, a top list) is a `USE topology` search: bound it by time with `f.last_seen_timestamp >= <epoch ms>` on the `FLOWS_TO` link, then sort and `LIMIT`. A search has 10 s. Read `Head` first (`USE chain MATCH (h:Head) RETURN h.behind_money, h.behind_dex, h.behind_transfers`, under a second): a `FLOWS_TO` search is sent when `behind_money` is at most 100000; a `SWAPPED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY` search when `behind_dex` is at most 100000; a `TRANSFERRED` search when `behind_transfers` is at most 100000 (100000 blocks is a few hours: a robinhood block is about a tenth of a second apart from the next). When the family is further behind, the search cannot finish, so do not send it: say which family, how many blocks, and ask for an address. On a server whose Head has no `behind_money`, read `h.graph_blocks_behind` and hold it to the same limit. On a server whose Head has no `behind_transfers`, it serves no `TRANSFERRED` link: send no `TRANSFERRED` search. Never turn the block count into days or hours by head. To say how fresh the data is, give the newest `_utc` time you read on the layer you used: a family's lag counts its slowest layer, and the links of an address and the facts rows are often newer than it. If the server refuses the search with `anchor_missing` or `family_behind`, or stops it with `query_timeout`, it cannot search the whole chain now: say so in one line, name the family the refusal names, and ask for an address or drop the link type that is behind. A narrower window times out the same way, so do not send it again.
+A question about the whole chain (recent activity, the biggest senders, a top list) is a `USE topology` search: bound it by time with `f.last_seen_timestamp >= <epoch ms>` on the `FLOWED_TO` link, then sort and `LIMIT`. A search has 10 s. Read `Head` first (`USE chain MATCH (h:Head) RETURN h.behind_money, h.behind_dex, h.behind_transfers`, under a second): a `FLOWED_TO` search is sent when `behind_money` is at most 100000; a `SWAPPED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY` search when `behind_dex` is at most 100000; a `TRANSFERRED` search when `behind_transfers` is at most 100000 (100000 blocks is a few hours: a robinhood block is about a tenth of a second apart from the next). When the family is further behind, the search cannot finish, so do not send it: say which family, how many blocks, and ask for an address. On a server whose Head has no `behind_money`, read `h.graph_blocks_behind` and hold it to the same limit. On a server whose Head has no `behind_transfers`, it serves no `TRANSFERRED` link: send no `TRANSFERRED` search. Never turn the block count into days or hours by head. To say how fresh the data is, give the newest `_utc` time you read on the layer you used: a family's lag counts its slowest layer, and the links of an address and the facts rows are often newer than it. If the server refuses the search with `anchor_missing` or `family_behind`, or stops it with `query_timeout`, it cannot search the whole chain now: say so in one line, name the family the refusal names, and ask for an address or drop the link type that is behind. A narrower window times out the same way, so do not send it again.
 
 The graph layers are grouped into six families, and each family is as fresh
-as its slowest layer: `money` (`FLOWS_TO`, `OPERATED_BY`), `dex` (`SWAPPED`,
+as its slowest layer: `money` (`FLOWED_TO`, `OPERATED_BY`), `dex` (`SWAPPED`,
 `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`), `interactions` (`APPROVED`,
 `BRIDGED`, `DEPLOYED_CONTRACT`, `SIGNED_AUTHORIZATION`), `smart_accounts`
 (`SPONSORED`, `BUNDLED`, `SIGNED_FOR`, `LINKED`), `annotations` (labels
@@ -73,8 +73,8 @@ too far behind the head: the refusal names the family and its lag, and its
 
 | The question                                               | Layer      | First query                                                                 |
 | ---------------------------------------------------------- | ---------- | --------------------------------------------------------------------------- |
-| Recent activity or newest links of one address?            | `topology` | `FLOWS_TO` out of the address, `ORDER BY last_seen_timestamp`.              |
-| Who sent money to an address? Who received from it?        | `topology` | `FLOWS_TO` into or out of the address, with a `LIMIT`.                      |
+| Recent activity or newest links of one address?            | `topology` | `FLOWED_TO` out of the address, `ORDER BY last_seen_timestamp`.              |
+| Who sent money to an address? Who received from it?        | `topology` | `FLOWED_TO` into or out of the address, with a `LIMIT`.                      |
 | Where did the money go, or come from, in N hops?           | `topology` | A guarded quantified walk, at most 4 hops, with a `LIMIT`.                  |
 | Is there a route between A and B?                          | `topology` | `SHORTEST 1` with both addresses.                                           |
 | How many, how much, first or last active, for one address? | `topology` | The address node: `degree_in`, `tx_total_count`, `last_activity_timestamp`. |
@@ -261,11 +261,11 @@ of truth.
   nothing. The facts `SWAP` row says which side had no price:
   `sold_price_missing` and `bought_price_missing`.
 - Swap attribution is read from `SWAPPED`, the aggregate (`strength`, pools,
-  families), or from the facts `SWAP` row, one route. `FLOWS_TO` carries value
+  families), or from the facts `SWAP` row, one route. `FLOWED_TO` carries value
   only.
 - A missing `SWAPPED` edge or `SWAP` row is not proof that no swap happened.
 
-`FLOWS_TO` into and out of pools stays as it is. A trace that reaches a
+`FLOWED_TO` into and out of pools stays as it is. A trace that reaches a
 `:Pool` follows the pool trace rule:
 
 - The rule is stated once, in the
@@ -274,13 +274,13 @@ of truth.
   because an MCP client loads no skill. A test keeps the two equal.
 - It stops a trace from fanning out to every trader who used the pool, and
   it still reaches the address that took the liquidity out.
-- Every documented `FLOWS_TO` walk carries the pool guard on its start and
+- Every documented `FLOWED_TO` walk carries the pool guard on its start and
   on every address in its middle: a walk may end at a `:Pool`, but never
   starts at one or passes through one.
-- Every documented trace walks `SWAPPED` beside `FLOWS_TO`, so it crosses a
+- Every documented trace walks `SWAPPED` beside `FLOWED_TO`, so it crosses a
   swap from payer to recipient without passing through the pool.
 
-Route between two addresses under the rule. It walks `FLOWS_TO` and
+Route between two addresses under the rule. It walks `FLOWED_TO` and
 `SWAPPED`. The guards sit inside the path pattern, on the start and on every
 address in the middle, so the search finds the shortest route that avoids
 pools. `ANY SHORTEST` takes the same pattern in place of `SHORTEST 1`. Ask for
@@ -289,7 +289,7 @@ one path only:
 ```bash
 cia mcp call graph_query \
   network=robinhood \
-  'query=USE topology MATCH p = SHORTEST 1 (a:Address {address: "0x..."} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "0x..."}) RETURN [n IN nodes(p) | n.address] AS route LIMIT 5'
+  'query=USE topology MATCH p = SHORTEST 1 (a:Address {address: "0x..."} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: "0x..."}) RETURN [n IN nodes(p) | n.address] AS route LIMIT 5'
 ```
 
 The `chain-insights-cypher` skill shows how to read the properties of a link
@@ -300,7 +300,7 @@ Rug-pull check from a victim, under the rule:
 ```bash
 cia mcp call graph_query \
   network=robinhood \
-  'query=USE topology MATCH (victim:Address {address: "0x..."})-[paid:FLOWS_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE NOT victim:Pool AND NOT victim:Protocol AND NOT victim:System AND NOT victim.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND receiver.address <> victim.address RETURN pool.address AS pool_address, receiver.address AS receiver_address, max(paid.amount_usd_sum) AS paid_in_usd, sum(removal.usd) AS removed_usd, max(removal.receiver_added_usd) AS receiver_added_usd, sum(removal.usd) - max(removal.receiver_added_usd) AS receiver_profit_usd, max(removal.receiver_provided) AS receiver_provided ORDER BY removed_usd DESC LIMIT 25'
+  'query=USE topology MATCH (victim:Address {address: "0x..."})-[paid:FLOWED_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE NOT victim:Pool AND NOT victim:Protocol AND NOT victim:System AND NOT victim.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND receiver.address <> victim.address RETURN pool.address AS pool_address, receiver.address AS receiver_address, max(paid.amount_usd_sum) AS paid_in_usd, sum(removal.usd) AS removed_usd, max(removal.receiver_added_usd) AS receiver_added_usd, sum(removal.usd) - max(removal.receiver_added_usd) AS receiver_profit_usd, max(removal.receiver_provided) AS receiver_provided ORDER BY removed_usd DESC LIMIT 25'
 ```
 
 One transaction's swap routes, with their strength and the two sides:
@@ -325,9 +325,9 @@ A relationship is served only where its data exists. Check
 
 ## Tokens: one link per sender, receiver and token
 
-`FLOWS_TO` is the total of a pair over every token. `TRANSFERRED` splits that
+`FLOWED_TO` is the total of a pair over every token. `TRANSFERRED` splits that
 total by token: one link for each sender, receiver and token, in the
-`transfers` family. `FLOWS_TO` stays the pair total, and the `TRANSFERRED`
+`transfers` family. `FLOWED_TO` stays the pair total, and the `TRANSFERRED`
 links of a pair add up to it.
 
 | Property               | Meaning                                                                 |
@@ -407,7 +407,7 @@ and `:Sanctioned`. Each role also has a flag on the node.
 
 - `network` is required. Do not guess it in agent workflows.
 - GQL/Cypher must be read-only.
-- Use `USE topology` for topology (the address / FLOWS_TO / OPERATED_BY / LINKED graph,
+- Use `USE topology` for topology (the address / FLOWED_TO / OPERATED_BY / LINKED graph,
   covering unified recent and full historical activity in one graph, plus the
   the `SWAPPED`,
   `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY` and `BRIDGED` totals, and the
@@ -415,7 +415,7 @@ and `:Sanctioned`. Each role also has a flag on the node.
 - Use `USE facts` for bounded individual `TRANSFER` rows and their amount,
   `amount_usd`, asset, transaction, and block facts, and for single `SWAP`,
   `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and `BRIDGE_CROSSING` rows. Address
-  labels, risk, lifetime metrics, and `FLOWS_TO`/`LINKED` relationships
+  labels, risk, lifetime metrics, and `FLOWED_TO`/`LINKED` relationships
   belong to `USE topology`.
 - Use `USE chain` for the chain node's own record of one known transaction,
   block, address or the head. It looks up one key and never searches.
@@ -430,7 +430,7 @@ and `:Sanctioned`. Each role also has a flag on the node.
   of a pair one day at a time.
 - Every `TRANSFER` row has a `kind`: `token`, `native` or `internal`. An
   `internal` row is ETH a contract sends while it runs a call, such as the ETH
-  leg of a wrap. `FLOWS_TO` `tx_count` counts all three, so the rows of a pair
+  leg of a wrap. `FLOWED_TO` `tx_count` counts all three, so the rows of a pair
   are the transfers its link counts, up to the height the link was built to.
   `kind` is a column and a filter. Add `t.kind = "internal"` to the pair and the
   day to read only the internal rows.
@@ -503,7 +503,7 @@ Example batch query:
 ```bash
 cia mcp call graph_query_batch \
   network=robinhood \
-  'queries=[{"id":"count","query":"USE topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1"},{"id":"flows","query":"USE topology MATCH (src:Address)-[f:FLOWS_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 3"},{"id":"linked","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 3"}]'
+  'queries=[{"id":"count","query":"USE topology MATCH (a:Address) RETURN count(a) AS count LIMIT 1"},{"id":"flows","query":"USE topology MATCH (src:Address)-[f:FLOWED_TO]->(dst:Address) RETURN src.address AS source, dst.address AS target, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count LIMIT 3"},{"id":"linked","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, l.basis AS basis, l.confidence AS confidence LIMIT 3"}]'
 ```
 
 A batch is one call and counts the units of all its returned rows. The free
@@ -570,7 +570,7 @@ on `SWAPPED` checks every `SWAPPED` link. `LIMIT` stops the read only after it
 has found enough rows, so a filter that matches few or none can run to the
 60-second limit and fail with `query_timeout`. A discovery probe with no
 filter, such as
-`MATCH (:Address)-[r:FLOWS_TO]->(:Address) RETURN r.tx_count LIMIT 20`, finds
+`MATCH (:Address)-[r:FLOWED_TO]->(:Address) RETURN r.tx_count LIMIT 20`, finds
 its rows at once and stays valid.
 
 Put an address in the pattern, and pick one with few links. Read `degree_out`
@@ -618,7 +618,7 @@ Notes:
   are valid but heavy; at millions of edges they can exceed the 60-second
   per-query limit. See `docs/graph-query-compatibility.md` for the
   time-bounded sweep shape.
-- Confirm any lead with `FLOWS_TO` money-flow context and address labels
+- Confirm any lead with `FLOWED_TO` money-flow context and address labels
   before drawing conclusions.
 
 ## Full addresses and units
@@ -651,9 +651,9 @@ Liquidity pools are the other trace boundary. At a `:Pool`, manual traversal
 follows the
 [pool trace rule](../skills/chain-insights-cypher/SKILL.md#pool-trace-rule),
 so a trace does not fan out to every trader who used the pool. The start and
-every address in the middle of a manual `FLOWS_TO` walk must satisfy
+every address in the middle of a manual `FLOWED_TO` walk must satisfy
 `NOT src:Pool` and `NOT mid:Pool`, and the walk follows `SWAPPED` beside
-`FLOWS_TO` to cross a swap. On a walk of two or more hops the same addresses
+`FLOWED_TO` to cross a swap. On a walk of two or more hops the same addresses
 also satisfy the system guard of the skill: `NOT x:Protocol`,
 `NOT x:System`, and `NOT x.address IN [...]` with the zero and the dead
 address until the graph writes the `System` kind. Shared infrastructure such
@@ -685,7 +685,7 @@ Useful schema probes:
 cia mcp call graph_query_batch \
   network=robinhood \
   per_query_timeout_seconds=5 \
-  'queries=[{"id":"address_sample","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.is_exchange AS is_exchange LIMIT 10"},{"id":"flow_sample","query":"USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"linked_sample","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 10"},{"id":"operated_by_sample","query":"USE topology MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: \"0x...\"}) RETURN owner.address AS owner_address, operation.tx_count AS tx_count, operation.amount_usd_sum AS amount_usd_sum LIMIT 10"},{"id":"node_metric_sample","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.tx_out_count AS tx_out_count LIMIT 10"}]'
+  'queries=[{"id":"address_sample","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network, a.labels AS labels, a.is_exchange AS is_exchange LIMIT 10"},{"id":"flow_sample","query":"USE topology MATCH (src:Address)-[flow:FLOWED_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count LIMIT 10"},{"id":"linked_sample","query":"USE topology MATCH (a:Address)-[l:LINKED]-(b:Address) RETURN a.address AS address, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence LIMIT 10"},{"id":"operated_by_sample","query":"USE topology MATCH (owner:Address)-[operation:OPERATED_BY]->(operator:Address {address: \"0x...\"}) RETURN owner.address AS owner_address, operation.tx_count AS tx_count, operation.amount_usd_sum AS amount_usd_sum LIMIT 10"},{"id":"node_metric_sample","query":"USE topology MATCH (a:Address) RETURN a.address AS address, a.tx_out_count AS tx_out_count LIMIT 10"}]'
 ```
 
 Use endpoint-safe property projections like `a.address` and `flow.tx_count`
