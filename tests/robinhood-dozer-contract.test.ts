@@ -31,7 +31,7 @@ describe('Robinhood Dozer client contract', () => {
 
     expect(skill).toContain('ISO GQL')
     expect(skill).toContain('MATCH SHORTEST 1')
-    expect(skill).toContain('-[:FLOWS_TO]-{1,5}')
+    expect(skill).toContain('-[:FLOWED_TO]-{1,5}')
     expect(skill).not.toMatch(/\*\s*(BFS|DFS|WSHORTEST|ALLSHORTEST|KSHORTEST)/i)
     expect(skill).not.toMatch(/shortestPath|allShortestPaths/i)
     expect(skill).not.toMatch(/Memgraph/i)

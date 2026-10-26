@@ -86,10 +86,10 @@ describe('a _utc column named in a query', () => {
   it('rewrites the property to its millisecond column and keeps the alias', () => {
     expect(
       stripUtcProperties(
-        'USE topology MATCH (a:Address {address: "0x1"})-[f:FLOWS_TO]->(b:Address) RETURN f.first_seen_timestamp_utc AS first_seen_utc, f.last_seen_timestamp AS last_seen_timestamp, f.last_seen_timestamp_utc'
+        'USE topology MATCH (a:Address {address: "0x1"})-[f:FLOWED_TO]->(b:Address) RETURN f.first_seen_timestamp_utc AS first_seen_utc, f.last_seen_timestamp AS last_seen_timestamp, f.last_seen_timestamp_utc'
       )
     ).toBe(
-      'USE topology MATCH (a:Address {address: "0x1"})-[f:FLOWS_TO]->(b:Address) RETURN f.first_seen_timestamp AS first_seen_utc, f.last_seen_timestamp AS last_seen_timestamp, f.last_seen_timestamp'
+      'USE topology MATCH (a:Address {address: "0x1"})-[f:FLOWED_TO]->(b:Address) RETURN f.first_seen_timestamp AS first_seen_utc, f.last_seen_timestamp AS last_seen_timestamp, f.last_seen_timestamp'
     )
   })
 

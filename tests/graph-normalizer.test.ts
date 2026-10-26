@@ -35,7 +35,7 @@ describe('normalizeGraphPayload', () => {
         {
           source: '5Seed',
           target: '5Exchange',
-          type: 'FLOWS_TO',
+          type: 'FLOWED_TO',
           from_address: '5Seed',
           to_address: '5Exchange',
           amount_usd_sum: 12,
@@ -94,7 +94,7 @@ describe('normalizeGraphPayload', () => {
     expect(result.edges[0]).toMatchObject({
       source: '5Seed',
       target: '5Exchange',
-      edge_type: 'flows_to',
+      edge_type: 'flowed_to',
       amount_usd_sum: 12,
     })
     expect(result.edges[0]).not.toHaveProperty('from_address')
@@ -104,7 +104,7 @@ describe('normalizeGraphPayload', () => {
     expect(result.edges[1]).toMatchObject({
       source: '5Exchange',
       target: '0xabc',
-      edge_type: 'flows_to',
+      edge_type: 'flowed_to',
       tx_count: 2,
     })
     for (const edge of result.edges) {
@@ -114,7 +114,7 @@ describe('normalizeGraphPayload', () => {
     }
   })
 
-  it('does not collapse money_trail/trail_ends_at edges into flows_to (own visual layer)', async () => {
+  it('does not collapse money_trail/trail_ends_at edges into flowed_to (own visual layer)', async () => {
     const { normalizeGraphPayload } = await import('../src/investigation/graph-normalizer.js')
 
     const result = normalizeGraphPayload({
@@ -151,7 +151,7 @@ describe('normalizeGraphPayload', () => {
       edge_type: 'trail_ends_at',
     })
     for (const edge of result.edges) {
-      expect(edge['edge_type']).not.toBe('flows_to')
+      expect(edge['edge_type']).not.toBe('flowed_to')
     }
   })
 

@@ -35,7 +35,7 @@ export const LINK_SAMPLE_LIMIT = 5
 
 /** The link types an agent queries. Each is sampled only when the graph lists it. */
 export const SAMPLED_LINK_TYPES = [
-  'FLOWS_TO',
+  'FLOWED_TO',
   'OPERATED_BY',
   'LINKED',
   'SWAPPED',
