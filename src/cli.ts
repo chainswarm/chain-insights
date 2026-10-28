@@ -973,11 +973,21 @@ mcpCommand.addCommand(
           }
           if (tool === 'meta_subscription_status') {
             try {
-              const { getWalletAccount } = await import('./wallet/tools.js')
-              const account = await getWalletAccount()
+              // The server reads the wallet from the proof header; only an
+              // older server whose schema requires `wallet` is sent it.
+              const { subscriptionStatusArguments, subscriptionStatusNeedsWallet } =
+                await import('./mcp/subscription-status.js')
+              const remote = (await client.listTools()).tools.find(
+                (t) => t.name === 'subscription_status'
+              )
+              let wallet: string | null = null
+              if (subscriptionStatusNeedsWallet(remote)) {
+                const { getWalletAccount } = await import('./wallet/tools.js')
+                wallet = (await getWalletAccount()).address
+              }
               const result = await client.callTool({
                 name: 'subscription_status',
-                arguments: { wallet: account.address },
+                arguments: subscriptionStatusArguments(remote, wallet),
               })
               printMcpTextContent(
                 result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },

@@ -177,11 +177,19 @@ async function runMcpCallAction(
   }
   if (tool === 'meta_subscription_status') {
     try {
-      const { getWalletAccount } = await import('../src/wallet/tools.js')
-      const account = await getWalletAccount()
+      const { subscriptionStatusArguments, subscriptionStatusNeedsWallet } =
+        await import('../src/mcp/subscription-status.js')
+      const remote = (await client.listTools()).tools.find(
+        (t: { name: string }) => t.name === 'subscription_status'
+      )
+      let wallet: string | null = null
+      if (subscriptionStatusNeedsWallet(remote)) {
+        const { getWalletAccount } = await import('../src/wallet/tools.js')
+        wallet = (await getWalletAccount()).address
+      }
       const result = await client.callTool({
         name: 'subscription_status',
-        arguments: { wallet: account.address },
+        arguments: subscriptionStatusArguments(remote, wallet),
       })
       printMcpTextContent(
         result as { content?: Array<{ type: string; text?: string }>; isError?: boolean },
@@ -567,7 +575,14 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     expect(text).toContain('"usage_status_tool": "unavailable"')
   })
 
-  it('mcp call sends meta_subscription_status through the upstream subscription_status with the local wallet', async () => {
+  it.each([
+    { server: 'reads the wallet proof', inputSchema: { type: 'object', properties: {} }, want: {} },
+    {
+      server: 'still requires a wallet argument',
+      inputSchema: { type: 'object', properties: { wallet: { type: 'string' } }, required: ['wallet'] },
+      want: { wallet: '0x0000000000000000000000000000000000000042' },
+    },
+  ])('mcp call sends meta_subscription_status when the server $server', async ({ inputSchema, want }) => {
     mockLoadConfig.mockResolvedValue({
       graphMcpEndpoint: 'https://mcp.example.test/',
     })
@@ -577,6 +592,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     })
     mockCreateConfiguredGraphMcpFetch.mockResolvedValue(fetch)
     mockClientConnect.mockResolvedValue(undefined)
+    mockClientListTools.mockResolvedValue({ tools: [{ name: 'subscription_status', inputSchema }] })
     mockClientCallTool.mockResolvedValue({
       content: [{ type: 'text', text: '{"window_end":"2026-10-01T00:00:00Z"}' }],
     })
@@ -586,7 +602,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
 
     expect(mockClientCallTool).toHaveBeenCalledWith({
       name: 'subscription_status',
-      arguments: { wallet: '0x0000000000000000000000000000000000000042' },
+      arguments: want,
     })
     expect(consoleLogSpy).toHaveBeenCalledWith('{\n  "window_end": "2026-10-01T00:00:00Z"\n}')
   })
@@ -601,6 +617,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     })
     mockCreateConfiguredGraphMcpFetch.mockResolvedValue(fetch)
     mockClientConnect.mockResolvedValue(undefined)
+    mockClientListTools.mockResolvedValue({ tools: [] })
     mockClientCallTool.mockRejectedValue(
       new Error('MCP error -32602: unknown tool "subscription_status"')
     )

@@ -21,7 +21,16 @@ import {
 } from './tool-visibility.js'
 import { PaymentRequiredError } from './client.js'
 import { freeTierSpentText, primitiveBackendUsageStatus } from './usage-status.js'
-import { unavailableSubscriptionStatus } from './subscription-status.js'
+import {
+  subscriptionStatusArguments,
+  subscriptionStatusNeedsWallet,
+  unavailableSubscriptionStatus,
+} from './subscription-status.js'
+import {
+  META_SUBSCRIPTION_STATUS_DESCRIPTION,
+  SUBSCRIPTION_TOPUP_DESCRIPTION,
+  SUBSCRIPTION_TOPUP_TOOL,
+} from '../subscription/rules.js'
 import { mirrorGraphNetworkCapabilities } from './capabilities.js'
 import { ROUTING_NOT_SERVED, routingHead, routingHintLines } from './layer-routing.js'
 import {
@@ -156,8 +165,8 @@ export const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   meta_schema: META_SCHEMA_DESCRIPTION,
   [META_DEX_LOOKUP_TOOL]: META_DEX_LOOKUP_DESCRIPTION,
   meta_usage_status: "Return the caller's public free graph_query quota for the current UTC day.",
-  meta_subscription_status:
-    "Return the caller's CIA subscription window end, daily allowance, consumption, and tier.",
+  meta_subscription_status: META_SUBSCRIPTION_STATUS_DESCRIPTION,
+  [SUBSCRIPTION_TOPUP_TOOL]: SUBSCRIPTION_TOPUP_DESCRIPTION,
   meta_help: 'Show a short guide to Chain Insights tools and workflow.',
   meta_rules:
     'Return the Chain Insights rules: how to write graph_query and graph_query_batch reads that are served, how to name columns so the answer is drawn as a graph, a time series or a table, and how to write the answer. Call it once per chat, before the first graph query, when the chain-insights-cypher skill is not loaded. Takes no arguments: send {}.',
@@ -330,27 +339,27 @@ function fallbackGraphPrimitiveTools(): McpTool[] {
 }
 
 /**
- * Local payment wallet address for tools that address the caller on the
- * server (subscription_status). Returns null — never throws — when no wallet
- * is configured; callers degrade to an unavailable-shape result.
- */
-/**
- * Local payment wallet address for the top-up view: null when no wallet file
- * exists, and an error when the file exists but cannot be read. Reads the
- * address only; nothing is signed or sent.
+ * Local payment wallet address for the top-up views: null when no wallet file
+ * exists, and an error when the file exists but cannot be read or its key is
+ * public. Reads the address only; nothing is signed or sent.
  */
 async function localTopupWalletAddress(): Promise<string | null> {
   const { isWalletConfigured } = await import('../wallet/index.js')
   if (!(await isWalletConfigured())) return null
   const { getWalletAccount } = await import('../wallet/tools.js')
-  return (await getWalletAccount()).address
+  const account = await getWalletAccount()
+  if (account.keyIsPublic === true) {
+    const { PUBLIC_KEY_WALLET_TEXT } = await import('../wallet/known-keys.js')
+    throw new Error(PUBLIC_KEY_WALLET_TEXT)
+  }
+  return account.address
 }
 
+/** The local wallet address for an older server that still asks for it; null when none. */
 async function localSubscriptionWalletAddress(): Promise<string | null> {
   try {
     const { getWalletAccount } = await import('../wallet/tools.js')
-    const account = await getWalletAccount()
-    return account.address
+    return (await getWalletAccount()).address
   } catch {
     return null
   }
@@ -1381,18 +1390,16 @@ export async function createProxy(): Promise<void> {
             )
           )
         }
-        const walletAddress = await localSubscriptionWalletAddress()
-        if (!walletAddress) {
-          return jsonTextResult(
-            unavailableSubscriptionStatus(
-              graphMcpEndpoint,
-              'No local payment wallet is configured; run `cia wallet create` or `cia wallet import` first.'
-            )
-          )
-        }
+        // The server reads the wallet from the X-CIA-Wallet-Proof header. Only
+        // an older server whose schema still requires `wallet` gets it.
+        const remoteStatusTool = (tools ?? []).find((tool) => tool.name === 'subscription_status')
+        const statusArguments = subscriptionStatusArguments(
+          remoteStatusTool,
+          subscriptionStatusNeedsWallet(remoteStatusTool) ? await localSubscriptionWalletAddress() : null
+        )
         const result = (await remoteClient.callTool({
           name: 'subscription_status',
-          arguments: { wallet: walletAddress },
+          arguments: statusArguments,
         })) as RemoteToolResult
         if (result.isError === true) {
           const firstText = Array.isArray(result.content)
@@ -1401,9 +1408,12 @@ export async function createProxy(): Promise<void> {
                   block.type === 'text' && typeof block.text === 'string'
               )
             : undefined
-          const reason = firstText?.text
-            ? `subscription_status failed: ${firstText.text}`
-            : 'subscription_status failed: the server returned an error'
+          const proofMissing = /wallet proof required/i.test(firstText?.text ?? '')
+          const reason = proofMissing
+            ? 'subscription_status failed: wallet proof required. The local wallet proves who is asking; run `cia wallet create` if none exists.'
+            : firstText?.text
+              ? `subscription_status failed: ${firstText.text}`
+              : 'subscription_status failed: the server returned an error'
           return jsonTextResult(unavailableSubscriptionStatus(graphMcpEndpoint, reason))
         }
         const structuredContent = isRecord(result.structuredContent)
