@@ -3,6 +3,15 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.73.1] - 2026-10-28 — the release test waits for a loaded runner
+
+### Fixed
+
+- The docs test that runs `--help` for every documented command, and the one
+  that lists every command, wait up to 60 s. The subscription commands made a
+  loaded build host take 5.4 s, past the 5 s default, so the npm publish of
+  0.73.0 failed twice. No product change: 0.73.1 is 0.73.0 published.
+
 ## [0.73.0] - 2026-10-28 — the subscription in $CIA, bought in a terminal
 
 ### Added
