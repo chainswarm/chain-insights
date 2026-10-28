@@ -108,11 +108,12 @@ Never touches:
 | `meta_schema`               | Read the live graph schema of a network: labels, link types, fields, indexes       |
 | `meta_dex_lookup`           | Turn an exchange name (Aero, Uniswap, Virtuals) into its contracts, pools, reads   |
 | `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                           |
-| `meta_subscription_status`  | Check the caller's $CIA subscription window and allowance                          |
+| `meta_subscription_status`  | Check your wallet's subscription: days left, today's allowance, payments pending   |
 | `meta_rules`                | Read the answer rules when the `chain-insights-cypher` skill is not loaded         |
 | `meta_help`                 | Show Chain Insights tool and workflow guidance                                     |
 | `wallet_balance`            | Show the local payment wallet amount                                               |
 | `wallet_topup`              | Show the local payment wallet address and its QR code for a USDC top-up on Base    |
+| `subscription_topup`        | Show the same wallet and its QR code for a $CIA and ETH top-up on Robinhood Chain  |
 
 ## Dependencies
 
@@ -123,6 +124,9 @@ Upstream:
   production endpoint `https://mcp.chain-insights.ai/`.
 - **Base mainnet RPC** — wallet balance and payment only
   (`BASE_RPC_URL` override). Not a graph-support claim.
+- **Robinhood Chain RPC** — the $CIA subscription top-up and buy only
+  (`ROBINHOOD_RPC_URL` override).
+- **CoinGecko** — the $CIA price of a subscription buy, and nothing else.
 
 Downstream:
 
@@ -202,7 +206,7 @@ Chain Insights Graph bills by **billable units**.
 | --- | --- | --- |
 | Free tier | Free | 5,000 units a day per address, 30 requests a minute, resets at midnight UTC |
 | Pay as you go (USDC per call, and the ACP offering) | One cent per 100 units, rounded up to the next cent, one cent minimum per call. A batch is one call. | No daily limit, no rate limit for paying agents |
-| Subscription in $CIA (not yet live) | Paid in $CIA | 100,000 units a day, 60 requests a minute |
+| Subscription in $CIA (not yet live) | 4 USD a day, paid in $CIA ([how](#subscription-in-cia)) | 100,000 units (10 USD) a day, 60 requests a minute |
 
 **Check your own count.** `src/lib/recount-units.ts` mirrors the server's
 counting logic. Use it client-side to recount units in a response and
@@ -215,18 +219,49 @@ cut off. When you see `truncated: true`:
 - Page through results with `SKIP` to fetch the next batch.
 - Add a tighter `WHERE` filter before raising the limit.
 
+## Subscription in $CIA
+
+The subscription is bought in a terminal, by you. An agent cannot buy it:
+no MCP tool can pay.
+
+1. Fund your wallet: `cia subscription topup`. It prints your own wallet
+   address and its QR code, and opens a local page. Send $CIA and a little
+   ETH, for gas, on Robinhood Chain.
+2. Buy days: `cia subscription buy --days N`. A wallet holds at most 90 days: one buy pays at most 90 minus the days left, so a wallet holding 90 days buys again after a day has passed.
+3. Check it: `cia subscription status`.
+
+What a buy does:
+
+- A day costs 4 USD (120 USD a month of 30 days), paid in $CIA at the
+  CoinGecko price. The price must be at most 10 minutes old.
+- A subscriber may spend 10 USD of queries a day, 100,000 units.
+- It shows the days, the USD, the $CIA amount and the price, and waits for
+  your typed `yes`. `--yes` skips the prompt for a run with no terminal.
+- It signs up to two transactions on Robinhood Chain: an approval of the
+  exact amount, only when needed, then the payment.
+- It waits up to 2 minutes for the server to credit the payment. A payment
+  not credited by then shows in `cia subscription status`. Do not pay again:
+  `buy` refuses while a payment is pending.
+- Never send $CIA by hand to any other address. It is not credited.
+
+A wallet whose private key is public, such as the key `1` or a key of a
+public test mnemonic, is refused: bots take anything sent to it within
+seconds. Replace it with `cia wallet create --replace`.
+
 ## Prerequisites And Environment Setup
 
 - **Linux** is the reference platform; shell snippets use bash (macOS works
   the same; on Windows use WSL).
 - **Node.js 22 or newer** (`package.json` engines) and npm.
 
-`.env.example` documents the two supported overrides:
+`.env.example` documents the supported overrides:
 
 | Variable                            | Purpose                                                                                               |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `BASE_RPC_URL`                      | Base RPC override for wallet balance and the local top-up page                                        |
 | `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT` | Chain Insights Graph endpoint override; local HTTP loopback allowed, remote hosts must use `https://` |
+| `ROBINHOOD_RPC_URL`                 | Robinhood Chain RPC override for the $CIA top-up page, balances and `cia subscription buy`            |
+| `CHAIN_INSIGHTS_COINGECKO_API_KEY`  | Optional CoinGecko demo API key for the $CIA price of `cia subscription buy`                          |
 
 ## Run
 

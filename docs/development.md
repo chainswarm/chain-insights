@@ -91,7 +91,7 @@ names the source file it was verified against.
 - Local tools live in `src/mcp/proxy.ts` (`LOCAL_TOOL_NAMES`):
   `meta_network_capabilities`, `meta_schema`, `meta_rules`, `meta_help`,
   `meta_usage_status`, `meta_subscription_status`, `wallet_balance`,
-  `wallet_topup`, and `graph_expand`, which only the view calls
+  `wallet_topup`, `subscription_topup`, and `graph_expand`, which only the view calls
   (`APP_ONLY_LOCAL_TOOL_NAMES`).
 - `meta_schema` (`src/mcp/graph-schema.ts`) builds the live graph schema of one
   network from the catalog statements of the graph endpoint (`CALL db.labels()`,

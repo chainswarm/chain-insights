@@ -85,9 +85,10 @@ The proxy:
 | `meta_rules`                | Read the answer rules when the `chain-insights-cypher` skill is not loaded           |
 | `meta_help`                 | Show Chain Insights tool and workflow guidance                                       |
 | `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                             |
-| `meta_subscription_status`  | Check the caller's $CIA subscription window and allowance                            |
+| `meta_subscription_status`  | Check the proven wallet's subscription, today's allowance and pending payments       |
 | `wallet_balance`            | Show the local payment wallet address, payment network, token, and amount            |
 | `wallet_topup`              | Show the local payment wallet address and its QR code, with a Claude view            |
+| `subscription_topup`        | Show the same wallet and its QR code for $CIA and ETH on Robinhood Chain, read-only  |
 | `graph_expand`              | Expand a node or list a link's transfers in an open picture; called by the view only |
 
 `meta_schema` reads the live graph schema of one network: the labels, the link
@@ -165,6 +166,12 @@ The rule:
    the skill's trigger words.
 3. The skill names the door as its first step.
 
+The subscription rules travel the same way. The descriptions of
+`meta_subscription_status`, `subscription_topup` and `wallet_topup` carry them:
+buying is `cia subscription buy` in a terminal, an agent never buys, and $CIA
+sent by hand to any other address is not credited. The core skill repeats them
+as its rule 12. `tests/subscription-rules.test.ts` holds both.
+
 A host that loads skills gets both. A host that loads none gets the door.
 `tests/host-parity.test.ts` checks it: every
 `skills/chain-insights-<protocol>/SKILL.md` has a door, the door is in
@@ -225,6 +232,14 @@ Graph endpoint serves data only:
 - `wallet_topup` draws `ui://chain-insights/topup`: the wallet address, its QR
   code, Base Mainnet and USDC, in Claude's light or dark theme. The view signs
   nothing and sends nothing. Only the local proxy offers it.
+- `subscription_topup` draws the same view with Robinhood Chain and $CIA, and
+  its answer carries the $CIA and ETH balances. It takes no arguments and
+  names only the user's own wallet. No tool buys: the user runs
+  `cia subscription buy --days N` in a terminal.
+- `meta_subscription_status` takes no arguments. The server reads the wallet
+  from the `X-CIA-Wallet-Proof` header the proxy signs, in paid and in debug
+  mode. With no wallet, or a wallet whose key is public, there is no proof and
+  the server answers `wallet proof required`.
 
 Claude Code draws no views. Every tool answers in full as text.
 
@@ -336,9 +351,11 @@ payment continues automatically when `wallet ready` reports ready.
 The free tier includes `graph_query_batch`. Pay as you go on x402 (and the ACP
 offering) costs one cent per 100 units, rounded up to the next cent, with one
 cent minimum per call; a batch is one call. It has no daily limit and no rate
-limit for paying agents. A subscription in $CIA (not yet live) gives 100,000
-units a day at 60 requests a minute. Use explicit LIMIT and pagination in your
-query when you want bounded result sets.
+limit for paying agents. A subscription in $CIA (not yet live) costs 4 USD a
+day and gives 100,000 units (10 USD) a day at 60 requests a minute; the user
+buys it with `cia subscription buy --days N` (README, "Subscription in $CIA").
+Use explicit LIMIT and pagination in your query when you want bounded result
+sets.
 
 ### CLI Output And Tool Versions
 
@@ -358,6 +375,15 @@ cia mcp call --json graph_query \
 For graph reads, install `chain-insights-cypher`. It teaches ISO GQL, the
 three read layers, one query for each kind of graph search, and how to find
 the fields of the graph.
+
+Subscription in $CIA, paid on Robinhood Chain:
+
+```bash
+cia subscription topup
+# Send $CIA and a little ETH on Robinhood Chain to the address it shows.
+cia subscription buy --days 30
+cia subscription status
+```
 
 Paid x402 mode:
 

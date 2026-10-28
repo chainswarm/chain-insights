@@ -1,4 +1,5 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
+import { keccak256, toHex } from 'viem'
 
 const mockWrappedFetch = vi.hoisted(() => vi.fn(async () => new Response('{}')))
 const mockPrepareWalletForPaidCalls = vi.hoisted(() => vi.fn())
@@ -453,6 +454,7 @@ describe('MCP client (02-01)', () => {
   })
 
   it('createConfiguredGraphMcpFetch in debug mode requires and uses graphMcpAuthToken without wallet', async () => {
+    mockIsWalletConfigured.mockResolvedValue(false)
     const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = []
     const baseFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       calls.push({ input, init })
@@ -473,7 +475,7 @@ describe('MCP client (02-01)', () => {
       expect(headers.get('X-MCP-Test-Key')).toBe('graph-debug-token')
       expect(headers.get('X-Chain-Insights-Test-Key')).toBe('graph-debug-token')
       expect(headers.get('Authorization')).toBe('Bearer graph-debug-token')
-      expect(mockIsWalletConfigured).not.toHaveBeenCalled()
+      expect(headers.get('X-CIA-Wallet-Proof')).toBeNull()
       expect(mockDecryptKey).not.toHaveBeenCalled()
     } finally {
       vi.unstubAllGlobals()
@@ -557,9 +559,8 @@ describe('MCP client (02-01)', () => {
 
   it('createConfiguredGraphMcpFetch in paid mode ignores debug tokens and uses wallet/x402', async () => {
     mockIsWalletConfigured.mockResolvedValue(true)
-    mockDecryptKey.mockResolvedValue(
-      '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
-    )
+    // A key no one else knows: a repeated byte such as 0xdeadbeef... is public.
+    mockDecryptKey.mockResolvedValue(keccak256(toHex('chain-insights paid-mode test key')))
 
     const { createConfiguredGraphMcpFetch } = await import('../src/mcp/client.js')
     const paymentFetch = await createConfiguredGraphMcpFetch({
@@ -571,6 +572,20 @@ describe('MCP client (02-01)', () => {
     expect((paymentFetch as any)._isMockWrapped).toBe(true)
     expect(mockIsWalletConfigured).toHaveBeenCalledOnce()
     expect(mockDecryptKey).toHaveBeenCalledOnce()
+  })
+
+  it('createConfiguredGraphMcpFetch in paid mode never pays from a public key', async () => {
+    mockIsWalletConfigured.mockResolvedValue(true)
+    mockDecryptKey.mockResolvedValue(`0x${'de'.repeat(32)}`)
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+    try {
+      const { createConfiguredGraphMcpFetch } = await import('../src/mcp/client.js')
+      const paymentFetch = await createConfiguredGraphMcpFetch({ graphMcpMode: 'paid' })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((paymentFetch as any)._isMockWrapped).toBeUndefined()
+    } finally {
+      stderr.mockRestore()
+    }
   })
 
   it('reorders 402 accepts by CHAIN_INSIGHTS_PAYMENT_ASSET_PREFERENCE before the payment scheme picks', async () => {

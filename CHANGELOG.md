@@ -3,6 +3,43 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.73.0] - 2026-10-28 — the subscription in $CIA, bought in a terminal
+
+### Added
+- `cia subscription topup | buy --days N | status`. `topup` prints your own
+  wallet, a terminal QR code and opens a local page to fund it with $CIA and a
+  little ETH on Robinhood Chain. `buy` quotes 4 USD a day in $CIA at the
+  CoinGecko price (refused when older than 10 minutes), checks the balances
+  and the pending payments, waits for a typed yes (or `--yes`), approves the
+  exact amount only when needed, pays, checks the payment's receipt, and waits
+  up to 2 minutes for the credit. One buy pays 1 to 90 days. It never resends.
+  `status` reads the subscription of the wallet by its proof.
+- `subscription_topup`, a read-only MCP tool with no arguments: the local
+  wallet on Robinhood Chain, $CIA and the balances. No MCP tool can buy.
+- `cia wallet create --replace` swaps a wallet whose key is public for a new
+  one and backs up the old file.
+- `ROBINHOOD_RPC_URL` and `CHAIN_INSIGHTS_COINGECKO_API_KEY`.
+- A T2 tier (`ci/t2.sh`): the buy against anvil with chain ID 4663 and the
+  pinned sink contract.
+
+### Changed
+- `meta_subscription_status` and `cia mcp call meta_subscription_status` send
+  no wallet argument: the server reads the wallet from the proof header. The
+  answer carries `active`, `window_start`, `days_left`, today's allowance and
+  use, and `pending_payments`. Debug mode now attaches the wallet proof too.
+- The descriptions of `meta_subscription_status`, `subscription_topup` and
+  `wallet_topup`, and the `chain-insights-cypher` skill (rule 12), carry the
+  subscription rules: only the user buys, in a terminal; never send $CIA by
+  hand.
+
+### Fixed
+- A wallet whose private key is public (a small number such as 1, a repeated
+  byte, a public test mnemonic account) was accepted. It is now refused on
+  create, import and `config set`; a stored one is flagged, and the top-up,
+  the buy, the payment setup and paid calls refuse it.
+- A wallet with no subscription answered `window_end: null`, which the status
+  parser read as malformed. It now reads as no active subscription.
+
 ## [0.71.4] - 2026-10-25 — the CLI hands the lookup its address
 
 ### Fixed

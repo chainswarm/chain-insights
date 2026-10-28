@@ -2,6 +2,12 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { keccak256, pad, toHex, type Hex } from 'viem'
+import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts'
+
+// A key no one else knows. A literal such as 0xdeadbeef... repeats four bytes
+// and is refused as public (src/wallet/known-keys.ts).
+const privateTestKey = (label: string): Hex => keccak256(toHex(`chain-insights wallet test ${label}`))
 
 describe('Wallet module (MCP-01)', () => {
   let fakeHome: string
@@ -41,10 +47,10 @@ describe('Wallet module (MCP-01)', () => {
 
   it('setWalletPrivateKey stores the key and returns the derived payer address', async () => {
     const { setWalletPrivateKey, decryptKey } = await import('../src/wallet/index.js')
-    const testKey = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
+    const testKey = privateTestKey('stores')
     const address = await setWalletPrivateKey(testKey)
     const recovered = await decryptKey()
-    expect(address).toBe('0xC96aAa54E2d44c299564da76e1cD3184A2386B8D')
+    expect(address).toBe(privateKeyToAccount(testKey).address)
     expect(recovered).toBe(testKey)
   })
 
@@ -84,8 +90,8 @@ describe('Wallet module (MCP-01)', () => {
 
   it('setWalletPrivateKey refuses to overwrite an existing wallet without force', async () => {
     const { setWalletPrivateKey, decryptKey } = await import('../src/wallet/index.js')
-    const firstKey = '0x1111111111111111111111111111111111111111111111111111111111111111'
-    const secondKey = '0x2222222222222222222222222222222222222222222222222222222222222222'
+    const firstKey = privateTestKey('first')
+    const secondKey = privateTestKey('second')
     await setWalletPrivateKey(firstKey)
 
     await expect(setWalletPrivateKey(secondKey)).rejects.toThrow(/already exists/)
@@ -97,8 +103,8 @@ describe('Wallet module (MCP-01)', () => {
     const { setWalletPrivateKey, decryptKey, walletPath } = await import('../src/wallet/index.js')
     const { readdir } = await import('node:fs/promises')
     const { dirname, basename } = await import('node:path')
-    const firstKey = '0x1111111111111111111111111111111111111111111111111111111111111111'
-    const secondKey = '0x2222222222222222222222222222222222222222222222222222222222222222'
+    const firstKey = privateTestKey('first')
+    const secondKey = privateTestKey('second')
     await setWalletPrivateKey(firstKey)
 
     await setWalletPrivateKey(secondKey, { force: true })
@@ -159,5 +165,101 @@ describe('Wallet module (MCP-01)', () => {
     // Different salt each time means different ciphertext
     expect(d1['salt']).not.toBe(d2['salt'])
     expect(d1['data']).not.toBe(d2['data'])
+  })
+})
+
+describe('public private keys are refused (src/wallet/known-keys.ts)', () => {
+  let fakeHome: string
+  let prevHome: string | undefined
+
+  beforeEach(async () => {
+    fakeHome = join(tmpdir(), `ci-wallet-public-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    await mkdir(join(fakeHome, '.chain-insights'), { recursive: true })
+    prevHome = process.env['HOME']
+    process.env['HOME'] = fakeHome
+  })
+
+  afterEach(async () => {
+    process.env['HOME'] = prevHome
+    await rm(fakeHome, { recursive: true, force: true })
+  })
+
+  const keyOf = (value: bigint): Hex => pad(toHex(value), { size: 32 })
+
+  it('refuses the private key 1', async () => {
+    const { setWalletPrivateKey, isWalletConfigured } = await import('../src/wallet/index.js')
+    await expect(setWalletPrivateKey(keyOf(1n))).rejects.toThrow('small number')
+    expect(await isWalletConfigured()).toBe(false)
+  })
+
+  it('refuses a key below 2^128', async () => {
+    const { publicKeyReason } = await import('../src/wallet/known-keys.js')
+    for (let value = 2n; value <= 16n; value++) {
+      expect(publicKeyReason(keyOf(value)), value.toString()).toBe('the key is a small number')
+    }
+    expect(publicKeyReason(keyOf((1n << 128n) - 1n))).toBe('the key is a small number')
+    expect(publicKeyReason(keyOf(1n << 128n))).not.toBe('the key is a small number')
+  })
+
+  it('refuses a repeated-byte key', async () => {
+    const { publicKeyReason } = await import('../src/wallet/known-keys.js')
+    expect(publicKeyReason(`0x${'ab'.repeat(32)}`)).toBe('the key repeats a few bytes')
+    expect(publicKeyReason(`0x${'deadbeef'.repeat(8)}`)).toBe('the key repeats a few bytes')
+  })
+
+  it('refuses anvil account 0 derived from the public test mnemonic', async () => {
+    const { setWalletPrivateKey } = await import('../src/wallet/index.js')
+    const account = mnemonicToAccount('test test test test test test test test test test test junk')
+    const key = toHex(account.getHdKey().privateKey!)
+    await expect(setWalletPrivateKey(key)).rejects.toThrow('public test mnemonic')
+    for (const index of [1, 19]) {
+      const other = mnemonicToAccount('test test test test test test test test test test test junk', { addressIndex: index })
+      const { isPrivateKeyPublic } = await import('../src/wallet/known-keys.js')
+      expect(isPrivateKeyPublic(toHex(other.getHdKey().privateKey!))).toBe(true)
+    }
+  })
+
+  it('a generated key passes the guard 1000 times', async () => {
+    const { generateWalletPrivateKey } = await import('../src/wallet/create.js')
+    const { isPrivateKeyPublic } = await import('../src/wallet/known-keys.js')
+    for (let i = 0; i < 1000; i++) expect(isPrivateKeyPublic(generateWalletPrivateKey())).toBe(false)
+  })
+
+  it('a stored public key loads flagged and topup refuses it', async () => {
+    // encryptKey is the low-level writer: it plants the key an older version stored.
+    const { encryptKey } = await import('../src/wallet/index.js')
+    const { assertWalletKeyNotPublic, getWalletAccount } = await import('../src/wallet/tools.js')
+    const { PUBLIC_KEY_WALLET_TEXT } = await import('../src/wallet/known-keys.js')
+    await encryptKey(keyOf(1n))
+    const account = await getWalletAccount()
+    expect(account.address).toBe('0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf')
+    expect(account.keyIsPublic).toBe(true)
+    expect(() => assertWalletKeyNotPublic(account)).toThrow(PUBLIC_KEY_WALLET_TEXT)
+    const { approvePaymentAllowance } = await import('../src/wallet/tools.js')
+    await expect(approvePaymentAllowance(account)).rejects.toThrow(PUBLIC_KEY_WALLET_TEXT)
+    await encryptKey(privateTestKey('private'))
+    expect((await getWalletAccount()).keyIsPublic).toBeUndefined()
+  })
+
+  it('create --replace replaces only a public key and backs it up', async () => {
+    const { encryptKey, decryptKey, replacePublicWallet, walletPath } = await import('../src/wallet/index.js')
+    const { readdir } = await import('node:fs/promises')
+    const { dirname, basename } = await import('node:path')
+    const backups = async () =>
+      (await readdir(dirname(walletPath()))).filter((name) => name.startsWith(`${basename(walletPath())}.bak`))
+
+    await expect(replacePublicWallet(privateTestKey('new'))).rejects.toThrow('no readable wallet exists')
+
+    const kept = privateTestKey('kept')
+    await encryptKey(kept)
+    await expect(replacePublicWallet(privateTestKey('new'))).rejects.toThrow("This wallet's key is private")
+    expect(await decryptKey()).toBe(kept)
+    expect(await backups()).toHaveLength(0)
+
+    await encryptKey(keyOf(1n))
+    const address = await replacePublicWallet(privateTestKey('new'))
+    expect(address).toBe(privateKeyToAccount(privateTestKey('new')).address)
+    expect(await decryptKey()).toBe(privateTestKey('new'))
+    expect(await backups()).toHaveLength(1)
   })
 })

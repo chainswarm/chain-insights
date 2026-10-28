@@ -4,6 +4,7 @@ name: Verify
 # runs on the agent's host (AP1000 change local-ci-gate, C1):
 #
 #   T1     ci/t1.sh     typecheck, build, vitest with coverage   180 s
+#   T2     ci/t2.sh     vitest t2 project against anvil          600 s
 #   lint   ci/lint.sh   oxlint, secret pattern scan, egress scan 120 s
 #   build  ci/build.sh  build, publint, attw, release gate, pack
 #
@@ -67,6 +68,23 @@ jobs:
           name: coverage-lcov
           path: .ci/t1/lcov.info
           if-no-files-found: ignore
+
+  t2:
+    name: T2 (anvil)
+    runs-on: [self-hosted, chainswarm-runner, X64]
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: T2
+        run: bash ci/t2.sh
 
   lint:
     name: lint

@@ -91,6 +91,13 @@ vi.mock('../src/wallet/topup-server.js', () => ({
   generateArtifactHtml: vi.fn().mockReturnValue('<html>copied topup component</html>'),
 }))
 
+// The Robinhood Chain balance reads of subscription_topup: no node in a push test.
+vi.mock('../src/wallet/robinhood.js', async (importOriginal) => ({
+  ...((await importOriginal()) as Record<string, unknown>),
+  getCiaBalance: vi.fn().mockResolvedValue('1200.5'),
+  getRobinhoodEthBalance: vi.fn().mockResolvedValue('0.002'),
+}))
+
 vi.mock('../src/mcp/client.js', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>
   return {
@@ -1378,10 +1385,21 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(toolNames).not.toContain('subscription_status')
   })
 
-  it('forwards meta_subscription_status to the upstream subscription_status with the local wallet', async () => {
+  it.each([
+    {
+      server: 'meta_subscription_status sends no wallet argument when the server reads the proof',
+      inputSchema: { type: 'object', properties: { wallet: { type: 'string' } } },
+      want: {},
+    },
+    {
+      server: 'meta_subscription_status sends the local wallet only while the server schema requires it',
+      inputSchema: { type: 'object', properties: { wallet: { type: 'string' } }, required: ['wallet'] },
+      want: { wallet: '0x0000000000000000000000000000000000000001' },
+    },
+  ])('$server', async ({ inputSchema, want }) => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce([
-      { name: 'subscription_status', description: 'Subscription status' },
+      { name: 'subscription_status', description: 'Subscription status', inputSchema },
     ])
 
     const { createProxy } = await import('../src/mcp/proxy.js')
@@ -1399,13 +1417,16 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         schema: 'chain-insights.result.v1',
         tool: 'subscription_status',
         facts: {
-          subscription: {
-            wallet: '0x0000000000000000000000000000000000000001',
-            window_end: '2026-10-01T00:00:00Z',
-            allowance_usd: 5,
-            consumed_usd: 1.25,
-            tier: 16,
-          },
+          wallet: '0x0000000000000000000000000000000000000001',
+          active: true,
+          window_start: '2026-10-20T00:00:00Z',
+          window_end: '2026-11-01T00:00:00Z',
+          days_left: 4,
+          daily_allowance_usd: 10,
+          consumed_today_usd: 1.25,
+          remaining_today_usd: 8.75,
+          tier: 'subscriber',
+          pending_payments: [],
         },
       },
       isError: false,
@@ -1418,12 +1439,123 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     expect(clientInstance.callTool).toHaveBeenCalledWith({
       name: 'subscription_status',
-      arguments: { wallet: '0x0000000000000000000000000000000000000001' },
+      arguments: want,
     })
     expect(result.isError).toBe(false)
     expect(result.structuredContent.tool).toBe('meta_subscription_status')
     expect(result.content[0].text).toContain('"tool": "meta_subscription_status"')
-    expect(result.content[0].text).toContain('"window_end": "2026-10-01T00:00:00Z"')
+    expect(result.content[0].text).toContain('"window_end": "2026-11-01T00:00:00Z"')
+  })
+
+  it('meta_subscription_status takes no arguments', async () => {
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    await createProxy()
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const config = findToolConfig(serverInstance, 'meta_subscription_status')
+    const schema = config.inputSchema as z.ZodType
+    expect(schema.safeParse({}).success).toBe(true)
+    expect(schema.safeParse({ wallet: '0x0000000000000000000000000000000000000001' }).success).toBe(false)
+    expect(config.description).toContain('Takes no arguments')
+  })
+
+  it('names the missing wallet proof when the server asks for one', async () => {
+    const { loadSchema } = await import('../src/mcp/schema-cache.js')
+    vi.mocked(loadSchema).mockResolvedValueOnce([
+      { name: 'subscription_status', description: 'Subscription status' },
+    ])
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { Client } = await import('@modelcontextprotocol/sdk/client/index.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    await createProxy()
+    const clientInstance = vi.mocked(Client).mock.results[0]?.value as {
+      callTool: ReturnType<typeof vi.fn>
+    }
+    clientInstance.callTool.mockResolvedValueOnce({
+      content: [{ type: 'text', text: 'wallet proof required' }],
+      isError: true,
+    })
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const result = await findToolHandler(serverInstance, 'meta_subscription_status')({})
+    expect(result.content[0].text).toContain('wallet proof required')
+    expect(result.content[0].text).toContain('cia wallet create')
+  })
+
+  it('subscription_topup returns the local wallet on Robinhood Chain and no sink address', async () => {
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    await createProxy()
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const result = await findToolHandler(serverInstance, 'subscription_topup')({})
+    expect(result.isError).toBe(false)
+    expect(result.structuredContent.tool).toBe('subscription_topup')
+    expect(result.structuredContent.facts.topup).toEqual({
+      wallet_address: '0x0000000000000000000000000000000000000001',
+      network: 'Robinhood Chain',
+      network_display: 'Robinhood Chain',
+      chain_id: 4663,
+      token: '$CIA',
+      token_contract: '0x766bd6598182586beda76414dc5f8deb1530a213',
+      gas_token: 'ETH',
+      cia_balance: '1200.5',
+      eth_balance: '0.002',
+    })
+    const text = result.content[0].text as string
+    expect(text.split('\n')[0]).toBe('Subscription wallet: 0x0000000000000000000000000000000000000001')
+    expect(text).toContain('The user buys days in a terminal with `cia subscription buy --days N`. An agent cannot buy.')
+    expect(JSON.stringify(result).toLowerCase()).not.toContain('0x67a8c068cc762e371706ea6c399178171f92810d')
+  })
+
+  it('subscription_topup takes no arguments and is read-only', async () => {
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    await createProxy()
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const config = findToolConfig(serverInstance, 'subscription_topup')
+    expect(config.inputSchema).toBeUndefined()
+    expect(config.annotations).toEqual({
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    })
+    expect(config.description).toContain('Takes no arguments')
+  })
+
+  it('subscription_topup with no wallet says run cia wallet create', async () => {
+    const { isWalletConfigured } = await import('../src/wallet/index.js')
+    vi.mocked(isWalletConfigured).mockResolvedValueOnce(false)
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    await createProxy()
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const result = await findToolHandler(serverInstance, 'subscription_topup')({})
+    expect(result.structuredContent.facts).toEqual({ wallet_configured: false, topup: null })
+    expect(result.content[0].text).toContain('Run `cia wallet create`')
+  })
+
+  it('no MCP tool can buy: no local tool name contains buy or deposit', async () => {
+    const { LOCAL_TOOL_NAMES } = await import('../src/mcp/proxy.js')
+    expect([...LOCAL_TOOL_NAMES].filter((name) => /buy|deposit|pay|approve/.test(name))).toEqual([])
+    const { createProxy } = await import('../src/mcp/proxy.js')
+    const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
+    await createProxy()
+    const serverInstance = vi.mocked(McpServer).mock.results[0]?.value as {
+      registerTool: ReturnType<typeof vi.fn>
+    }
+    const names = serverInstance.registerTool.mock.calls.map((entry) => entry[0] as string)
+    expect(names).toContain('subscription_topup')
+    expect(names.filter((name) => /buy|deposit/.test(name))).toEqual([])
   })
 
   it('returns an unavailable subscription status when the remote subscription_status tool is absent', async () => {
@@ -3586,7 +3718,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(result.content[0].text).toContain('Network is required')
     expect(result.content[0].text).not.toContain('aml_address_risk')
     expect(result.content[0].text).toContain('graph_query_batch')
-    expect(result.content[0].text).not.toContain('topup')
+    // The hidden remote topup tool is never named; the local wallet_topup and subscription_topup are.
+    expect(result.content[0].text).not.toMatch(/\btopup\b/)
     expect(result.content[0].text).not.toContain('Graph visualization behavior')
     expect(result.content[0].text).not.toContain('prepares the graph view automatically')
     expect(result.content[0].text).not.toContain('_meta')

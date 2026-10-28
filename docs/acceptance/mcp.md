@@ -18,7 +18,7 @@ sleep 2
 
 # Test tool listing via JSON-RPC
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | chain-insights-mcp-proxy | jq '.result.tools[].name'
-# Expected: Returns the ten public tool names (graph_query, graph_query_batch, meta_network_capabilities, meta_schema, meta_rules, meta_help, meta_usage_status, meta_subscription_status, wallet_balance, wallet_topup) and graph_expand, which hosts keep out of the model's list. No aml_address_risk: it is hidden.
+# Expected: Returns the twelve public tool names (graph_query, graph_query_batch, meta_network_capabilities, meta_schema, meta_dex_lookup, meta_rules, meta_help, meta_usage_status, meta_subscription_status, wallet_balance, wallet_topup, subscription_topup) and graph_expand, which hosts keep out of the model's list. No aml_address_risk: it is hidden.
 
 # Test local tool (no Graph connection required)
 echo '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"meta_help","arguments":{}}}' | chain-insights-mcp-proxy | jq '.result.content[].text' | head -5
