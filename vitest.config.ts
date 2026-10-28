@@ -11,7 +11,18 @@ export default defineConfig({
           // starts; a test run must never write there.
           env: { CHAIN_INSIGHTS_SKILL_REFRESH: '0' },
           include: ['tests/**/*.test.ts'],
-          exclude: ['tests/**/*.integration.test.ts'],
+          exclude: ['tests/**/*.integration.test.ts', 'tests/**/*.t2.test.ts'],
+        },
+      },
+      {
+        test: {
+          // T2: a real binary on this host (anvil), started by the test.
+          // Run by ci/t2.sh; never by the push T1 tier.
+          name: 't2',
+          env: { CHAIN_INSIGHTS_SKILL_REFRESH: '0' },
+          include: ['tests/**/*.t2.test.ts'],
+          testTimeout: 60_000,
+          hookTimeout: 60_000,
         },
       },
       {

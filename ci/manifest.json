@@ -1,6 +1,7 @@
 {
   "tiers": {
     "t1":    {"script": "ci/t1.sh",    "budget_seconds": 180},
+    "t2":    {"script": "ci/t2.sh",    "budget_seconds": 600},
     "lint":  {"script": "ci/lint.sh",  "budget_seconds": 120},
     "build": {"script": "ci/build.sh"}
   }
