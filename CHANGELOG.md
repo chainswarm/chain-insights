@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.73.2] - 2026-10-28 — one top-up page for the wallet and the subscription
+
+### Fixed
+
+- `cia subscription topup` opens the same page as `cia wallet topup`: the same
+  layout, style and script. Only the text differs: Robinhood Chain and $CIA in
+  place of Base and USDC. A test fails when the two pages drift apart.
+- The wallet top-up page draws its QR code locally. It no longer loads a
+  script from a public CDN.
+
 ## [0.73.1] - 2026-10-28 — the release test waits for a loaded runner
 
 ### Fixed

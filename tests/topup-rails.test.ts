@@ -13,6 +13,43 @@ describe('the Base top-up page and view stay as they were', () => {
     const url = await startTopupServer(WALLET)
     const page = await (await fetch(`${url}/`)).text()
     expect(page).toMatchSnapshot()
+    expect(page).not.toContain('cdn.jsdelivr.net')
+  })
+
+  it('both rails serve one page: the same markup, style and script, only the text differs', async () => {
+    const { generateTopupPage } = await import('../src/wallet/mcp-proxy/topup-server.js')
+    // Each rail's own strings, in the order the page prints them.
+    const text = {
+      'base-usdc': [
+        'Chain Insights — Fund Wallet',
+        'Fund your wallet to use blockchain intelligence tools',
+        'Base Network &middot; USDC',
+        'USDC', 'balance_usdc',
+        'Base ETH is used for one-time payment setup gas.',
+        'Send Base USDC to the wallet address above.',
+      ],
+      'robinhood-cia': [
+        'Chain Insights — Fund the subscription wallet',
+        'Fund your wallet for the Chain Insights subscription',
+        'Robinhood Chain &middot; $CIA',
+        '$CIA', 'balance_cia',
+        'Robinhood Chain ETH pays the gas of the two buy transactions.',
+        'Send $CIA and a little ETH on Robinhood Chain to your own wallet. Then run <code>cia subscription buy --days N</code>.' +
+          '<br>Robinhood Chain (chain ID 4663) &middot; $CIA <code>0x766bd6598182586beda76414dc5f8deb1530a213</code>' +
+          '<br>This page shows your own address only. It signs nothing and sends nothing.',
+      ],
+    } as const
+    const skeleton = (rail: keyof typeof text) => {
+      let page = generateTopupPage(WALLET, rail)
+      // Longest first, so a short string inside a sentence is not swapped early.
+      const order = text[rail].map((value, i) => ({ value, i })).sort((a, b) => b.value.length - a.value.length)
+      for (const { value, i } of order) {
+        expect(page, `${rail} prints ${value}`).toContain(value)
+        page = page.split(value).join(`<<text ${i}>>`)
+      }
+      return page
+    }
+    expect(skeleton('robinhood-cia')).toBe(skeleton('base-usdc'))
   })
 
   it('the Base artifact page is unchanged', async () => {
