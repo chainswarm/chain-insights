@@ -49,7 +49,7 @@ echo "t2: $("$ANVIL_BIN" --version | head -n1)"
 
 set +e
 start=$(date +%s)
-npx vitest run --project t2 2>&1 | tee "$out/vitest.log"
+CHAIN_INSIGHTS_T2=1 npx vitest run --project t2 2>&1 | tee "$out/vitest.log"
 test_status=${PIPESTATUS[0]}
 seconds=$(( $(date +%s) - start ))
 set -e
