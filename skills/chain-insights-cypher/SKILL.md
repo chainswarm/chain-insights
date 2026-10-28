@@ -100,6 +100,15 @@ The one case without the tool is at the end, Shell without the tool.
    call as the option until then. Lead with the wallet only when the free
    units are not spent. A new user who reads "fund the wallet" first
    believes the service must be paid for to try, and it must not.
+12. The subscription is bought by the user, never by you. The user runs
+   `cia subscription buy --days N` in a terminal and says yes to it; no tool
+   can buy or pay. To fund it, `subscription_topup` (send `{}`) shows the
+   user's own wallet on Robinhood Chain: $CIA, and a little ETH for gas.
+   `wallet_topup` is USDC on Base, for pay-per-call queries. A day costs
+   4 USD in $CIA, and a subscriber may spend 10 USD of queries a day.
+   `meta_subscription_status` (send `{}`) reads the subscription of the
+   user's wallet, payments not credited yet included. Never tell the user
+   to send $CIA by hand to any other address: it is not credited.
 
 ## Pick the layer first
 
