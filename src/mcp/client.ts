@@ -15,6 +15,12 @@ import {
   type PaymentOptionLike,
 } from './payment-asset-preference.js'
 import { createWalletProofFetch } from './wallet-proof.js'
+import {
+  ROBINHOOD_CHAIN_ID,
+  ROBINHOOD_NETWORK,
+  ROBINHOOD_RPC_URL,
+  robinhoodRpcUrls,
+} from '../wallet/robinhood.js'
 
 type FetchLike = typeof fetch
 type FetchInput = Parameters<FetchLike>[0]
@@ -24,13 +30,13 @@ type FetchInit = Parameters<FetchLike>[1]
 // alongside Base Mainnet. The x402 SDK builds its own bare RPC client per
 // chain ID from this config (no viem chain-registry entry is needed: it
 // never imports `viem/chains`, it just does `createPublicClient({transport:
-// http(rpcUrl)})` keyed by CAIP-2 chain ID).
-export const ROBINHOOD_CHAIN_ID = 4663
-export const ROBINHOOD_NETWORK = 'eip155:4663'
-export const ROBINHOOD_RPC_URL = 'https://rpc.mainnet.chain.robinhood.com'
+// http(rpcUrl)})` keyed by CAIP-2 chain ID). The constants live in
+// src/wallet/robinhood.ts; ROBINHOOD_RPC_URL in the environment overrides
+// the RPC here too.
+export { ROBINHOOD_CHAIN_ID, ROBINHOOD_NETWORK, ROBINHOOD_RPC_URL }
 
-const EVM_SCHEME_OPTIONS: UptoEvmSchemeConfigByChainId = {
-  [ROBINHOOD_CHAIN_ID]: { rpcUrl: ROBINHOOD_RPC_URL },
+function evmSchemeOptions(env: NodeJS.ProcessEnv = process.env): UptoEvmSchemeConfigByChainId {
+  return { [ROBINHOOD_CHAIN_ID]: { rpcUrl: robinhoodRpcUrls(env)[0] } }
 }
 
 /**
@@ -276,11 +282,11 @@ function createPaymentFailureReportingFetch(
  */
 export function createMcpFetchClient(privateKey: `0x${string}`, authToken?: string) {
   const account = privateKeyToAccount(privateKey)
-  // Shared across both networks: EVM_SCHEME_OPTIONS is keyed by chain ID, so
+  // Shared across both networks: evmSchemeOptions() is keyed by chain ID, so
   // it only supplies an RPC URL for Robinhood Chain (4663) and leaves Base
   // (8453) exactly as before (no RPC configured — gas-sponsored approval
   // stays unavailable there too, unchanged from prior behavior).
-  const uptoScheme = new UptoEvmScheme(account, EVM_SCHEME_OPTIONS)
+  const uptoScheme = new UptoEvmScheme(account, evmSchemeOptions())
   const paymentFetch = wrapFetchWithPaymentFromConfig(
     createAssetPreferenceReorderingFetch(
       createWalletProofFetch(account, fetch),
@@ -336,14 +342,32 @@ export function resolveGraphMcpEndpoint(
   return config.graphMcpEndpoint.trim()
 }
 
-async function createConfiguredGraphPaidOrFreeFetch(): Promise<FetchLike> {
+/**
+ * The stored wallet's key, or null when no wallet exists or its key is public.
+ * A public key signs no payment and no wallet proof: anyone could sign as it.
+ */
+async function usableWalletPrivateKey(): Promise<`0x${string}` | null> {
   const { isWalletConfigured, decryptKey } = await import('../wallet/index.js')
-  if (!(await isWalletConfigured())) {
+  if (!(await isWalletConfigured())) return null
+  const privateKey = (await decryptKey()) as `0x${string}`
+  const { isPrivateKeyPublic, PUBLIC_KEY_WALLET_TEXT } = await import('../wallet/known-keys.js')
+  if (isPrivateKeyPublic(privateKey)) {
+    if (!publicKeyWarned) {
+      publicKeyWarned = true
+      process.stderr.write(`[chain-insights] ${PUBLIC_KEY_WALLET_TEXT} It is not used.\n`)
+    }
+    return null
+  }
+  return privateKey
+}
+let publicKeyWarned = false
+
+async function createConfiguredGraphPaidOrFreeFetch(): Promise<FetchLike> {
+  const privateKey = await usableWalletPrivateKey()
+  if (!privateKey) {
     return createPaymentFailureReportingFetch(fetch)
   }
-
-  const privateKey = await decryptKey()
-  return createMcpFetchClient(privateKey as `0x${string}`)
+  return createMcpFetchClient(privateKey)
 }
 
 export async function createConfiguredGraphMcpFetch(
@@ -356,7 +380,13 @@ export async function createConfiguredGraphMcpFetch(
         'Chain Insights Graph debug mode requires graphMcpAuthToken. Run `cia access-key set <key>` or `cia debug on --token <token>`.'
       )
     }
-    return createMcpAuthFetchClient(authToken)
+    // Debug mode still proves the wallet, so the server can read the
+    // subscription of the caller (subscription_status) from the proof.
+    const privateKey = await usableWalletPrivateKey()
+    return createMcpAuthFetchClient(
+      authToken,
+      privateKey ? createWalletProofFetch(privateKeyToAccount(privateKey), fetch) : fetch
+    )
   }
 
   return createConfiguredGraphPaidOrFreeFetch()
