@@ -1,5 +1,6 @@
 import { qrTerminalText } from '../wallet/mcp-proxy/qr.js'
-import { SUBSCRIPTION_TOPUP_TEXT, startTopupServer } from '../wallet/mcp-proxy/topup-server.js'
+import { SUBSCRIPTION_TOPUP_TEXT } from '../wallet/mcp-proxy/topup-server.js'
+import { startTopupServer } from '../wallet/topup-server.js'
 import {
   CIA_SYMBOL,
   CIA_TOKEN_ADDRESS,

@@ -187,7 +187,38 @@ export async function startTopupServer(
   })
 }
 
-export function generateArtifactHtml(walletAddressInput: string, topupUrl: string): string {
+/**
+ * The text of the browser top-up page, per rail. The page is the wallet
+ * top-up page of `cia wallet topup` (aphex5, 2026-10-28: copy the wallet
+ * top-up page and change only Base Network to Robinhood Chain and $CIA):
+ * the logo, the background, the layout and the script never fork by rail.
+ */
+const ARTIFACT_PAGE_TEXT: Record<
+  TopupRail,
+  { subtitle: string; badge: string; currency: string; balanceField: string; gasNote: string }
+> = {
+  'base-usdc': {
+    subtitle: 'Fund your wallet with USDC on Base',
+    badge: 'Base Network &middot; USDC',
+    currency: 'USDC',
+    balanceField: 'balance_usdc',
+    gasNote: 'Base ETH is used for one-time payment setup gas.',
+  },
+  'robinhood-cia': {
+    subtitle: 'Fund your wallet with $CIA on Robinhood Chain',
+    badge: 'Robinhood Chain &middot; $CIA',
+    currency: '$CIA',
+    balanceField: 'balance_cia',
+    gasNote: 'Robinhood Chain ETH is used for the buy transaction gas.',
+  },
+}
+
+export function generateArtifactHtml(
+  walletAddressInput: string,
+  topupUrl: string,
+  rail: TopupRail = 'base-usdc'
+): string {
+  const text = ARTIFACT_PAGE_TEXT[rail]
   const walletAddress = assertWalletAddress(walletAddressInput)
   const safeWalletAddress = escapeHtml(walletAddress)
   const safeTopupUrl = escapeHtml(topupUrl)
@@ -285,14 +316,14 @@ export function generateArtifactHtml(walletAddressInput: string, topupUrl: strin
 <body>
 <div class="card">
   <div class="logo"><img src="${safeTopupUrl}/assets/logo.png" alt="Chain Insights"></div>
-  <p class="subtitle">Fund your wallet with USDC on Base</p>
+  <p class="subtitle">${text.subtitle}</p>
   <div class="qr">${qrSvg}</div>
   <div class="address-wrap">
     <div class="address" id="addr" onclick="selectAndCopy()">${safeWalletAddress}</div>
     <div class="address-hint" id="addrHint">Click to copy address</div>
   </div>
-  <div class="badge"><span class="dot"></span>Base Network &middot; USDC</div>
-  <p class="balance-line" id="balLine">Current balance: <span class="amount" id="bal">--</span> USDC<br>Gas balance: <span class="gas" id="gas">--</span> ETH<br>Base ETH is used for one-time payment setup gas.</p>
+  <div class="badge"><span class="dot"></span>${text.badge}</div>
+  <p class="balance-line" id="balLine">Current balance: <span class="amount" id="bal">--</span> ${text.currency}<br>Gas balance: <span class="gas" id="gas">--</span> ETH<br>${text.gasNote}</p>
 </div>
 <script>
 // MCP Apps protocol handshake for the wallet top-up page.
@@ -355,9 +386,9 @@ function fetchBal() {
       var el = document.getElementById('bal');
       var gas = document.getElementById('gas');
       var line = document.getElementById('balLine');
-      var val = parseFloat(d.balance_usdc || '0').toFixed(2);
+      var val = parseFloat(d.${text.balanceField} || '0').toFixed(2);
       var gasVal = d.balance_eth === 'unknown' ? '--' : parseFloat(d.balance_eth || '0').toFixed(6);
-      if (d.balance_usdc === 'unknown') { el.textContent = '--'; gas.textContent = gasVal; return; }
+      if (d.${text.balanceField} === 'unknown') { el.textContent = '--'; gas.textContent = gasVal; return; }
       el.textContent = val;
       gas.textContent = gasVal;
       if (lastBal !== null && val !== lastBal) {

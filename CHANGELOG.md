@@ -3,6 +3,17 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.73.4] - 2026-10-28 — cia subscription topup opens the cia wallet topup page
+
+### Fixed
+
+- `cia subscription topup` opens the page `cia wallet topup` opens: the same
+  logo, background, box, QR code and script. Only the network text changes,
+  from Base and USDC to Robinhood Chain and $CIA, and the balance shown is
+  the $CIA balance. 0.73.2 and 0.73.3 matched the wrong page: the inner page
+  that `cia wallet topup` never shows. A test holds the two pages to the
+  same markup apart from that text.
+
 ## [0.73.3] - 2026-10-28 — the subscription page is the wallet page
 
 ### Fixed
