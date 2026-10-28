@@ -13,8 +13,13 @@ export const SUBSCRIPTION_ALLOWANCE_MULTIPLIER = 2.5
 export const SUBSCRIPTION_DAY_USD = SUBSCRIPTION_MONTH_USD / SUBSCRIPTION_MONTH_DAYS
 export const DAILY_ALLOWANCE_USD =
   (SUBSCRIPTION_MONTH_USD * SUBSCRIPTION_ALLOWANCE_MULTIPLIER) / SUBSCRIPTION_MONTH_DAYS
-/** The most days one buy may pay for. */
-export const MAX_DAYS_PER_BUY = 90
+/**
+ * The most days a wallet may hold at once. A buy may pay for at most this
+ * many days minus the days left, rounded down: a wallet holding 90 days buys
+ * nothing until a day has passed. The guard is the CLI's only; the sink takes
+ * any deposit made by hand.
+ */
+export const MAX_DAYS_HELD = 90
 
 // The price comes from CoinGecko only. Never from an exchange pool: operator
 // ruling. A price older than this is refused, the same limit the server keeps.
@@ -45,8 +50,8 @@ function plainDecimal(value: number): string {
 }
 
 export function assertDays(days: number): void {
-  if (!Number.isInteger(days) || days < 1 || days > MAX_DAYS_PER_BUY) {
-    throw new Error(`Days must be a whole number from 1 to ${MAX_DAYS_PER_BUY}.`)
+  if (!Number.isInteger(days) || days < 1 || days > MAX_DAYS_HELD) {
+    throw new Error(`Days must be a whole number from 1 to ${MAX_DAYS_HELD}.`)
   }
 }
 

@@ -107,7 +107,7 @@ export function registerSubscriptionCommands(program: Command, command: CommandF
     .addCommand(
       command('buy')
         .description('Buy subscription days: approve and pay $CIA on Robinhood Chain, after your yes')
-        .requiredOption('--days <n>', 'Days to buy, a whole number from 1 to 90')
+        .requiredOption('--days <n>', 'Days to buy, a whole number; a wallet holds at most 90 days')
         .option('--yes', 'Skip the typed yes (for a run with no terminal)')
         .option('--json', 'Print the outcome as JSON')
         .action(async (opts: { days: string; yes?: boolean; json?: boolean }) => {

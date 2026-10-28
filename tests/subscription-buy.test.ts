@@ -92,6 +92,26 @@ describe('cia subscription buy: the plan', () => {
     if (!plan.ok) expect(plan.reason).toContain('no ETH on Robinhood Chain')
   })
 
+  it('caps the days held at 90: buys up to 90 minus the days left, rounded down', () => {
+    const cases: Array<{ name: string; status: SubscriptionStatusFacts; days: number; ok: boolean; text?: string }> = [
+      { name: 'no subscription, 90 days', status: anonymous, days: 90, ok: true },
+      { name: '87.4 left, 2 days', status: granted('2027-01-23T10:00:00Z', 87.4), days: 2, ok: true },
+      { name: '87.4 left, 3 days', status: granted('2027-01-23T10:00:00Z', 87.4), days: 3, ok: false, text: 'Buy at most 2 days now' },
+      { name: '89.5 left, 1 day', status: granted('2027-01-25T22:00:00Z', 89.5), days: 1, ok: false, text: 'Buy again after a day has passed' },
+      { name: '90 left, 1 day', status: granted('2027-01-26T10:00:00Z', 90), days: 1, ok: false, text: 'Buy again after a day has passed' },
+      { name: '89 left, 1 day', status: granted('2027-01-25T10:00:00Z', 89), days: 1, ok: true },
+    ]
+    for (const c of cases) {
+      const q = quoteForDays(c.days, { usd: '0.0125', updatedAt: new Date('2026-10-28T09:58:00Z') })
+      const plan = planBuy(state({ status: c.status, quote: q, ciaBalance: cia('1000000') }))
+      expect(plan.ok, c.name).toBe(c.ok)
+      if (!plan.ok && c.text) {
+        expect(plan.reason, c.name).toContain(c.text)
+        expect(plan.reason, c.name).toContain('Nothing was sent')
+      }
+    }
+  })
+
   it('refuses while a payment is pending', () => {
     const plan = planBuy(state({ status: pending(TX) }))
     expect(plan).toMatchObject({ ok: false })

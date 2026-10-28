@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { parseUnits } from 'viem'
 import {
   DAILY_ALLOWANCE_USD,
-  MAX_DAYS_PER_BUY,
+  MAX_DAYS_HELD,
   SUBSCRIPTION_DAY_USD,
   fetchCiaUsdPrice,
   quoteAmount,
@@ -42,11 +42,11 @@ describe('the subscription day price', () => {
   })
 
   it('refuses zero, negative, fractional and over-cap days', () => {
-    for (const days of [0, -1, 1.5, MAX_DAYS_PER_BUY + 1, Number.NaN]) {
-      expect(() => quoteAmount(days, '0.01'), String(days)).toThrow(`from 1 to ${MAX_DAYS_PER_BUY}`)
+    for (const days of [0, -1, 1.5, MAX_DAYS_HELD + 1, Number.NaN]) {
+      expect(() => quoteAmount(days, '0.01'), String(days)).toThrow(`from 1 to ${MAX_DAYS_HELD}`)
     }
-    expect(MAX_DAYS_PER_BUY).toBe(90)
-    expect(quoteAmount(MAX_DAYS_PER_BUY, '1')).toBe(parseUnits('360', 18))
+    expect(MAX_DAYS_HELD).toBe(90)
+    expect(quoteAmount(MAX_DAYS_HELD, '1')).toBe(parseUnits('360', 18))
   })
 })
 

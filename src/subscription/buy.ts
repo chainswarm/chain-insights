@@ -11,7 +11,7 @@ import {
   readCiaBalance,
   readRobinhoodEthBalance,
 } from '../wallet/robinhood.js'
-import { SUBSCRIPTION_DAY_USD, quoteForDays, type CiaPrice, type Quote } from './quote.js'
+import { MAX_DAYS_HELD, SUBSCRIPTION_DAY_USD, quoteForDays, type CiaPrice, type Quote } from './quote.js'
 
 // `cia subscription buy --days N`: the one way to pay for a subscription. It
 // is a terminal command and never an MCP tool: an agent cannot buy. Order:
@@ -49,6 +49,17 @@ export function planBuy(state: BuyState): BuyPlan {
     return {
       ok: false,
       reason: `A payment is still being credited: ${explorerTxUrl(pending.tx_hash)}. Nothing was sent. Wait a few minutes and run \`${STATUS_COMMAND}\`.`,
+    }
+  }
+  const held = state.status.active ? Math.max(0, state.status.days_left) : 0
+  const room = Math.floor(MAX_DAYS_HELD - held)
+  if (quote.days > room) {
+    return {
+      ok: false,
+      reason:
+        room < 1
+          ? `The wallet already holds ${held.toFixed(1)} days, and a wallet may hold at most ${MAX_DAYS_HELD}. Nothing was sent. Buy again after a day has passed.`
+          : `The wallet already holds ${held.toFixed(1)} days, and a wallet may hold at most ${MAX_DAYS_HELD}. Buy at most ${room} ${room === 1 ? 'day' : 'days'} now. Nothing was sent.`,
     }
   }
   if (state.ciaBalance === null || state.ethBalance === null) {

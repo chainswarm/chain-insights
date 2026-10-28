@@ -227,7 +227,7 @@ no MCP tool can pay.
 1. Fund your wallet: `cia subscription topup`. It prints your own wallet
    address and its QR code, and opens a local page. Send $CIA and a little
    ETH, for gas, on Robinhood Chain.
-2. Buy days: `cia subscription buy --days N`. One buy pays 1 to 90 days.
+2. Buy days: `cia subscription buy --days N`. A wallet holds at most 90 days: one buy pays at most 90 minus the days left, so a wallet holding 90 days buys again after a day has passed.
 3. Check it: `cia subscription status`.
 
 What a buy does:
