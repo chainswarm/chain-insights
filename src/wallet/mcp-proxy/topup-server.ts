@@ -22,7 +22,6 @@ import {
 } from '../../subscription/rules.js'
 
 const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
-const BASE_CHAIN_ID = '0x2105' // 8453
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -401,18 +400,89 @@ function selectAndCopy() {
 </html>`
 }
 
-function generatePage(walletAddressInput: string): string {
+/** One balance row of the top-up page: the /api/balance field it shows. */
+interface TopupBalanceRow {
+  id: string
+  label: string
+  currency: string
+  field: string
+  decimals: number
+}
+
+/**
+ * The text of the one top-up page, per rail. The page is the same for both
+ * rails (aphex5, 2026-10-28: "identical, just different text"): the layout,
+ * the style and the script never fork by rail, only these strings do.
+ */
+interface TopupPageText {
+  title: string
+  subtitle: string
+  badge: string
+  balances: TopupBalanceRow[]
+  gasNote: string
+  /** HTML: constant text only, never a value from outside. */
+  info: string
+}
+
+/** The text of the subscription top-up page and of `cia subscription topup`. */
+export const SUBSCRIPTION_TOPUP_TEXT =
+  'Send $CIA and a little ETH on Robinhood Chain to your own wallet. Then run `cia subscription buy --days N`.'
+
+const TOPUP_PAGE_TEXT: Record<TopupRail, TopupPageText> = {
+  'base-usdc': {
+    title: 'Chain Insights — Fund Wallet',
+    subtitle: 'Fund your wallet to use blockchain intelligence tools',
+    badge: 'Base Network &middot; USDC',
+    balances: [
+      { id: 'balance', label: 'Current balance', currency: 'USDC', field: 'balance_usdc', decimals: 2 },
+      { id: 'gasBalance', label: 'Gas balance', currency: 'ETH', field: 'balance_eth', decimals: 6 },
+    ],
+    gasNote: 'Base ETH is used for one-time payment setup gas.',
+    info: 'Send Base USDC to the wallet address above.',
+  },
+  'robinhood-cia': {
+    title: 'Chain Insights — Fund the subscription wallet',
+    subtitle: 'Fund your wallet for the Chain Insights subscription',
+    badge: 'Robinhood Chain &middot; $CIA',
+    balances: [
+      { id: 'balance', label: 'Current balance', currency: '$CIA', field: 'balance_cia', decimals: 2 },
+      { id: 'gasBalance', label: 'Gas balance', currency: 'ETH', field: 'balance_eth', decimals: 6 },
+    ],
+    gasNote: 'Robinhood Chain ETH pays the gas of the two buy transactions.',
+    info:
+      'Send $CIA and a little ETH on Robinhood Chain to your own wallet. Then run <code>cia subscription buy --days N</code>.' +
+      `<br>Robinhood Chain (chain ID 4663) &middot; $CIA <code>${CIA_TOKEN_ADDRESS}</code>` +
+      '<br>This page shows your own address only. It signs nothing and sends nothing.',
+  },
+}
+
+/**
+ * The one local top-up page: the wallet address, its QR code (drawn here, no
+ * script from outside), the network and the balances. It names only the
+ * user's own wallet, never where a payment goes.
+ */
+export function generateTopupPage(walletAddressInput: string, rail: TopupRail = 'base-usdc'): string {
   const walletAddress = assertWalletAddress(walletAddressInput)
   const safeWalletAddress = escapeHtml(walletAddress)
   const walletAddressJson = jsonForScript(walletAddress)
+  const text = TOPUP_PAGE_TEXT[rail]
+  const qrSvg = generateQrSvg(walletAddress, { cellSize: 5 })
+  const balanceRows = text.balances
+    .map(
+      (row) => `    <div class="balance-row">
+      <span class="balance-label">${row.label}</span>
+      <span class="balance-value" id="${row.id}">—<span class="currency">${row.currency}</span></span>
+    </div>`
+    )
+    .join('\n')
+  const balancesJson = JSON.stringify(text.balances.map(({ id, currency, field, decimals }) => ({ id, currency, field, decimals })))
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Chain Insights — Fund Wallet</title>
-<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<title>${text.title}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -464,7 +534,7 @@ function generatePage(walletAddressInput: string): string {
     margin-bottom: 24px;
   }
 
-  .qr-container canvas, .qr-container img {
+  .qr-container svg, .qr-container canvas, .qr-container img {
     border-radius: 12px;
     background: #fff;
     padding: 12px;
@@ -619,17 +689,23 @@ function generatePage(walletAddressInput: string): string {
     color: rgba(255, 255, 255, 0.3);
     line-height: 1.6;
   }
+
+  .info code {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    color: #f2dda6;
+    word-break: break-all;
+  }
 </style>
 </head>
 <body>
 <div class="container">
   <div class="logo">
     <h1>Chain Insights</h1>
-    <p>Fund your wallet to use blockchain intelligence tools</p>
+    <p>${text.subtitle}</p>
   </div>
 
   <div class="card">
-    <div class="qr-container" id="qr"></div>
+    <div class="qr-container" id="qr">${qrSvg}</div>
 
     <div class="address-box">
       <code id="address">${safeWalletAddress}</code>
@@ -638,48 +714,28 @@ function generatePage(walletAddressInput: string): string {
 
     <div class="network-badge">
       <span class="dot"></span>
-      Base Network &middot; USDC
+      ${text.badge}
     </div>
 
-    <div class="balance-row">
-      <span class="balance-label">Current balance</span>
-      <span class="balance-value" id="balance">—<span class="currency">USDC</span></span>
-    </div>
-    <div class="balance-row">
-      <span class="balance-label">Gas balance</span>
-      <span class="balance-value" id="gasBalance">—<span class="currency">ETH</span></span>
-    </div>
-    <p class="gas-note">Base ETH is used for one-time payment setup gas.</p>
+${balanceRows}
+    <p class="gas-note">${text.gasNote}</p>
 
     <div class="status" id="status"></div>
   </div>
 
-  <p class="info">Send Base USDC to the wallet address above.</p>
+  <p class="info">${text.info}</p>
 </div>
 
 <script>
 const WALLET = ${walletAddressJson};
-const USDC = '${USDC_ADDRESS}';
-const CHAIN_ID = '${BASE_CHAIN_ID}';
-
-// QR code
-(function() {
-  var qr = qrcode(0, 'M');
-  qr.addData(WALLET);
-  qr.make();
-  document.getElementById('qr').innerHTML = qr.createSvgTag(5, 0);
-  var svg = document.querySelector('#qr svg');
-  if (svg) { svg.style.borderRadius = '12px'; svg.style.background = '#fff'; svg.style.padding = '12px'; }
-})();
+const BALANCES = ${balancesJson};
 
 // Copy address — fallback for sandboxed iframes where navigator.clipboard is blocked
 function copyAddress() {
   var ok = false;
-  // Try modern clipboard API first
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(WALLET).then(function() { ok = true; }).catch(function() {});
   }
-  // Fallback: hidden textarea + execCommand
   if (!ok) {
     var ta = document.createElement('textarea');
     ta.value = WALLET;
@@ -696,20 +752,18 @@ function copyAddress() {
   setTimeout(function() { btn.classList.remove('copied'); btn.innerHTML = '&#x2398;'; }, 2000);
 }
 
-// Fetch balance
+function showBalance(row, value) {
+  document.getElementById(row.id).innerHTML = value + '<span class="currency">' + row.currency + '</span>';
+}
+
+// Fetch balances
 async function fetchBalance() {
-  try {
-    var resp = await fetch('/api/balance');
-    var json = await resp.json();
-    if (json.balance_usdc === 'unknown') throw new Error('balance unavailable');
-    var balance = Number(json.balance_usdc || 0).toFixed(2);
-    document.getElementById('balance').innerHTML = balance + '<span class="currency">USDC</span>';
-    var gasBalance = json.balance_eth === 'unknown' ? '—' : Number(json.balance_eth || 0).toFixed(6);
-    document.getElementById('gasBalance').innerHTML = gasBalance + '<span class="currency">ETH</span>';
-  } catch(e) {
-    document.getElementById('balance').innerHTML = '—<span class="currency">USDC</span>';
-    document.getElementById('gasBalance').innerHTML = '—<span class="currency">ETH</span>';
-  }
+  var json = {};
+  try { json = await (await fetch('/api/balance')).json(); } catch(e) {}
+  BALANCES.forEach(function(row) {
+    var raw = json[row.field];
+    showBalance(row, raw === undefined || raw === 'unknown' ? '—' : Number(raw || 0).toFixed(row.decimals));
+  });
 }
 fetchBalance();
 setInterval(fetchBalance, 15000);
@@ -719,67 +773,14 @@ setInterval(fetchBalance, 15000);
 </html>`
 }
 
-/** The text of the subscription top-up page and of `cia subscription topup`. */
-export const SUBSCRIPTION_TOPUP_TEXT =
-  'Send $CIA and a little ETH on Robinhood Chain to your own wallet. Then run `cia subscription buy --days N`.'
+/** The Base USDC page. */
+function generatePage(walletAddressInput: string): string {
+  return generateTopupPage(walletAddressInput, 'base-usdc')
+}
 
-/**
- * The robinhood-cia page: the wallet address, its QR code, Robinhood Chain,
- * $CIA and the balances. It names only the user's own wallet, never where the
- * subscription payment goes: that address is read by the buy alone.
- */
+/** The robinhood-cia page: the same page, the subscription text. */
 export function generateSubscriptionPage(walletAddressInput: string): string {
-  const walletAddress = assertWalletAddress(walletAddressInput)
-  const safeWalletAddress = escapeHtml(walletAddress)
-  const qrSvg = generateQrSvg(walletAddress, { cellSize: 6 })
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Chain Insights — Fund the subscription wallet</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif; background: #0a0c11; color: rgba(255,255,255,0.9); display: flex; justify-content: center; padding: 24px; line-height: 1.4; }
-  .card { max-width: 420px; width: 100%; background: #131318; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 28px 24px; text-align: center; }
-  h1 { font-size: 18px; margin-bottom: 8px; }
-  .lead { color: rgba(255,255,255,0.7); font-size: 14px; margin-bottom: 20px; }
-  .qr svg { border-radius: 12px; background: #fff; padding: 10px; }
-  .address { margin: 16px 0; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; color: #f2dda6; word-break: break-all; user-select: all; }
-  dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; text-align: left; font-size: 13px; margin-bottom: 16px; }
-  dt { color: rgba(255,255,255,0.5); }
-  dd { word-break: break-all; }
-  code { font-family: 'SF Mono', 'Fira Code', monospace; }
-  .note { color: rgba(255,255,255,0.5); font-size: 12px; }
-</style>
-</head>
-<body>
-<div class="card">
-  <h1>Fund your Chain Insights subscription wallet</h1>
-  <p class="lead">Send $CIA and a little ETH on Robinhood Chain to your own wallet. Then run <code>cia subscription buy --days N</code>.</p>
-  <div class="qr">${qrSvg}</div>
-  <p class="address">${safeWalletAddress}</p>
-  <dl>
-    <dt>Network</dt><dd>Robinhood Chain (chain ID 4663)</dd>
-    <dt>Token</dt><dd>$CIA <code>${CIA_TOKEN_ADDRESS}</code></dd>
-    <dt>$CIA balance</dt><dd id="cia">—</dd>
-    <dt>ETH balance</dt><dd id="eth">—</dd>
-  </dl>
-  <p class="note">ETH pays the gas of the two buy transactions. This page shows your own address only. It signs nothing and sends nothing.</p>
-</div>
-<script>
-async function fetchBalance() {
-  try {
-    var json = await (await fetch('/api/balance')).json();
-    document.getElementById('cia').textContent = json.balance_cia === 'unknown' ? '—' : json.balance_cia + ' $CIA';
-    document.getElementById('eth').textContent = json.balance_eth === 'unknown' ? '—' : json.balance_eth + ' ETH';
-  } catch (e) {}
-}
-fetchBalance();
-setInterval(fetchBalance, 15000);
-</script>
-</body>
-</html>`
+  return generateTopupPage(walletAddressInput, 'robinhood-cia')
 }
 
 // ---------------------------------------------------------------------------
