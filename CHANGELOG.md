@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.73.3] - 2026-10-28 — the subscription page is the wallet page
+
+### Fixed
+
+- 0.73.2 changed the wallet top-up page while it unified the two pages. The
+  wallet page is back exactly as it was in 0.73.1, and it is the one page:
+  `cia subscription topup` now shows that same page, with only the text
+  changed to Robinhood Chain and $CIA. A test holds the wallet page to its
+  0.73.1 copy and the subscription page to the wallet page.
+
 ## [0.73.2] - 2026-10-28 — one top-up page for the wallet and the subscription
 
 ### Fixed
