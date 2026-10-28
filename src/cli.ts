@@ -5,6 +5,7 @@ import path from 'node:path'
 import { PACKAGE_INFO, PACKAGE_VERSION } from './version.js'
 import { CIA_WORKFLOWS, formatCiaWorkflows } from './investigation/workflows.js'
 import { printMcpTextContent } from './mcp/print-result.js'
+import { registerSubscriptionCommands } from './subscription/cli.js'
 
 // Resolve bin/install.cjs relative to this file's location in dist/
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -809,6 +810,8 @@ program
         }
       })
   )
+
+registerSubscriptionCommands(program, createCliCommand)
 
 const mcpCommand = program
   .command('mcp')

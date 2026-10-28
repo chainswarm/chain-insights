@@ -26,11 +26,7 @@ import {
   subscriptionStatusNeedsWallet,
   unavailableSubscriptionStatus,
 } from './subscription-status.js'
-import {
-  META_SUBSCRIPTION_STATUS_DESCRIPTION,
-  SUBSCRIPTION_TOPUP_DESCRIPTION,
-  SUBSCRIPTION_TOPUP_TOOL,
-} from '../subscription/rules.js'
+import { META_SUBSCRIPTION_STATUS_DESCRIPTION, SUBSCRIPTION_TOPUP_TOOL } from '../subscription/rules.js'
 import { mirrorGraphNetworkCapabilities } from './capabilities.js'
 import { ROUTING_NOT_SERVED, routingHead, routingHintLines } from './layer-routing.js'
 import {
@@ -78,6 +74,7 @@ export const LOCAL_TOOL_NAMES = new Set([
   META_DEX_LOOKUP_TOOL,
   'wallet_balance',
   'wallet_topup',
+  SUBSCRIPTION_TOPUP_TOOL,
   GRAPH_EXPAND_TOOL,
 ])
 // Local tools only the view calls (visibility ["app"]): never named to the model.
@@ -166,7 +163,6 @@ export const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   [META_DEX_LOOKUP_TOOL]: META_DEX_LOOKUP_DESCRIPTION,
   meta_usage_status: "Return the caller's public free graph_query quota for the current UTC day.",
   meta_subscription_status: META_SUBSCRIPTION_STATUS_DESCRIPTION,
-  [SUBSCRIPTION_TOPUP_TOOL]: SUBSCRIPTION_TOPUP_DESCRIPTION,
   meta_help: 'Show a short guide to Chain Insights tools and workflow.',
   meta_rules:
     'Return the Chain Insights rules: how to write graph_query and graph_query_batch reads that are served, how to name columns so the answer is drawn as a graph, a time series or a table, and how to write the answer. Call it once per chat, before the first graph query, when the chain-insights-cypher skill is not loaded. Takes no arguments: send {}.',
@@ -1618,7 +1614,7 @@ export async function createProxy(): Promise<void> {
                 '- meta_schema: read the live graph schema of one network: labels, link types and field names. Cached for 24 hours.',
                 '- meta_dex_lookup: turn an exchange name (Aero, Uniswap, Virtuals) into its factories, routers, pools and first reads. Call it first when a question names an exchange and gives no address.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
-                '- meta_subscription_status: check the caller CIA subscription window end, daily allowance, consumption, and tier.',
+                '- meta_subscription_status: check the subscription of the local wallet: window, days left, daily allowance and use, and payments not credited yet.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
                 '- graph_query_batch: run related read-only graph-language queries through one paid graph call.',
                 '',
@@ -1626,6 +1622,8 @@ export async function createProxy(): Promise<void> {
                 '',
                 'Wallet tools:',
                 '- wallet_balance: show the local payment wallet address, payment network, token, and amount.',
+                '- wallet_topup: the wallet address and QR code to fund with USDC on Base, for pay-per-call queries.',
+                '- subscription_topup: the wallet address and QR code to fund with $CIA and ETH on Robinhood Chain, for the subscription. The user buys days with `cia subscription buy --days N` in a terminal; an agent cannot buy.',
                 '- meta_rules: the full query, picture and answer rules. Call once per chat when the chain-insights-cypher skill is not loaded.',
                 '- meta_help: show this overview.',
               ].join('\n')
@@ -1637,10 +1635,11 @@ export async function createProxy(): Promise<void> {
                 '- meta_schema: read the live graph schema of one network: labels, link types and field names. Cached for 24 hours.',
                 '- meta_dex_lookup: turn an exchange name (Aero, Uniswap, Virtuals) into its factories, routers, pools and first reads. Call it first when a question names an exchange and gives no address.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
-                '- meta_subscription_status: check the caller CIA subscription window end, daily allowance, consumption, and tier.',
+                '- meta_subscription_status: check the subscription of the local wallet: window, days left, daily allowance and use, and payments not credited yet.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
                 '- graph_query_batch: run related read-only graph-language queries through one paid graph call.',
                 '- meta_rules: the full query, picture and answer rules. Call once per chat when the chain-insights-cypher skill is not loaded.',
+                '- wallet_topup and subscription_topup: fund the local wallet, USDC on Base for pay-per-call or $CIA on Robinhood Chain for the subscription. Only the user buys days, with `cia subscription buy --days N` in a terminal.',
                 '',
                 PICTURE_HELP_LINE,
               ].join('\n'),

@@ -222,3 +222,38 @@ export function generateQrSvg(text: string, opts: QrOptions | number = 4): strin
   svg += '</svg>'
   return svg
 }
+
+export interface QrTerminalOptions {
+  /** Quiet zone in modules on each side (default 4, the QR standard). */
+  quietZone?: number
+  /** Draw light modules as blocks instead of dark ones, for a light-on-dark read. */
+  invert?: boolean
+}
+
+/**
+ * The QR code of `text` as terminal text. Each character covers two module
+ * rows with half blocks (▀ ▄ █ and space), so the code keeps its square shape.
+ * A block is a dark module; the quiet zone is light.
+ */
+export function qrTerminalText(text: string, options: QrTerminalOptions = {}): string {
+  const quiet = options.quietZone ?? 4
+  const modules = qrModules(text)
+  const size = modules.length + quiet * 2
+  const dark = (row: number, col: number): boolean => {
+    const r = row - quiet
+    const c = col - quiet
+    const on = r >= 0 && c >= 0 && r < modules.length && c < modules.length && modules[r][c] === 1
+    return options.invert ? !on : on
+  }
+  const lines: string[] = []
+  for (let row = 0; row < size; row += 2) {
+    let line = ''
+    for (let col = 0; col < size; col++) {
+      const top = dark(row, col)
+      const bottom = row + 1 < size ? dark(row + 1, col) : options.invert === true
+      line += top && bottom ? '█' : top ? '▀' : bottom ? '▄' : ' '
+    }
+    lines.push(line)
+  }
+  return lines.join('\n')
+}

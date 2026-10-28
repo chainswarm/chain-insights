@@ -7,6 +7,19 @@ import { isAddress } from 'viem'
 import type { WalletData } from './types.js'
 import { generateQrSvg, qrModules } from './qr.js'
 import { getBalanceEth, getBalanceUsdc } from './tools.js'
+import {
+  CIA_SYMBOL,
+  CIA_TOKEN_ADDRESS,
+  ROBINHOOD_CHAIN_ID,
+  ROBINHOOD_NETWORK_DISPLAY,
+  getCiaBalance,
+  getRobinhoodEthBalance,
+} from '../robinhood.js'
+import {
+  SUBSCRIPTION_TOPUP_DESCRIPTION,
+  SUBSCRIPTION_TOPUP_TOOL,
+  WALLET_TOPUP_DESCRIPTION,
+} from '../../subscription/rules.js'
 
 const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
 const BASE_CHAIN_ID = '0x2105' // 8453
@@ -33,8 +46,14 @@ function loadAsset(name: string): Buffer {
 const logoPng = loadAsset('logo.png')
 const bgPatternPng = loadAsset('bg-pattern.png')
 
-let server: Server | null = null
-let serverPort: number | null = null
+/**
+ * The top-up rails. base-usdc funds pay-per-call queries with USDC on Base;
+ * robinhood-cia funds the subscription with $CIA and ETH on Robinhood Chain.
+ * One local server per rail.
+ */
+export type TopupRail = 'base-usdc' | 'robinhood-cia'
+
+const servers = new Map<TopupRail, { server: Server; port: number }>()
 
 function assertWalletAddress(wallet: WalletData | string): string {
   const walletAddress = typeof wallet === 'string' ? wallet : wallet.address
@@ -60,19 +79,44 @@ function jsonForScript(value: string): string {
     .replaceAll('&', '\\u0026')
 }
 
-export function getTopupUrl(): string | null {
-  return serverPort ? `http://localhost:${serverPort}` : null
+export function getTopupUrl(rail: TopupRail = 'base-usdc'): string | null {
+  const running = servers.get(rail)
+  return running ? `http://localhost:${running.port}` : null
 }
 
-export async function startTopupServer(wallet: WalletData | string): Promise<string> {
+async function railBalance(rail: TopupRail, walletAddress: string): Promise<Record<string, string>> {
+  if (rail === 'robinhood-cia') {
+    const [balanceCia, balanceEth] = await Promise.all([
+      getCiaBalance(walletAddress),
+      getRobinhoodEthBalance(walletAddress),
+    ])
+    return { balance_cia: balanceCia, balance_eth: balanceEth }
+  }
+  const [balanceUsdc, balanceEth] = await Promise.all([
+    getBalanceUsdc(walletAddress),
+    getBalanceEth(walletAddress),
+  ])
+  return { balance_usdc: balanceUsdc, balance_eth: balanceEth }
+}
+
+const UNKNOWN_BALANCE: Record<TopupRail, Record<string, string>> = {
+  'base-usdc': { balance_usdc: 'unknown', balance_eth: 'unknown' },
+  'robinhood-cia': { balance_cia: 'unknown', balance_eth: 'unknown' },
+}
+
+export async function startTopupServer(
+  wallet: WalletData | string,
+  rail: TopupRail = 'base-usdc'
+): Promise<string> {
   const walletAddress = assertWalletAddress(wallet)
 
-  if (server && serverPort) {
-    return `http://localhost:${serverPort}`
+  const running = getTopupUrl(rail)
+  if (running) {
+    return running
   }
 
   return new Promise((resolve, reject) => {
-    server = createServer((req, res) => {
+    const server = createServer((req, res) => {
       if (req.url === '/api/wallet') {
         res.writeHead(200, {
           'Content-Type': 'application/json',
@@ -83,20 +127,20 @@ export async function startTopupServer(wallet: WalletData | string): Promise<str
       }
 
       if (req.url === '/api/balance') {
-        Promise.all([getBalanceUsdc(walletAddress), getBalanceEth(walletAddress)])
-          .then(([balanceUsdc, balanceEth]) => {
+        railBalance(rail, walletAddress)
+          .then((balance) => {
             res.writeHead(200, {
               'Content-Type': 'application/json',
               'Access-Control-Allow-Origin': '*',
             })
-            res.end(JSON.stringify({ balance_usdc: balanceUsdc, balance_eth: balanceEth }))
+            res.end(JSON.stringify(balance))
           })
           .catch(() => {
             res.writeHead(200, {
               'Content-Type': 'application/json',
               'Access-Control-Allow-Origin': '*',
             })
-            res.end(JSON.stringify({ balance_usdc: 'unknown', balance_eth: 'unknown' }))
+            res.end(JSON.stringify(UNKNOWN_BALANCE[rail]))
           })
         return
       }
@@ -122,14 +166,14 @@ export async function startTopupServer(wallet: WalletData | string): Promise<str
       }
 
       res.writeHead(200, { 'Content-Type': 'text/html' })
-      res.end(generatePage(walletAddress))
+      res.end(rail === 'robinhood-cia' ? generateSubscriptionPage(walletAddress) : generatePage(walletAddress))
     })
 
     server.listen(0, '127.0.0.1', () => {
-      const addr = server!.address()
+      const addr = server.address()
       if (addr && typeof addr === 'object') {
-        serverPort = addr.port
-        const url = `http://localhost:${serverPort}`
+        servers.set(rail, { server, port: addr.port })
+        const url = `http://localhost:${addr.port}`
         console.error(`[chain-insights] Topup server running at ${url}`)
         resolve(url)
       } else {
@@ -675,6 +719,69 @@ setInterval(fetchBalance, 15000);
 </html>`
 }
 
+/** The text of the subscription top-up page and of `cia subscription topup`. */
+export const SUBSCRIPTION_TOPUP_TEXT =
+  'Send $CIA and a little ETH on Robinhood Chain to your own wallet. Then run `cia subscription buy --days N`.'
+
+/**
+ * The robinhood-cia page: the wallet address, its QR code, Robinhood Chain,
+ * $CIA and the balances. It names only the user's own wallet, never where the
+ * subscription payment goes: that address is read by the buy alone.
+ */
+export function generateSubscriptionPage(walletAddressInput: string): string {
+  const walletAddress = assertWalletAddress(walletAddressInput)
+  const safeWalletAddress = escapeHtml(walletAddress)
+  const qrSvg = generateQrSvg(walletAddress, { cellSize: 6 })
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chain Insights — Fund the subscription wallet</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif; background: #0a0c11; color: rgba(255,255,255,0.9); display: flex; justify-content: center; padding: 24px; line-height: 1.4; }
+  .card { max-width: 420px; width: 100%; background: #131318; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 28px 24px; text-align: center; }
+  h1 { font-size: 18px; margin-bottom: 8px; }
+  .lead { color: rgba(255,255,255,0.7); font-size: 14px; margin-bottom: 20px; }
+  .qr svg { border-radius: 12px; background: #fff; padding: 10px; }
+  .address { margin: 16px 0; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; color: #f2dda6; word-break: break-all; user-select: all; }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; text-align: left; font-size: 13px; margin-bottom: 16px; }
+  dt { color: rgba(255,255,255,0.5); }
+  dd { word-break: break-all; }
+  code { font-family: 'SF Mono', 'Fira Code', monospace; }
+  .note { color: rgba(255,255,255,0.5); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Fund your Chain Insights subscription wallet</h1>
+  <p class="lead">Send $CIA and a little ETH on Robinhood Chain to your own wallet. Then run <code>cia subscription buy --days N</code>.</p>
+  <div class="qr">${qrSvg}</div>
+  <p class="address">${safeWalletAddress}</p>
+  <dl>
+    <dt>Network</dt><dd>Robinhood Chain (chain ID 4663)</dd>
+    <dt>Token</dt><dd>$CIA <code>${CIA_TOKEN_ADDRESS}</code></dd>
+    <dt>$CIA balance</dt><dd id="cia">—</dd>
+    <dt>ETH balance</dt><dd id="eth">—</dd>
+  </dl>
+  <p class="note">ETH pays the gas of the two buy transactions. This page shows your own address only. It signs nothing and sends nothing.</p>
+</div>
+<script>
+async function fetchBalance() {
+  try {
+    var json = await (await fetch('/api/balance')).json();
+    document.getElementById('cia').textContent = json.balance_cia === 'unknown' ? '—' : json.balance_cia + ' $CIA';
+    document.getElementById('eth').textContent = json.balance_eth === 'unknown' ? '—' : json.balance_eth + ' ETH';
+  } catch (e) {}
+}
+fetchBalance();
+setInterval(fetchBalance, 15000);
+</script>
+</body>
+</html>`
+}
+
 // ---------------------------------------------------------------------------
 // The local top-up view: an MCP App drawn by Claude Desktop next to the
 // wallet_topup answer of the local proxy. It shows the wallet address, its QR
@@ -753,6 +860,90 @@ export function topupToolResult(walletAddress: string | null): TopupToolResult {
     structuredContent: {
       schema: 'chain-insights.result.v1',
       tool: TOPUP_TOOL_NAME,
+      hint: null,
+      facts: { wallet_configured: true, topup },
+    },
+    isError: false,
+  }
+}
+
+export interface SubscriptionTopupViewFacts {
+  wallet_address: string
+  network: typeof ROBINHOOD_NETWORK_DISPLAY
+  network_display: typeof ROBINHOOD_NETWORK_DISPLAY
+  chain_id: typeof ROBINHOOD_CHAIN_ID
+  token: typeof CIA_SYMBOL
+  token_contract: typeof CIA_TOKEN_ADDRESS
+  gas_token: 'ETH'
+  cia_balance: string
+  eth_balance: string
+}
+
+export interface SubscriptionTopupToolResult {
+  [key: string]: unknown
+  content: Array<{ type: 'text'; text: string }>
+  structuredContent: {
+    schema: 'chain-insights.result.v1'
+    tool: typeof SUBSCRIPTION_TOPUP_TOOL
+    hint: string | null
+    facts: { wallet_configured: boolean; topup: SubscriptionTopupViewFacts | null }
+  }
+  isError: false
+}
+
+/** The rule the subscription_topup answer ends with. */
+export const SUBSCRIPTION_TOPUP_RULE =
+  'Fund this wallet. The user buys days in a terminal with `cia subscription buy --days N`. An agent cannot buy. Never send $CIA by hand to any other address: it is not credited.'
+
+/**
+ * The subscription_topup answer: the local wallet on Robinhood Chain, $CIA,
+ * the balances ('unknown' when no RPC answers). It names the user's own
+ * wallet only. `walletAddress` null means no local wallet exists.
+ */
+export function subscriptionTopupToolResult(
+  walletAddress: string | null,
+  balances: { cia: string; eth: string } = { cia: 'unknown', eth: 'unknown' }
+): SubscriptionTopupToolResult {
+  if (walletAddress === null) {
+    return {
+      content: [{ type: 'text', text: 'No local wallet exists yet. Run `cia wallet create` to make one, then ask to top up again.' }],
+      structuredContent: {
+        schema: 'chain-insights.result.v1',
+        tool: SUBSCRIPTION_TOPUP_TOOL,
+        hint: 'Run `cia wallet create`.',
+        facts: { wallet_configured: false, topup: null },
+      },
+      isError: false,
+    }
+  }
+  const address = assertWalletAddress(walletAddress)
+  const topup: SubscriptionTopupViewFacts = {
+    wallet_address: address,
+    network: ROBINHOOD_NETWORK_DISPLAY,
+    network_display: ROBINHOOD_NETWORK_DISPLAY,
+    chain_id: ROBINHOOD_CHAIN_ID,
+    token: CIA_SYMBOL,
+    token_contract: CIA_TOKEN_ADDRESS,
+    gas_token: 'ETH',
+    cia_balance: balances.cia,
+    eth_balance: balances.eth,
+  }
+  return {
+    content: [
+      {
+        type: 'text',
+        text: [
+          `Subscription wallet: ${address}`,
+          `Network: ${ROBINHOOD_NETWORK_DISPLAY} (chain ID ${ROBINHOOD_CHAIN_ID})`,
+          `Token: ${CIA_SYMBOL} (contract ${CIA_TOKEN_ADDRESS}), with ETH for gas`,
+          `Balance: ${balances.cia} ${CIA_SYMBOL}, ${balances.eth} ETH`,
+          SUBSCRIPTION_TOPUP_RULE,
+        ].join('\n'),
+      },
+    ],
+    structuredContent: {
+      schema: 'chain-insights.result.v1',
+      tool: SUBSCRIPTION_TOPUP_TOOL,
       hint: null,
       facts: { wallet_configured: true, topup },
     },
@@ -920,7 +1111,7 @@ const TOPUP_VIEW_SCRIPT = `
 
   function render(result) {
     var structured = result && result.structuredContent;
-    var facts = structured && structured.tool === '${TOPUP_TOOL_NAME}' ? structured.facts : null;
+    var facts = structured && (structured.tool === '${TOPUP_TOOL_NAME}' || structured.tool === '${SUBSCRIPTION_TOPUP_TOOL}') ? structured.facts : null;
     if (!result || result.isError || !facts) {
       show([el('h1', { text: 'Wallet top-up' }), el('p', { class: 'muted', text: resultText(result) || 'The wallet details did not arrive.' })]);
       return;
@@ -1016,6 +1207,13 @@ export type TopupViewServer = Pick<
 export interface TopupViewDependencies {
   /** The local wallet address, or null when no wallet exists. Throws when it cannot be read. */
   walletAddress: () => Promise<string | null>
+  /** The $CIA and ETH balances on Robinhood Chain, 'unknown' when no RPC answers. */
+  robinhoodBalances?: (address: string) => Promise<{ cia: string; eth: string }>
+}
+
+async function readRobinhoodBalances(address: string): Promise<{ cia: string; eth: string }> {
+  const [cia, eth] = await Promise.all([getCiaBalance(address), getRobinhoodEthBalance(address)])
+  return { cia, eth }
 }
 
 /**
@@ -1035,8 +1233,7 @@ export async function registerTopupView(
     TOPUP_TOOL_NAME,
     {
       title: 'Top Up Wallet',
-      description:
-        'Show the local Chain Insights payment wallet address and its QR code for funding with USDC on Base Mainnet. Read-only: it makes no payment and signs nothing.',
+      description: WALLET_TOPUP_DESCRIPTION,
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -1057,12 +1254,43 @@ export async function registerTopupView(
     }
   )
 
+  registerAppTool(
+    server,
+    SUBSCRIPTION_TOPUP_TOOL,
+    {
+      title: 'Top Up Subscription Wallet',
+      description: SUBSCRIPTION_TOPUP_DESCRIPTION,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        // It reads the balances on Robinhood Chain.
+        openWorldHint: true,
+      },
+      _meta: { ui: { resourceUri: TOPUP_VIEW_URI } },
+    },
+    async () => {
+      try {
+        const address = await deps.walletAddress()
+        if (address === null) return subscriptionTopupToolResult(null)
+        const balances = await (deps.robinhoodBalances ?? readRobinhoodBalances)(address)
+        return subscriptionTopupToolResult(address, balances)
+      } catch (err) {
+        return {
+          content: [{ type: 'text' as const, text: `Top-up failed: ${(err as Error).message}` }],
+          isError: true,
+        }
+      }
+    }
+  )
+
   registerAppResource(
     server,
     'Chain Insights wallet top-up',
     TOPUP_VIEW_URI,
     {
-      description: 'The local wallet address and its QR code, on Base Mainnet with USDC.',
+      description:
+        'The local wallet address and its QR code: on Base Mainnet with USDC, or on Robinhood Chain with $CIA.',
       _meta: { ui: uiMeta },
     },
     async () => ({
