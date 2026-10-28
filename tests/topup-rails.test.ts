@@ -52,6 +52,49 @@ describe('the Base top-up page and view stay as they were', () => {
     expect(skeleton('robinhood-cia')).toBe(skeleton('base-usdc'))
   })
 
+  it('cia subscription topup opens the cia wallet topup page, only the network text differs', async () => {
+    const { generateArtifactHtml } = await import('../src/wallet/topup-server.js')
+    const url = 'http://localhost:4500'
+    // Each rail's own strings, the same slot at the same index.
+    const text = {
+      'base-usdc': [
+        'Fund your wallet with USDC on Base',
+        'Base Network &middot; USDC',
+        '</span> USDC<br>',
+        'balance_usdc',
+        'Base ETH is used for one-time payment setup gas.',
+      ],
+      'robinhood-cia': [
+        'Fund your wallet with $CIA on Robinhood Chain',
+        'Robinhood Chain &middot; $CIA',
+        '</span> $CIA<br>',
+        'balance_cia',
+        'Robinhood Chain ETH is used for the buy transaction gas.',
+      ],
+    } as const
+    const skeleton = (rail: keyof typeof text) => {
+      let page = generateArtifactHtml(WALLET, url, rail)
+      text[rail].forEach((value, i) => {
+        expect(page, `${rail} prints ${value}`).toContain(value)
+        page = page.split(value).join(`<<text ${i}>>`)
+      })
+      return page
+    }
+    expect(skeleton('robinhood-cia')).toBe(skeleton('base-usdc'))
+    expect(generateArtifactHtml(WALLET, url, 'robinhood-cia').toLowerCase()).not.toContain(
+      '0x67a8c068cc762e371706ea6c399178171f92810d'
+    )
+  })
+
+  it('cia subscription topup serves the wallet page with the $CIA balance', async () => {
+    const { startTopupServer, stopTopupServer } = await import('../src/wallet/topup-server.js')
+    const url = await startTopupServer(WALLET, 'robinhood-cia')
+    const page = await (await fetch(`${url}/`)).text()
+    expect(page).toContain('Robinhood Chain &middot; $CIA')
+    expect(page).toContain(`${url}/assets/logo.png`)
+    await stopTopupServer()
+  })
+
   it('the Base artifact page is unchanged', async () => {
     const { generateArtifactHtml } = await import('../src/wallet/topup-server.js')
     expect(generateArtifactHtml(WALLET, 'http://localhost:4500')).toMatchSnapshot()
