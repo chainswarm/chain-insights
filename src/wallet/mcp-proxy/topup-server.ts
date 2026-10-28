@@ -22,6 +22,9 @@ import {
 } from '../../subscription/rules.js'
 
 const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
+const BASE_CHAIN_ID = '0x2105'
+/** Robinhood Chain, chain ID 4663. */
+const ROBINHOOD_CHAIN_ID_HEX = '0x1237'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -400,31 +403,25 @@ function selectAndCopy() {
 </html>`
 }
 
-/** One balance row of the top-up page: the /api/balance field it shows. */
-interface TopupBalanceRow {
-  id: string
-  label: string
-  currency: string
-  field: string
-  decimals: number
-}
-
 /**
- * The text of the one top-up page, per rail. The page is the same for both
- * rails (aphex5, 2026-10-28: "identical, just different text"): the layout,
- * the style and the script never fork by rail, only these strings do.
+ * The text of the one top-up page, per rail. The page is the Base wallet
+ * page, unchanged (aphex5, 2026-10-28: "wallet topup is your baseline"): the
+ * layout, the style and the script never fork by rail, only these strings do.
  */
 interface TopupPageText {
   title: string
   subtitle: string
   badge: string
-  balances: TopupBalanceRow[]
+  currency: string
+  /** The /api/balance field of the main balance. */
+  balanceField: string
   gasNote: string
-  /** HTML: constant text only, never a value from outside. */
   info: string
+  tokenAddress: string
+  chainIdHex: string
 }
 
-/** The text of the subscription top-up page and of `cia subscription topup`. */
+/** The text of `cia subscription topup` in the terminal. */
 export const SUBSCRIPTION_TOPUP_TEXT =
   'Send $CIA and a little ETH on Robinhood Chain to your own wallet. Then run `cia subscription buy --days N`.'
 
@@ -433,49 +430,36 @@ const TOPUP_PAGE_TEXT: Record<TopupRail, TopupPageText> = {
     title: 'Chain Insights — Fund Wallet',
     subtitle: 'Fund your wallet to use blockchain intelligence tools',
     badge: 'Base Network &middot; USDC',
-    balances: [
-      { id: 'balance', label: 'Current balance', currency: 'USDC', field: 'balance_usdc', decimals: 2 },
-      { id: 'gasBalance', label: 'Gas balance', currency: 'ETH', field: 'balance_eth', decimals: 6 },
-    ],
+    currency: 'USDC',
+    balanceField: 'balance_usdc',
     gasNote: 'Base ETH is used for one-time payment setup gas.',
     info: 'Send Base USDC to the wallet address above.',
+    tokenAddress: USDC_ADDRESS,
+    chainIdHex: BASE_CHAIN_ID,
   },
   'robinhood-cia': {
-    title: 'Chain Insights — Fund the subscription wallet',
-    subtitle: 'Fund your wallet for the Chain Insights subscription',
+    title: 'Chain Insights — Fund Subscription Wallet',
+    subtitle: 'Fund your wallet to buy a Chain Insights subscription',
     badge: 'Robinhood Chain &middot; $CIA',
-    balances: [
-      { id: 'balance', label: 'Current balance', currency: '$CIA', field: 'balance_cia', decimals: 2 },
-      { id: 'gasBalance', label: 'Gas balance', currency: 'ETH', field: 'balance_eth', decimals: 6 },
-    ],
-    gasNote: 'Robinhood Chain ETH pays the gas of the two buy transactions.',
-    info:
-      'Send $CIA and a little ETH on Robinhood Chain to your own wallet. Then run <code>cia subscription buy --days N</code>.' +
-      `<br>Robinhood Chain (chain ID 4663) &middot; $CIA <code>${CIA_TOKEN_ADDRESS}</code>` +
-      '<br>This page shows your own address only. It signs nothing and sends nothing.',
+    currency: '$CIA',
+    balanceField: 'balance_cia',
+    gasNote: 'Robinhood Chain ETH is used for the buy transaction gas.',
+    info: 'Send $CIA and Robinhood Chain ETH to the wallet address above.',
+    tokenAddress: CIA_TOKEN_ADDRESS,
+    chainIdHex: ROBINHOOD_CHAIN_ID_HEX,
   },
 }
 
 /**
- * The one local top-up page: the wallet address, its QR code (drawn here, no
- * script from outside), the network and the balances. It names only the
- * user's own wallet, never where a payment goes.
+ * The one local top-up page: the wallet address, its QR code, the network
+ * and the balances. It names only the user's own wallet, never where a
+ * payment goes.
  */
 export function generateTopupPage(walletAddressInput: string, rail: TopupRail = 'base-usdc'): string {
+  const text = TOPUP_PAGE_TEXT[rail]
   const walletAddress = assertWalletAddress(walletAddressInput)
   const safeWalletAddress = escapeHtml(walletAddress)
   const walletAddressJson = jsonForScript(walletAddress)
-  const text = TOPUP_PAGE_TEXT[rail]
-  const qrSvg = generateQrSvg(walletAddress, { cellSize: 5 })
-  const balanceRows = text.balances
-    .map(
-      (row) => `    <div class="balance-row">
-      <span class="balance-label">${row.label}</span>
-      <span class="balance-value" id="${row.id}">—<span class="currency">${row.currency}</span></span>
-    </div>`
-    )
-    .join('\n')
-  const balancesJson = JSON.stringify(text.balances.map(({ id, currency, field, decimals }) => ({ id, currency, field, decimals })))
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -483,6 +467,7 @@ export function generateTopupPage(walletAddressInput: string, rail: TopupRail = 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${text.title}</title>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -534,7 +519,7 @@ export function generateTopupPage(walletAddressInput: string, rail: TopupRail = 
     margin-bottom: 24px;
   }
 
-  .qr-container svg, .qr-container canvas, .qr-container img {
+  .qr-container canvas, .qr-container img {
     border-radius: 12px;
     background: #fff;
     padding: 12px;
@@ -689,12 +674,6 @@ export function generateTopupPage(walletAddressInput: string, rail: TopupRail = 
     color: rgba(255, 255, 255, 0.3);
     line-height: 1.6;
   }
-
-  .info code {
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    color: #f2dda6;
-    word-break: break-all;
-  }
 </style>
 </head>
 <body>
@@ -705,7 +684,7 @@ export function generateTopupPage(walletAddressInput: string, rail: TopupRail = 
   </div>
 
   <div class="card">
-    <div class="qr-container" id="qr">${qrSvg}</div>
+    <div class="qr-container" id="qr"></div>
 
     <div class="address-box">
       <code id="address">${safeWalletAddress}</code>
@@ -717,7 +696,14 @@ export function generateTopupPage(walletAddressInput: string, rail: TopupRail = 
       ${text.badge}
     </div>
 
-${balanceRows}
+    <div class="balance-row">
+      <span class="balance-label">Current balance</span>
+      <span class="balance-value" id="balance">—<span class="currency">${text.currency}</span></span>
+    </div>
+    <div class="balance-row">
+      <span class="balance-label">Gas balance</span>
+      <span class="balance-value" id="gasBalance">—<span class="currency">ETH</span></span>
+    </div>
     <p class="gas-note">${text.gasNote}</p>
 
     <div class="status" id="status"></div>
@@ -728,14 +714,27 @@ ${balanceRows}
 
 <script>
 const WALLET = ${walletAddressJson};
-const BALANCES = ${balancesJson};
+const USDC = '${text.tokenAddress}';
+const CHAIN_ID = '${text.chainIdHex}';
+
+// QR code
+(function() {
+  var qr = qrcode(0, 'M');
+  qr.addData(WALLET);
+  qr.make();
+  document.getElementById('qr').innerHTML = qr.createSvgTag(5, 0);
+  var svg = document.querySelector('#qr svg');
+  if (svg) { svg.style.borderRadius = '12px'; svg.style.background = '#fff'; svg.style.padding = '12px'; }
+})();
 
 // Copy address — fallback for sandboxed iframes where navigator.clipboard is blocked
 function copyAddress() {
   var ok = false;
+  // Try modern clipboard API first
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(WALLET).then(function() { ok = true; }).catch(function() {});
   }
+  // Fallback: hidden textarea + execCommand
   if (!ok) {
     var ta = document.createElement('textarea');
     ta.value = WALLET;
@@ -752,18 +751,20 @@ function copyAddress() {
   setTimeout(function() { btn.classList.remove('copied'); btn.innerHTML = '&#x2398;'; }, 2000);
 }
 
-function showBalance(row, value) {
-  document.getElementById(row.id).innerHTML = value + '<span class="currency">' + row.currency + '</span>';
-}
-
-// Fetch balances
+// Fetch balance
 async function fetchBalance() {
-  var json = {};
-  try { json = await (await fetch('/api/balance')).json(); } catch(e) {}
-  BALANCES.forEach(function(row) {
-    var raw = json[row.field];
-    showBalance(row, raw === undefined || raw === 'unknown' ? '—' : Number(raw || 0).toFixed(row.decimals));
-  });
+  try {
+    var resp = await fetch('/api/balance');
+    var json = await resp.json();
+    if (json.${text.balanceField} === 'unknown') throw new Error('balance unavailable');
+    var balance = Number(json.${text.balanceField} || 0).toFixed(2);
+    document.getElementById('balance').innerHTML = balance + '<span class="currency">${text.currency}</span>';
+    var gasBalance = json.balance_eth === 'unknown' ? '—' : Number(json.balance_eth || 0).toFixed(6);
+    document.getElementById('gasBalance').innerHTML = gasBalance + '<span class="currency">ETH</span>';
+  } catch(e) {
+    document.getElementById('balance').innerHTML = '—<span class="currency">${text.currency}</span>';
+    document.getElementById('gasBalance').innerHTML = '—<span class="currency">ETH</span>';
+  }
 }
 fetchBalance();
 setInterval(fetchBalance, 15000);
