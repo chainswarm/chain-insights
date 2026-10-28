@@ -30,7 +30,8 @@ Use `cia mcp call` for low-level GraphRAG calls and custom read-only queries.
 
 The Chain Insights MCP proxy adds the local tools `meta_network_capabilities`,
 `meta_schema`, `meta_rules`, `meta_help`, `meta_usage_status`,
-`meta_subscription_status`, `wallet_balance` and `wallet_topup`. On hosted
+`meta_subscription_status`, `wallet_balance`, `wallet_topup` and
+`subscription_topup`. On hosted
 backends, `meta_usage_status` can reflect remote quota telemetry. On
 backends without a quota tool, Chain Insights returns a local unmetered
 primitive-backend status instead.
