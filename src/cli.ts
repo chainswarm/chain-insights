@@ -612,17 +612,31 @@ program
   .addCommand(
     createCliCommand('create')
       .description('Generate a new local Base payment wallet')
-      .action(async () => {
+      .option(
+        '--replace',
+        'Replace a wallet whose key is public (the old file is backed up next to wallet.json)'
+      )
+      .action(async (opts: { replace?: boolean }) => {
         try {
-          const { isWalletConfigured, setWalletPrivateKey, walletPath } =
-            await import('./wallet/index.js')
+          const {
+            assertStoredWalletReplaceable,
+            isWalletConfigured,
+            replacePublicWallet,
+            setWalletPrivateKey,
+            storedWalletKeyIsPublic,
+            walletPath,
+          } = await import('./wallet/index.js')
           const { createInterface } = await import('node:readline/promises')
           const { formatWalletBackupWarning, generateWalletPrivateKey, isWalletBackupConfirmed } =
             await import('./wallet/create.js')
 
-          if (await isWalletConfigured()) {
+          if (opts.replace === true) {
+            await assertStoredWalletReplaceable()
+          } else if (await isWalletConfigured()) {
             throw new Error(
-              'A payment wallet already exists. Run `cia wallet address` to view it or use `cia wallet import <private-key> --force` to replace it.'
+              (await storedWalletKeyIsPublic()) === true
+                ? "A payment wallet already exists, and its key is public: anything sent to it is taken within seconds. Run `cia wallet create --replace`."
+                : 'A payment wallet already exists. Run `cia wallet address` to view it or use `cia wallet import <private-key> --force` to replace it.'
             )
           }
 
@@ -641,7 +655,13 @@ program
             throw new Error('Wallet creation cancelled. The wallet was not saved.')
           }
 
-          const address = await setWalletPrivateKey(privateKey)
+          const address =
+            opts.replace === true
+              ? await replacePublicWallet(privateKey)
+              : await setWalletPrivateKey(privateKey)
+          if (opts.replace === true) {
+            console.log('The old wallet file is backed up next to ~/.chain-insights/wallet.json')
+          }
           console.log(`Wallet created: ${address}`)
           console.log(`Encrypted local copy: ${walletPath()}`)
           console.log('Next: cia wallet ready')
@@ -761,9 +781,11 @@ program
       .option('--json', 'Print machine-readable top-up metadata')
       .action(async (opts: { open?: boolean; json?: boolean }) => {
         try {
-          const { buildTopupInfo, getWalletAccount } = await import('./wallet/tools.js')
+          const { assertWalletKeyNotPublic, buildTopupInfo, getWalletAccount } =
+            await import('./wallet/tools.js')
           const { startTopupServer } = await import('./wallet/topup-server.js')
           const account = await getWalletAccount()
+          assertWalletKeyNotPublic(account)
           const url = await startTopupServer(account)
           const info = buildTopupInfo(account.address, url)
 

@@ -11,6 +11,7 @@ import {
 import { base } from 'viem/chains'
 import { privateKeyToAccount } from 'viem/accounts'
 import { decryptKey, normalizeWalletPrivateKey } from './index.js'
+import { PUBLIC_KEY_WALLET_TEXT, isPrivateKeyPublic } from './known-keys.js'
 
 export const BASE_CHAIN_ID = 8453
 export const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as const
@@ -64,6 +65,8 @@ const USDC_ABI = [
 export interface PaymentWalletAccount {
   address: Address
   privateKey: Hex
+  /** True when the key is public (src/wallet/known-keys.ts): no money path may use it. */
+  keyIsPublic?: boolean
 }
 
 export interface TopupInfo {
@@ -144,10 +147,22 @@ export interface WalletBalanceResult {
   }
 }
 
+/**
+ * The stored wallet. A stored public key still loads, so `cia wallet address`
+ * and the replace path keep working, but it comes back flagged and every money
+ * path refuses it (assertWalletKeyNotPublic).
+ */
 export async function getWalletAccount(): Promise<PaymentWalletAccount> {
   const privateKey = normalizeWalletPrivateKey(await decryptKey()) as Hex
   const account = privateKeyToAccount(privateKey)
-  return { address: account.address, privateKey }
+  return isPrivateKeyPublic(privateKey)
+    ? { address: account.address, privateKey, keyIsPublic: true }
+    : { address: account.address, privateKey }
+}
+
+/** Refuses a wallet whose key is public before anything is funded or sent. */
+export function assertWalletKeyNotPublic(account: Pick<PaymentWalletAccount, 'keyIsPublic'>): void {
+  if (account.keyIsPublic === true) throw new Error(PUBLIC_KEY_WALLET_TEXT)
 }
 
 function baseRpcUrls(rpcUrl = process.env['BASE_RPC_URL']): string[] {
@@ -363,6 +378,7 @@ export async function approvePaymentAllowance(
   rpcUrl = process.env['BASE_RPC_URL']
 ): Promise<PaymentApprovalResult> {
   const wallet = account ?? (await getWalletAccount())
+  assertWalletKeyNotPublic(wallet)
   const initialApprovalUnits = await getPaymentApprovalUnits(wallet.address, rpcUrl)
   if (initialApprovalUnits !== null && initialApprovalUnits >= minimumApprovalUnits) {
     return {

@@ -4,6 +4,7 @@ import path from 'node:path'
 import { readFile, writeFile, mkdir, stat } from 'node:fs/promises'
 import type { Address, Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { assertPrivateKeyNotPublic, isPrivateKeyPublic } from './known-keys.js'
 
 // Path derived at call time so tests can override HOME.
 export function walletPath(): string {
@@ -111,6 +112,9 @@ export async function setWalletPrivateKey(
   options: SetWalletPrivateKeyOptions = {}
 ): Promise<Address> {
   const normalizedPrivateKey = normalizeWalletPrivateKey(privateKey)
+  // import, create and `config set walletPrivateKey` all land here: a public
+  // key is never stored.
+  assertPrivateKeyNotPublic(normalizedPrivateKey)
   const address = walletAddressFromPrivateKey(normalizedPrivateKey)
 
   if (await isWalletConfigured()) {
@@ -128,6 +132,42 @@ export async function setWalletPrivateKey(
 
   await encryptKey(normalizedPrivateKey)
   return address
+}
+
+/**
+ * True when the stored wallet's key is public (src/wallet/known-keys.ts),
+ * false when it is not, null when no wallet exists or it cannot be read.
+ */
+export async function storedWalletKeyIsPublic(): Promise<boolean | null> {
+  if (!(await isWalletConfigured())) return null
+  try {
+    return isPrivateKeyPublic(normalizeWalletPrivateKey(await decryptKey()))
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Refuses unless a wallet exists and its key is public: `--replace` never
+ * replaces a private key.
+ */
+export async function assertStoredWalletReplaceable(): Promise<void> {
+  const stored = await storedWalletKeyIsPublic()
+  if (stored === true) return
+  throw new Error(
+    stored === null
+      ? '`--replace` replaces a wallet whose key is public, and no readable wallet exists. Run `cia wallet create`.'
+      : "`--replace` works only for a wallet whose key is public. This wallet's key is private; keep it, or use `cia wallet import <key> --force`."
+  )
+}
+
+/**
+ * Replaces a wallet whose key is public with `privateKey`. The old file is
+ * backed up next to wallet.json first.
+ */
+export async function replacePublicWallet(privateKey: string): Promise<Address> {
+  await assertStoredWalletReplaceable()
+  return setWalletPrivateKey(privateKey, { force: true })
 }
 
 /**
