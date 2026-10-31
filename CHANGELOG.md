@@ -5,6 +5,8 @@ All notable changes to Chain Insights are recorded here.
 
 ## Unreleased
 
+## [0.74.0] - 2026-10-31 — the graph names wallets an issuer froze
+
 ### Added
 
 - The graph's new role mark `:IssuerFrozen` is named wherever `:Sanctioned`
