@@ -3,6 +3,20 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## Unreleased
+
+### Added
+
+- The graph's new role mark `:IssuerFrozen` is named wherever `:Sanctioned`
+  is: the `chain-insights-cypher` skill's mark list and role flags, the
+  `graph_query` tool description, the served graph hints, the workspace
+  runtime notes and the graph docs. It means an issuer froze this wallet; the
+  token in `labels` says which (`USDG` or `PAXG` on robinhood). Its flag is
+  `is_issuer_frozen`, present only when true, and an unfreeze removes both.
+  A frozen wallet is never `:Scam` for the freeze alone.
+- `:IssuerFrozen` written in the wrong case in a query is spelled the graph's
+  way, like every other node label.
+
 ## [0.73.4] - 2026-10-28 — cia subscription topup opens the cia wallet topup page
 
 ### Fixed

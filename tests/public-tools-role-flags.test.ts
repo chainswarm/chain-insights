@@ -15,8 +15,8 @@ import {
 // the walk stops.
 
 const ADDRESS = '0x00000000000000000000000000000000000000aa'
-const ROLE_FLAGS = ['is_exchange', 'is_scam', 'is_victim', 'is_sanctioned'] as const
-const NON_EXCHANGE_FLAGS = ['is_scam', 'is_victim', 'is_sanctioned'] as const
+const ROLE_FLAGS = ['is_exchange', 'is_scam', 'is_victim', 'is_sanctioned', 'is_issuer_frozen'] as const
+const NON_EXCHANGE_FLAGS = ['is_scam', 'is_victim', 'is_sanctioned', 'is_issuer_frozen'] as const
 
 type Node = Record<string, unknown>
 
@@ -134,13 +134,13 @@ describe('the reader of a hydrated route reads the flag as a marker', () => {
   })
 })
 
-describe('the served skills and documents name the four role flags', () => {
+describe('the served skills and documents name the five role flags', () => {
   const root = process.cwd()
-  // The two guides are the homes of the four flags. The cypher skill keeps one
+  // The two guides are the homes of the five flags. The cypher skill keeps one
   // bullet on how to test a flag, and the tests below read it too.
   const files = ['docs/graph-query-compatibility.md', 'docs/graph-tools.md']
 
-  it.each(files)('%s names all four flags and says each is absent unless true', (file) => {
+  it.each(files)('%s names all five flags and says each is absent unless true', (file) => {
     const text = readFileSync(join(root, file), 'utf8')
     for (const flag of ROLE_FLAGS) expect(text.includes(flag), `${file} misses ${flag}`).toBe(true)
     expect(/absent unless true/.test(text), `${file} does not say absent unless true`).toBe(true)
@@ -154,7 +154,7 @@ describe('the served skills and documents name the four role flags', () => {
     ).toBe(true)
   })
 
-  it('the cypher skill names all four flags and says each is absent unless true', () => {
+  it('the cypher skill names all five flags and says each is absent unless true', () => {
     const text = readFileSync(join(root, 'skills/chain-insights-cypher/SKILL.md'), 'utf8')
     for (const flag of ROLE_FLAGS)
       expect(text.includes(flag), `the skill misses ${flag}`).toBe(true)
@@ -169,8 +169,8 @@ describe('the served skills and documents name the four role flags', () => {
   it('no document teaches a role flag that reads false', () => {
     for (const file of [...files, 'skills/chain-insights-cypher/SKILL.md']) {
       const text = readFileSync(join(root, file), 'utf8')
-      expect(/is_(exchange|scam|victim|sanctioned)\s*=\s*false/.test(text), file).toBe(false)
-      expect(/is_(exchange|scam|victim|sanctioned)[^.\n]*reads? `?false/.test(text), file).toBe(
+      expect(/is_(exchange|scam|victim|sanctioned|issuer_frozen)\s*=\s*false/.test(text), file).toBe(false)
+      expect(/is_(exchange|scam|victim|sanctioned|issuer_frozen)[^.\n]*reads? `?false/.test(text), file).toBe(
         false
       )
     }

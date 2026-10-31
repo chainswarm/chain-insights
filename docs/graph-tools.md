@@ -385,16 +385,22 @@ into its own `asset_key` itself; a query never needs the key.
 
 ## Role labels and flags
 
-The graph labels an address with role words: `Exchange`, `Scam`, `Victim` and
-`Sanctioned`. `:Exchange` is a node label now, and so are `:Scam`, `:Victim`
-and `:Sanctioned`. Each role also has a flag on the node.
+The graph labels an address with role words: `Exchange`, `Scam`, `Victim`,
+`Sanctioned` and `IssuerFrozen`. `:Exchange` is a node label now, and so are
+`:Scam`, `:Victim`, `:Sanctioned` and `:IssuerFrozen`. Each role also has a
+flag on the node.
 
-| Role         | Node label    | Flag            |
-| ------------ | ------------- | --------------- |
-| `Exchange`   | `:Exchange`   | `is_exchange`   |
-| `Scam`       | `:Scam`       | `is_scam`       |
-| `Victim`     | `:Victim`     | `is_victim`     |
-| `Sanctioned` | `:Sanctioned` | `is_sanctioned` |
+| Role           | Node label      | Flag               |
+| -------------- | --------------- | ------------------ |
+| `Exchange`     | `:Exchange`     | `is_exchange`      |
+| `Scam`         | `:Scam`         | `is_scam`          |
+| `Victim`       | `:Victim`       | `is_victim`        |
+| `Sanctioned`   | `:Sanctioned`   | `is_sanctioned`    |
+| `IssuerFrozen` | `:IssuerFrozen` | `is_issuer_frozen` |
+
+- `:IssuerFrozen`: an issuer froze this wallet; the token in `labels` says
+  which (`USDG` or `PAXG` on robinhood). An unfreeze removes it. It is never
+  `:Scam` for the freeze alone.
 
 - Each flag is absent unless true. An address carries the flag only while it
   has a live label of that role. A flag is never `false`.
