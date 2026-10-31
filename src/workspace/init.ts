@@ -206,12 +206,14 @@ The address-grain graph schema:
   only.
 - Other Address properties: \`labels\` (array of role words, never
   detector names) and the role flags \`is_exchange\`, \`is_scam\`,
-  \`is_victim\` and \`is_sanctioned\`. Each flag is present only when
-  true and absent otherwise, never \`false\`: \`:Exchange\` and
+  \`is_victim\`, \`is_sanctioned\` and \`is_issuer_frozen\`. Each flag
+  is present only when true and absent otherwise, never \`false\`: \`:Exchange\` and
   \`is_exchange\` follow the \`exchange\` label, \`:Scam\` and
   \`is_scam\` the \`risk\` label, \`:Victim\` and \`is_victim\` the
   \`protection\` label, \`:Sanctioned\` and \`is_sanctioned\` the
-  \`sanctioned\` label. Per-label risk lives on the address node as three
+  \`sanctioned\` label, \`:IssuerFrozen\` and \`is_issuer_frozen\` the
+  \`issuer_frozen\` label: an issuer froze this wallet; the token in
+  \`labels\` says which. Per-label risk lives on the address node as three
   parallel lists, \`label_risk_labels\`, \`label_risk_levels\` and
   \`label_risk_updated_timestamps\`: entry i of each list is one current
   label row.

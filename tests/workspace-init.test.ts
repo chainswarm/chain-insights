@@ -45,10 +45,12 @@ describe('workspace initialization', () => {
         'is_scam',
         'is_victim',
         'is_sanctioned',
+        'is_issuer_frozen',
         ':Exchange',
         ':Scam',
         ':Victim',
         ':Sanctioned',
+        ':IssuerFrozen',
         'UNSCORED',
       ]) {
         expect(runtimeSkill, `missing ${name}`).toContain(name)
