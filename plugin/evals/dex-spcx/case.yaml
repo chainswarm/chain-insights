@@ -16,7 +16,7 @@ graders:
   - type: regex
     name: pool-or-factory-named
     target: last_message
-    pattern: '0x3d6ea4e97b8ab9e1a1b4943febffe22d8c920091|meta_dex_lookup'
+    pattern: '0x3d6ea4e97b8ab9e1a1b4943febffe22d8c920091|0x3d69104da2518f4833d71444d6611310f2d685f2|meta_dex_lookup'
     match: contains
   - type: regex
     name: creator-is-tx-origin

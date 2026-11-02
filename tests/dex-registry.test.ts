@@ -34,8 +34,8 @@ describe('the reviewed table and its served copy', () => {
       cwd: repoRoot,
       encoding: 'utf8',
     })
-    expect(out).toContain('rows: 47 served, 0 refused, 2 not served')
-    expect(out).toContain('registry/robinhood.json up to date, registry version 3')
+    expect(out).toContain('rows: 53 served, 0 refused, 2 not served')
+    expect(out).toContain('registry/robinhood.json up to date, registry version 4')
   })
 
   it('fails on a hand edit of the served copy, naming both versions', () => {
@@ -49,7 +49,7 @@ describe('the reviewed table and its served copy', () => {
     const { ok, lines } = checkRegistry(join(dir, 'robinhood.md'))
     expect(ok).toBe(false)
     expect(lines.join('\n')).toMatch(
-      /the file gives registry version 3, the committed copy says registry version 1/
+      /the file gives registry version 4, the committed copy says registry version 1/
     )
   })
 
@@ -82,8 +82,8 @@ describe('the served copy', () => {
     expect(registry.schema).toBe('chain-insights.dex-registry.v1')
     expect(registry.network).toBe('robinhood')
     expect(registry.recorded_on).toMatch(/^\d{4}-\d{2}-\d{2}$/)
-    expect(registry.registry_version).toBe(3)
-    expect(registry.rows).toHaveLength(31)
+    expect(registry.registry_version).toBe(4)
+    expect(registry.rows).toHaveLength(34)
   })
 
   it("holds the registry version the package's chainInsights.dexRegistryVersion names", () => {
@@ -169,11 +169,11 @@ describe('the served copy', () => {
 describe('the pinned indexer adapters', () => {
   const pin = readAdapters()
 
-  it('holds the 16 adapters of the registry version it names, each once, with full anchors', () => {
+  it('holds the 20 adapters of the registry version it names, each once, with full anchors', () => {
     expect(Number.isInteger(pin.registry_version) && pin.registry_version > 0).toBe(true)
     expect(pin.network).toBe('robinhood')
-    expect(pin.adapters).toHaveLength(16)
-    expect(new Set(pin.adapters.map((adapter) => adapter.id)).size).toBe(16)
+    expect(pin.adapters).toHaveLength(20)
+    expect(new Set(pin.adapters.map((adapter) => adapter.id)).size).toBe(20)
     for (const adapter of pin.adapters) {
       expect(['factory', 'custody', 'emitter', 'launch'], adapter.id).toContain(
         adapter.discovery_kind
@@ -183,12 +183,21 @@ describe('the pinned indexer adapters', () => {
         expect(adapter.anchors, adapter.id).toHaveLength(1)
       if (adapter.discovery_kind === 'factory')
         expect(adapter.anchors.length, adapter.id).toBeGreaterThan(0)
+      if (adapter.reserve_holder !== undefined) {
+        expect(adapter.discovery_kind, adapter.id).toBe('custody')
+        expect(adapter.reserve_holder, adapter.id).toMatch(ADDRESS)
+      }
     }
   })
 
   // A launch adapter reads the Initialize of a pool manager, the manager a
   // vault row serves; its factories are found on the chain and no row names them.
-  it('anchors every custody and launch adapter on the manager its vault row names', () => {
+  // A custody adapter's row names its anchor or its reserve holder as the one
+  // manager of a vault: the holder when the adapter's pools carry the holder's
+  // address and the anchor is one of many contracts that log its trades. A
+  // launchpad row whose curves live inside one contract names that contract as
+  // a manager, beside the factory that creates the launched tokens.
+  it('anchors every custody and launch adapter on the manager its vault or launchpad row names', () => {
     const registry = readRegistry()
     for (const adapter of pin.adapters.filter(
       (a) => a.discovery_kind === 'custody' || a.discovery_kind === 'launch'
@@ -198,9 +207,16 @@ describe('the pinned indexer adapters', () => {
           ? candidate.trail_type === 'vault'
           : candidate.adapters.includes(adapter.id)
       )
+      const managers = [adapter.anchors[0], adapter.reserve_holder].filter(Boolean)
       expect(
-        rows.some((row) => row.factories.length === 1 && row.factories[0] === adapter.anchors[0]),
-        `${adapter.id}: no vault row names its anchor ${adapter.anchors[0]}`
+        rows.some(
+          (row) =>
+            (row.factories.length === 1 && managers.includes(row.factories[0])) ||
+            (adapter.discovery_kind === 'custody' &&
+              row.trail_type === 'launchpad' &&
+              row.roles[adapter.anchors[0]!] === 'manager')
+        ),
+        `${adapter.id}: no vault or launchpad row names its anchor ${adapter.anchors[0]} as its manager`
       ).toBe(true)
     }
   })
