@@ -1,5 +1,5 @@
 {
-  "registry_version": 28,
+  "registry_version": 29,
   "network": "robinhood",
   "adapters": [
     {
@@ -43,6 +43,13 @@
       ]
     },
     {
+      "id": "hoodclub-curve",
+      "discovery_kind": "factory",
+      "anchors": [
+        "0xc4210279fb1e1de24a87d6f5cc597c9422aef899"
+      ]
+    },
+    {
       "id": "metric-omm",
       "discovery_kind": "factory",
       "anchors": [
@@ -50,11 +57,19 @@
       ]
     },
     {
+      "id": "mob-launch-curve",
+      "discovery_kind": "custody",
+      "anchors": [
+        "0x4ed0f046d97d508df86d6b7b058e763dbfb0027f"
+      ]
+    },
+    {
       "id": "pancake-infinity-cl",
       "discovery_kind": "custody",
       "anchors": [
         "0xd01c774d4a66408326bc65728ac5ae5aaf004032"
-      ]
+      ],
+      "reserve_holder": "0xfe7e25de55e5cbbecccb661f3679f873f72b9b0d"
     },
     {
       "id": "penguin-launchpad",
@@ -76,6 +91,21 @@
       "anchors": [
         "0x3d6ea4e97b8ab9e1a1b4943febffe22d8c920091"
       ]
+    },
+    {
+      "id": "spcx-launchpad-v2",
+      "discovery_kind": "factory",
+      "anchors": [
+        "0x3d69104da2518f4833d71444d6611310f2d685f2"
+      ]
+    },
+    {
+      "id": "swapped-custody",
+      "discovery_kind": "custody",
+      "anchors": [
+        "0x95e4a408590e5ace8aab498ab0f9f4236f5162e5"
+      ],
+      "reserve_holder": "0x2f4579ca81717d3d61bf8b6f06571877bbe54a07"
     },
     {
       "id": "trader-joe-lb",

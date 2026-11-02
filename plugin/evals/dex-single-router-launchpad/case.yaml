@@ -1,0 +1,61 @@
+schema_version: "1.0"
+name: dex-single-router-launchpad
+expected_outcome: The agent takes the single-router bonding-curve launchpad's token factory and router from meta_dex_lookup, or the memo when the tool is absent, with no address from the user, calls it an unnamed launchpad, reads the launches with the creator from tx_origin, reads the trades as SWAPPED links into the router, never calls the router the buyer, and invents no name.
+execution:
+  prompt: |
+    A user asks: "Who launched tokens on the single-router bonding-curve launchpad on robinhood, and
+    who bought them on the curve?"
+
+    The Chain Insights tools are not reachable right now, so do not try
+    to call them. Write the first tool calls and graph queries you would
+    send, in full, and one line each on what their answers tell you.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: pool-or-factory-named
+    target: last_message
+    pattern: '0x006fee8a9a5482dd7cdf7f21b4d78fa6e246ca4c|0x4ed0f046d97d508df86d6b7b058e763dbfb0027f|meta_dex_lookup'
+    match: contains
+  - type: regex
+    name: creator-is-tx-origin
+    target: last_message
+    pattern: 'tx_origin'
+    match: contains
+  - type: regex
+    name: trades-into-the-router
+    target: last_message
+    pattern: 'SWAPPED'
+    match: contains
+  - type: regex
+    name: no-invented-name
+    target: last_message
+    pattern: '\b(Mob (launchpad|launch kit|platform)|pump\.fun|Penguin)\b'
+    flags: i
+    match: not_contains
+  - type: regex
+    name: contract-never-buyer
+    target: last_message
+    pattern: '\brouter\b[^.\n]{0,20}\b(is|was) the buyer\b|\bthe buyer (is|was) the router\b'
+    flags: i
+    match: not_contains
+  - type: regex
+    name: full-addresses
+    target: last_message
+    pattern: '0x[0-9a-fA-F]{2,10}(…|\.\.\.)'
+    match: not_contains
+  - type: regex
+    name: no-address-asked
+    target: last_message
+    pattern: '(give|send|share|provide|paste|tell) me (the |a |an |its )?(full )?((pool|factory|router|contract|exchange) )?address|what is the (pool|factory|router|contract) address|do you have (the|an?) ((pool|factory|router) )?address'
+    flags: i
+    match: not_contains
+  - type: regex
+    name: door-first
+    target: last_message
+    pattern: 'meta_dex_lookup'
+    match: contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

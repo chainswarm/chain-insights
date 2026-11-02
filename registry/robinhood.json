@@ -1,8 +1,8 @@
 {
   "schema": "chain-insights.dex-registry.v1",
   "network": "robinhood",
-  "registry_version": 3,
-  "recorded_on": "2026-10-25",
+  "registry_version": 4,
+  "recorded_on": "2026-11-02",
   "rows": [
     {
       "dex": "aero",
@@ -546,6 +546,31 @@
       "source": "https://github.com/EkuboProtocol/evm-contracts/blob/933c813ca154475a3c7eab8234869f6db151c682/broadcast/DeployAll.s.sol/4663/run-latest.json"
     },
     {
+      "dex": "stock-token-market",
+      "display": "unnamed stock-token market with one reserve holder",
+      "aliases": [
+        "stock-token market",
+        "stock token market"
+      ],
+      "trail_type": "vault",
+      "adapters": [
+        "swapped-custody"
+      ],
+      "roles": {
+        "0x2f4579ca81717d3d61bf8b6f06571877bbe54a07": "manager"
+      },
+      "factories": [
+        "0x2f4579ca81717d3d61bf8b6f06571877bbe54a07"
+      ],
+      "routers": [
+        "0x2f4579ca81717d3d61bf8b6f06571877bbe54a07"
+      ],
+      "example_pool": null,
+      "pool_floor": null,
+      "since_block": 461784,
+      "source": "https://github.com/chainswarm/devops/blob/e270ee1a3c8a2afc52e9d5549be5dbb8b98f0914/charts/chainswarm-indexer-evm-dex/registry/robinhood-v29.json"
+    },
+    {
       "dex": "ramses",
       "display": "Ramses",
       "aliases": [
@@ -754,17 +779,22 @@
       ],
       "trail_type": "launchpad",
       "adapters": [
-        "spcx-launchpad"
+        "spcx-launchpad",
+        "spcx-launchpad-v2"
       ],
       "roles": {
         "0x3d6ea4e97b8ab9e1a1b4943febffe22d8c920091": "factory",
-        "0x190b452d16e12e3beedd76a030ea991fe3856c33": "router"
+        "0x190b452d16e12e3beedd76a030ea991fe3856c33": "router",
+        "0x3d69104da2518f4833d71444d6611310f2d685f2": "factory",
+        "0x3c7476e8be0efd5b9667421448a99e217b806e80": "router"
       },
       "factories": [
-        "0x3d6ea4e97b8ab9e1a1b4943febffe22d8c920091"
+        "0x3d6ea4e97b8ab9e1a1b4943febffe22d8c920091",
+        "0x3d69104da2518f4833d71444d6611310f2d685f2"
       ],
       "routers": [
-        "0x190b452d16e12e3beedd76a030ea991fe3856c33"
+        "0x190b452d16e12e3beedd76a030ea991fe3856c33",
+        "0x3c7476e8be0efd5b9667421448a99e217b806e80"
       ],
       "example_pool": "0x1de3f839184cf48696cbb9cc283855eb32dc2c51",
       "pool_floor": 1,
@@ -793,6 +823,56 @@
       "pool_floor": null,
       "since_block": 0,
       "source": "https://github.com/DefiLlama/DefiLlama-Adapters/blob/main/projects/pons-v2/index.js"
+    },
+    {
+      "dex": "eth-curve-launchpad",
+      "display": "unnamed native-ETH bonding-curve launchpad",
+      "aliases": [
+        "native-ETH bonding-curve launchpad",
+        "ETH bonding-curve launchpad"
+      ],
+      "trail_type": "launchpad",
+      "adapters": [
+        "hoodclub-curve"
+      ],
+      "roles": {
+        "0xc4210279fb1e1de24a87d6f5cc597c9422aef899": "factory"
+      },
+      "factories": [
+        "0xc4210279fb1e1de24a87d6f5cc597c9422aef899"
+      ],
+      "routers": [],
+      "example_pool": "0x01e7afb5fc124f6b8270bcd2b7d203dcad68c861",
+      "pool_floor": 1,
+      "since_block": 54625631,
+      "source": "https://github.com/chainswarm/devops/blob/e270ee1a3c8a2afc52e9d5549be5dbb8b98f0914/charts/chainswarm-indexer-evm-dex/registry/robinhood-v29.json"
+    },
+    {
+      "dex": "single-router-launchpad",
+      "display": "unnamed single-router bonding-curve launchpad",
+      "aliases": [
+        "single-router bonding-curve launchpad",
+        "single-router launchpad"
+      ],
+      "trail_type": "launchpad",
+      "adapters": [
+        "mob-launch-curve"
+      ],
+      "roles": {
+        "0x006fee8a9a5482dd7cdf7f21b4d78fa6e246ca4c": "factory",
+        "0x4ed0f046d97d508df86d6b7b058e763dbfb0027f": "manager"
+      },
+      "factories": [
+        "0x006fee8a9a5482dd7cdf7f21b4d78fa6e246ca4c",
+        "0x4ed0f046d97d508df86d6b7b058e763dbfb0027f"
+      ],
+      "routers": [
+        "0x4ed0f046d97d508df86d6b7b058e763dbfb0027f"
+      ],
+      "example_pool": null,
+      "pool_floor": null,
+      "since_block": 99903488,
+      "source": "https://github.com/chainswarm/scout-agent/issues/131"
     },
     {
       "dex": "virtuals",

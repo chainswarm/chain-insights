@@ -37,7 +37,13 @@ export type RegistryFile = {
   rows: DexRow[]
 }
 
-export type AdapterPin = { id: string; discovery_kind: string; anchors: string[] }
+export type AdapterPin = {
+  id: string
+  discovery_kind: string
+  anchors: string[]
+  /** The contract that holds a custody adapter's reserves, when the indexer names one. */
+  reserve_holder?: string
+}
 export type AdapterFile = { registry_version: number; network: string; adapters: AdapterPin[] }
 
 function readJson<T>(root: string, path: string): T {

@@ -1,7 +1,7 @@
 ---
 name: chain-insights-dex-launchpad
 door: meta_dex_lookup
-description: Use for the dex-launchpad trail - token launchpads with a bonding curve on robinhood other than Virtuals, such as Penguin, the SPCX launchpad and the unnamed bonding-curve launchpad, and the unnamed v4 launch factories that create a token and open its Uniswap v4 pool in one transaction - when a question asks who launched a token there or through a factory address, who bought or sold on its curve, whether and when it graduated, or which pool it moved to. Loaded by chain-insights-dex for a launchpad row of its memo. Virtuals questions belong to chain-insights-virtuals.
+description: Use for the dex-launchpad trail - token launchpads with a bonding curve on robinhood other than Virtuals, such as Penguin, the SPCX launchpad, the unnamed bonding-curve launchpad, the unnamed native-ETH bonding-curve launchpad and the unnamed single-router bonding-curve launchpad, and the unnamed v4 launch factories that create a token and open its Uniswap v4 pool in one transaction - when a question asks who launched a token there or through a factory address, who bought or sold on its curve, whether and when it graduated, or which pool it moved to. Loaded by chain-insights-dex for a launchpad row of its memo. Virtuals questions belong to chain-insights-virtuals.
 ---
 
 # Chain Insights: the launchpad trail (Penguin, SPCX, bonding curves)
@@ -33,11 +33,15 @@ A launchpad token lives in two stages:
 | Launchpad | Factory | What the factory deploys |
 |---|---|---|
 | Penguin | `0x09f1b640d53c9c4c1807bf5aa306745128ee4375` | the launched token, which is also its own curve |
-| SPCX launchpad | `0x3d6ea4e97b8ab9e1a1b4943febffe22d8c920091` | the launched token and its curve, a contract of its own, quoted in SPCX or another stock token |
+| SPCX launchpad | `0x3d6ea4e97b8ab9e1a1b4943febffe22d8c920091`, `0x3d69104da2518f4833d71444d6611310f2d685f2` | the launched token and its curve, a contract of its own, quoted in SPCX or another stock token. Two factories of the same code: read both |
 | unnamed launchpad | `0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e` | a launch contract; its name is not proven yet |
+| unnamed native-ETH bonding-curve launchpad | `0xc4210279fb1e1de24a87d6f5cc597c9422aef899` | the launched token, its curve (a contract of its own, paid in native ETH) and a fee vault, three contracts per launch |
+| unnamed single-router bonding-curve launchpad | `0x006fee8a9a5482dd7cdf7f21b4d78fa6e246ca4c` | the launched token only. Every curve lives inside one router, `0x4ed0f046d97d508df86d6b7b058e763dbfb0027f`, keyed by the token |
 
-Call the second one "an unnamed bonding-curve launchpad". Never give it a
-name you have not read.
+Call the third one "an unnamed bonding-curve launchpad", the fourth "an
+unnamed native-ETH bonding-curve launchpad" and the fifth "an unnamed
+single-router bonding-curve launchpad". Never give one a name you have not
+read: a token launched there, such as Mob, is never the launchpad's name.
 
 ## Who launched it
 
@@ -53,9 +57,15 @@ name you have not read.
 3. **Who bought and sold on the curve** (L2): the launched contract's own
    `FLOWS_TO` links, both directions, ranked by transactions. Money in is a
    buy, money out is a payout. On Penguin the token contract is the curve,
-   so these are its traders. On the SPCX launchpad the curve is a contract
-   of its own and a `:Pool`: its traders are the `SWAPPED` links into the
-   curve, and the token's own links are not the curve stage.
+   so these are its traders. On the SPCX launchpad and the native-ETH
+   launchpad the curve is a contract of its own and a `:Pool`: its traders
+   are the `SWAPPED` links into the curve, and the token's own links are not
+   the curve stage. On the native-ETH launchpad the curve takes and pays
+   native ETH: the sold or bought asset is ETH, not WETH.
+   On the single-router launchpad no curve is a contract: every trade is a
+   `SWAPPED` link into the router, and the launched token is the sold or
+   bought asset. Keep the rows whose asset is the token. The router is never
+   the buyer, and no topology hop goes out of it: it holds every curve.
 4. A fresh token has no price: its `amount_usd` can be empty. Value a buy by
    what was paid for it, and say when no price exists.
 

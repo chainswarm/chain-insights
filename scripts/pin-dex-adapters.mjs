@@ -17,9 +17,11 @@
 // kind (factory, custody, emitter or launch) and its anchors: the discovery
 // factories, else the discovery address (the custody contract of a custody
 // adapter, the pool manager whose Initialize a launch adapter reads), else none
-// (an emitter adapter is found by its event alone). A launch adapter is a
-// generic rule: its factories are found on the chain, never named in the
-// registry. Everything else in the registry (profiles, deployments, event
+// (an emitter adapter is found by its event alone). A custody adapter that
+// names a reserve holder keeps it too: the contract that holds the reserves,
+// whose address the adapter's pools carry. A launch adapter is a generic rule:
+// its factories are found on the chain, never named in the registry.
+// Everything else in the registry (profiles, deployments, stacks, event
 // signatures, code profiles) is dropped.
 import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -77,11 +79,18 @@ export function pinDexAdapters(registryText) {
         `${adapter.id}: discovery kind ${String(discovery.kind)} is not factory, custody, emitter or launch`
       )
     }
-    return {
+    const pinned = {
       id: adapter.id,
       discovery_kind: discovery.kind,
       anchors: anchorsOf(adapter.id, discovery),
     }
+    if (discovery.kind === 'custody' && discovery.reserve_holder) {
+      const holder = lower(discovery.reserve_holder)
+      if (!ADDRESS.test(holder))
+        fail(`${adapter.id}: reserve holder ${holder} is not a full address`)
+      pinned.reserve_holder = holder
+    }
+    return pinned
   })
   adapters.sort((a, b) => a.id.localeCompare(b.id))
   const ids = new Set(adapters.map((a) => a.id))
