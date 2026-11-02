@@ -5,6 +5,8 @@ All notable changes to Chain Insights are recorded here.
 
 ## Unreleased
 
+## [0.74.1] - 2026-11-02 — the exchange lookup finds the four exchanges of indexer registry 29
+
 ### Added
 
 - `registry/robinhood.md` serves the four adapters of indexer registry
