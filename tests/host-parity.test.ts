@@ -130,6 +130,17 @@ describe('host parity', () => {
     )
   })
 
+  it('the core skill and the graph_query description both say what :IssuerFrozen means, beside :Sanctioned', () => {
+    const meaning = 'an issuer froze this wallet; the token in labels says which'
+    const description = KNOWN_PUBLIC_TOOL_DESCRIPTIONS['graph_query']
+    expect(description).toContain(`:IssuerFrozen (is_issuer_frozen) means ${meaning}`)
+    expect(description.indexOf(':Sanctioned')).toBeGreaterThan(-1)
+    expect(description.indexOf(':Sanctioned')).toBeLessThan(description.indexOf(':IssuerFrozen'))
+    const skill = readFileSync(join(repoRoot, 'skills', CORE_SKILL, 'SKILL.md'), 'utf8')
+    expect(skill.replace(/`/g, '')).toContain(`:IssuerFrozen means ${meaning}`)
+    expect(skill).toContain('`is_issuer_frozen`')
+  })
+
   it('a skill with its door: line removed is red, naming its path', () => {
     for (const dir of ['skills', 'registry'])
       cpSync(join(repoRoot, dir), join(copy, dir), { recursive: true })

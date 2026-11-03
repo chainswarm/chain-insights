@@ -1,7 +1,7 @@
 ---
 name: chain-insights-dex-vault
 door: meta_dex_lookup
-description: Use for the dex-vault trail - exchanges where one pool manager contract holds every pool, such as Uniswap v4, Balancer v2, Balancer v3, PancakeSwap Infinity and Ekubo on robinhood - when a seller's swap names the pool manager or vault, when a question asks who bought past the manager, or which pools such an exchange has. Loaded by chain-insights-dex for a vault row of its memo.
+description: Use for the dex-vault trail - exchanges where one pool manager contract holds every pool, such as Uniswap v4, Balancer v2, Balancer v3, PancakeSwap Infinity, Ekubo and the unnamed stock-token market with one reserve holder on robinhood - when a seller's swap names the pool manager or vault, when a question asks who bought past the manager, or which pools such an exchange has. Loaded by chain-insights-dex for a vault row of its memo.
 ---
 
 # Chain Insights: the vault trail (Uniswap v4, Balancer, PancakeSwap Infinity, Ekubo)
@@ -33,6 +33,14 @@ buyer.** Name it for what it is, in full: "the Uniswap v4 pool manager
 | Balancer v3 | `0x28082618ba2073e602230188e4f4c46e9b2169eb` |
 | PancakeSwap Infinity | `0xd01c774d4a66408326bc65728ac5ae5aaf004032` |
 | Ekubo | `0x00000000000014aa86c5d3c41765bb24e11bd701` |
+| unnamed stock-token market | `0x2f4579ca81717d3d61bf8b6f06571877bbe54a07`, the reserve holder |
+
+Call the last one "an unnamed stock-token market with one reserve holder".
+No source names it: never give it a name you have not read. Its trades are
+logged by 105 small market contracts, one per stock token, that move no
+token themselves. The holder takes the sold token and pays the bought one,
+so the holder is the manager of every swap, and each pair of tokens is one
+of its pools.
 
 ## The buyer past the manager
 

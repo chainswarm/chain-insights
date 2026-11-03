@@ -610,7 +610,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }
   )
 
-  it('serves the graph names: three label_risk lists, role words, four role flags, no risk score', async () => {
+  it('serves the graph names: three label_risk lists, role words, five role flags, no risk score', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
     vi.mocked(loadSchema).mockResolvedValueOnce(null)
 
@@ -632,8 +632,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     // No overall risk score is served: the instructions must say so, not teach risk_score.
     expect(instructions).toContain('No overall risk score is served')
     expect(instructions).not.toContain('risk_score float')
-    // Role words and the four role flags, each flag present only when true.
-    for (const word of ['Exchange', 'Scam', 'Victim', 'Sanctioned']) {
+    // Role words and the five role flags, each flag present only when true.
+    for (const word of ['Exchange', 'Scam', 'Victim', 'Sanctioned', 'IssuerFrozen']) {
       expect(instructions).toMatch(new RegExp(`\\b${word}\\b`))
     }
     for (const pair of [
@@ -641,11 +641,12 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       ':Scam and is_scam the risk label',
       ':Victim and is_victim the protection label',
       ':Sanctioned and is_sanctioned the sanctioned label',
+      ':IssuerFrozen and is_issuer_frozen the issuer_frozen label: an issuer froze this wallet; the token in labels says which',
     ]) {
       expect(instructions).toContain(pair)
     }
     expect(instructions).toContain('present only when true and absent otherwise, never false')
-    expect(instructions).not.toMatch(/is_(exchange|scam|victim|sanctioned)\s*=\s*false/)
+    expect(instructions).not.toMatch(/is_(exchange|scam|victim|sanctioned|issuer_frozen)\s*=\s*false/)
     // Labels are role words, never detector names.
     expect(instructions).toContain('role words, never detector names')
     expect(instructions).not.toMatch(/FAKE_TOKEN|FAKE TOKEN|PHANTOM_TRANSFER/)

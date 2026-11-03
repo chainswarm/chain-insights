@@ -85,7 +85,7 @@ hand. When the tool and the memo differ, follow the tool: it reads the
 newest file.
 
 <!-- dex-registry:start -->
-Memo of the exchange registry, version 3, robinhood, recorded 2026-10-25.
+Memo of the exchange registry, version 4, robinhood, recorded 2026-11-02.
 
 | Exchange | Key | Also written | Trail | Factories, or the manager | Router |
 |---|---|---|---|---|---|
@@ -109,6 +109,7 @@ Memo of the exchange registry, version 3, robinhood, recorded 2026-10-25.
 | Swaap v2 | `swaap` | Swaap, Swaap Finance, swaap.xyz, Balancer, Balancer v2, Balancer v2 vault | vault | manager `0xd315a9c38ec871068fec378e4ce78af528c76293` | the manager |
 | unnamed Balancer v3 vault | `balancer-v3` | Balancer, Balancer v3, Balancer v3 vault | vault | manager `0x28082618ba2073e602230188e4f4c46e9b2169eb` | the manager |
 | Ekubo | `ekubo` | Ekubo, Ekubo Protocol, ekubo.org | vault | manager `0x00000000000014aa86c5d3c41765bb24e11bd701` | the manager |
+| unnamed stock-token market with one reserve holder | `stock-token-market` | stock-token market, stock token market | vault | manager `0x2f4579ca81717d3d61bf8b6f06571877bbe54a07` | the manager |
 | Ramses | `ramses` | Ramses, Ramses Exchange, RAM, ramses.xyz, Ramses DLMM | plain | `0xdcd5f77697914e27f56fd263ef82923c8524abac`, `0x43b2bf9f33036a02fc7a00935571c2a6b0108e66` | `0xd0019e86edb35e1fedaab03aed5c3c60f115d28b` |
 | SectorOne | `sectorone` | SectorOne, SectorOne DLMM | plain | `0x3d8dc63ddc9b992cfde89f7aea6f18717e84687d` | none |
 | Hoodit | `hoodit` | Hoodit, hoodit.xyz | plain | `0x22602d966defd638ee94e97a92e2eb0934c3fe1b` | none |
@@ -117,8 +118,10 @@ Memo of the exchange registry, version 3, robinhood, recorded 2026-10-25.
 | Curve | `curve` | Curve, Curve Finance, CRV, curve.finance | plain | `0x8271e06e5887fe5ba05234f5315c19f3ec90e8ad` | none |
 | Metric | `metric` | Metric, Metric OMM, metric.xyz | plain | `0x2e0a99a2e352043d1ca489cf45bf7b511bccc738` | none |
 | Penguin | `penguin` | Penguin, Penguin launchpad | launchpad | `0x09f1b640d53c9c4c1807bf5aa306745128ee4375` | none |
-| SPCX launchpad | `spcx` | SPCX, SPCX launchpad, spcx launchpad | launchpad | `0x3d6ea4e97b8ab9e1a1b4943febffe22d8c920091` | `0x190b452d16e12e3beedd76a030ea991fe3856c33` |
+| SPCX launchpad | `spcx` | SPCX, SPCX launchpad, spcx launchpad | launchpad | `0x3d6ea4e97b8ab9e1a1b4943febffe22d8c920091`, `0x3d69104da2518f4833d71444d6611310f2d685f2` | `0x190b452d16e12e3beedd76a030ea991fe3856c33`, `0x3c7476e8be0efd5b9667421448a99e217b806e80` |
 | pons | `pons` | pons, pons launchpad | launchpad | `0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e` | none |
+| unnamed native-ETH bonding-curve launchpad | `eth-curve-launchpad` | native-ETH bonding-curve launchpad, ETH bonding-curve launchpad | launchpad | `0xc4210279fb1e1de24a87d6f5cc597c9422aef899` | none |
+| unnamed single-router bonding-curve launchpad | `single-router-launchpad` | single-router bonding-curve launchpad, single-router launchpad | launchpad | `0x006fee8a9a5482dd7cdf7f21b4d78fa6e246ca4c`, `0x4ed0f046d97d508df86d6b7b058e763dbfb0027f` | `0x4ed0f046d97d508df86d6b7b058e763dbfb0027f` |
 | Virtuals Protocol | `virtuals` | Virtuals, VIRTUAL, Virtuals Protocol | launchpad | `0xfc2e4da3edb2e18100473339c763705d263d20a9` | none |
 <!-- dex-registry:end -->
 

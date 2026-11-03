@@ -113,14 +113,14 @@ describe('README and docs match the CLI and the proxy', () => {
       if (!ok) failures.push(`${cmd}: help opens with "${out.split('\n')[0]}"`)
     }
     expect(failures, failures.join('\n')).toEqual([])
-  })
+  }, 60_000) // one CLI spawn per command; a loaded runner needs more than 5 s
 
   it('every public top-level command is named in the README or the docs', () => {
     // workspace commands are not public (CLAUDE.md); they may stay unnamed
     const notPublic = new Set(['workflow', 'workflows', 'status'])
     const missing = [...commandTree()].filter((c) => !c.includes(' ') && !notPublic.has(c) && !new RegExp(`\\bcia ${c}\\b`).test(allText))
     expect(missing, `commands the CLI ships but no doc names: ${missing.join(', ')}`).toEqual([])
-  })
+  }, 60_000) // one CLI spawn per command; a loaded runner needs more than 5 s
 
   it('the README tool table is exactly the public tool surface', () => {
     const table = readme.split('### What You Can Do Today')[1]?.split('\n## ')[0] ?? ''
