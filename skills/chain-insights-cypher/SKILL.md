@@ -204,6 +204,7 @@ Marks say what an address is. They sit beside the kind and are never an anchor:
 
 - `:Launchpad` is a Virtuals launchpad contract: an agent token or its starting pool. Its `labels` name the agent and its stage, `virtuals:<NAME>:bonding` or `virtuals:<NAME>:graduated`.
 - `:Mixer` is a mixer contract from the mixer registry: a pool, the router or the relayer of a Tornado-style mixer (Hearsay on robinhood). Its `labels` carry the word `Mixer` and `label_risk_levels` carries `high`.
+- `:IssuerFrozen` means an issuer froze this wallet; the token in `labels` says which. A token issuer (USDG or PAXG on robinhood) called its freeze on the address, and the freeze still holds: an unfreeze removes the mark. Its `labels` carry the word `IssuerFrozen` and the token's symbol, such as `USDG`, its flag is `is_issuer_frozen`, and `label_risk_levels` carries `high`. It stands beside `:Sanctioned`, the sanctions-list mark with the flag `is_sanctioned`. A frozen wallet is never `:Scam` for the freeze alone: say the issuer froze it, never that it is a scam.
 - `:Protocol` is a protocol's own contract: a pool, a router, a position manager, a stock token's proxy. It is never given for a token name alone.
 - `:SmartAccount` is a contract wallet, beside `:Account` or `:Contract`.
 - `:SelfTrader` is a contract that swaps with itself: it pays the pool and gets the bought side back, such as an arbitrage bot, a vault or a treasury. In the answer call it a **self-trading contract**, never a trader, a wallet or a user. A smart account is never `:SelfTrader`. Its `labels` carry the word `SelfTrader`. Its callers are its operator keys: trace its ETH payouts to them. Find these contracts by mark, `MATCH (a:SelfTrader)`. Its own swaps sit on its self link, `MATCH (a:Address {address: "<full address>"})-[w:SWAPPED]->(a)`, anchored on the full 42-character address:
@@ -274,7 +275,7 @@ bridges and the `LINKED` overlay. The server checks these before it runs:
 - A sort, an aggregate, `DISTINCT`, `collect()` or a filter on a link property needs an anchor on every pattern.
 - End every read with a literal `LIMIT`: at most 5,000 rows, 100 for a probe. A path has at most 5 hops and a query at most 8. The live numbers are in `topology_admission` (`cia network robinhood --json`).
 - Paths use bounded quantifiers such as `-[:FLOWS_TO]-{1,5}`. A `*` range, the legacy path functions, `PROFILE`, writes and `CALL` are refused.
-- Role flags `is_exchange`, `is_scam`, `is_victim` and `is_sanctioned` are absent unless true: use `IS NULL` or `IS NOT NULL`, never `= false`.
+- Role flags `is_exchange`, `is_scam`, `is_victim`, `is_sanctioned` and `is_issuer_frozen` are absent unless true: use `IS NULL` or `IS NOT NULL`, never `= false`.
 - A kind label sits beside `:Address`: `WHERE a:Contract` or `WHERE a:Account` tests it, as `:Pool` is tested. It is no anchor.
 - A `FLOWS_TO` read written without an arrow, `-[f:FLOWS_TO]-`, matches both directions and tells you nothing about which end sent. Return `startNode(f).address AS from_address, endNode(f).address AS to_address`, or send two directed reads, before you call either address the sender: one answer named the receiver as the sender and had to take it back.
 

@@ -2,6 +2,7 @@ import {
   generateArtifactHtml,
   getTopupUrl as getCopiedTopupUrl,
   startTopupServer as startCopiedTopupServer,
+  type TopupRail,
 } from './mcp-proxy/topup-server.js'
 import { createServer, type Server, type ServerResponse } from 'node:http'
 import { isAddress } from 'viem'
@@ -9,6 +10,7 @@ import type { PaymentWalletAccount } from './tools.js'
 
 interface ArtifactServerState {
   address: string
+  rail: TopupRail
   assetServerUrl: string
   server: Server
   url: string
@@ -118,17 +120,26 @@ export async function stopTopupServer(): Promise<void> {
   await new Promise<void>((resolve) => server.close(() => resolve()))
 }
 
-export async function startTopupServer(account: PaymentWalletAccount | string): Promise<string> {
+/**
+ * The browser top-up page of `cia wallet topup` (rail base-usdc) and of
+ * `cia subscription topup` (rail robinhood-cia): one page, only its text
+ * differs by rail.
+ */
+export async function startTopupServer(
+  account: PaymentWalletAccount | string,
+  rail: TopupRail = 'base-usdc'
+): Promise<string> {
   const walletAddress = toWalletAddress(account)
 
   if (
     artifactServerState &&
+    artifactServerState.rail === rail &&
     artifactServerState.address.toLowerCase() === walletAddress.toLowerCase()
   ) {
     return artifactServerState.url
   }
 
-  const assetServerUrl = await startCopiedTopupServer(walletAddress)
+  const assetServerUrl = await startCopiedTopupServer(walletAddress, rail)
 
   if (artifactServerState) {
     await stopTopupServer()
@@ -161,7 +172,7 @@ export async function startTopupServer(account: PaymentWalletAccount | string): 
 
     if (pathname === '/' || pathname === '/index.html') {
       const artifactUrl = artifactServerState?.url ?? assetServerUrl
-      send(res, 200, generateArtifactHtml(walletAddress, artifactUrl), 'text/html; charset=utf-8')
+      send(res, 200, generateArtifactHtml(walletAddress, artifactUrl, rail), 'text/html; charset=utf-8')
       return
     }
 
@@ -203,6 +214,7 @@ export async function startTopupServer(account: PaymentWalletAccount | string): 
 
   artifactServerState = {
     address: walletAddress,
+    rail,
     assetServerUrl,
     server,
     url,

@@ -14,8 +14,8 @@
 
 const NAMES = [
   // topology node labels
-  'Account', 'Address', 'Bridge', 'Bundler', 'Chain', 'Contract', 'EntryPoint', 'Exchange', 'Launchpad', 'Mixer',
-  'NFT', 'OnMoneyTrail', 'Paymaster', 'Poisoned', 'Pool', 'Protocol', 'Sanctioned', 'Scam', 'SmartAccount',
+  'Account', 'Address', 'Bridge', 'Bundler', 'Chain', 'Contract', 'EntryPoint', 'Exchange', 'IssuerFrozen', 'Launchpad',
+  'Mixer', 'NFT', 'OnMoneyTrail', 'Paymaster', 'Poisoned', 'Pool', 'Protocol', 'Sanctioned', 'Scam', 'SmartAccount',
   'Targeted', 'Token', 'Victim',
   // chain lookups
   'Transaction', 'Block', 'Head',

@@ -386,8 +386,8 @@ rejected shapes against a live Chain Insights Graph endpoint.
 
 ## Role labels and flags (topology graph)
 
-The graph labels an address with role words: `Exchange`, `Scam`, `Victim` and
-`Sanctioned`. Each role is also a node label, so it is queryable on
+The graph labels an address with role words: `Exchange`, `Scam`, `Victim`,
+`Sanctioned` and `IssuerFrozen`. Each role is also a node label, so it is queryable on
 `topology`. `:Exchange` is a node label now.
 
 | Form                                                | Result                           |
@@ -396,8 +396,9 @@ The graph labels an address with role words: `Exchange`, `Scam`, `Victim` and
 | `MATCH (n:Address:Exchange)` — colon-stacked labels | ✅ (native Cypher)               |
 | `RETURN labels(n)`                                  | project known properties instead |
 
-The four role flags are `is_exchange`, `is_scam`, `is_victim` and
-`is_sanctioned`. Each is absent unless true: an address carries the flag only
+The five role flags are `is_exchange`, `is_scam`, `is_victim`,
+`is_sanctioned` and `is_issuer_frozen`. `:IssuerFrozen` means an issuer froze
+this wallet; the token in `labels` says which. Each is absent unless true: an address carries the flag only
 while it has a live label of that role. A flag is never `false`, so test it
 with `IS NOT NULL` or `IS NULL`, not `= false`. A withdrawn label removes its
 node label and its flag. Only `is_exchange` ends a walk.

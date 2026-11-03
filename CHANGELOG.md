@@ -3,6 +3,94 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## Unreleased
+
+## [0.74.1] - 2026-11-02 — the exchange lookup finds the four exchanges of indexer registry 29
+
+### Added
+
+- `registry/robinhood.md` serves the four adapters of indexer registry
+  version 29, which runs on lane A and lane B. Registry version 4, recorded
+  2026-11-02.
+  - `spcx`: the second SPCX `LaunchFactory`
+    `0x3d69104da2518f4833d71444d6611310f2d685f2` and its `LaunchRouter`
+    `0x3c7476e8be0efd5b9667421448a99e217b806e80`, both verified on
+    Sourcify, adapter `spcx-launchpad-v2`.
+  - `eth-curve-launchpad`, the unnamed native-ETH bonding-curve launchpad
+    (adapter `hoodclub-curve`): factory
+    `0xc4210279fb1e1de24a87d6f5cc597c9422aef899`.
+  - `single-router-launchpad`, the unnamed single-router bonding-curve
+    launchpad (adapter `mob-launch-curve`): token factory
+    `0x006fee8a9a5482dd7cdf7f21b4d78fa6e246ca4c` and the router
+    `0x4ed0f046d97d508df86d6b7b058e763dbfb0027f` that holds every curve.
+  - `stock-token-market`, the unnamed stock-token market with one reserve
+    holder (adapter `swapped-custody`, trail vault): the holder
+    `0x2f4579ca81717d3d61bf8b6f06571877bbe54a07` as the manager.
+- The launchpad and vault trail skills name the new exchanges, and three
+  name-only evals ask for them.
+
+### Changed
+
+- `tests/fixtures/dex-adapters.json` pins indexer registry version 29: 20
+  adapters. `scripts/pin-dex-adapters.mjs` keeps a custody adapter's
+  `reserve_holder`, and the anchor rule takes a vault whose one manager is
+  that holder, or a launchpad row that names the custody contract as a
+  manager.
+
+## [0.74.0] - 2026-10-31 — the graph names wallets an issuer froze
+
+### Added
+
+- The graph's new role mark `:IssuerFrozen` is named wherever `:Sanctioned`
+  is: the `chain-insights-cypher` skill's mark list and role flags, the
+  `graph_query` tool description, the served graph hints, the workspace
+  runtime notes and the graph docs. It means an issuer froze this wallet; the
+  token in `labels` says which (`USDG` or `PAXG` on robinhood). Its flag is
+  `is_issuer_frozen`, present only when true, and an unfreeze removes both.
+  A frozen wallet is never `:Scam` for the freeze alone.
+- `:IssuerFrozen` written in the wrong case in a query is spelled the graph's
+  way, like every other node label.
+
+## [0.73.4] - 2026-10-28 — cia subscription topup opens the cia wallet topup page
+
+### Fixed
+
+- `cia subscription topup` opens the page `cia wallet topup` opens: the same
+  logo, background, box, QR code and script. Only the network text changes,
+  from Base and USDC to Robinhood Chain and $CIA, and the balance shown is
+  the $CIA balance. 0.73.2 and 0.73.3 matched the wrong page: the inner page
+  that `cia wallet topup` never shows. A test holds the two pages to the
+  same markup apart from that text.
+
+## [0.73.3] - 2026-10-28 — the subscription page is the wallet page
+
+### Fixed
+
+- 0.73.2 changed the wallet top-up page while it unified the two pages. The
+  wallet page is back exactly as it was in 0.73.1, and it is the one page:
+  `cia subscription topup` now shows that same page, with only the text
+  changed to Robinhood Chain and $CIA. A test holds the wallet page to its
+  0.73.1 copy and the subscription page to the wallet page.
+
+## [0.73.2] - 2026-10-28 — one top-up page for the wallet and the subscription
+
+### Fixed
+
+- `cia subscription topup` opens the same page as `cia wallet topup`: the same
+  layout, style and script. Only the text differs: Robinhood Chain and $CIA in
+  place of Base and USDC. A test fails when the two pages drift apart.
+- The wallet top-up page draws its QR code locally. It no longer loads a
+  script from a public CDN.
+
+## [0.73.1] - 2026-10-28 — the release test waits for a loaded runner
+
+### Fixed
+
+- The docs test that runs `--help` for every documented command, and the one
+  that lists every command, wait up to 60 s. The subscription commands made a
+  loaded build host take 5.4 s, past the 5 s default, so the npm publish of
+  0.73.0 failed twice. No product change: 0.73.1 is 0.73.0 published.
+
 ## [0.73.0] - 2026-10-28 — the subscription in $CIA, bought in a terminal
 
 ### Added
