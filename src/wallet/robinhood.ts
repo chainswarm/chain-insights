@@ -7,6 +7,7 @@ import {
   formatUnits,
   http,
   type Address,
+  type Chain,
   type Hex,
 } from 'viem'
 import { robinhood } from 'viem/chains'
@@ -33,7 +34,7 @@ export const CIA_SYMBOL = '$CIA'
 const SUBSCRIPTION_SINK = '0x67a8c068cc762e371706ea6c399178171f92810d' as const
 
 // viem's chain entry links Blockscout; Chain Insights links Etherscan.
-export const robinhoodChain = defineChain({
+export const robinhoodChain: Chain = defineChain({
   ...robinhood,
   blockExplorers: {
     default: { name: 'Robinhood Chain Etherscan', url: ROBINHOOD_EXPLORER_URL },

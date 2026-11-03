@@ -32,7 +32,7 @@ this read: the pool trace rule leaves a pool only on `REMOVED_LIQUIDITY`.
 
 ```cypher
 USE topology
-MATCH (s:Address)-[f:FLOWS_TO]->(p:Address {address: "0x7615926023bb149f36095645c2a81dc367d39750"}) WHERE NOT s:Pool
+MATCH (s:Address)-[f:FLOWED_TO]->(p:Address {address: "0x7615926023bb149f36095645c2a81dc367d39750"}) WHERE NOT s:Pool
 RETURN s.address AS from_address, p.address AS to_address, labels(s) AS from_node_labels, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, s.labels AS from_labels, p.labels AS to_labels, s.is_exchange AS from_is_exchange, p.is_exchange AS to_is_exchange ORDER BY f.amount_usd_sum DESC LIMIT 25
 ```
 

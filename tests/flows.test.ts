@@ -1026,7 +1026,7 @@ describe('a refused read', () => {
     async (_name, refused, want) => {
       // The node read answers; the first page read is refused.
       const { reads, deps } = endpoint((read) =>
-        read.query.includes('FLOWS_TO') ? refused : recordedAnswers[read.query]
+        read.query.includes('FLOWED_TO') ? refused : recordedAnswers[read.query]
       )
       const result = await expandNode(deps, RECEIVER)
       expect(result).toEqual({ content: [{ type: 'text', text: want }], isError: true })
