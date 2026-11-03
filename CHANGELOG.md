@@ -5,7 +5,7 @@ All notable changes to Chain Insights are recorded here.
 
 ## Unreleased
 
-## [0.74.2] - 2026-11-03 — dependency updates
+## [0.75.1] - 2026-11-03 — dependency updates
 
 ### Changed
 
@@ -21,6 +21,18 @@ All notable changes to Chain Insights are recorded here.
 
 - The type check passes with viem 2.57.13. The Robinhood Chain entry is
   typed as a viem `Chain`. Its values are unchanged.
+
+## [0.75.0] - 2026-11-03 — the money link is FLOWED_TO
+
+### Changed
+
+- The money link is now `FLOWED_TO`, matching the live graph. Queries that
+  named `FLOWS_TO` returned nothing, so money-flow answers came back empty.
+  No alias: every link type is past tense (`SWAPPED`, `TRANSFERRED`,
+  `BRIDGED`, `APPROVED`, `FLOWED_TO`). Skills, recipes, tool descriptions,
+  server instructions, golden sets and tests name `FLOWED_TO` only, and the
+  index names follow (`flowed_to_last_seen_timestamp_idx`,
+  `flowed_to_pair_key_idx`).
 
 ## [0.74.1] - 2026-11-02 — the exchange lookup finds the four exchanges of indexer registry 29
 

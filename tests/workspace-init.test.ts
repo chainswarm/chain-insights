@@ -65,7 +65,7 @@ describe('workspace initialization', () => {
     }
   })
 
-  it('lists the four served FLOWS_TO fields and names the sync bookkeeping as internal', async () => {
+  it('lists the four served FLOWED_TO fields and names the sync bookkeeping as internal', async () => {
     const workspace = await mkdtemp(join(tmpdir(), 'chain-insights-workspace-init-'))
 
     try {

@@ -7,7 +7,7 @@ const GRAPH_TYPE_LABELS = new Set([
   'Subnet',
   'IPAddress',
 ])
-const FLOW_EDGE_TYPES = new Set(['flows_to', 'transfer', 'transfer_to', 'transfers_to'])
+const FLOW_EDGE_TYPES = new Set(['flowed_to', 'transfer', 'transfer_to', 'transfers_to'])
 
 type GraphRecord = Record<string, unknown>
 
@@ -151,7 +151,7 @@ function normalizeEdgeType(edge: GraphRecord): string {
           ? edge['relationship_type']
           : 'related_to'
   const edgeType = lowerSnake(rawType)
-  return FLOW_EDGE_TYPES.has(edgeType) ? 'flows_to' : edgeType
+  return FLOW_EDGE_TYPES.has(edgeType) ? 'flowed_to' : edgeType
 }
 
 function normalizeEdge(edge: unknown): GraphRecord {
