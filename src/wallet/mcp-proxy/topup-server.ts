@@ -987,10 +987,9 @@ export function subscriptionTopupToolResult(
 let extAppsScript: string | null = null
 
 /**
- * The browser build of the ext-apps App client (2.x; its wire protocol is the
- * 1.x protocol the Chain Insights UI package builds the Claude view on), turned
- * from an ES module into a script that publishes its exports on globalThis, so
- * the view stays one self-contained file.
+ * The browser build of the ext-apps App client (the same 1.x pin as
+ * the Chain Insights UI package), turned from an ES module into a script that publishes
+ * its exports on globalThis, so the view stays one self-contained file.
  */
 export function extAppsBrowserScript(): string {
   if (extAppsScript !== null) return extAppsScript
@@ -1318,23 +1317,15 @@ export async function registerTopupView(
     }
   )
 
-  // ext-apps 2.x types this config on the MCP SDK 2.x resource metadata
-  // (@modelcontextprotocol/server, an optional peer this package does not
-  // install), so its type no longer names `description`. registerAppResource
-  // still hands the whole config to the SDK 1.x registerResource, which lists
-  // the description, so the SDK 1.x metadata type is added back here.
-  const resourceConfig: import('@modelcontextprotocol/ext-apps/server').McpUiAppResourceConfig &
-    Pick<import('@modelcontextprotocol/sdk/server/mcp.js').ResourceMetadata, 'description'> = {
-    description:
-      'The local wallet address and its QR code: on Base Mainnet with USDC, or on Robinhood Chain with $CIA.',
-    _meta: { ui: uiMeta },
-  }
-
   registerAppResource(
     server,
     'Chain Insights wallet top-up',
     TOPUP_VIEW_URI,
-    resourceConfig,
+    {
+      description:
+        'The local wallet address and its QR code: on Base Mainnet with USDC, or on Robinhood Chain with $CIA.',
+      _meta: { ui: uiMeta },
+    },
     async () => ({
       contents: [
         {

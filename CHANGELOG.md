@@ -9,22 +9,16 @@ All notable changes to Chain Insights are recorded here.
 
 ### Changed
 
-- `@modelcontextprotocol/ext-apps` 1.7.5 to 2.0.4. The wire protocol is the
-  same in 1.x and 2.x, so the Claude view built on the 1.x client and the
-  wallet top-up view, which now carries the 2.x client, both still open in
-  Claude.
 - `@modelcontextprotocol/sdk` 1.32.1 to 1.32.2, `@x402/evm` and
   `@x402/fetch` 2.28.0 to 2.29.0, `viem` 2.57.3 to 2.57.13, `zod` 4.6.5 to
   4.6.7.
 - Tooling: `@types/node` 26.6.4 to 26.6.6, vitest and
   `@vitest/coverage-v8` 5.0.3 to 5.0.5, oxlint 1.87.0 to 1.90.0, prettier
   3.9.9 to 3.9.10, tsdown 0.23.0 to 0.23.4.
+- ext-apps stays on 1.7.5: the payment view targets the 1.x client (0.42 hold).
 
 ### Fixed
 
-- The type check passes with ext-apps 2.x. Its types no longer list a
-  description for the wallet top-up view, so the code names that field
-  itself. The view still lists the same description.
 - The type check passes with viem 2.57.13. The Robinhood Chain entry is
   typed as a viem `Chain`. Its values are unchanged.
 
