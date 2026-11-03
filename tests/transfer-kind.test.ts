@@ -5,7 +5,7 @@ import { flat, markdownFiles, read, runtimeSkill, servedGraphHints } from './sup
 
 // A facts `TRANSFER` row has a `kind`: `token`, `native` or `internal`. An
 // internal transfer, ETH a contract sends while it runs a call, is a row now, so
-// the rows of a pair are the transfers its `FLOWS_TO` link counts. The graph
+// the rows of a pair are the transfers its `FLOWED_TO` link counts. The graph
 // server maps `kind` on `TRANSFER` (tests/fixtures/facts-columns.json). The old
 // sentences said that no read lists an internal transfer, and a pair could have a
 // `tx_count` above 0 and no row. They are gone from every home, and these

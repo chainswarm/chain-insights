@@ -11,7 +11,7 @@
  *   250 newest senders and 250 newest receivers, a text summary and
  *   chain-insights.flows.v1 in structuredContent. Composed from at most five
  *   anchored graph_query reads on the topology graph: the node, then its
- *   outgoing and its incoming FLOWS_TO, newest first, two reads a side because
+ *   outgoing and its incoming FLOWED_TO, newest first, two reads a side because
  *   a reply holds at most 200 rows.
  * - link, {network, from, to, day}: the transfers between two known addresses
  *   on one UTC day, newest first, at most 50, a short text summary and
@@ -311,8 +311,8 @@ export function flowsReadsFor(address: string, inOffset: number, outOffset: numb
       skip: 0,
       limit: 1,
     },
-    ...side('out', outOffset, `(a:Address {address: '${address}'})-[f:FLOWS_TO]->(b:Address)`),
-    ...side('in', inOffset, `(b:Address)-[f:FLOWS_TO]->(a:Address {address: '${address}'})`),
+    ...side('out', outOffset, `(a:Address {address: '${address}'})-[f:FLOWED_TO]->(b:Address)`),
+    ...side('in', inOffset, `(b:Address)-[f:FLOWED_TO]->(a:Address {address: '${address}'})`),
   ]
 }
 

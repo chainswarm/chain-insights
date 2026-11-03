@@ -8,7 +8,7 @@ import {
 
 // Pool trace rule (skills/chain-insights-cypher, "Pool trace rule"), applied
 // to the query builders in src/investigation/public-tools.ts that
-// aml_address_risk serves: a FLOWS_TO walk never starts at a :Pool and never
+// aml_address_risk serves: a FLOWED_TO walk never starts at a :Pool and never
 // passes through one, and it may end at one. Issue chainswarm/chain-insights#399,
 // change schema-v2-domain-lanes task 11.12.
 //
@@ -62,7 +62,7 @@ describe('route queries: the pool guard on every intermediate node', () => {
     expect(inbound!.query).toContain(`(a:Address {address: "${TO}"} WHERE ${GUARD('a')})`)
     expect(inbound!.query).toContain(`(b:Address {address: "${FROM}"})`)
     for (const { query } of routes) {
-      expect(query).toContain(`(()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE ${GUARD('via')}){0,4}`)
+      expect(query).toContain(`(()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE ${GUARD('via')}){0,4}`)
     }
   })
 
@@ -119,11 +119,11 @@ describe('scenario as query text: a victim pays a pool, a trader left the pool',
   // two-hop exposure, and every trader of the pool becomes a lead.
   it('walks that would cross the pool carry the guard that stops them', () => {
     const twoHopOut = outflows[1]!.query
-    expect(twoHopOut).toContain(')-[r1:FLOWS_TO]->(n1:Address)-[r2:FLOWS_TO]->(exchange:Address)')
+    expect(twoHopOut).toContain(')-[r1:FLOWED_TO]->(n1:Address)-[r2:FLOWED_TO]->(exchange:Address)')
     expect(twoHopOut).toContain('AND NOT n1:Pool')
     const twoHopIn = inflows[1]!.query
     expect(twoHopIn).toContain(
-      '(exchange:Address)-[r1:FLOWS_TO]->(n1:Address)-[r2:FLOWS_TO]->(a:Address)'
+      '(exchange:Address)-[r1:FLOWED_TO]->(n1:Address)-[r2:FLOWED_TO]->(a:Address)'
     )
     expect(twoHopIn).toContain('AND NOT n1:Pool')
   })
@@ -144,7 +144,7 @@ describe('scenario as query text: a victim pays a pool, a trader left the pool',
 })
 
 describe('linked exposure: the walk through the owned address', () => {
-  // (a)-[:LINKED]-(owned)-[:FLOWS_TO]-(b) passes through `owned`, so it is a
+  // (a)-[:LINKED]-(owned)-[:FLOWED_TO]-(b) passes through `owned`, so it is a
   // two-hop walk. `b` is the target end and stays unguarded.
   it('guards the start and the owned address, and leaves the target end open', () => {
     expect(viaLinked).toBeDefined()

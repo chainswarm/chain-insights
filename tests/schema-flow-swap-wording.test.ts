@@ -5,7 +5,7 @@ import { flat, markdownFiles, read, runtimeSkill, servedGraphHints } from './sup
 // Three things a reader must not have to guess, each one a place where the
 // graph holds more or says less than the old text did:
 //
-//   1. FLOWS_TO tx_count counts internal native transfers, and a facts TRANSFER
+//   1. FLOWED_TO tx_count counts internal native transfers, and a facts TRANSFER
 //      row lists each one, marked by its kind (tests/transfer-kind.test.ts).
 //   2. No swap has strength `swap` today. Every served swap is `swap_like`
 //      with families `unknown`. `swap_unsplit` is warehouse-only.
@@ -23,11 +23,11 @@ const SHIPPED_TEXT = [
   ...markdownFiles('docs'),
 ]
 
-describe('FLOWS_TO tx_count counts internal native transfers', () => {
+describe('FLOWED_TO tx_count counts internal native transfers', () => {
   it('the tools guide says the same', () => {
     const tools = flat(read(TOOLS))
     expect(tools).toContain('A link covers all time and a facts read covers one day')
-    expect(tools).toContain('`FLOWS_TO` `tx_count` counts all three')
+    expect(tools).toContain('`FLOWED_TO` `tx_count` counts all three')
   })
 
   it('the served hints say the same and keep the anchor query for a pair', () => {
@@ -138,7 +138,7 @@ describe('SWAPPED USD is 0 on an unpriced side', () => {
 
   it('the pinned swap attribution sentence stays at the end of the SWAPPED hint', () => {
     expect(servedGraphHints()).toContain(
-      'Swap attribution is read from SWAPPED, the aggregate (strength, pools, families), or from the USE facts SWAP row, one route. FLOWS_TO carries value only.'
+      'Swap attribution is read from SWAPPED, the aggregate (strength, pools, families), or from the USE facts SWAP row, one route. FLOWED_TO carries value only.'
     )
   })
 })

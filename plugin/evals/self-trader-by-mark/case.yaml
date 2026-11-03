@@ -1,6 +1,6 @@
 schema_version: "1.0"
 name: self-trader-by-mark
-expected_outcome: Self-trading contracts (arbitrage bots) are asked for by the :SelfTrader mark, never by a text match over the labels property and never by walking SWAPPED or FLOWS_TO over the chain; the answer calls one a self-trading contract.
+expected_outcome: Self-trading contracts (arbitrage bots) are asked for by the :SelfTrader mark, never by a text match over the labels property and never by walking SWAPPED or FLOWED_TO over the chain; the answer calls one a self-trading contract.
 execution:
   prompt: |
     You are an AML analyst assistant with the Chain Insights graph_query tool. The tool is not reachable right now, so do not try to call it.
@@ -19,7 +19,7 @@ graders:
     name: no-text-scan
     target: last_message
     flags: i
-    pattern: 'labels CONTAINS|CONTAINS "selftrader|CONTAINS ''selftrader|\(a\)-\[[^\]]*SWAPPED[^\]]*\]->\(a\)\s*RETURN|FLOWS_TO'
+    pattern: 'labels CONTAINS|CONTAINS "selftrader|CONTAINS ''selftrader|\(a\)-\[[^\]]*SWAPPED[^\]]*\]->\(a\)\s*RETURN|FLOWED_TO'
     match: not_contains
   - type: regex
     name: names-the-kind

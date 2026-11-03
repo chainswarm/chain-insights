@@ -24,11 +24,11 @@ describe('connectionRouteQueries', () => {
     expect(queries).toEqual([
       {
         id: 'connection_route_outbound',
-        query: `MATCH p = SHORTEST 1 (a:Address {address: "idA"} WHERE ${GUARD('a')}) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE ${GUARD('via')}){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "idB"}) RETURN p LIMIT 1`,
+        query: `MATCH p = SHORTEST 1 (a:Address {address: "idA"} WHERE ${GUARD('a')}) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE ${GUARD('via')}){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: "idB"}) RETURN p LIMIT 1`,
       },
       {
         id: 'connection_route_inbound',
-        query: `MATCH p = SHORTEST 1 (a:Address {address: "idB"} WHERE ${GUARD('a')}) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE ${GUARD('via')}){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "idA"}) RETURN p LIMIT 1`,
+        query: `MATCH p = SHORTEST 1 (a:Address {address: "idB"} WHERE ${GUARD('a')}) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE ${GUARD('via')}){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: "idA"}) RETURN p LIMIT 1`,
       },
     ])
   })

@@ -1,6 +1,6 @@
 schema_version: "1.0"
 name: launchpad-by-mark
-expected_outcome: Launchpad pools are asked for by the :Launchpad mark (with :Pool), never by a text match over the labels property and never by walking FLOWS_TO.
+expected_outcome: Launchpad pools are asked for by the :Launchpad mark (with :Pool), never by a text match over the labels property and never by walking FLOWED_TO.
 execution:
   prompt: |
     You are an AML analyst assistant with the Chain Insights graph_query tool. The tool is not reachable right now, so do not try to call it.
@@ -19,7 +19,7 @@ graders:
     name: no-text-scan
     target: last_message
     flags: i
-    pattern: 'labels CONTAINS|CONTAINS "launchpad"|CONTAINS ''launchpad''|STARTS WITH "virtuals|FLOWS_TO'
+    pattern: 'labels CONTAINS|CONTAINS "launchpad"|CONTAINS ''launchpad''|STARTS WITH "virtuals|FLOWED_TO'
     match: not_contains
   - type: tool_used
     name: skill-fired
