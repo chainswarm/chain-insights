@@ -34,7 +34,7 @@ ORDER BY r.block_timestamp DESC LIMIT 25
 
 ```cypher
 USE topology
-MATCH (b:Address)-[f:FLOWS_TO]->(a:Address {address: "<wallet>"}) WHERE NOT b:Pool
+MATCH (b:Address)-[f:FLOWED_TO]->(a:Address {address: "<wallet>"}) WHERE NOT b:Pool
 RETURN b.address AS from_address, a.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count,
        f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp,
        b.labels AS from_labels, a.labels AS to_labels, b.is_exchange AS from_is_exchange, a.is_exchange AS to_is_exchange
@@ -153,7 +153,7 @@ the same day. It moved VIRTUAL.
 
 ```cypher
 USE topology
-MATCH (p:Address {address: "<starting pool>"})-[f:FLOWS_TO]->(b:Address)
+MATCH (p:Address {address: "<starting pool>"})-[f:FLOWED_TO]->(b:Address)
 WHERE NOT b:Protocol AND NOT b.address IN ["0x65050a9b7e5075a2ba5ced7b1b64ee66262c40dc", "0xd4ccbfa37e2f35611b3042e4096ad7a3459bd007", "0xca6395246b4382ba70f886526dd9a9de984f6081", "0x6d80b81d9fc56a7a839b1af9006eb49151961ce7"]
 RETURN p.address AS from_address, b.address AS to_address, f.tx_count AS tx_count,
        f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp
@@ -164,7 +164,7 @@ ORDER BY f.first_seen_timestamp ASC LIMIT 25
 
 ```cypher
 USE topology
-MATCH (p1:Address {address: "<pool a>"})-[:FLOWS_TO]->(w:Address)<-[:FLOWS_TO]-(p2:Address {address: "<pool b>"})
+MATCH (p1:Address {address: "<pool a>"})-[:FLOWED_TO]->(w:Address)<-[:FLOWED_TO]-(p2:Address {address: "<pool b>"})
 WHERE NOT w.address IN ["0x65050a9b7e5075a2ba5ced7b1b64ee66262c40dc", "0xca6395246b4382ba70f886526dd9a9de984f6081"]
 RETURN DISTINCT w.address AS shared_buyer LIMIT 25
 ```
@@ -173,7 +173,7 @@ RETURN DISTINCT w.address AS shared_buyer LIMIT 25
 
 ```cypher
 USE topology
-MATCH (s:Address)-[f:FLOWS_TO]->(b:Address)
+MATCH (s:Address)-[f:FLOWED_TO]->(b:Address)
 WHERE b.address IN ["<buyer 1>", "<buyer 2>"] AND NOT s:Pool AND NOT s:Protocol AND NOT s:System
   AND NOT s.address IN ["0x65050a9b7e5075a2ba5ced7b1b64ee66262c40dc", "0xca6395246b4382ba70f886526dd9a9de984f6081"]
 RETURN s.address AS funder, count(DISTINCT b.address) AS buyers_funded, sum(f.amount_usd_sum) AS usd
@@ -187,7 +187,7 @@ airdrops. Weigh the funders that sent value.
 
 ```cypher
 USE topology
-MATCH (a:Address {address: "<creator a>"})<-[:FLOWS_TO]-(c:Address)-[:FLOWS_TO]->(b:Address {address: "<creator b>"})
+MATCH (a:Address {address: "<creator a>"})<-[:FLOWED_TO]-(c:Address)-[:FLOWED_TO]->(b:Address {address: "<creator b>"})
 WHERE NOT c:Pool AND NOT c:Protocol AND NOT c:System AND c.is_exchange IS NULL
 RETURN DISTINCT c.address AS shared_funder LIMIT 25
 ```

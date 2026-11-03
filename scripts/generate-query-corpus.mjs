@@ -340,10 +340,10 @@ const A2 = '0x2222222222222222222222222222222222222222'
 const USE = 'USE topology '
 const pin = (name, address = A1) => `(${name}:Address {address: "${address}"})`
 // The guarded walk of the documented route recipes: 0 to 4 guarded hops.
-const WALK = '(()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4}'
+const WALK = '(()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4}'
 const route = (selector) =>
   `${USE}MATCH p = ${selector} (a:Address {address: "${A1}"} WHERE NOT a:Pool) ${WALK} ` +
-  `()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "${A2}"}) RETURN p LIMIT 5`
+  `()-[:FLOWED_TO|SWAPPED]-(b:Address {address: "${A2}"}) RETURN p LIMIT 5`
 const literals = (n) =>
   Array.from({ length: n }, (_, i) => `"0x${(i + 1).toString(16).padStart(40, '0')}"`)
 
@@ -363,14 +363,14 @@ const REMOVED_RECIPES = [
     code: 'aggregate_unanchored',
     rule: 'aggregate',
     query:
-      'USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.amount_usd_sum DESC LIMIT 25',
+      'USE topology MATCH (src:Address)-[flow:FLOWED_TO]->(dst:Address) RETURN src.address AS from_address, dst.address AS to_address, flow.amount_usd_sum AS amount_usd_sum, flow.tx_count AS tx_count, flow.last_seen_timestamp AS last_seen_timestamp ORDER BY flow.amount_usd_sum DESC LIMIT 25',
   },
   {
     id: 'recipe_topology_07',
     code: 'aggregate_unanchored',
     rule: 'aggregate',
     query:
-      'USE topology MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) WITH src, count(dst) AS out_degree, sum(flow.amount_usd_sum) AS total_usd RETURN src.address AS address, out_degree, total_usd ORDER BY out_degree DESC LIMIT 25',
+      'USE topology MATCH (src:Address)-[flow:FLOWED_TO]->(dst:Address) WITH src, count(dst) AS out_degree, sum(flow.amount_usd_sum) AS total_usd RETURN src.address AS address, out_degree, total_usd ORDER BY out_degree DESC LIMIT 25',
   },
   {
     id: 'recipe_topology_09',
@@ -384,7 +384,7 @@ const REMOVED_RECIPES = [
     code: 'route_search_refused',
     rule: 'route',
     query:
-      'USE topology MATCH p = ALL SHORTEST (a:Address {address: "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"}) RETURN p LIMIT 3',
+      'USE topology MATCH p = ALL SHORTEST (a:Address {address: "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"} WHERE NOT a:Pool) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"}) RETURN p LIMIT 3',
   },
 ]
 
@@ -409,7 +409,7 @@ const refuseCases = [
     'link-sample-with-where',
     'anchor_missing',
     'anchor',
-    `${USE}MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) WHERE flow.amount_usd_sum > 1000 RETURN src.address AS from_address, dst.address AS to_address LIMIT 10`
+    `${USE}MATCH (src:Address)-[flow:FLOWED_TO]->(dst:Address) WHERE flow.amount_usd_sum > 1000 RETURN src.address AS from_address, dst.address AS to_address LIMIT 10`
   ),
   refuseCase(
     'probe-over-100-rows',
@@ -433,13 +433,13 @@ const refuseCases = [
     'list-of-26-literals',
     'anchor_missing',
     'anchor',
-    `${USE}MATCH (a:Address)-[:FLOWS_TO]->(b:Address) WHERE a.address IN [${literals(26).join(', ')}] RETURN b.address LIMIT 10`
+    `${USE}MATCH (a:Address)-[:FLOWED_TO]->(b:Address) WHERE a.address IN [${literals(26).join(', ')}] RETURN b.address LIMIT 10`
   ),
   refuseCase(
     'parameter-is-no-anchor',
     'anchor_missing',
     'anchor',
-    `${USE}MATCH (a:Address {address: $addr})-[:FLOWS_TO]->(b:Address) RETURN b.address LIMIT 10`
+    `${USE}MATCH (a:Address {address: $addr})-[:FLOWED_TO]->(b:Address) RETURN b.address LIMIT 10`
   ),
   refuseCase(
     'label-search',
@@ -452,7 +452,7 @@ const refuseCases = [
     'distinct-over-every-link',
     'aggregate_unanchored',
     'aggregate',
-    `${USE}MATCH (a:Address)-[:FLOWS_TO]->(b:Address) RETURN DISTINCT b.address AS address LIMIT 25`
+    `${USE}MATCH (a:Address)-[:FLOWED_TO]->(b:Address) RETURN DISTINCT b.address AS address LIMIT 25`
   ),
   // cartesian_product: patterns that share no variable, one without an anchor.
   refuseCase(
@@ -466,13 +466,13 @@ const refuseCases = [
     'quantifier-over-the-cap',
     'hop_budget',
     'hops',
-    `${USE}MATCH ${pin('a')}-[:FLOWS_TO]-{1,9}(b:Address) RETURN b.address LIMIT 10`
+    `${USE}MATCH ${pin('a')}-[:FLOWED_TO]-{1,9}(b:Address) RETURN b.address LIMIT 10`
   ),
   refuseCase(
     'unbounded-postfix-quantifier',
     'hop_budget',
     'hops',
-    `${USE}MATCH ${pin('a')}-[:FLOWS_TO]-+(b:Address) RETURN b.address LIMIT 10`
+    `${USE}MATCH ${pin('a')}-[:FLOWED_TO]-+(b:Address) RETURN b.address LIMIT 10`
   ),
   refuseCase(
     'bare-undirected-quantifier',
@@ -484,14 +484,14 @@ const refuseCases = [
     'three-chained-quantifiers',
     'hop_budget',
     'hops',
-    `${USE}MATCH ${pin('a')}-[:FLOWS_TO]-{1,5}(b:Address)-[:FLOWS_TO]-{1,5}(c:Address)-[:FLOWS_TO]-{1,5}(d:Address) RETURN d.address LIMIT 10`
+    `${USE}MATCH ${pin('a')}-[:FLOWED_TO]-{1,5}(b:Address)-[:FLOWED_TO]-{1,5}(c:Address)-[:FLOWED_TO]-{1,5}(d:Address) RETURN d.address LIMIT 10`
   ),
   refuseCase(
     'seven-fixed-hops',
     'hop_budget',
     'hops',
     `${USE}MATCH ${pin('a')}` +
-      Array.from({ length: 7 }, (_, i) => `-[:FLOWS_TO]->(n${i + 1}:Address)`).join('') +
+      Array.from({ length: 7 }, (_, i) => `-[:FLOWED_TO]->(n${i + 1}:Address)`).join('') +
       ' RETURN n7.address LIMIT 10'
   ),
   // limit_missing: no literal LIMIT, or one above 5,000.
@@ -499,13 +499,13 @@ const refuseCases = [
     'no-limit',
     'limit_missing',
     'limit',
-    `${USE}MATCH ${pin('a')}-[:FLOWS_TO]->(b:Address) RETURN b.address`
+    `${USE}MATCH ${pin('a')}-[:FLOWED_TO]->(b:Address) RETURN b.address`
   ),
   refuseCase(
     'limit-over-5000',
     'limit_missing',
     'limit',
-    `${USE}MATCH ${pin('a')}-[:FLOWS_TO]->(b:Address) RETURN b.address LIMIT 5001`
+    `${USE}MATCH ${pin('a')}-[:FLOWED_TO]->(b:Address) RETURN b.address LIMIT 5001`
   ),
   // query_too_large: the text, or the nesting of its brackets.
   refuseCase('text-over-8-kib', 'query_too_large', 'size', oversize),
@@ -522,7 +522,7 @@ const refuseCases = [
     'repeated-part-over-4',
     'route_search_refused',
     'route',
-    `${USE}MATCH p = SHORTEST 1 ${pin('a')}-[:FLOWS_TO]-{0,5}${pin('b', A2)} RETURN p LIMIT 5`
+    `${USE}MATCH p = SHORTEST 1 ${pin('a')}-[:FLOWED_TO]-{0,5}${pin('b', A2)} RETURN p LIMIT 5`
   ),
   // unsupported_expression_shape: work that no anchor bounds.
   refuseCase(
@@ -541,7 +541,7 @@ const refuseCases = [
     'three-optional-match',
     'unsupported_expression_shape',
     'expression',
-    `${USE}MATCH ${pin('a')} OPTIONAL MATCH (a)-[:FLOWS_TO]->(b:Address) OPTIONAL MATCH (a)<-[:FLOWS_TO]-(c:Address) OPTIONAL MATCH (a)-[:SWAPPED]->(d:Address) RETURN a.address AS address, b.address AS paid, c.address AS payer, d.address AS swapped LIMIT 10`
+    `${USE}MATCH ${pin('a')} OPTIONAL MATCH (a)-[:FLOWED_TO]->(b:Address) OPTIONAL MATCH (a)<-[:FLOWED_TO]-(c:Address) OPTIONAL MATCH (a)-[:SWAPPED]->(d:Address) RETURN a.address AS address, b.address AS paid, c.address AS payer, d.address AS swapped LIMIT 10`
   ),
   refuseCase(
     'five-union-branches',
@@ -566,7 +566,7 @@ const refuseCases = [
     'legacy-shortest-path-function',
     'unsupported_topology_dialect',
     'dialect',
-    `${USE}MATCH p = shortestPath(${pin('a')}-[:FLOWS_TO*1..5]-${pin('b', A2)}) RETURN p LIMIT 1`
+    `${USE}MATCH p = shortestPath(${pin('a')}-[:FLOWED_TO*1..5]-${pin('b', A2)}) RETURN p LIMIT 1`
   ),
 ]
 

@@ -2,7 +2,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
-  isFlowsToTrace,
+  isFlowedToTrace,
   markdownQueries,
   proseQueries,
   traceHopsWithoutSwapped,
@@ -42,7 +42,7 @@ function markdownFiles(dir: string): string[] {
 // SHORTEST is not served. The start and every address in the middle carry the
 // pool guard and the system guard (walkGuard).
 function routeContractShapes(): string[] {
-  const walk = `(()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE ${walkGuard('via')}){0,4} ()-[:FLOWS_TO|SWAPPED]-`
+  const walk = `(()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE ${walkGuard('via')}){0,4} ()-[:FLOWED_TO|SWAPPED]-`
   return [
     ...['SHORTEST 1', 'ANY SHORTEST'].map(
       (selector) =>
@@ -56,15 +56,15 @@ function routeContractShapes(): string[] {
 // several routes between two addresses, and where the money went and where it
 // came from. Each is up to 3 hops (a guarded {0,2} and the last hop), carries the
 // guard on its start and on every address in its middle, and follows SWAPPED beside
-// FLOWS_TO. The variable names are fixed, as in the route shapes. No selector:
+// FLOWED_TO. The variable names are fixed, as in the route shapes. No selector:
 // a count above 1 on SHORTEST is not served, so several routes drop it.
 function walkContractShapes(): string[] {
   const via = `(via:Address) WHERE ${walkGuard('via')}){0,2} ()`
   const start = (address: string) => `(a:Address {address: ${address}} WHERE ${walkGuard('a')}) (()`
   return [
-    `MATCH p = ${start('$from')}-[:FLOWS_TO|SWAPPED]-${via}-[:FLOWS_TO|SWAPPED]-(b:Address {address: $to})`,
-    `MATCH p = ${start('$addr')}-[:FLOWS_TO|SWAPPED]->${via}-[:FLOWS_TO|SWAPPED]->(b:Address)`,
-    `MATCH p = ${start('$addr')}<-[:FLOWS_TO|SWAPPED]-${via}<-[:FLOWS_TO|SWAPPED]-(b:Address)`,
+    `MATCH p = ${start('$from')}-[:FLOWED_TO|SWAPPED]-${via}-[:FLOWED_TO|SWAPPED]-(b:Address {address: $to})`,
+    `MATCH p = ${start('$addr')}-[:FLOWED_TO|SWAPPED]->${via}-[:FLOWED_TO|SWAPPED]->(b:Address)`,
+    `MATCH p = ${start('$addr')}<-[:FLOWED_TO|SWAPPED]-${via}<-[:FLOWED_TO|SWAPPED]-(b:Address)`,
   ]
 }
 
@@ -87,7 +87,7 @@ function contractShapePatterns(shapes: string[] = routeContractShapes()): RegExp
 const QUANTIFIED =
   /SHORTEST|shortestPath|allShortestPaths|\)\s*(\{\s*\d*\s*,?\s*\d*\s*\}|\+|\*(?=\s*\())|\]\s*-\s*>?\s*(\{\s*\d*\s*,?\s*\d*\s*\}|\+|\*)|\[[^\]]*\*[^\]]*\]/i
 
-// The walk of a served route or open target: a quantified FLOWS_TO trace, from
+// The walk of a served route or open target: a quantified FLOWED_TO trace, from
 // an address anchored in any form the pool check reads (an inline map, or an
 // address predicate in the node's own WHERE or in the clause), or on a
 // shortest-path search. Everything before RETURN, spaces squashed.
@@ -97,7 +97,7 @@ function routeWalk(query: string): string | null {
     .replace(/^\s*USE \w+ /, '')
     .split(/ RETURN\b/)[0]
     ?.trim()
-  if (!walk || !QUANTIFIED.test(walk) || !isFlowsToTrace(query)) return null
+  if (!walk || !QUANTIFIED.test(walk) || !isFlowedToTrace(query)) return null
   return walk
 }
 
@@ -398,7 +398,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(steps).toEqual([
       '1. Enter a `:Pool` on any edge.',
       '2. Leave a `:Pool` only on `REMOVED_LIQUIDITY`, to the address the liquidity was paid to.',
-      '3. Never leave a `:Pool` on `FLOWS_TO`.',
+      '3. Never leave a `:Pool` on `FLOWED_TO`.',
       '4. Across a swap, follow `SWAPPED` from payer to recipient, between two different addresses. Do not walk through the pool.',
     ])
 
@@ -440,14 +440,14 @@ describe('shipped Chain Insights skills contract', () => {
     const rugPull = recipes.recipes.find((r) => r.id === 'recipe_topology_pool_rug_pull_01')
     expect(rugPull?.layer).toBe('topology')
     expect(rugPull?.query).toMatch(
-      /-\[paid:FLOWS_TO\]->\(pool:Pool\)-\[removal:REMOVED_LIQUIDITY\]->\(receiver:Address\)/
+      /-\[paid:FLOWED_TO\]->\(pool:Pool\)-\[removal:REMOVED_LIQUIDITY\]->\(receiver:Address\)/
     )
     expect(rugPull?.query).toContain(
       'sum(removal.usd) - max(removal.receiver_added_usd) AS receiver_profit_usd'
     )
     expect(rugPull?.query).toContain('WHERE NOT victim:Pool AND')
 
-    // The no-fan-out recipe keeps pools out of the FLOWS_TO walk and passes one
+    // The no-fan-out recipe keeps pools out of the FLOWED_TO walk and passes one
     // only on REMOVED_LIQUIDITY.
     const noFanOut = recipes.recipes.find((r) => r.id === 'recipe_topology_pool_no_fan_out_01')
     expect(noFanOut?.layer).toBe('topology')
@@ -482,7 +482,7 @@ describe('shipped Chain Insights skills contract', () => {
 
   it('the system-guard check refuses a walk that misses a conjunct, and leaves one-hop reads alone', () => {
     const route = (start: string, middle: string) =>
-      `MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE ${start}) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE ${middle}){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: $to}) RETURN p LIMIT 1`
+      `MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE ${start}) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE ${middle}){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: $to}) RETURN p LIMIT 1`
     expect(unguardedSystemWalks(route(walkGuard('a'), walkGuard('via')))).toEqual([])
     const middle = '(via) is in the middle of a walk without the protocol and system guard'
     const start = '(a) starts a walk of two or more hops without the protocol and system guard'
@@ -520,24 +520,24 @@ describe('shipped Chain Insights skills contract', () => {
     // A clause-level WHERE after a SHORTEST pattern runs after the route is chosen.
     expect(
       unguardedSystemWalks(
-        `MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE ${walkGuard('a')}) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: $to}) WHERE NOT via:Protocol AND NOT via:System AND NOT via.address IN ${SYSTEM_ADDRESS_LIST} RETURN p LIMIT 1`
+        `MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE ${walkGuard('a')}) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: $to}) WHERE NOT via:Protocol AND NOT via:System AND NOT via.address IN ${SYSTEM_ADDRESS_LIST} RETURN p LIMIT 1`
       )
     ).toContain(middle)
     // A fixed two-hop walk guards its middle in the clause.
     expect(
       unguardedSystemWalks(
-        `MATCH (a:Address {address: $addr})-[:FLOWS_TO|SWAPPED]-(c:Address)-[:FLOWS_TO|SWAPPED]-(b:Address {address: $to}) WHERE ${walkGuard('a')} AND NOT c:Pool RETURN c.address LIMIT 25`
+        `MATCH (a:Address {address: $addr})-[:FLOWED_TO|SWAPPED]-(c:Address)-[:FLOWED_TO|SWAPPED]-(b:Address {address: $to}) WHERE ${walkGuard('a')} AND NOT c:Pool RETURN c.address LIMIT 25`
       )
     ).toEqual(['(c) is in the middle of a walk without the protocol and system guard'])
     // One hop needs no system guard: the links of the zero address are facts.
     expect(
       unguardedSystemWalks(
-        'MATCH (a:Address {address: $addr})-[f:FLOWS_TO]->(b:Address) WHERE NOT a:Pool RETURN b.address LIMIT 25'
+        'MATCH (a:Address {address: $addr})-[f:FLOWED_TO]->(b:Address) WHERE NOT a:Pool RETURN b.address LIMIT 25'
       )
     ).toEqual([])
   })
 
-  it('guards every served FLOWS_TO walk against pools: never from one, never through one', () => {
+  it('guards every served FLOWED_TO walk against pools: never from one, never through one', () => {
     const surfaces = servedSurfaces()
 
     const violations = surfaces.flatMap(({ name, queries }) =>
@@ -545,7 +545,7 @@ describe('shipped Chain Insights skills contract', () => {
     )
     expect(violations).toEqual([])
 
-    // A trace follows SWAPPED beside FLOWS_TO (step 4 of the rule), so the
+    // A trace follows SWAPPED beside FLOWED_TO (step 4 of the rule), so the
     // guard never cuts it off at a swap.
     const withoutSwapped = surfaces.flatMap(({ name, queries }) =>
       queries.flatMap((query) =>
@@ -555,7 +555,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(withoutSwapped).toEqual([])
 
     // The guarded route contract: every served route, open-target and walk (a
-    // quantified FLOWS_TO trace, see routeWalk) is exactly one of the route
+    // quantified FLOWED_TO trace, see routeWalk) is exactly one of the route
     // shapes or the walk shapes, with a literal address allowed in place of a
     // parameter.
     const shapes = routeContractShapes()
@@ -603,49 +603,49 @@ describe('shipped Chain Insights skills contract', () => {
   })
 
   it('the pool-guard check recognises every walk shape it must refuse', () => {
-    const walk = `(()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE ${walkGuard('via')}){0,4} ()-[:FLOWS_TO|SWAPPED]-`
+    const walk = `(()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE ${walkGuard('via')}){0,4} ()-[:FLOWED_TO|SWAPPED]-`
     const startGuard = walkGuard('a')
     const [route, anyRoute, openTarget] = routeContractShapes()
     const A = '"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"'
     const B = '"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"'
     const middle = (node: string) =>
-      `${node} is in the middle of a FLOWS_TO walk without the pool guard`
-    const start = (node: string) => `${node} starts a FLOWS_TO walk without the pool guard`
-    const pool = (node: string) => `${node} is a :Pool the walk leaves on FLOWS_TO`
+      `${node} is in the middle of a FLOWED_TO walk without the pool guard`
+    const start = (node: string) => `${node} starts a FLOWED_TO walk without the pool guard`
+    const pool = (node: string) => `${node} is a :Pool the walk leaves on FLOWED_TO`
 
     // Each planted walk is refused, and for the reason named beside it.
     const refused: Record<string, [string, string]> = {
       // The served recipes as they stood before the pool guard.
       cypher_skill_route: [
-        'MATCH p = SHORTEST 1 (a:Address {address: $from})-[:FLOWS_TO]-{0,5}(b:Address {address: $to}) RETURN [n IN nodes(p) | n.address] AS route',
+        'MATCH p = SHORTEST 1 (a:Address {address: $from})-[:FLOWED_TO]-{0,5}(b:Address {address: $to}) RETURN [n IN nodes(p) | n.address] AS route',
         middle('()'),
       ],
       cypher_skill_open_target: [
-        'MATCH SHORTEST 1 (a:Address {address: $addr})-[:FLOWS_TO]-{1,5}(b:Address) RETURN b.address LIMIT 50',
+        'MATCH SHORTEST 1 (a:Address {address: $addr})-[:FLOWED_TO]-{1,5}(b:Address) RETURN b.address LIMIT 50',
         middle('()'),
       ],
       recipe_topology_12: [
-        `USE topology MATCH (src:Address {address: ${A}})-[r1:FLOWS_TO]->(mid:Address)-[r2:FLOWS_TO]->(dst:Address) WHERE mid.is_exchange IS NULL RETURN src.address AS from_address LIMIT 25`,
+        `USE topology MATCH (src:Address {address: ${A}})-[r1:FLOWED_TO]->(mid:Address)-[r2:FLOWED_TO]->(dst:Address) WHERE mid.is_exchange IS NULL RETURN src.address AS from_address LIMIT 25`,
         middle('(mid)'),
       ],
       recipe_topology_15: [
-        `USE topology MATCH p = (a:Address {address: ${A}})-[:FLOWS_TO]-{1,5}(b:Address {address: ${B}}) RETURN p LIMIT 3`,
+        `USE topology MATCH p = (a:Address {address: ${A}})-[:FLOWED_TO]-{1,5}(b:Address {address: ${B}}) RETURN p LIMIT 3`,
         middle('()'),
       ],
       recipe_topology_16: [
-        `USE topology MATCH path = SHORTEST 1 (src:Address {address: ${A}})-[:FLOWS_TO]-{1,5}(dst:Address {address: ${B}}) RETURN path LIMIT 5`,
+        `USE topology MATCH path = SHORTEST 1 (src:Address {address: ${A}})-[:FLOWED_TO]-{1,5}(dst:Address {address: ${B}}) RETURN path LIMIT 5`,
         middle('()'),
       ],
       recipe_topology_17: [
-        `USE topology MATCH path = ANY SHORTEST (src:Address {address: ${A}})-[:FLOWS_TO]-{1,5}(dst:Address {address: ${B}}) RETURN path LIMIT 5`,
+        `USE topology MATCH path = ANY SHORTEST (src:Address {address: ${A}})-[:FLOWED_TO]-{1,5}(dst:Address {address: ${B}}) RETURN path LIMIT 5`,
         middle('()'),
       ],
       recipe_topology_18: [
-        `USE topology MATCH path = ALL SHORTEST (src:Address {address: ${A}})-[:FLOWS_TO]-{1,5}(dst:Address {address: ${B}}) RETURN path LIMIT 3`,
+        `USE topology MATCH path = ALL SHORTEST (src:Address {address: ${A}})-[:FLOWED_TO]-{1,5}(dst:Address {address: ${B}}) RETURN path LIMIT 3`,
         middle('()'),
       ],
       recipe_topology_20: [
-        `USE topology MATCH (a:Address {address: ${A}})-[l:LINKED]-(owned:Address)-[r:FLOWS_TO]-(b:Address) WHERE owned.address <> b.address AND a.address <> b.address RETURN b.address LIMIT 25`,
+        `USE topology MATCH (a:Address {address: ${A}})-[l:LINKED]-(owned:Address)-[r:FLOWED_TO]-(b:Address) WHERE owned.address <> b.address AND a.address <> b.address RETURN b.address LIMIT 25`,
         middle('(owned)'),
       ],
       // The served shapes before the start guard (ruled 2026-09-28): a walk
@@ -675,40 +675,40 @@ describe('shipped Chain Insights skills contract', () => {
         start('(a)'),
       ],
       rug_pull_without_the_start_guard: [
-        'MATCH (victim:Address {address: $addr})-[paid:FLOWS_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE receiver.address <> victim.address RETURN receiver.address LIMIT 25',
+        'MATCH (victim:Address {address: $addr})-[paid:FLOWED_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE receiver.address <> victim.address RETURN receiver.address LIMIT 25',
         start('(victim)'),
       ],
       one_hop_from_an_address: [
-        'MATCH (src:Address {address: $addr})-[flow:FLOWS_TO]->(dst:Address) RETURN dst.address LIMIT 50',
+        'MATCH (src:Address {address: $addr})-[flow:FLOWED_TO]->(dst:Address) RETURN dst.address LIMIT 50',
         start('(src)'),
       ],
       one_hop_back_from_an_address: [
-        'MATCH (a:Address {address: $addr})<-[:FLOWS_TO]-(src:Address) RETURN src.address LIMIT 50',
+        'MATCH (a:Address {address: $addr})<-[:FLOWED_TO]-(src:Address) RETURN src.address LIMIT 50',
         start('(a)'),
       ],
       none_over_the_inside_leaves_the_start: [
-        'MATCH p = (a:Address {address: $from})-[:FLOWS_TO]-{1,5}(b:Address {address: $to}) WHERE NONE(n IN nodes(p)[1..-1] WHERE n:Pool) RETURN p LIMIT 3',
+        'MATCH p = (a:Address {address: $from})-[:FLOWED_TO]-{1,5}(b:Address {address: $to}) WHERE NONE(n IN nodes(p)[1..-1] WHERE n:Pool) RETURN p LIMIT 3',
         start('(a)'),
       ],
       starts_at_a_labelled_pool: [
-        'MATCH (p:Pool {address: $pool})-[:FLOWS_TO]->(t:Address) RETURN t.address LIMIT 25',
+        'MATCH (p:Pool {address: $pool})-[:FLOWED_TO]->(t:Address) RETURN t.address LIMIT 25',
         pool('(p)'),
       ],
       lists_a_pools_payouts: [
-        'MATCH (p:Pool)-[:FLOWS_TO]->(t:Address) RETURN t.address LIMIT 25',
+        'MATCH (p:Pool)-[:FLOWED_TO]->(t:Address) RETURN t.address LIMIT 25',
         pool('(p)'),
       ],
       lists_a_pools_counterparties_either_way: [
-        'MATCH (t:Address)-[:FLOWS_TO]-(p:Pool) RETURN t.address LIMIT 25',
+        'MATCH (t:Address)-[:FLOWED_TO]-(p:Pool) RETURN t.address LIMIT 25',
         pool('(p)'),
       ],
       // Walk shapes the check reads.
       reverse_arrow: [
-        'MATCH (a:Address {address: $addr})<-[:FLOWS_TO]-(mid:Address)<-[:FLOWS_TO]-(src:Address) RETURN src.address LIMIT 25',
+        'MATCH (a:Address {address: $addr})<-[:FLOWED_TO]-(mid:Address)<-[:FLOWED_TO]-(src:Address) RETURN src.address LIMIT 25',
         middle('(mid)'),
       ],
       unlabelled_middle: [
-        'MATCH (a:Address {address: $addr})-[:FLOWS_TO]->()-[:FLOWS_TO]->(b:Address) RETURN b.address LIMIT 25',
+        'MATCH (a:Address {address: $addr})-[:FLOWED_TO]->()-[:FLOWED_TO]->(b:Address) RETURN b.address LIMIT 25',
         middle('()'),
       ],
       untyped_relationships: [
@@ -716,127 +716,127 @@ describe('shipped Chain Insights skills contract', () => {
         middle('(mid)'),
       ],
       leaves_a_pool: [
-        'MATCH (v:Address {address: $addr})-[:FLOWS_TO]->(p:Pool)-[:FLOWS_TO]->(t:Address) RETURN t.address LIMIT 25',
+        'MATCH (v:Address {address: $addr})-[:FLOWED_TO]->(p:Pool)-[:FLOWED_TO]->(t:Address) RETURN t.address LIMIT 25',
         pool('(p)'),
       ],
       guard_after_the_selector: [
-        'MATCH p = SHORTEST 1 (a:Address {address: $from})-[:FLOWS_TO]-{0,5}(b:Address {address: $to}) WHERE NONE(n IN nodes(p)[1..-1] WHERE n:Pool) RETURN p',
+        'MATCH p = SHORTEST 1 (a:Address {address: $from})-[:FLOWED_TO]-{0,5}(b:Address {address: $to}) WHERE NONE(n IN nodes(p)[1..-1] WHERE n:Pool) RETURN p',
         middle('()'),
       ],
       quantified_path_without_guard: [
-        'MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool) (()-[:FLOWS_TO]-(via:Address)){0,4} ()-[:FLOWS_TO]-(b:Address {address: $to}) RETURN p',
+        'MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool) (()-[:FLOWED_TO]-(via:Address)){0,4} ()-[:FLOWED_TO]-(b:Address {address: $to}) RETURN p',
         middle('(via)'),
       ],
       anchored_on_the_right: [
-        'MATCH (exchange:Address)-[r1:FLOWS_TO]->(n1:Address)-[r2:FLOWS_TO]->(a:Address) WHERE a.address = "0x1" RETURN n1.address LIMIT 25',
+        'MATCH (exchange:Address)-[r1:FLOWED_TO]->(n1:Address)-[r2:FLOWED_TO]->(a:Address) WHERE a.address = "0x1" RETURN n1.address LIMIT 25',
         middle('(n1)'),
       ],
       anchored_by_an_in_list: [
-        'MATCH (a:Address)-[:FLOWS_TO]->(b:Address) WHERE a.address IN ["0x1", "0x2"] RETURN b.address LIMIT 25',
+        'MATCH (a:Address)-[:FLOWED_TO]->(b:Address) WHERE a.address IN ["0x1", "0x2"] RETURN b.address LIMIT 25',
         start('(a)'),
       ],
       split_across_match_clauses: [
-        'MATCH (a:Address {address: $addr})-[:FLOWS_TO]->(m:Address) MATCH (m)-[:FLOWS_TO]->(b:Address) RETURN b.address LIMIT 25',
+        'MATCH (a:Address {address: $addr})-[:FLOWED_TO]->(m:Address) MATCH (m)-[:FLOWED_TO]->(b:Address) RETURN b.address LIMIT 25',
         middle('(m)'),
       ],
       split_across_with: [
-        'MATCH (a:Address {address: $addr})-[:FLOWS_TO]->(m:Address) WITH m MATCH (m)-[:FLOWS_TO]->(b:Address) RETURN b.address LIMIT 25',
+        'MATCH (a:Address {address: $addr})-[:FLOWED_TO]->(m:Address) WITH m MATCH (m)-[:FLOWED_TO]->(b:Address) RETURN b.address LIMIT 25',
         middle('(m)'),
       ],
       renamed_by_with: [
-        'MATCH (a:Address {address: $addr})-[:FLOWS_TO]->(m:Address) WITH m AS mid MATCH (mid)-[:FLOWS_TO]->(b:Address) RETURN b.address LIMIT 25',
+        'MATCH (a:Address {address: $addr})-[:FLOWED_TO]->(m:Address) WITH m AS mid MATCH (mid)-[:FLOWED_TO]->(b:Address) RETURN b.address LIMIT 25',
         middle('(m/mid)'),
       ],
       guard_on_a_new_variable_after_with: [
-        'MATCH (a:Address {address: $addr})-[:FLOWS_TO]->(m:Address)-[:FLOWS_TO]->(b:Address) WITH b MATCH (m:Address) WHERE NOT m:Pool RETURN b.address LIMIT 25',
+        'MATCH (a:Address {address: $addr})-[:FLOWED_TO]->(m:Address)-[:FLOWED_TO]->(b:Address) WITH b MATCH (m:Address) WHERE NOT m:Pool RETURN b.address LIMIT 25',
         middle('(m)'),
       ],
       split_across_optional_match: [
-        'MATCH (a:Address {address: $addr}) OPTIONAL MATCH (a)-[:FLOWS_TO]->(m:Address) OPTIONAL MATCH (m)-[:FLOWS_TO]->(b:Address) RETURN b.address LIMIT 25',
+        'MATCH (a:Address {address: $addr}) OPTIONAL MATCH (a)-[:FLOWED_TO]->(m:Address) OPTIONAL MATCH (m)-[:FLOWED_TO]->(b:Address) RETURN b.address LIMIT 25',
         middle('(m)'),
       ],
       comma_separated_patterns: [
-        'MATCH (a:Address {address: $addr})-[:FLOWS_TO]->(m:Address), (m)-[:FLOWS_TO]->(b:Address) RETURN b.address LIMIT 25',
+        'MATCH (a:Address {address: $addr})-[:FLOWED_TO]->(m:Address), (m)-[:FLOWED_TO]->(b:Address) RETURN b.address LIMIT 25',
         middle('(m)'),
       ],
       guard_weakened_by_or: [
-        'MATCH (a:Address {address: $addr})-[:FLOWS_TO]->(m:Address)-[:FLOWS_TO]->(b:Address) WHERE NOT m:Pool OR m.address IS NOT NULL RETURN b.address LIMIT 25',
+        'MATCH (a:Address {address: $addr})-[:FLOWED_TO]->(m:Address)-[:FLOWED_TO]->(b:Address) WHERE NOT m:Pool OR m.address IS NOT NULL RETURN b.address LIMIT 25',
         middle('(m)'),
       ],
       inner_guard_weakened_by_or: [
-        'MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool OR via.is_exchange IS NULL){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: $to}) RETURN p',
+        'MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool OR via.is_exchange IS NULL){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: $to}) RETURN p',
         middle('(via)'),
       ],
       label_alternative: [
-        'MATCH (a:Address {address: $addr})-[:FLOWS_TO]->(mid:Address|!Pool)-[:FLOWS_TO]->(b:Address) RETURN b.address LIMIT 25',
+        'MATCH (a:Address {address: $addr})-[:FLOWED_TO]->(mid:Address|!Pool)-[:FLOWED_TO]->(b:Address) RETURN b.address LIMIT 25',
         middle('(mid)'),
       ],
       in_a_subquery: [
-        'MATCH (a:Address {address: $addr}) RETURN COLLECT { MATCH (a)-[:FLOWS_TO]->(m:Address)-[:FLOWS_TO]->(b:Address) RETURN b.address } AS reached',
+        'MATCH (a:Address {address: $addr}) RETURN COLLECT { MATCH (a)-[:FLOWED_TO]->(m:Address)-[:FLOWED_TO]->(b:Address) RETURN b.address } AS reached',
         middle('(m)'),
       ],
       one_union_branch_unguarded: [
-        'MATCH (a:Address {address: $addr})-[:FLOWS_TO]->(m:Address)-[:FLOWS_TO]->(b:Address) WHERE NOT m:Pool RETURN b.address LIMIT 25 UNION MATCH (a:Address {address: $addr})-[:FLOWS_TO]->(m:Address)-[:FLOWS_TO]->(b:Address) RETURN b.address LIMIT 25',
+        'MATCH (a:Address {address: $addr})-[:FLOWED_TO]->(m:Address)-[:FLOWED_TO]->(b:Address) WHERE NOT m:Pool RETURN b.address LIMIT 25 UNION MATCH (a:Address {address: $addr})-[:FLOWED_TO]->(m:Address)-[:FLOWED_TO]->(b:Address) RETURN b.address LIMIT 25',
         middle('(m)'),
       ],
-      // Backquoted names (ruled 2026-09-28): `FLOWS_TO` is FLOWS_TO, `Pool` is Pool.
+      // Backquoted names (ruled 2026-09-28): `FLOWED_TO` is FLOWED_TO, `Pool` is Pool.
       backquoted_relationship_type: [
-        'MATCH (a:Address {address: $addr} WHERE NOT a:Pool)-[:`FLOWS_TO`]->(mid:Address)-[:`FLOWS_TO`]->(b:Address) RETURN b.address LIMIT 25',
+        'MATCH (a:Address {address: $addr} WHERE NOT a:Pool)-[:`FLOWED_TO`]->(mid:Address)-[:`FLOWED_TO`]->(b:Address) RETURN b.address LIMIT 25',
         middle('(mid)'),
       ],
       backquoted_type_in_a_union: [
-        'MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool) (()-[:`FLOWS_TO`|SWAPPED]-(via:Address)){0,4} ()-[:`FLOWS_TO`|SWAPPED]-(b:Address {address: $to}) RETURN p',
+        'MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool) (()-[:`FLOWED_TO`|SWAPPED]-(via:Address)){0,4} ()-[:`FLOWED_TO`|SWAPPED]-(b:Address {address: $to}) RETURN p',
         middle('(via)'),
       ],
-      backquoted_pool_left_on_flows_to: [
-        'MATCH (v:Address {address: $addr} WHERE NOT v:Pool)-[:FLOWS_TO]->(p:`Pool`)-[:`FLOWS_TO`]->(t:Address) RETURN t.address LIMIT 25',
+      backquoted_pool_left_on_flowed_to: [
+        'MATCH (v:Address {address: $addr} WHERE NOT v:Pool)-[:FLOWED_TO]->(p:`Pool`)-[:`FLOWED_TO`]->(t:Address) RETURN t.address LIMIT 25',
         pool('(p)'),
       ],
       // Pattern comprehensions (ruled 2026-09-28): a walk in a list.
       pattern_comprehension: [
-        'MATCH (a:Address {address: $addr} WHERE NOT a:Pool) RETURN [(a)-[:FLOWS_TO|SWAPPED]->(mid:Address)-[:FLOWS_TO|SWAPPED]->(b:Address) | b.address] AS reached',
+        'MATCH (a:Address {address: $addr} WHERE NOT a:Pool) RETURN [(a)-[:FLOWED_TO|SWAPPED]->(mid:Address)-[:FLOWED_TO|SWAPPED]->(b:Address) | b.address] AS reached',
         middle('(mid)'),
       ],
       pattern_comprehension_in_with: [
-        'MATCH (a:Address {address: $addr} WHERE NOT a:Pool) WITH a, [p = (a)-[:FLOWS_TO|SWAPPED*2..3]-(b:Address) | b.address] AS reached RETURN reached',
+        'MATCH (a:Address {address: $addr} WHERE NOT a:Pool) WITH a, [p = (a)-[:FLOWED_TO|SWAPPED*2..3]-(b:Address) | b.address] AS reached RETURN reached',
         middle('()'),
       ],
       pattern_comprehension_guard_weakened_by_or: [
-        'MATCH (a:Address {address: $addr} WHERE NOT a:Pool) RETURN [(a)-[:FLOWS_TO|SWAPPED]->(m:Address)-[:FLOWS_TO|SWAPPED]->(b:Address) WHERE NOT m:Pool OR m.is_exchange IS NULL | b.address] AS reached',
+        'MATCH (a:Address {address: $addr} WHERE NOT a:Pool) RETURN [(a)-[:FLOWED_TO|SWAPPED]->(m:Address)-[:FLOWED_TO|SWAPPED]->(b:Address) WHERE NOT m:Pool OR m.is_exchange IS NULL | b.address] AS reached',
         middle('(m)'),
       ],
       pattern_comprehension_from_an_unguarded_start: [
-        'MATCH (a:Address {address: $addr}) RETURN [(a)-[:FLOWS_TO|SWAPPED]->(b:Address) | b.address] AS reached',
+        'MATCH (a:Address {address: $addr}) RETURN [(a)-[:FLOWED_TO|SWAPPED]->(b:Address) | b.address] AS reached',
         start('(a)'),
       ],
       // Pattern predicates in WHERE (ruled 2026-09-28): a walk as a condition.
       pattern_predicate_in_where: [
-        'MATCH (a:Address {address: $addr} WHERE NOT a:Pool), (b:Address) WHERE (a)-[:FLOWS_TO|SWAPPED]->(:Address)-[:FLOWS_TO|SWAPPED]->(b) RETURN b.address LIMIT 25',
+        'MATCH (a:Address {address: $addr} WHERE NOT a:Pool), (b:Address) WHERE (a)-[:FLOWED_TO|SWAPPED]->(:Address)-[:FLOWED_TO|SWAPPED]->(b) RETURN b.address LIMIT 25',
         middle('()'),
       ],
       pattern_predicate_after_and: [
-        'MATCH (a:Address {address: $addr} WHERE NOT a:Pool), (b:Address) WHERE b.is_exchange IS NULL AND (a)-[:FLOWS_TO|SWAPPED]->()-[:FLOWS_TO|SWAPPED]->(b) RETURN b.address LIMIT 25',
+        'MATCH (a:Address {address: $addr} WHERE NOT a:Pool), (b:Address) WHERE b.is_exchange IS NULL AND (a)-[:FLOWED_TO|SWAPPED]->()-[:FLOWED_TO|SWAPPED]->(b) RETURN b.address LIMIT 25',
         middle('()'),
       ],
       pattern_predicate_in_exists: [
-        'MATCH (a:Address {address: $addr} WHERE NOT a:Pool), (b:Address) WHERE exists((a)-[:FLOWS_TO|SWAPPED]->()-[:FLOWS_TO|SWAPPED]->(b)) RETURN b.address LIMIT 25',
+        'MATCH (a:Address {address: $addr} WHERE NOT a:Pool), (b:Address) WHERE exists((a)-[:FLOWED_TO|SWAPPED]->()-[:FLOWED_TO|SWAPPED]->(b)) RETURN b.address LIMIT 25',
         middle('()'),
       ],
       // The legacy path functions (ruled 2026-09-28).
       legacy_shortest_path: [
-        'MATCH p = shortestPath((a:Address {address: $from})-[:FLOWS_TO|SWAPPED*1..5]-(b:Address {address: $to})) WHERE NOT a:Pool RETURN p',
+        'MATCH p = shortestPath((a:Address {address: $from})-[:FLOWED_TO|SWAPPED*1..5]-(b:Address {address: $to})) WHERE NOT a:Pool RETURN p',
         middle('()'),
       ],
       legacy_all_shortest_paths: [
-        'MATCH p = allShortestPaths((a:Address {address: $from})-[:FLOWS_TO|SWAPPED*1..5]-(b:Address {address: $to})) WHERE NOT a:Pool RETURN p',
+        'MATCH p = allShortestPaths((a:Address {address: $from})-[:FLOWED_TO|SWAPPED*1..5]-(b:Address {address: $to})) WHERE NOT a:Pool RETURN p',
         middle('()'),
       ],
       legacy_shortest_path_from_an_unguarded_start: [
-        'MATCH p = shortestPath((a:Address {address: $from})-[:FLOWS_TO|SWAPPED*1..5]-(b:Address {address: $to})) WHERE NONE(n IN nodes(p)[1..-1] WHERE n:Pool) RETURN p',
+        'MATCH p = shortestPath((a:Address {address: $from})-[:FLOWED_TO|SWAPPED*1..5]-(b:Address {address: $to})) WHERE NONE(n IN nodes(p)[1..-1] WHERE n:Pool) RETURN p',
         start('(a)'),
       ],
       legacy_shortest_path_without_a_path_variable: [
-        'MATCH shortestPath((a:Address {address: $from} WHERE NOT a:Pool)-[:`FLOWS_TO`*1..5]-(b:Address {address: $to})) RETURN b.address',
+        'MATCH shortestPath((a:Address {address: $from} WHERE NOT a:Pool)-[:`FLOWED_TO`*1..5]-(b:Address {address: $to})) RETURN b.address',
         middle('()'),
       ],
       // A start anchored in its own WHERE is a start (the round-3 skeptic).
@@ -853,7 +853,7 @@ describe('shipped Chain Insights skills contract', () => {
         start('(a)'),
       ],
       anchor_by_an_address_prefix: [
-        'MATCH (a:Address)-[:FLOWS_TO|SWAPPED]->(b:Address) WHERE a.address STARTS WITH "0x1" RETURN b.address LIMIT 25',
+        'MATCH (a:Address)-[:FLOWED_TO|SWAPPED]->(b:Address) WHERE a.address STARTS WITH "0x1" RETURN b.address LIMIT 25',
         start('(a)'),
       ],
       shortest_walk_with_no_anchor_the_check_reads: [
@@ -862,30 +862,30 @@ describe('shipped Chain Insights skills contract', () => {
       ],
       // Labels are case-sensitive: :pool and :POOL match no pool.
       pool_guard_in_lower_case: [
-        'MATCH (src:Address {address: "0x1"})-[r1:FLOWS_TO|SWAPPED]->(mid:Address)-[r2:FLOWS_TO|SWAPPED]->(dst:Address) WHERE NOT src:pool AND NOT mid:pool RETURN dst.address LIMIT 25',
+        'MATCH (src:Address {address: "0x1"})-[r1:FLOWED_TO|SWAPPED]->(mid:Address)-[r2:FLOWED_TO|SWAPPED]->(dst:Address) WHERE NOT src:pool AND NOT mid:pool RETURN dst.address LIMIT 25',
         middle('(mid)'),
       ],
       pool_guard_in_upper_case: [
-        'MATCH (src:Address {address: "0x1"})-[r1:FLOWS_TO|SWAPPED]->(mid:Address)-[r2:FLOWS_TO|SWAPPED]->(dst:Address) WHERE NOT src:POOL AND NOT mid:POOL RETURN dst.address LIMIT 25',
+        'MATCH (src:Address {address: "0x1"})-[r1:FLOWED_TO|SWAPPED]->(mid:Address)-[r2:FLOWED_TO|SWAPPED]->(dst:Address) WHERE NOT src:POOL AND NOT mid:POOL RETURN dst.address LIMIT 25',
         start('(src)'),
       ],
       none_guard_in_lower_case: [
-        'MATCH p = shortestPath((a:Address {address: $from})-[:FLOWS_TO|SWAPPED*1..5]-(b:Address {address: $to})) WHERE NONE(n IN nodes(p) WHERE n:pool AND n <> b) RETURN p',
+        'MATCH p = shortestPath((a:Address {address: $from})-[:FLOWED_TO|SWAPPED*1..5]-(b:Address {address: $to})) WHERE NONE(n IN nodes(p) WHERE n:pool AND n <> b) RETURN p',
         middle('()'),
       ],
-      // A FLOWS_TO walk leaves an address on any relationship: its start and
+      // A FLOWED_TO walk leaves an address on any relationship: its start and
       // its middle carry the guard whatever the relationship, and a pool is
       // left only on REMOVED_LIQUIDITY.
       linked_hop_from_an_unguarded_start: [
-        'MATCH (a:Address {address: "0x1"})-[l:LINKED]-(owned:Address)-[r:FLOWS_TO|SWAPPED]-(b:Address) WHERE NOT owned:Pool AND owned.address <> b.address AND a.address <> b.address RETURN b.address LIMIT 25',
+        'MATCH (a:Address {address: "0x1"})-[l:LINKED]-(owned:Address)-[r:FLOWED_TO|SWAPPED]-(b:Address) WHERE NOT owned:Pool AND owned.address <> b.address AND a.address <> b.address RETURN b.address LIMIT 25',
         start('(a)'),
       ],
       pool_left_on_linked: [
-        'MATCH (a:Pool {address: "0x1"})-[:LINKED]-(owned:Address)-[:FLOWS_TO]-(b:Address) WHERE NOT owned:Pool RETURN b.address LIMIT 25',
+        'MATCH (a:Pool {address: "0x1"})-[:LINKED]-(owned:Address)-[:FLOWED_TO]-(b:Address) WHERE NOT owned:Pool RETURN b.address LIMIT 25',
         '(a) is a :Pool the walk leaves on LINKED, not on REMOVED_LIQUIDITY',
       ],
       middle_left_on_linked: [
-        'MATCH (a:Address {address: $addr} WHERE NOT a:Pool)-[:FLOWS_TO|SWAPPED]->(m:Address)-[:LINKED]-(b:Address) RETURN b.address LIMIT 25',
+        'MATCH (a:Address {address: $addr} WHERE NOT a:Pool)-[:FLOWED_TO|SWAPPED]->(m:Address)-[:LINKED]-(b:Address) RETURN b.address LIMIT 25',
         middle('(m)'),
       ],
     }
@@ -899,45 +899,45 @@ describe('shipped Chain Insights skills contract', () => {
       open_target: `${openTarget} RETURN b.address LIMIT 50`,
       route_with_literal_addresses: `USE topology MATCH p = SHORTEST 1 (a:Address {address: ${A}} WHERE ${startGuard}) ${walk}(b:Address {address: ${B}}) RETURN p LIMIT 5`,
       fixed_hop:
-        'MATCH (src:Address {address: $addr})-[r1:FLOWS_TO]->(mid:Address)-[r2:FLOWS_TO]->(dst:Address) WHERE NOT src:Pool AND NOT mid:Pool RETURN dst.address LIMIT 25',
+        'MATCH (src:Address {address: $addr})-[r1:FLOWED_TO]->(mid:Address)-[r2:FLOWED_TO]->(dst:Address) WHERE NOT src:Pool AND NOT mid:Pool RETURN dst.address LIMIT 25',
       label_expression:
-        'MATCH (a:Address&!Pool {address: $addr})-[:FLOWS_TO]->(mid:Address&!Pool)-[:FLOWS_TO]->(b:Address) RETURN b.address LIMIT 25',
+        'MATCH (a:Address&!Pool {address: $addr})-[:FLOWED_TO]->(mid:Address&!Pool)-[:FLOWED_TO]->(b:Address) RETURN b.address LIMIT 25',
       out_on_a_removal:
-        'MATCH (v:Address {address: $addr})-[:FLOWS_TO]->(p:Pool)-[:REMOVED_LIQUIDITY]->(r:Address) WHERE NOT v:Pool RETURN r.address LIMIT 25',
+        'MATCH (v:Address {address: $addr})-[:FLOWED_TO]->(p:Pool)-[:REMOVED_LIQUIDITY]->(r:Address) WHERE NOT v:Pool RETURN r.address LIMIT 25',
       ends_at_a_pool:
-        'MATCH (v:Address {address: $addr})-[:FLOWS_TO]->(p:Pool) WHERE NOT v:Pool RETURN p.address LIMIT 25',
+        'MATCH (v:Address {address: $addr})-[:FLOWED_TO]->(p:Pool) WHERE NOT v:Pool RETURN p.address LIMIT 25',
       none_without_a_selector:
-        'MATCH p = (a:Address {address: $from})-[:FLOWS_TO]-{1,5}(b:Address {address: $to}) WHERE NONE(n IN nodes(p) WHERE n:Pool AND n <> b) RETURN p LIMIT 3',
+        'MATCH p = (a:Address {address: $from})-[:FLOWED_TO]-{1,5}(b:Address {address: $to}) WHERE NONE(n IN nodes(p) WHERE n:Pool AND n <> b) RETURN p LIMIT 3',
       one_hop_listing:
-        'MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN dst.address LIMIT 10',
+        'MATCH (src:Address)-[flow:FLOWED_TO]->(dst:Address) RETURN dst.address LIMIT 10',
       listing_into_pools:
-        'MATCH (v:Address)-[:FLOWS_TO]->(p:Pool) RETURN p.address, count(v) AS payers LIMIT 10',
+        'MATCH (v:Address)-[:FLOWED_TO]->(p:Pool) RETURN p.address, count(v) AS payers LIMIT 10',
       split_across_match_clauses:
-        'MATCH (a:Address {address: $addr})-[:FLOWS_TO]->(m:Address) MATCH (m)-[:FLOWS_TO]->(b:Address) WHERE NOT a:Pool AND NOT m:Pool RETURN b.address LIMIT 25',
+        'MATCH (a:Address {address: $addr})-[:FLOWED_TO]->(m:Address) MATCH (m)-[:FLOWED_TO]->(b:Address) WHERE NOT a:Pool AND NOT m:Pool RETURN b.address LIMIT 25',
       guard_after_with:
-        'MATCH (a:Address {address: $addr} WHERE NOT a:Pool)-[:FLOWS_TO]->(m:Address)-[:FLOWS_TO]->(b:Address) WITH m, b WHERE NOT m:Pool RETURN b.address LIMIT 25',
+        'MATCH (a:Address {address: $addr} WHERE NOT a:Pool)-[:FLOWED_TO]->(m:Address)-[:FLOWED_TO]->(b:Address) WITH m, b WHERE NOT m:Pool RETURN b.address LIMIT 25',
       comma_separated_patterns:
-        'MATCH (a:Address {address: $addr})-[:FLOWS_TO]->(m:Address), (m)-[:FLOWS_TO]->(b:Address) WHERE NOT a:Pool AND m.is_exchange IS NULL AND NOT m:Pool RETURN b.address LIMIT 25',
+        'MATCH (a:Address {address: $addr})-[:FLOWED_TO]->(m:Address), (m)-[:FLOWED_TO]->(b:Address) WHERE NOT a:Pool AND m.is_exchange IS NULL AND NOT m:Pool RETURN b.address LIMIT 25',
       guard_among_and_terms:
-        'MATCH (a:Address {address: $addr})-[:FLOWS_TO]->(m:Address)-[:FLOWS_TO]->(b:Address) WHERE (NOT a:Pool AND m.is_exchange IS NULL AND NOT m:Pool) AND b.address <> a.address RETURN b.address LIMIT 25',
+        'MATCH (a:Address {address: $addr})-[:FLOWED_TO]->(m:Address)-[:FLOWED_TO]->(b:Address) WHERE (NOT a:Pool AND m.is_exchange IS NULL AND NOT m:Pool) AND b.address <> a.address RETURN b.address LIMIT 25',
       backquoted_names_with_their_guards:
-        'MATCH (a:Address {address: $addr} WHERE NOT a:`Pool`)-[:`FLOWS_TO`]->(mid:Address)-[:`FLOWS_TO`]->(b:Address) WHERE NOT mid:`Pool` RETURN b.address LIMIT 25',
+        'MATCH (a:Address {address: $addr} WHERE NOT a:`Pool`)-[:`FLOWED_TO`]->(mid:Address)-[:`FLOWED_TO`]->(b:Address) WHERE NOT mid:`Pool` RETURN b.address LIMIT 25',
       pattern_comprehension_with_its_guard:
-        'MATCH (a:Address {address: $addr} WHERE NOT a:Pool) RETURN [(a)-[:FLOWS_TO|SWAPPED]->(mid:Address)-[:FLOWS_TO|SWAPPED]->(b:Address) WHERE NOT mid:Pool | b.address] AS reached',
+        'MATCH (a:Address {address: $addr} WHERE NOT a:Pool) RETURN [(a)-[:FLOWED_TO|SWAPPED]->(mid:Address)-[:FLOWED_TO|SWAPPED]->(b:Address) WHERE NOT mid:Pool | b.address] AS reached',
       pattern_predicate_with_its_guard:
-        'MATCH (a:Address {address: $addr} WHERE NOT a:Pool), (b:Address) WHERE (a)-[:FLOWS_TO|SWAPPED]->(:Address&!Pool)-[:FLOWS_TO|SWAPPED]->(b) RETURN b.address LIMIT 25',
+        'MATCH (a:Address {address: $addr} WHERE NOT a:Pool), (b:Address) WHERE (a)-[:FLOWED_TO|SWAPPED]->(:Address&!Pool)-[:FLOWED_TO|SWAPPED]->(b) RETURN b.address LIMIT 25',
       list_comprehension_is_no_walk: `${route} RETURN [n IN nodes(p)[1..-1] | n.address] AS middle`,
       // The legacy functions evaluate WHERE inside their search: the fast plan
       // the graph server rewrites a guarded route to.
       legacy_shortest_path_guarded:
-        'MATCH p = shortestPath((a:Address {address: $from})-[:FLOWS_TO|SWAPPED*1..5]-(b:Address {address: $to})) WHERE NONE(n IN nodes(p) WHERE n:Pool AND n <> b) RETURN p',
+        'MATCH p = shortestPath((a:Address {address: $from})-[:FLOWED_TO|SWAPPED*1..5]-(b:Address {address: $to})) WHERE NONE(n IN nodes(p) WHERE n:Pool AND n <> b) RETURN p',
       legacy_all_shortest_paths_guarded:
-        'MATCH p = allShortestPaths((a:Address {address: $from})-[:FLOWS_TO|SWAPPED*1..5]-(b:Address {address: $to})) WHERE NONE(n IN nodes(p) WHERE n:Pool AND n <> b) RETURN p',
+        'MATCH p = allShortestPaths((a:Address {address: $from})-[:FLOWED_TO|SWAPPED*1..5]-(b:Address {address: $to})) WHERE NONE(n IN nodes(p) WHERE n:Pool AND n <> b) RETURN p',
       linked_hop_with_both_guards:
-        'MATCH (a:Address {address: $addr})-[l:LINKED]-(owned:Address)-[r:FLOWS_TO|SWAPPED]-(b:Address) WHERE NOT a:Pool AND NOT owned:Pool AND owned.address <> b.address AND a.address <> b.address RETURN b.address LIMIT 25',
+        'MATCH (a:Address {address: $addr})-[l:LINKED]-(owned:Address)-[r:FLOWED_TO|SWAPPED]-(b:Address) WHERE NOT a:Pool AND NOT owned:Pool AND owned.address <> b.address AND a.address <> b.address RETURN b.address LIMIT 25',
       keywords_in_lower_case:
-        'MATCH (src:Address {address: $addr})-[r1:FLOWS_TO|SWAPPED]->(mid:Address)-[r2:FLOWS_TO|SWAPPED]->(dst:Address) where not src:Pool and not mid:Pool RETURN dst.address LIMIT 25',
-      pool_lookup_walks_no_flows_to:
+        'MATCH (src:Address {address: $addr})-[r1:FLOWED_TO|SWAPPED]->(mid:Address)-[r2:FLOWED_TO|SWAPPED]->(dst:Address) where not src:Pool and not mid:Pool RETURN dst.address LIMIT 25',
+      pool_lookup_walks_no_flowed_to:
         'MATCH (p:Pool {address: $pool})<-[:ADDED_LIQUIDITY]-(provider:Address) RETURN provider.address LIMIT 25',
     }
     for (const [name, query] of Object.entries(admitted)) {
@@ -975,13 +975,13 @@ describe('shipped Chain Insights skills contract', () => {
       // The route as it stood before the system guard (ruled 2026-10-11): it
       // passed through the zero address and the PoolManager.
       route_with_the_pool_guard_only:
-        'MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool) (()-[:FLOWS_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(b:Address {address: $to}) RETURN p',
+        'MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: $to}) RETURN p',
       guarded_legacy_function:
-        'MATCH p = shortestPath((a:Address {address: $from})-[:FLOWS_TO|SWAPPED*1..5]-(b:Address {address: $to})) WHERE NONE(n IN nodes(p) WHERE n:Pool AND n <> b) RETURN p',
-      other_variable_names: `MATCH path = SHORTEST 1 (src:Address {address: $from} WHERE NOT src:Pool) (()-[:FLOWS_TO|SWAPPED]-(hop:Address) WHERE NOT hop:Pool){0,4} ()-[:FLOWS_TO|SWAPPED]-(dst:Address {address: $to}) RETURN path`,
+        'MATCH p = shortestPath((a:Address {address: $from})-[:FLOWED_TO|SWAPPED*1..5]-(b:Address {address: $to})) WHERE NONE(n IN nodes(p) WHERE n:Pool AND n <> b) RETURN p',
+      other_variable_names: `MATCH path = SHORTEST 1 (src:Address {address: $from} WHERE NOT src:Pool) (()-[:FLOWED_TO|SWAPPED]-(hop:Address) WHERE NOT hop:Pool){0,4} ()-[:FLOWED_TO|SWAPPED]-(dst:Address {address: $to}) RETURN path`,
       walk_over_the_hop_bound: `${outward.replace('{0,2}', '{0,4}')} RETURN b.address LIMIT 25`,
       several_routes_with_a_selector: `${severalRoutes.replace('p = ', 'p = ANY SHORTEST ')} RETURN p LIMIT 5`,
-      walk_on_flows_to_only: `${outward.replaceAll('|SWAPPED', '')} RETURN b.address LIMIT 25`,
+      walk_on_flowed_to_only: `${outward.replaceAll('|SWAPPED', '')} RETURN b.address LIMIT 25`,
     }
     for (const [name, query] of Object.entries(offContract)) {
       expect(unguardedPoolWalks(query), name).toEqual([])
@@ -989,16 +989,16 @@ describe('shipped Chain Insights skills contract', () => {
       expect(onContract(query), name).toBe(false)
     }
 
-    // A trace that walks FLOWS_TO through an address in the middle also follows SWAPPED.
+    // A trace that walks FLOWED_TO through an address in the middle also follows SWAPPED.
     const noSwap: Record<string, string> = {
-      route_on_flows_to_only:
-        'MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool) (()-[:FLOWS_TO]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWS_TO]-(b:Address {address: $to}) RETURN p',
-      two_hop_on_flows_to_only:
-        'MATCH (src:Address {address: $addr})-[r1:FLOWS_TO]->(mid:Address)-[r2:FLOWS_TO]->(dst:Address) WHERE NOT src:Pool AND NOT mid:Pool RETURN dst.address LIMIT 25',
-      linked_hop_on_flows_to_only:
-        'MATCH (a:Address {address: $addr})-[:LINKED]-(owned:Address)-[r:FLOWS_TO]-(b:Address) WHERE NOT owned:Pool RETURN b.address LIMIT 25',
-      backquoted_flows_to_only:
-        'MATCH (src:Address {address: $addr})-[r1:`FLOWS_TO`]->(mid:Address)-[r2:`FLOWS_TO`]->(dst:Address) WHERE NOT src:Pool AND NOT mid:Pool RETURN dst.address LIMIT 25',
+      route_on_flowed_to_only:
+        'MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool) (()-[:FLOWED_TO]-(via:Address) WHERE NOT via:Pool){0,4} ()-[:FLOWED_TO]-(b:Address {address: $to}) RETURN p',
+      two_hop_on_flowed_to_only:
+        'MATCH (src:Address {address: $addr})-[r1:FLOWED_TO]->(mid:Address)-[r2:FLOWED_TO]->(dst:Address) WHERE NOT src:Pool AND NOT mid:Pool RETURN dst.address LIMIT 25',
+      linked_hop_on_flowed_to_only:
+        'MATCH (a:Address {address: $addr})-[:LINKED]-(owned:Address)-[r:FLOWED_TO]-(b:Address) WHERE NOT owned:Pool RETURN b.address LIMIT 25',
+      backquoted_flowed_to_only:
+        'MATCH (src:Address {address: $addr})-[r1:`FLOWED_TO`]->(mid:Address)-[r2:`FLOWED_TO`]->(dst:Address) WHERE NOT src:Pool AND NOT mid:Pool RETURN dst.address LIMIT 25',
     }
     for (const [name, query] of Object.entries(noSwap)) {
       expect(traceHopsWithoutSwapped(query), name).not.toEqual([])
@@ -1007,10 +1007,10 @@ describe('shipped Chain Insights skills contract', () => {
       route: `${route} RETURN p`,
       open_target: `${openTarget} RETURN b.address LIMIT 50`,
       into_a_pool_out_on_a_removal:
-        'MATCH (v:Address {address: $addr})-[:FLOWS_TO]->(p:Pool)-[:REMOVED_LIQUIDITY]->(r:Address) WHERE NOT v:Pool RETURN r.address LIMIT 25',
+        'MATCH (v:Address {address: $addr})-[:FLOWED_TO]->(p:Pool)-[:REMOVED_LIQUIDITY]->(r:Address) WHERE NOT v:Pool RETURN r.address LIMIT 25',
       untyped:
         'MATCH (a:Address {address: $addr})-->(mid)-->(b) WHERE NOT a:Pool AND NOT mid:Pool RETURN b LIMIT 25',
-      one_hop: 'MATCH (src:Address)-[flow:FLOWS_TO]->(dst:Address) RETURN dst.address LIMIT 10',
+      one_hop: 'MATCH (src:Address)-[flow:FLOWED_TO]->(dst:Address) RETURN dst.address LIMIT 10',
     }
     for (const [name, query] of Object.entries(followsSwapped)) {
       expect(traceHopsWithoutSwapped(query), name).toEqual([])
@@ -1023,7 +1023,7 @@ describe('shipped Chain Insights skills contract', () => {
     expect(skill).toContain('MATCH SHORTEST 1')
     expect(skill).toContain('MATCH ANY SHORTEST')
     expect(skill).not.toContain('MATCH ALL SHORTEST')
-    expect(skill).toContain('-[:FLOWS_TO]-{1,5}')
+    expect(skill).toContain('-[:FLOWED_TO]-{1,5}')
     expect(skill).not.toMatch(/\*\s*(BFS|DFS|WSHORTEST|ALLSHORTEST|KSHORTEST)/i)
     expect(skill).not.toContain('USING HOPS LIMIT')
     expect(skill).not.toContain('DROP GRAPH')
@@ -1069,19 +1069,20 @@ describe('the cypher skill: graph searches, units and the field sampling reads',
         `SHORTEST 1 \\(a:Address \\{address: "0x[0-9a-f]{40}"\\} WHERE ${guard('a')}\\).*\\(b:Address \\{address: "0x[0-9a-f]{40}"\\}\\) RETURN \\[n IN nodes\\(p\\) \\| n\\.address\\] AS route LIMIT 5$`
       ),
       several_routes: new RegExp(
-        `^USE topology MATCH p = \\(a:Address \\{address: "0x[0-9a-f]{40}"\\} WHERE ${guard('a')}\\) .*\\{0,2\\} \\(\\)-\\[:FLOWS_TO\\|SWAPPED\\]-\\(b:Address \\{address: "0x[0-9a-f]{40}"\\}\\) RETURN .* AS hops LIMIT 5$`
+        `^USE topology MATCH p = \\(a:Address \\{address: "0x[0-9a-f]{40}"\\} WHERE ${guard('a')}\\) .*\\{0,2\\} \\(\\)-\\[:FLOWED_TO\\|SWAPPED\\]-\\(b:Address \\{address: "0x[0-9a-f]{40}"\\}\\) RETURN .* AS hops LIMIT 5$`
       ),
-      where_the_money_went: /\{0,2\} \(\)-\[:FLOWS_TO\|SWAPPED\]->\(b:Address\) RETURN .*LIMIT 25$/,
+      where_the_money_went:
+        /\{0,2\} \(\)-\[:FLOWED_TO\|SWAPPED\]->\(b:Address\) RETURN .*LIMIT 25$/,
       where_the_money_came_from:
-        /\{0,2\} \(\)<-\[:FLOWS_TO\|SWAPPED\]-\(b:Address\) RETURN .*LIMIT 25$/,
+        /\{0,2\} \(\)<-\[:FLOWED_TO\|SWAPPED\]-\(b:Address\) RETURN .*LIMIT 25$/,
       shared_counterparties: new RegExp(
-        `\\(c:Address\\)-\\[:FLOWS_TO\\|SWAPPED\\]-\\(b:Address \\{address: "0x[0-9a-f]{40}"\\}\\) WHERE ${guard('a')} AND ${guard('c')} RETURN DISTINCT c\\.address`
+        `\\(c:Address\\)-\\[:FLOWED_TO\\|SWAPPED\\]-\\(b:Address \\{address: "0x[0-9a-f]{40}"\\}\\) WHERE ${guard('a')} AND ${guard('c')} RETURN DISTINCT c\\.address`
       ),
       ownership_cluster: /-\[:LINKED\]-\{1,2\}\(b:Address\) RETURN/,
       operator_view: /-\[o:OPERATED_BY\]->\(operator:Address \{address: "0x[0-9a-f]{40}"\}\)/,
       swaps: /-\[s:SWAPPED\]->\(b:Address\)/,
       pool_trace: new RegExp(
-        `-\\[:FLOWS_TO\\]->\\(p:Pool\\)-\\[r:REMOVED_LIQUIDITY\\]->\\(b:Address\\) WHERE ${guard('a')} AND`
+        `-\\[:FLOWED_TO\\]->\\(p:Pool\\)-\\[r:REMOVED_LIQUIDITY\\]->\\(b:Address\\) WHERE ${guard('a')} AND`
       ),
       bridges: /-\[x:BRIDGED\]->\(c:Chain\)/,
       newest_links: /ORDER BY f\.last_seen_timestamp DESC LIMIT 25$/,
@@ -1166,7 +1167,7 @@ describe('the cypher skill: graph searches, units and the field sampling reads',
     )
     expect(reads).toEqual([
       'USE topology MATCH (a:Address) RETURN keys(a) AS keys LIMIT 20',
-      'USE topology MATCH ()-[r:FLOWS_TO]->() RETURN keys(r) AS keys LIMIT 5',
+      'USE topology MATCH ()-[r:FLOWED_TO]->() RETURN keys(r) AS keys LIMIT 5',
     ])
     // An unanchored probe takes a literal LIMIT of at most probe_max_limit rows.
     const { topology_admission: admission } = JSON.parse(

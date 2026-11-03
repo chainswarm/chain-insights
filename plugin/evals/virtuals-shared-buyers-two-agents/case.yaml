@@ -1,6 +1,6 @@
 schema_version: "1.0"
 name: virtuals-shared-buyers-two-agents
-expected_outcome: The agent finds wallets that received tokens from both Virtuals starting pools with a two-pool FLOWS_TO pattern meeting at one wallet, and excludes the router hub by address.
+expected_outcome: The agent finds wallets that received tokens from both Virtuals starting pools with a two-pool FLOWED_TO pattern meeting at one wallet, and excludes the router hub by address.
 execution:
   prompt: |
     Two Virtuals agents on Robinhood Chain have starting pools
@@ -17,7 +17,7 @@ graders:
   - type: regex
     name: meets-at-one-wallet
     target: last_message
-    pattern: '\)<-\[:FLOWS_TO\]-\('
+    pattern: '\)<-\[:FLOWED_TO\]-\('
     match: contains
   - type: regex
     name: excludes-router

@@ -316,7 +316,7 @@ describe('the built proxy', () => {
         arguments: {
           network: 'robinhood',
           query:
-            'USE topology MATCH (a:Address)-[f:FLOWS_TO]->(t:Address) RETURN a.address AS from_address, t.address AS to_address LIMIT 5',
+            'USE topology MATCH (a:Address)-[f:FLOWED_TO]->(t:Address) RETURN a.address AS from_address, t.address AS to_address LIMIT 5',
         },
       },
     })
@@ -338,7 +338,7 @@ describe('the built proxy', () => {
     expect(json.arguments).toEqual({
       network: 'robinhood',
       query:
-        'USE topology MATCH (a:Address)-[f:FLOWS_TO]->(t:Address) RETURN a.address AS from_address, t.address AS to_address LIMIT 5',
+        'USE topology MATCH (a:Address)-[f:FLOWED_TO]->(t:Address) RETURN a.address AS from_address, t.address AS to_address LIMIT 5',
     })
   }, 30_000)
 })

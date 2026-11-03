@@ -15,7 +15,7 @@ import { read } from './support/schema-text.js'
 
 // The view draws a link from the columns of a row. Three things must agree on
 // those columns: the bundled view that reads them, the picture hint that names
-// them to the model, and every FLOWS_TO recipe the model copies. 0.54.2 found
+// them to the model, and every FLOWED_TO recipe the model copies. 0.54.2 found
 // them apart: the recipes returned no first_seen_timestamp, so every drawn
 // link panel read "First seen (UTC): Unavailable".
 
@@ -45,7 +45,7 @@ describe('the graph row columns', () => {
   })
 })
 
-describe('every FLOWS_TO recipe that draws a graph', () => {
+describe('every FLOWED_TO recipe that draws a graph', () => {
   // What the model copies: the fenced queries of the skill, and the example
   // of the picture hint. The legacy corpus recipes of docs/graph-tools.md are
   // not taught and stay out.
