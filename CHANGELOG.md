@@ -5,6 +5,23 @@ All notable changes to Chain Insights are recorded here.
 
 ## Unreleased
 
+## [0.75.1] - 2026-11-03 — dependency updates
+
+### Changed
+
+- `@modelcontextprotocol/sdk` 1.32.1 to 1.32.2, `@x402/evm` and
+  `@x402/fetch` 2.28.0 to 2.29.0, `viem` 2.57.3 to 2.57.13, `zod` 4.6.5 to
+  4.6.7.
+- Tooling: `@types/node` 26.6.4 to 26.6.6, vitest and
+  `@vitest/coverage-v8` 5.0.3 to 5.0.5, oxlint 1.87.0 to 1.90.0, prettier
+  3.9.9 to 3.9.10, tsdown 0.23.0 to 0.23.4.
+- ext-apps stays on 1.7.5: the payment view targets the 1.x client (0.42 hold).
+
+### Fixed
+
+- The type check passes with viem 2.57.13. The Robinhood Chain entry is
+  typed as a viem `Chain`. Its values are unchanged.
+
 ## [0.75.0] - 2026-11-03 — the money link is FLOWED_TO
 
 ### Changed
