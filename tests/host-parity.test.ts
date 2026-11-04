@@ -130,6 +130,21 @@ describe('host parity', () => {
     )
   })
 
+  it('a token named by its ticker has a door every host reads: meta_token_lookup', () => {
+    // The core skill is exempt from the protocol-skill door rule, so this door
+    // is held here: a local tool, a description that carries the collision
+    // rule, the graph_query description pointing at it, and the skill row.
+    expect(LOCAL_TOOL_NAMES.has('meta_token_lookup')).toBe(true)
+    const description = KNOWN_PUBLIC_TOOL_DESCRIPTIONS['meta_token_lookup'] ?? ''
+    expect(description).toContain('Tickers collide: never treat the first row as the token.')
+    expect(description).toContain('do not search the web')
+    expect(KNOWN_PUBLIC_TOOL_DESCRIPTIONS['graph_query']).toContain('starts with meta_token_lookup')
+    const skill = readFileSync(join(repoRoot, 'skills', CORE_SKILL, 'SKILL.md'), 'utf8')
+    expect(skill).toContain(
+      '| The user names a token by its ticker or name, no contract    | none       | Call `meta_token_lookup {network, symbol}` first; several candidates are clones, name them and ask |'
+    )
+  })
+
   it('the core skill and the graph_query description both say what :IssuerFrozen means, beside :Sanctioned', () => {
     const meaning = 'an issuer froze this wallet; the token in labels says which'
     const description = KNOWN_PUBLIC_TOOL_DESCRIPTIONS['graph_query']

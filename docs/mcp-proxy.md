@@ -82,6 +82,7 @@ The proxy:
 | `meta_network_capabilities` | Show the current Chain Insights network/tool support matrix                          |
 | `meta_schema`               | Show the live graph schema of a network: labels, link types, fields, indexes         |
 | `meta_dex_lookup`           | Turn an exchange name into its factories, routers or manager, pools and first reads  |
+| `meta_token_lookup`         | Turn a ticker or a token name into every contract that carries it, with its creator  |
 | `meta_rules`                | Read the answer rules when the `chain-insights-cypher` skill is not loaded           |
 | `meta_help`                 | Show Chain Insights tool and workflow guidance                                       |
 | `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                             |
@@ -132,6 +133,32 @@ cache. `registry_source` in the answer says which copy answered: `fetched`,
 `cached` or `packaged`. `CHAIN_INSIGHTS_DEX_REGISTRY_URL` points the fetch
 somewhere else, for tests and the lab; `{network}` in it is filled in.
 
+`meta_token_lookup` turns a ticker or a token name into the contracts that
+carry it. It takes `network` and `symbol` (both required, `symbol` 1 to 64
+characters). Tickers collide: a clone reuses a symbol on purpose, so the tool
+never picks one.
+
+1. One `graph_query` reads the `Asset` lookup on `USE facts` by symbol. When
+   no contract carries the symbol, the same read runs by name. The server
+   matches exactly, in any case, and orders the rows verified first, then
+   oldest first. The proxy keeps that order.
+2. One `graph_query_batch` reads, for each candidate, the address that
+   deployed it (`factory`) and the sender of that transaction (`creator`) on
+   `USE topology`. A batch holds at most 20 reads, so 25 candidates take two.
+   A failed or refused creator read keeps the candidate, with `creator` and
+   `factory` empty, and the `hint` says the creators were not read.
+3. The answer carries at most 25 `candidates`, `total` (the rows the server
+   sent, at most 26) and `truncated` (true when there are more than 25).
+   Each candidate has `first_seen_timestamp_utc` beside the milliseconds.
+
+Zero candidates is an answer: no contract on the network carries the symbol
+or the name. A contract address sent as `symbol` sends no read: an address is
+already an anchor, read it on `USE topology`. A server that does not serve the
+`Asset` read yet answers with no candidates and a `hint` to ask the user for
+the contract. Both reads are billed as any read.
+`cia mcp call meta_token_lookup network=robinhood symbol=TCITY` runs the same
+lookup in a terminal.
+
 ## Host parity
 
 **A rule a host never loads does not exist for that host.** Each host loads a
@@ -145,6 +172,7 @@ different part of what this package ships:
 | tool descriptions | yes | yes | yes | yes | yes | yes |
 | result `hint` | yes | yes | yes | yes | yes | yes |
 | protocol tool doors | yes | yes | yes | yes | yes | yes |
+| token door `meta_token_lookup` | yes | yes | yes | yes | yes | yes |
 
 The scout agent pins the CLI by version in its image and copies only
 `chain-insights-cypher` and `chain-insights-virtuals` into its project, yet asks
@@ -171,6 +199,12 @@ The subscription rules travel the same way. The descriptions of
 buying is `cia subscription buy` in a terminal, an agent never buys, and $CIA
 sent by hand to any other address is not credited. The core skill repeats them
 as its rule 12. `tests/subscription-rules.test.ts` holds both.
+
+A token named by its ticker takes the same path. The `meta_token_lookup`
+description carries the rule (tickers collide, zero candidates is an answer,
+never search the web), the `graph_query` description sends a named token to
+it, and the core skill `chain-insights-cypher` repeats it as a row of its
+question table.
 
 A host that loads skills gets both. A host that loads none gets the door.
 `tests/host-parity.test.ts` checks it: every

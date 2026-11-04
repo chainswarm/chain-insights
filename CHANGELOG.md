@@ -3,7 +3,22 @@
 
 All notable changes to Chain Insights are recorded here.
 
-## Unreleased
+## [0.76.0] - 2026-11-04 — find a token by its ticker
+
+### Added
+
+- `meta_token_lookup {network, symbol}`: a ticker or a token name (TCITY,
+  USDG) becomes every contract on the network that carries it, verified
+  first, then oldest first, each with its creator and factory. Before, an
+  agent asked a ticker question had no way to find the contract: it searched
+  the web or asked the user. Tickers collide, so the tool never picks one:
+  the answer lists up to 25 candidates and says when there are more. Zero
+  candidates is an answer. A server that does not serve the lookup yet
+  answers with no candidates and a hint to ask the user for the contract.
+  `cia mcp call meta_token_lookup network=robinhood symbol=TCITY` runs it in
+  a terminal.
+- The `graph_query` description and the `chain-insights-cypher` skill send a
+  token named by its ticker to `meta_token_lookup` first.
 
 ## [0.75.1] - 2026-11-03 — dependency updates
 

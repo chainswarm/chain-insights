@@ -63,6 +63,16 @@ import {
   type DexToolDependencies,
 } from './dex-tool.js'
 import { loadRegistry } from './dex-registry.js'
+import {
+  META_TOKEN_LOOKUP_ANNOTATIONS,
+  META_TOKEN_LOOKUP_DESCRIPTION,
+  META_TOKEN_LOOKUP_TITLE,
+  META_TOKEN_LOOKUP_TOOL,
+  SYMBOL_MAX,
+  handleMetaTokenLookup,
+  type GraphAnswer,
+  type TokenToolDependencies,
+} from './token-lookup.js'
 
 export const LOCAL_TOOL_NAMES = new Set([
   'meta_network_capabilities',
@@ -72,6 +82,7 @@ export const LOCAL_TOOL_NAMES = new Set([
   'meta_help',
   'meta_rules',
   META_DEX_LOOKUP_TOOL,
+  META_TOKEN_LOOKUP_TOOL,
   'wallet_balance',
   'wallet_topup',
   SUBSCRIPTION_TOPUP_TOOL,
@@ -156,6 +167,10 @@ const TOOL_RULES_FIRST =
 export const GRAPH_QUERY_DEX_DOOR_SENTENCE =
   'A question that names an exchange and no address starts with meta_dex_lookup, never with a scan of :Protocol, :Pool or labels.'
 
+// The one sentence that sends a named token to its door, never to a guess.
+export const GRAPH_QUERY_TOKEN_DOOR_SENTENCE =
+  'A question that names a token by its ticker or name and gives no contract starts with meta_token_lookup: tickers collide, so never guess the contract.'
+
 // The role marks a host that loads no skill still needs: what :Sanctioned and
 // :IssuerFrozen say about a wallet.
 export const GRAPH_QUERY_ROLE_MARKS_SENTENCE =
@@ -166,6 +181,7 @@ export const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
     'Return the current Chain Insights network and tool support matrix. Takes no arguments: send {}.',
   meta_schema: META_SCHEMA_DESCRIPTION,
   [META_DEX_LOOKUP_TOOL]: META_DEX_LOOKUP_DESCRIPTION,
+  [META_TOKEN_LOOKUP_TOOL]: META_TOKEN_LOOKUP_DESCRIPTION,
   meta_usage_status: "Return the caller's public free graph_query quota for the current UTC day.",
   meta_subscription_status: META_SUBSCRIPTION_STATUS_DESCRIPTION,
   meta_help: 'Show a short guide to Chain Insights tools and workflow.',
@@ -173,7 +189,7 @@ export const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
     'Return the Chain Insights rules: how to write graph_query and graph_query_batch reads that are served, how to name columns so the answer is drawn as a graph, a time series or a table, and how to write the answer. Call it once per chat, before the first graph query, when the chain-insights-cypher skill is not loaded. Takes no arguments: send {}.',
   wallet_balance:
     'Show the local Chain Insights payment wallet address, payment network, token, and amount.',
-  graph_query: `${TOOL_RULES_FIRST} Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. ${GRAPH_LAYERS_TEXT} ${GRAPH_QUERY_DEX_DOOR_SENTENCE} ${GRAPH_QUERY_ROLE_MARKS_SENTENCE} ${ROUTING_NOT_SERVED} Preserve full addresses exactly, and write every address in full, all 42 characters, in your answer: never shorten one with ... or ….`,
+  graph_query: `${TOOL_RULES_FIRST} Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. ${GRAPH_LAYERS_TEXT} ${GRAPH_QUERY_DEX_DOOR_SENTENCE} ${GRAPH_QUERY_TOKEN_DOOR_SENTENCE} ${GRAPH_QUERY_ROLE_MARKS_SENTENCE} ${ROUTING_NOT_SERVED} Preserve full addresses exactly, and write every address in full, all 42 characters, in your answer: never shorten one with ... or ….`,
   graph_query_batch: `${TOOL_RULES_FIRST} Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads. For a time series across days, send one USE facts total per day with the query id set to the day, "YYYY-MM-DD": the view joins them into one series. Write every address in full in your answer, all 42 characters.`,
 }
 // Titles for proxied tools whose graph endpoint definition carries none.
@@ -1295,6 +1311,40 @@ export async function createProxy(): Promise<void> {
     async (args) => handleMetaDexLookup(args, dexDependencies)
   )
 
+  // meta_token_lookup: a ticker or a token name becomes every contract that
+  // carries it, from one facts read (by symbol, then by name), with the creator
+  // of each candidate from one topology batch. Both are billed as any read.
+  const tokenDependencies: TokenToolDependencies = {
+    graphQuery: async (args) => {
+      const options = remoteToolRequestOptions('graph_query')
+      return (await withRateLimitRetry(() =>
+        options
+          ? remoteClient.callTool({ name: 'graph_query', arguments: args }, undefined, options)
+          : remoteClient.callTool({ name: 'graph_query', arguments: args })
+      )) as GraphAnswer
+    },
+    graphQueryBatch: dexDependencies.graphQueryBatch,
+    unavailable: dexDependencies.unavailable,
+    describeFailure: (err) => remoteCallFailureText('graph_query', err),
+  }
+  server.registerTool(
+    META_TOKEN_LOOKUP_TOOL,
+    {
+      title: META_TOKEN_LOOKUP_TITLE,
+      description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS[META_TOKEN_LOOKUP_TOOL],
+      inputSchema: {
+        network: NETWORK_SCHEMA,
+        symbol: z
+          .string()
+          .min(1)
+          .max(SYMBOL_MAX)
+          .describe('The ticker or the token name as the user wrote it: TCITY, USDG, Tcity. Never a contract address: an address is already an anchor.'),
+      },
+      annotations: META_TOKEN_LOOKUP_ANNOTATIONS,
+    },
+    async (args) => handleMetaTokenLookup(args, tokenDependencies)
+  )
+
   // One reader for the tool and for the browser page's free-credits meter.
   const readUsageStatus = async () => {
       try {
@@ -1618,6 +1668,7 @@ export async function createProxy(): Promise<void> {
                 '- meta_network_capabilities: supported networks and available tools. Takes no arguments.',
                 '- meta_schema: read the live graph schema of one network: labels, link types and field names. Cached for 24 hours.',
                 '- meta_dex_lookup: turn an exchange name (Aero, Uniswap, Virtuals) into its factories, routers, pools and first reads. Call it first when a question names an exchange and gives no address.',
+                '- meta_token_lookup: turn a ticker or a token name (TCITY, USDG) into every contract that carries it, with its creator. Call it first when a question names a token and gives no contract; tickers collide.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
                 '- meta_subscription_status: check the subscription of the local wallet: window, days left, daily allowance and use, and payments not credited yet.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
@@ -1639,6 +1690,7 @@ export async function createProxy(): Promise<void> {
                 '- meta_network_capabilities: supported networks and available tools. Takes no arguments.',
                 '- meta_schema: read the live graph schema of one network: labels, link types and field names. Cached for 24 hours.',
                 '- meta_dex_lookup: turn an exchange name (Aero, Uniswap, Virtuals) into its factories, routers, pools and first reads. Call it first when a question names an exchange and gives no address.',
+                '- meta_token_lookup: turn a ticker or a token name (TCITY, USDG) into every contract that carries it, with its creator. Call it first when a question names a token and gives no contract; tickers collide.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
                 '- meta_subscription_status: check the subscription of the local wallet: window, days left, daily allowance and use, and payments not credited yet.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
