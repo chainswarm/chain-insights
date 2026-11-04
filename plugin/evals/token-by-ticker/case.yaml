@@ -1,0 +1,52 @@
+schema_version: "1.0"
+name: token-by-ticker
+expected_outcome: The agent turns the ticker TCITY into its contracts with a meta_token_lookup call before any graph query, says that several contracts on robinhood carry TCITY and that it will name them and ask (or pick by the evidence), never takes the first row as the token, never guesses a contract, and plans no web search.
+execution:
+  prompt: |
+    A user asks, in Claude Desktop: "what kind of volume came with TCITY's 863% move on robinhood?"
+
+    The Chain Insights tools are not reachable right now, so do not try
+    to call them. Write, in order, the first tool calls and graph queries
+    you would send, in full, and one line each on what their answers tell
+    you. Then write what you would tell the user when the first call
+    returns three contracts that carry TCITY.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: door-before-any-graph-read
+    target: last_message
+    pattern: '^(?:(?!graph_query|USE topology|USE facts|USE chain)[\s\S])*meta_token_lookup'
+    match: contains
+  - type: regex
+    name: sends-the-ticker
+    target: last_message
+    pattern: 'meta_token_lookup[^\n]{0,80}TCITY'
+    match: contains
+  - type: regex
+    name: names-several-contracts
+    target: last_message
+    flags: i
+    pattern: '(three|3|several|multiple|more than one)[^.\n]{0,60}(contracts|tokens|candidates)|tickers? collide|clones?'
+    match: contains
+  - type: regex
+    name: no-symbol-as-asset
+    target: last_message
+    flags: i
+    pattern: 'asset\s*(=|:)\s*"TCITY"|\{symbol:\s*"TCITY"\}'
+    match: not_contains
+  - type: regex
+    name: no-web-search
+    target: last_message
+    flags: i
+    pattern: '(I would|I will|I''ll|then) (search|check|look (it )?up)[^.\n]{0,40}(the web|online|coingecko|dexscreener|google)'
+    match: not_contains
+  - type: regex
+    name: full-addresses
+    target: last_message
+    pattern: '0x[0-9a-fA-F]{2,10}(…|\.\.\.)'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

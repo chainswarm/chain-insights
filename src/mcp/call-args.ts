@@ -62,3 +62,19 @@ export function metaDexLookupArgs(args: Record<string, unknown>): {
     ...(pools === undefined ? {} : { pools }),
   }
 }
+
+/**
+ * The arguments `cia mcp call meta_token_lookup` hands the lookup: network and
+ * symbol as typed. A symbol that looks like a number (a ticker such as 42) stays
+ * text, because the tool reads the ticker as the user wrote it.
+ */
+export function metaTokenLookupArgs(args: Record<string, unknown>): {
+  network: unknown
+  symbol?: unknown
+} {
+  const symbol = args['symbol']
+  return {
+    network: args['network'],
+    ...(symbol === undefined ? {} : { symbol: typeof symbol === 'number' ? String(symbol) : symbol }),
+  }
+}

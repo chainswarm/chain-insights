@@ -156,6 +156,7 @@ Find the question in this table. Send its first query, once, with the addresses 
 | Which tokens moved between two addresses?                    | `topology` | `TRANSFERRED` of the pair, one link per token (see Tokens)             |
 | Where did one token go, or come from, in N hops?             | `topology` | The guarded walk on `TRANSFERRED` with one `asset` (see Tokens)        |
 | The biggest receivers of one token in a window               | `topology` | `TRANSFERRED` with one `asset` and `last_seen_timestamp` (see Tokens)  |
+| The user names a token by its ticker or name, no contract    | none       | Call `meta_token_lookup {network, symbol}` first; several candidates are clones, name them and ask |
 | What fields does an Address have?                            | none       | Call `meta_schema {network}`. Send no query.                           |
 | Recent addresses, biggest senders, any top list of the chain | topology   | A search bounded by `f.last_seen_timestamp`, then sort and LIMIT (below). |
 
@@ -473,6 +474,8 @@ ORDER BY received_usd DESC LIMIT 10
 A `TRANSFERRED` search over the whole chain, with no address anchor, must name one `asset` literal and a lower bound `t.last_seen_timestamp >=` joined by `AND`. Without both, the server refuses it with `transfer_search_unbounded` before it runs. An `OR` of two assets is refused the same way: send one search per asset, in one `graph_query_batch` when there are several. Read `behind_transfers` on `Head` first, as for any whole-chain search. A read anchored on a full address needs neither bound.
 
 An `asset` that names no token of the graph, or a symbol such as `USDC`, is refused with `anchor_missing` whose fix names the contract: the graph holds no token at that address. That refusal is not a family behind and not a missing anchor: do not ask for an address. Check the contract, all 42 characters in lowercase, and send the same query again with the right one.
+
+A token named by its ticker or its name, with no contract (TCITY, USDG): call `meta_token_lookup {network, symbol}` first, before any read. It returns every contract on the network that carries that symbol, verified first, then oldest first, each with its creator. Tickers collide: a clone copies a symbol on purpose, so never treat the first row as the token. When several come back, name each contract in full with its creator and first seen time, and ask which one the user means, or pick one by the evidence the user gave and say why. Zero candidates is an answer: say no contract on the network carries the symbol, and do not search the web. Then read the chosen contract as the `asset` of the reads above.
 
 How to answer from these rows:
 

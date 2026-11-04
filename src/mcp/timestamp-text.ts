@@ -24,7 +24,7 @@ export function utcText(ms: number): string {
   return `${new Date(ms).toISOString().slice(0, 19).replace('T', ' ')} UTC`
 }
 
-function isEpochMs(value: unknown): value is number {
+export function isEpochMs(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= MIN_MS && value <= MAX_MS
 }
 
