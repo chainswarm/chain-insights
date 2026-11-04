@@ -288,12 +288,12 @@ A mark says what the labels layer judged. The claims list beside it says why. Th
 | `:Sanctioned` | `risk_claims` | `SANCTIONED`: on a sanctions list. |
 | `:Victim` | `protection_claims` | `VICTIM`: it lost money to a scam the evidence walk traced. It paid the accused, was swept, or was drained after the attempt. Receiving a fake token or dust never makes a victim. |
 | `:Targeted` | `protection_claims` | `ADDRESS_POISONING_TARGET`, an older value a lane may still hold: a poisoning target the walk has not proven lost money. Never call it a victim. |
-| `:OnMoneyTrail` | `traced_claims` | The trail the evidence walk followed from an accused address. `LAUNDERED`: it passed the money onward. `RECEIVED`: it received money from the trail. `FUNDER`: it sent money to the accused. `MIXED`: it paid money from the trail into a mixer pool. |
+| `:OnMoneyTrail` | `traced_claims` | The trail the evidence walk followed from an accused address. `LAUNDERED`: it received the accused's money along the walk and moved it on. `RECEIVED`: it received that money and still holds it (it becomes `LAUNDERED` when it forwards it). `FUNDER`: it funded the accused address. `MIXED`: it received that money and paid it into a mixer pool, where the walk ends. |
 | none | `suspect_labels` | `MIXER_DEPOSITOR`, `MIXER_WITHDRAWER`: it put money into, or took money out of, a mixer pool. A warning, not a theft. |
 
 Ask by mark, or anchor on the full address. Never scan a claims list with no mark and no address: it reads every address and times out. A lane that has not written the lists yet returns null for them: name the mark, and say the graph gives no reason yet.
 
-List fake-token scams: the `:Scam` mark is the anchor, and a `WHERE` on its own list picks the value. For poisoners ask `:Poisoned` with `ADDRESS_POISONING`, for victims `:Victim` with `VICTIM`. When 25 rows come back, say there may be more.
+List fake-token scams: the `:Scam` mark is the anchor, and a `WHERE` on its own list picks the value. Approval drainers, sweepers and fake transfer events are the same read with `"APPROVAL_DRAINER"`, `"SWEEPER_DELEGATE"` or `"PHANTOM_TRANSFER"` in place of `"FAKE_TOKEN"`. For poisoners ask `:Poisoned` with `"ADDRESS_POISONING"`, for victims `:Victim` with `"VICTIM"`. When 25 rows come back, say there may be more.
 
 ```cypher
 USE topology
@@ -317,7 +317,7 @@ MATCH (v:Address {address: "0x1111111111111111111111111111111111111111"})-[f:FLO
 RETURN v.address AS from_address, s.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, v.labels AS from_labels, s.labels AS to_labels, v.is_exchange AS from_is_exchange, s.is_exchange AS to_is_exchange, s.risk_claims AS to_risk_claims ORDER BY f.last_seen_timestamp DESC LIMIT 25
 ```
 
-Who did this drainer empty? Anchor on the drainer. Its victims are the `:Victim` owners who approved it, with `VICTIM` in their `protection_claims`. Each row is one address the walk proved lost money, and its approval of the drainer: say both, never that the graph links the two as thief and victim. For a sweeper or a beneficiary, read the `:Victim` senders on `FLOWED_TO` into the address instead.
+Who did this drainer empty? Anchor on the drainer. Its victims are the `:Victim` owners who approved it, with `VICTIM` in their `protection_claims`. Each row is one address the walk proved lost money, and its approval of the drainer: say both, never that the graph links the two as thief and victim. `APPROVED` holds no Permit2 grants, so a Permit2 drainer's victims are not on it: find them, and a sweeper's or a beneficiary's, as the `:Victim` senders on `FLOWED_TO` into the address, anchored on it the same way.
 
 ```cypher
 USE topology

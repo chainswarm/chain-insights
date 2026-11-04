@@ -3,6 +3,21 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.77.1] - 2026-11-05 — drainer, sweeper and phantom reads by claim
+
+### Changed
+
+- The `chain-insights-cypher` skill, the `graph_query` description and the
+  graph docs give the same `:Scam` read with `"APPROVAL_DRAINER"`,
+  `"SWEEPER_DELEGATE"` or `"PHANTOM_TRANSFER"` in place of `"FAKE_TOKEN"`.
+- The drainer paragraph says `APPROVED` holds no Permit2 grant, so a Permit2
+  drainer's victims are the `:Victim` senders on `FLOWED_TO` into the address.
+- The trail meanings (`LAUNDERED`, `RECEIVED`, `FUNDER`, `MIXED`) now match
+  the label vocabulary: received and moved on, received and still holds,
+  funded the accused root, paid into a mixer pool.
+- The runtime schema notes name the judgement marks and their claims lists
+  where they still said "risk verdict".
+
 ## [0.77.0] - 2026-11-04 — risk questions answered from the judgement marks
 
 ### Added

@@ -296,8 +296,7 @@ Rules:
   tool argument to select a graph.
 - Use \`USE topology\` for topology (the address/FLOWED_TO/OPERATED_BY/LINKED graph,
   covering unified recent and full historical activity in one graph, plus
-  the node \`risk_score\`/\`risk_level\` verdict, and labels + per-label
-  risk) and \`USE facts\` for bounded individual \`TRANSFER\` rows and their
+  labels + per-label risk, the judgement marks and their claims lists) and \`USE facts\` for bounded individual \`TRANSFER\` rows and their
   amount, \`amount_usd\`, asset, transaction, and block facts.
   The \`LINKED\` ownership overlay is served on the topology graph only.
 - Anchor every topology read that filters on a link property: put an address
