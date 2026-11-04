@@ -3,6 +3,40 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.77.0] - 2026-11-04 — risk questions answered from the judgement marks
+
+### Added
+
+- A user can ask "is this address a fake-token scam, a poisoner, an
+  approval drainer, a victim who lost money, on a laundering trail", "show
+  me fake tokens" or "who got drained", and the agent answers from the
+  graph. The graph's labels layer writes why a judgement mark is there in a
+  sorted list beside it: `risk_claims` on `:Scam`, `:Poisoned` and
+  `:Sanctioned`, `protection_claims` on `:Victim` and `:Targeted`,
+  `traced_claims` on `:OnMoneyTrail`, and `suspect_labels` for an address
+  that used a mixer pool. The `chain-insights-cypher` skill has a new
+  section, Judgement marks, with the meaning of every value and one query
+  for each question: fake tokens by the `:Scam` mark and its claims, one address's
+  marks and the scam it paid, and a drainer's proven victims anchored on the
+  drainer. The graph holds no link from an accused address to its victims,
+  so the agent answers per address.
+- The `graph_query` description carries the same vocabulary, so Claude
+  Desktop chat, which loads no skill, answers the same way. The server
+  instructions and the workspace notes carry it too.
+- Three evals: fake tokens by mark, is an address a victim and of what, and
+  which addresses a drainer emptied.
+
+### Changed
+
+- Rule 4 of the `chain-insights-cypher` skill: a risk question is now
+  answered from the marks and their claims. A flow question still gets no
+  risk screen. The answer says what a claim means in plain words ("a
+  fake-token scam"), never the list name or the code.
+- The guides name `:Poisoned`, `:Targeted` and `:OnMoneyTrail` and the three
+  claims lists.
+- The `chain-insights-virtuals` skill: a Victim mark means the evidence walk
+  proved a loss, and a hub is never one.
+
 ## [0.76.0] - 2026-11-04 — find a token by its ticker
 
 ### Added

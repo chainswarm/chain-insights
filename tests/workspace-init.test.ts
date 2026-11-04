@@ -59,7 +59,15 @@ describe('workspace initialization', () => {
         'present only when true and absent otherwise'
       )
       expect(runtimeSkill).not.toMatch(/`label_risk`/)
-      expect(runtimeSkill).not.toMatch(/FAKE_TOKEN/)
+      // The claims lists beside the judgement marks are named, so a risk
+      // question is answered; the answer it shows is plain words, no code.
+      for (const name of ['risk_claims', 'protection_claims', 'traced_claims', 'suspect_labels', ':Poisoned', ':Targeted', ':OnMoneyTrail', 'FAKE_TOKEN', 'VICTIM']) {
+        expect(runtimeSkill, `missing ${name}`).toContain(name)
+      }
+      const flatSkill = runtimeSkill.replace(/\s+/g, ' ')
+      const examples = /in plain words, such as (.+?), never the list name or the code/.exec(flatSkill)?.[1] ?? ''
+      expect(examples).toContain('"a fake-token scam"')
+      expect(examples).not.toMatch(/[A-Z]{2,}_[A-Z_]+|_claims|suspect_labels/)
     } finally {
       await rm(workspace, { recursive: true, force: true })
     }

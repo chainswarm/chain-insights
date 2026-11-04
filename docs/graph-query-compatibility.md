@@ -56,6 +56,9 @@ read as it is.
 -- A probe: one node, no WHERE, a LIMIT of 100 or less
 USE topology MATCH (a:Address) RETURN a.address AS address, a.network AS network LIMIT 20
 
+-- A mark is an anchor: a WHERE on the node's own properties is allowed
+USE topology MATCH (a:Mixer) WHERE "Mixer" IN a.labels RETURN a.address AS address, a.labels AS labels LIMIT 5
+
 -- Anchored: an address in the pattern
 USE topology MATCH (a:Address {address: "0x…"})-[f:FLOWED_TO]->(b:Address)
 WHERE NOT a:Pool
@@ -402,6 +405,22 @@ this wallet; the token in `labels` says which. Each is absent unless true: an ad
 while it has a live label of that role. A flag is never `false`, so test it
 with `IS NOT NULL` or `IS NULL`, not `= false`. A withdrawn label removes its
 node label and its flag. Only `is_exchange` ends a walk.
+
+The labels layer adds three judgement marks with no flag: `:Poisoned` (a
+look-alike address that sent worthless dust), `:Targeted` (a poisoning target
+not yet proven to have lost money) and `:OnMoneyTrail` (on the trail the
+evidence walk followed from an accused address). Beside the marks, sorted
+lists say why: `risk_claims` on `:Scam`, `:Poisoned` and `:Sanctioned`,
+`protection_claims` on `:Victim` and `:Targeted`, `traced_claims` on
+`:OnMoneyTrail`, and `suspect_labels` for an address that used a mixer pool.
+The values and their meaning are in
+[Graph tools](graph-tools.md#judgement-marks-and-their-claims).
+
+| Form                                                          | Result                                   |
+| ------------------------------------------------------------- | ---------------------------------------- |
+| `MATCH (a:Scam) WHERE "FAKE_TOKEN" IN a.risk_claims RETURN a.address, a.risk_claims LIMIT 25` | ✅ the mark is the anchor |
+| `MATCH (a:Address {address: "0x1111111111111111111111111111111111111111"}) RETURN a.protection_claims LIMIT 1` | ✅ anchored on one address                |
+| `MATCH (a:Address) WHERE "FAKE_TOKEN" IN a.risk_claims`         | refused: no mark and no address          |
 
 Caveats: facts carries only its mapped labels, so role-label patterns are
 topology-only. The property-flag form (`is_exchange`) remains the canonical

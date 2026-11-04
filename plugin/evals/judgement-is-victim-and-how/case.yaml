@@ -1,0 +1,45 @@
+schema_version: "1.0"
+name: judgement-is-victim-and-how
+expected_outcome: The answer says in plain words that the address lost money to a scam the evidence walk traced, names the accused address it paid in full, and prints no claim code, list name or column name.
+execution:
+  prompt: |
+    You are an AML analyst assistant using Chain Insights. The graph already answered. Write the reply to the user from these rows; load the chain-insights-cypher skill first and call no graph tool.
+    User asked: "Is 0x5b1e04d3ec7c1d2ad0f5c0e8b9a7f6e4d3c2b1a0 on robinhood a victim, and of what?"
+    Row 1 from USE topology (address, node_labels, risk_claims, protection_claims, traced_claims, suspect_labels):
+    0x5b1e04d3ec7c1d2ad0f5c0e8b9a7f6e4d3c2b1a0, ["Address","Account","Victim"], null, ["VICTIM"], null, null
+    Row 2 from USE topology (from_address, to_address, amount_usd_sum, tx_count, last_seen_timestamp_utc, to_risk_claims):
+    0x5b1e04d3ec7c1d2ad0f5c0e8b9a7f6e4d3c2b1a0, 0x9a8b7c6d5e4f30211203f4e5d6c7b8a9f0e1d2c3, 412.5, 1, 2026-10-29 14:02 UTC, ["APPROVAL_DRAINER"]
+  max_turns: 4
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: says-lost-money
+    target: last_message
+    flags: i
+    pattern: 'lost (money|funds|tokens)|was drained|drained (it|its|the)'
+    match: contains
+  - type: regex
+    name: names-the-drainer-plainly
+    target: last_message
+    flags: i
+    pattern: 'drain'
+    match: contains
+  - type: regex
+    name: full-addresses
+    target: last_message
+    pattern: '0x9a8b7c6d5e4f30211203f4e5d6c7b8a9f0e1d2c3'
+    match: contains
+  - type: regex
+    name: no-codes-or-columns
+    target: last_message
+    pattern: 'APPROVAL_DRAINER|\bVICTIM\b|risk_claims|protection_claims|to_risk_claims|node_labels'
+    match: not_contains
+  - type: regex
+    name: tokens-not-dollars
+    target: last_message
+    pattern: '\$\s?4'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

@@ -647,9 +647,23 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }
     expect(instructions).toContain('present only when true and absent otherwise, never false')
     expect(instructions).not.toMatch(/is_(exchange|scam|victim|sanctioned|issuer_frozen)\s*=\s*false/)
-    // Labels are role words, never detector names.
-    expect(instructions).toContain('role words, never detector names')
-    expect(instructions).not.toMatch(/FAKE_TOKEN|FAKE TOKEN|PHANTOM_TRANSFER/)
+    // Labels are role words. The claim codes live in the claims lists beside
+    // the marks, and the instructions teach them so a risk question is answered.
+    expect(instructions).toContain('role words, never a claim code')
+    for (const name of ['risk_claims', 'protection_claims', 'traced_claims', 'suspect_labels']) {
+      expect(instructions).toContain(name)
+    }
+    for (const mark of [':Poisoned', ':Targeted', ':OnMoneyTrail']) {
+      expect(instructions).toContain(mark)
+    }
+    for (const code of ['FAKE_TOKEN', 'ADDRESS_POISONING', 'APPROVAL_DRAINER', 'VICTIM', 'LAUNDERED', 'MIXER_DEPOSITOR']) {
+      expect(instructions).toMatch(new RegExp(`\\b${code}\\b`))
+    }
+    expect(instructions).toContain('never the list name or the code')
+    // The answer the instructions show is plain words: no code, no list name.
+    const examples = /Say what a claim means in plain words, such as (.+?), never the list name/.exec(instructions)?.[1] ?? ''
+    expect(examples).toContain('"a fake-token scam"')
+    expect(examples).not.toMatch(/[A-Z]{2,}_[A-Z_]+|_claims|suspect_labels/)
     // Names the graph retired.
     for (const retired of [
       'swap_envelope',
