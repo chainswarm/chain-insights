@@ -437,10 +437,10 @@ What each value means:
 | `SANCTIONED`                 | On a sanctions list.                                                                                                     |
 | `VICTIM`                     | Lost money to a scam the evidence walk traced: it paid the accused, was swept, or was drained after the attempt. Receiving a fake token or dust never makes a victim. |
 | `ADDRESS_POISONING_TARGET`   | A poisoning target the walk has not proven lost money. Not a victim.                                                    |
-| `LAUNDERED`                  | On the trail from an accused address: it passed the money onward.                                                       |
-| `RECEIVED`                   | On the trail: it received money from the trail.                                                                          |
-| `FUNDER`                     | On the trail: it sent money to the accused.                                                                              |
-| `MIXED`                      | On the trail: it paid money from the trail into a mixer pool.                                                            |
+| `LAUNDERED`                  | On the trail from an accused address: it received the accused's money along the walk and moved it on.                   |
+| `RECEIVED`                   | On the trail: it received that money and still holds it. It becomes `LAUNDERED` when it forwards it.                     |
+| `FUNDER`                     | It funded the accused address.                                                                                           |
+| `MIXED`                      | On the trail: it received that money and paid it into a mixer pool, where the walk ends.                                 |
 | `MIXER_DEPOSITOR`            | It put money into a mixer pool. A warning, not a theft.                                                                  |
 | `MIXER_WITHDRAWER`           | It took money out of a mixer pool. A warning, not a theft.                                                               |
 
