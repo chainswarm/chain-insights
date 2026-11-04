@@ -46,8 +46,12 @@ The one case without the tool is at the end, Shell without the tool.
 3. A shortened address, a mixed-case address, or an ISO string against a
    millisecond column gives zero rows with no error. Check these first. Zero
    rows is not proof of safety.
-4. Do not run a risk screen or read risk fields unless the user asks about
-   risk. The graph serves no risk verdict today.
+4. A risk question is answered from the graph: is this a scam, a fake
+   token, a poisoner, a drainer, a sweeper, a victim, on a laundering trail.
+   Read the judgement marks and the claims list beside each, see
+   [Judgement marks](#judgement-marks-scams-victims-and-trails). Do not
+   volunteer a risk screen when the user asked about flows, a balance or a
+   transaction. No overall risk score is served.
 5. Never write files, reports or notes unless the user asks. Answer in the chat.
 6. After a refusal, fix the query once from `fix` and `example`. A second
    refusal ends it: tell the user plainly what cannot be asked and what can.
@@ -215,12 +219,19 @@ Marks say what an address is. They sit beside the kind and are never an anchor:
   MATCH (a:Address {address: "0xc33acc93942105c57602e59e8e448c20ba718a85"})-[w:SWAPPED]->(a)
   RETURN w.swap_count AS swap_count, w.sold_usd AS sold_usd, w.bought_usd AS bought_usd, w.pools AS pools LIMIT 1
   ```
+- `:Scam` (`is_scam`), `:Poisoned`, `:Victim` (`is_victim`), `:Targeted` and `:OnMoneyTrail` are judgement marks from the labels layer. Why the mark is there sits in a sorted list on the node: `risk_claims` beside `:Scam`, `:Poisoned` and `:Sanctioned`, `protection_claims` beside `:Victim` and `:Targeted`, `traced_claims` beside `:OnMoneyTrail`. `suspect_labels` says the address itself used a mixer pool, and has no mark of its own. See [Judgement marks](#judgement-marks-scams-victims-and-trails).
 - A basket is a Robinhood stock-basket token: one token that holds several stock tokens in near-equal USD weights. One factory, `0xe78b036bd6da158cd61a3dac3f67e18f62ecddfd`, creates every basket, and one router, `0xb672a5d825f82dea8574711d1da696fcc48d2ae0`, mints and redeems them. A basket is `:Protocol` and `:Token`, and its `labels` carry the word `Basket`. The factory is `:Protocol` and its `labels` carry `BasketFactory`. The router has no mark of its own beyond `:Contract`. See [Baskets](#baskets-is-this-a-basket-and-what-does-it-trade).
 
 **Ask by mark.** A question that names a kind of thing (mixers, launchpad pools, NFT collections, tokens of one standard, arbitrage bots) is a label match on the mark, a probe the server answers from the label index: nine `:Mixer` rows come back in 13 ms, a count of 2.4 million `:Token` in 4 s.
 
 ```cypher
 USE topology MATCH (a:Mixer) RETURN a.address AS address, labels(a) AS node_labels, a.labels AS labels LIMIT 25
+```
+
+A `WHERE` on the marked node's own properties keeps the mark as the anchor. On production this read was admitted and gave 5 rows in 57 ms:
+
+```cypher
+USE topology MATCH (a:Mixer) WHERE "Mixer" IN a.labels RETURN a.address AS address, a.labels AS labels LIMIT 5
 ```
 
 Never write `MATCH (a:Address) WHERE a.labels CONTAINS "mixer"` with no address: `labels` is a list on every address, the scan touches all of them and the query times out. Read `a.labels` only beside an anchor, or beside a mark. The marks a lane serves, and a golden set of 44 addresses with the marks each must carry, are pinned in `tests/fixtures/graph-marks-golden.json`.
@@ -266,13 +277,63 @@ How to answer:
 - "Who created these tokens?" The factory. List its children with a `DEPLOYED_CONTRACT` read anchored on the factory, with a literal `LIMIT`. Never scan `a.labels` for `Basket` with no anchor; ask the factory's children, or the `:Protocol` mark beside an anchor.
 - "Which baskets went through the router on a day?" A facts read needs both addresses, so never send one with the router alone: the server refuses it. List the factory's children first (above), then send one `graph_query_batch` of the facts day, one query per basket and direction (router to basket, basket to router), each with its own `id`.
 
+### Judgement marks: scams, victims and trails
+
+A mark says what the labels layer judged. The claims list beside it says why. The codes are for the query. The answer says what each one means, in plain words: "a fake-token scam", "it lost money to a scam". Never print the list name or the code to the user.
+
+| Mark | List | Value: what it means |
+| --- | --- | --- |
+| `:Scam` | `risk_claims` | `FAKE_TOKEN`: a fake token, a spoof contract that imitates a real token. `FAKE_TOKEN_DEPLOYER`: its creator. `INBOUND_IMPERSONATION`: a look-alike address that paid the target to get into its history. `PHANTOM_TRANSFER`, `PHANTOM_TRANSFER_EMITTER`, `PHANTOM_ENTRYPOINT`: a contract that writes fake transfer events, claiming a transfer from a look-alike that never happened. `SWEEPER_DELEGATE`: an EIP-7702 delegate that empties the accounts that delegate to it. `SWEEP_BENEFICIARY`: where it sends the funds. `UNSAFE_DELEGATE`: a delegate any caller can use to empty the account. `APPROVAL_DRAINER`: a spender that moved the tokens of at least three owners with their approval or Permit2 within 72 hours of the grant, and paid nothing back. `APPROVAL_DRAIN_BENEFICIARY`: the receiver of those tokens. |
+| `:Poisoned` | `risk_claims` | `ADDRESS_POISONING`: a poisoner, a look-alike address that sent worthless dust so the target copies it from its history. Never `:Scam`. |
+| `:Sanctioned` | `risk_claims` | `SANCTIONED`: on a sanctions list. |
+| `:Victim` | `protection_claims` | `VICTIM`: it lost money to a scam the evidence walk traced. It paid the accused, was swept, or was drained after the attempt. Receiving a fake token or dust never makes a victim. |
+| `:Targeted` | `protection_claims` | `ADDRESS_POISONING_TARGET`, an older value a lane may still hold: a poisoning target the walk has not proven lost money. Never call it a victim. |
+| `:OnMoneyTrail` | `traced_claims` | The trail the evidence walk followed from an accused address. `LAUNDERED`: it passed the money onward. `RECEIVED`: it received money from the trail. `FUNDER`: it sent money to the accused. `MIXED`: it paid money from the trail into a mixer pool. |
+| none | `suspect_labels` | `MIXER_DEPOSITOR`, `MIXER_WITHDRAWER`: it put money into, or took money out of, a mixer pool. A warning, not a theft. |
+
+Ask by mark, or anchor on the full address. Never scan a claims list with no mark and no address: it reads every address and times out. A lane that has not written the lists yet returns null for them: name the mark, and say the graph gives no reason yet.
+
+List fake-token scams: the `:Scam` mark is the anchor, and a `WHERE` on its own list picks the value. For poisoners ask `:Poisoned` with `ADDRESS_POISONING`, for victims `:Victim` with `VICTIM`. When 25 rows come back, say there may be more.
+
+```cypher
+USE topology
+MATCH (a:Scam) WHERE "FAKE_TOKEN" IN a.risk_claims
+RETURN a.address AS address, a.risk_claims AS risk_claims, a.labels AS labels LIMIT 25
+```
+
+Is this address a victim, and of what? Read its marks and lists first, anchored on the address:
+
+```cypher
+USE topology
+MATCH (a:Address {address: "0x1111111111111111111111111111111111111111"})
+RETURN a.address AS address, labels(a) AS node_labels, a.risk_claims AS risk_claims, a.protection_claims AS protection_claims, a.traced_claims AS traced_claims, a.suspect_labels AS suspect_labels LIMIT 1
+```
+
+The graph holds no link from an accused address to its victims, so answer per address. For "of what", read where the victim paid a `:Scam` address, and name each by its claims:
+
+```cypher
+USE topology
+MATCH (v:Address {address: "0x1111111111111111111111111111111111111111"})-[f:FLOWED_TO]->(s:Scam) WHERE NOT v:Pool
+RETURN v.address AS from_address, s.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, v.labels AS from_labels, s.labels AS to_labels, v.is_exchange AS from_is_exchange, s.is_exchange AS to_is_exchange, s.risk_claims AS to_risk_claims ORDER BY f.last_seen_timestamp DESC LIMIT 25
+```
+
+Who did this drainer empty? Anchor on the drainer. Its victims are the `:Victim` owners who approved it, with `VICTIM` in their `protection_claims`. Each row is one address the walk proved lost money, and its approval of the drainer: say both, never that the graph links the two as thief and victim. For a sweeper or a beneficiary, read the `:Victim` senders on `FLOWED_TO` into the address instead.
+
+```cypher
+USE topology
+MATCH (v:Victim)-[p:APPROVED]->(d:Address {address: "0x1111111111111111111111111111111111111111"})
+WHERE "VICTIM" IN v.protection_claims
+RETURN v.address AS victim_address, p.granted_tokens AS granted_tokens, p.last_height AS last_height LIMIT 25
+```
+
 ## Topology
 
 `USE topology` is the address graph: `FLOWED_TO` money flow, swaps, liquidity,
 bridges and the `LINKED` overlay. The server checks these before it runs:
 
 - Anchor every pattern on a full address: `{address: "<address>"}` in the node, or `WHERE a.address = "<address>"`. A list of at most 25 addresses is an anchor. An address in `RETURN`, in an `OR` or in a `$parameter` is no anchor.
-- The one read with no anchor is a probe: one node or one hop, no `WHERE`, no `ORDER BY`, no aggregate, and a small `LIMIT`. Its rows are arbitrary: never call them recent, top or biggest.
+- A label match on a mark, such as `MATCH (a:Scam)` or `MATCH (a:Mixer)`, is an anchor: the server reads it from the label index. A `WHERE` on that node's own properties is allowed. What is refused is a `WHERE` with no label and no address, such as `MATCH (a:Address) WHERE "exchange" IN a.labels`.
+- The one read with no anchor is a probe on `:Address`: one node or one hop, no `WHERE`, no `ORDER BY`, no aggregate, and a small `LIMIT`. Its rows are arbitrary: never call them recent, top or biggest.
 - A sort, an aggregate, `DISTINCT`, `collect()` or a filter on a link property needs an anchor on every pattern.
 - End every read with a literal `LIMIT`: at most 5,000 rows, 100 for a probe. A path has at most 5 hops and a query at most 8. The live numbers are in `topology_admission` (`cia network robinhood --json`).
 - Paths use bounded quantifiers such as `-[:FLOWED_TO]-{1,5}`. A `*` range, the legacy path functions, `PROFILE`, writes and `CALL` are refused.

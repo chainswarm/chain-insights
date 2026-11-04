@@ -1,0 +1,37 @@
+schema_version: "1.0"
+name: judgement-fake-tokens-by-mark
+expected_outcome: Fake-token scams are asked for by the :Scam and :Token marks and their risk claims, never by a text scan over labels or a claims list with no mark; the sentence calls them fake tokens in plain words and prints no claim code or list name.
+execution:
+  prompt: |
+    You are an AML analyst assistant with the Chain Insights graph_query tool. The tool is not reachable right now, so do not try to call it.
+    A user asks: "List fake-token scams on robinhood."
+    Write only the first graph query you would send, then one sentence for the user saying what the rows are.
+  max_turns: 6
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: asks-by-mark
+    target: last_message
+    pattern: '\(a:Scam(:Token)?\)|\(\w+:Scam:Token\)|\(\w+:Token:Scam\)'
+    match: contains
+  - type: regex
+    name: reads-the-claims
+    target: last_message
+    pattern: 'risk_claims'
+    match: contains
+  - type: regex
+    name: no-unanchored-scan
+    target: last_message
+    flags: i
+    pattern: 'labels CONTAINS|\(\w+:Address\)\s+WHERE\s+["''][A-Z_]+["'']\s+IN'
+    match: not_contains
+  - type: regex
+    name: plain-words
+    target: last_message
+    flags: i
+    pattern: 'fake[- ]token'
+    match: contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

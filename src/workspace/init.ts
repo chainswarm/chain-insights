@@ -204,8 +204,8 @@ The address-grain graph schema:
   linked addresses
   as a single collapsed node. \`LINKED\` is served on the topology graph
   only.
-- Other Address properties: \`labels\` (array of role words, never
-  detector names) and the role flags \`is_exchange\`, \`is_scam\`,
+- Other Address properties: \`labels\` (array of role words, never a
+  claim code) and the role flags \`is_exchange\`, \`is_scam\`,
   \`is_victim\`, \`is_sanctioned\` and \`is_issuer_frozen\`. Each flag
   is present only when true and absent otherwise, never \`false\`: \`:Exchange\` and
   \`is_exchange\` follow the \`exchange\` label, \`:Scam\` and
@@ -217,8 +217,21 @@ The address-grain graph schema:
   parallel lists, \`label_risk_labels\`, \`label_risk_levels\` and
   \`label_risk_updated_timestamps\`: entry i of each list is one current
   label row.
-- Address nodes carry a risk verdict for quick triage
-  (\`risk_score\` float, \`risk_level\` string) plus base activity rollups:
+- Why a judgement mark is there sits in a sorted claims list on the node,
+  written by the labels layer: \`risk_claims\` beside \`:Scam\`,
+  \`:Poisoned\` and \`:Sanctioned\`, \`protection_claims\` beside
+  \`:Victim\` and \`:Targeted\`, \`traced_claims\` beside
+  \`:OnMoneyTrail\`, and \`suspect_labels\` when the address itself used
+  a mixer pool. The values (\`FAKE_TOKEN\`, \`ADDRESS_POISONING\`,
+  \`APPROVAL_DRAINER\`, \`VICTIM\`, \`LAUNDERED\` and the rest) and
+  their meaning are in the \`chain-insights-cypher\` skill, section
+  Judgement marks. Ask by mark (\`MATCH (a:Scam) WHERE "FAKE_TOKEN" IN
+  a.risk_claims\` for fake tokens) or anchor on the address: the mark is
+  the anchor, and a \`WHERE\` with no mark and no address is refused. Say what a claim means in plain words, such as "a fake-token
+  scam" or "it lost money to a scam", never the list name or the code.
+- Address nodes carry no risk score today (\`risk_score\` and
+  \`risk_level\` read null on every lane): the judgement is the marks and
+  their claims lists above. They carry base activity rollups:
   \`degree_in\`/\`degree_out\`/\`degree_total\` (distinct counterparty
   addresses), \`tx_in_count\`/\`tx_out_count\`/\`tx_total_count\`,
   \`total_in_usd\`/\`total_out_usd\`/\`total_volume_usd\`, \`net_flow_usd\`
@@ -246,8 +259,9 @@ The address-grain graph schema:
   Lifetime aggregates are the only serving window.
 - Money flow is \`(:Address)-[:FLOWED_TO]->(:Address)\`. Public AML tools
   accept the raw blockchain address directly — there is no resolution step.
-- The risk verdict lives on topology nodes (\`risk_score\`/\`risk_level\`).
-  An absent \`risk_score\` means \`UNSCORED\`: no verdict, never low risk.
+- There is no served risk score: an absent \`risk_score\` is \`UNSCORED\`,
+  no verdict, never low risk. The verdict is the marks (\`:Scam\`, \`:Victim\`,
+  \`:Poisoned\`, \`:OnMoneyTrail\`) with their claims lists.
   Labels and per-label risk live on the address node (\`labels\` array plus
   the three \`label_risk_*\` lists). \`USE facts\` serves bounded individual
   transfer rows only. Facts address keys match topology \`address\` values
@@ -331,7 +345,9 @@ AML tool guidance:
 
 1. Use \`cia mcp call graph_query\` for single read-only queries, and
    \`cia mcp call graph_query_batch\` for related reads.
-2. Do not run a risk screen unless the user asks about risk.
+2. Answer a risk question (a scam, a fake token, a poisoner, a drainer, a
+   victim, a laundering trail) from the judgement marks and their claims
+   lists. Do not run a risk screen when the user asked about flows.
 
 Preserve full blockchain addresses in the summary and all workspace
 artifacts. Never shorten an address.

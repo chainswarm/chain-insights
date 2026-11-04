@@ -1,0 +1,36 @@
+schema_version: "1.0"
+name: judgement-drainer-victims
+expected_outcome: The victims of a drainer are asked anchored on the drainer's full address, with the :Victim mark and its protection claims on the other end, never by a scan of every victim; the sentence says the graph holds no link that names the drainer as the thief, so each row is one proven loss and its approval.
+execution:
+  prompt: |
+    You are an AML analyst assistant with the Chain Insights graph_query tool. The tool is not reachable right now, so do not try to call it.
+    A user asks: "Which addresses did the drainer 0x9a8b7c6d5e4f30211203f4e5d6c7b8a9f0e1d2c3 on robinhood empty?"
+    Write only the first graph query you would send, then one sentence for the user on what the rows prove.
+  max_turns: 6
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: anchored-on-the-drainer
+    target: last_message
+    pattern: '\{address: "0x9a8b7c6d5e4f30211203f4e5d6c7b8a9f0e1d2c3"\}'
+    match: contains
+  - type: regex
+    name: victim-mark
+    target: last_message
+    pattern: ':Victim'
+    match: contains
+  - type: regex
+    name: no-victim-scan
+    target: last_message
+    flags: i
+    pattern: 'MATCH \(\w+:Victim\)\s+(WHERE|RETURN)|labels CONTAINS'
+    match: not_contains
+  - type: regex
+    name: no-codes-in-sentence
+    target: last_message
+    pattern: 'is (an? )?(APPROVAL_DRAINER|VICTIM)\b'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

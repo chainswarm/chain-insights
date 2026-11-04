@@ -92,6 +92,8 @@ Targeted and Victim labels only because millions of transactions touch
 it. When a pool's only receiver is the router, the router is not the
 buyer: the buyer is the sender of the buy transaction (reference B4).
 Read an address's transaction count before you trust any label on it.
+A Victim mark means the evidence walk proved the address lost money to a
+scam; a hub is never one, whatever label it carries.
 
 ## Who the creator is
 
