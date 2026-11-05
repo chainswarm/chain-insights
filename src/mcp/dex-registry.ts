@@ -52,6 +52,11 @@ export interface DexEntry {
   trail_type: TrailType
   adapters: string[]
   roles: Record<string, Role>
+  /**
+   * Contracts of the exchange the trail does not read: a position NFT, a staking gauge, a parts
+   * deployer, a vault's swap router. A lookup by address finds them; no read is sent for them.
+   */
+  helpers?: string[]
   /** Its factory addresses, or the one manager of a vault. */
   factories: string[]
   /** Its routers, or the manager of a vault: a vault forwards its own swaps. */
@@ -150,6 +155,13 @@ export function registryFault(value: unknown, network: string): string | null {
         return `${at} (${row.dex}) address ${address} is not lowercase 0x plus 40 hex characters`
       if (!ROLES.includes(role as Role))
         return `${at} (${row.dex}) role ${String(role)} is not factory, manager or router`
+    }
+    if (row.helpers !== undefined) {
+      if (!isStringList(row.helpers)) return `${at} (${row.dex}) helpers is not a list`
+      for (const address of row.helpers) {
+        if (!ADDRESS_RE.test(address))
+          return `${at} (${row.dex}) address ${address} is not lowercase 0x plus 40 hex characters`
+      }
     }
     for (const field of ['factories', 'routers'] as const) {
       const list = row[field]

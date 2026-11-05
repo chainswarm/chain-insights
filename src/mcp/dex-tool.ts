@@ -354,8 +354,10 @@ export async function handleMetaDexLookup(
   if (rawAddress !== undefined && rawAddress !== null && typeof rawAddress !== 'string') {
     return errorResult('invalid_address: address must be 0x plus 40 hex characters')
   }
-  const addressText = typeof rawAddress === 'string' && rawAddress.trim() !== '' ? rawAddress.trim() : null
-  if (name !== null && addressText !== null) return errorResult('Give a name or an address, not both.')
+  const addressText =
+    typeof rawAddress === 'string' && rawAddress.trim() !== '' ? rawAddress.trim() : null
+  if (name !== null && addressText !== null)
+    return errorResult('Give a name or an address, not both.')
   if (addressText !== null && !ADDRESS_FORM.test(addressText)) {
     return errorResult('invalid_address: address must be 0x plus 40 hex characters')
   }
@@ -404,10 +406,12 @@ export async function handleMetaDexLookup(
 
   let match: DexMatchResult
   if (address !== null) {
-    const holder = document.rows.find((row) => address in row.roles)
+    const holder = document.rows.find(
+      (row) => address in row.roles || row.helpers?.includes(address)
+    )
     match = {
       matched: holder ?? null,
-      ...(holder ? { took_for: `${holder.roles[address]}, served` } : {}),
+      ...(holder ? { took_for: `${holder.roles[address] ?? 'helper'}, served` } : {}),
       candidates: [],
       covered: document.rows.map((row) => row.display),
     }

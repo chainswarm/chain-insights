@@ -86,7 +86,7 @@ describe('meta_dex_lookup for Aero, against the recorded batch', () => {
     const { result, structured } = await lookup({ network: 'robinhood', name: 'Aerodrome' })
     expect(result.isError).toBe(false)
     expect(structured.schema).toBe('chain-insights.meta-dex-lookup.v1')
-    expect(structured.registry_version).toBe(5)
+    expect(structured.registry_version).toBe(6)
     expect(structured.registry_source).toBe('packaged')
     const matched = structured.matched!
     expect(matched.dex).toBe('aero')
@@ -198,13 +198,13 @@ describe('meta_dex_lookup for Aero, against the recorded batch', () => {
 })
 
 describe('meta_dex_lookup without a graph read', () => {
-  it('says Kyber is not covered, lists the 35 covered exchanges, and sends no batch', async () => {
+  it('says Kyber is not covered, lists the 40 covered exchanges, and sends no batch', async () => {
     const { calls, lookup } = harness()
     const { structured } = await lookup({ network: 'robinhood', name: 'Kyber' })
     expect(calls).toHaveLength(0)
     expect(structured.matched).toBeNull()
     expect(structured.candidates).toEqual([])
-    expect(structured.covered).toHaveLength(35)
+    expect(structured.covered).toHaveLength(40)
     expect(structured.hint).toContain('Kyber is not covered. Send no query for the name')
   })
 
@@ -223,7 +223,7 @@ describe('meta_dex_lookup without a graph read', () => {
     const { calls, lookup } = harness()
     const { structured } = await lookup({ network: 'robinhood' })
     expect(calls).toHaveLength(0)
-    expect(structured.exchanges).toHaveLength(35)
+    expect(structured.exchanges).toHaveLength(40)
     expect(structured.exchanges![0]).toMatchObject({
       dex: 'aero',
       display: 'Aero (Aerodrome and Velodrome, merged)',
@@ -284,20 +284,48 @@ describe('meta_dex_lookup by address', () => {
     expect(viaFactory.matched!.dex).toBe('uniswap-v3')
   })
 
+  it('finds a helper row by its address, and names the role it holds', async () => {
+    const { lookup } = harness()
+    const { structured } = await lookup({
+      network: 'robinhood',
+      address: '0x4857db576ee0e45f10525ec59527bfd10beec60b',
+    })
+    expect(structured.matched?.dex).toBe('aero')
+    expect(structured.took_for).toBe('helper, served')
+  })
+
+  it('answers a vault helper row as its exchange, with the manager still the only router', async () => {
+    const { lookup } = harness()
+    const { structured } = await lookup({
+      network: 'robinhood',
+      address: '0x204faca1764b154221e35c0d20abb3c525710498',
+    })
+    expect(structured.matched?.dex).toBe('uniswap-v4')
+    expect(structured.took_for).toBe('helper, served')
+    expect(structured.matched?.routers).toEqual([])
+    expect(structured.matched?.manager?.address).toBe('0x8366a39cc670b4001a1121b8f6a443a643e40951')
+  })
+
   it('answers an unknown address with no match and no read', async () => {
     const { calls, lookup } = harness()
     const unknown = '0x00000000000000000000000000000000000000aa'
     const { structured } = await lookup({ network: 'robinhood', address: unknown })
     expect(structured.matched).toBeNull()
     expect(structured.candidates).toEqual([])
-    expect(structured.covered).toHaveLength(35)
-    expect(structured.hint).toContain(`No exchange row holds ${unknown}: it is not a registered exchange contract.`)
+    expect(structured.covered).toHaveLength(40)
+    expect(structured.hint).toContain(
+      `No exchange row holds ${unknown}: it is not a registered exchange contract.`
+    )
     expect(calls).toHaveLength(0)
   })
 
   it('refuses a name together with an address', async () => {
     const { calls, lookup } = harness()
-    const { result } = await lookup({ network: 'robinhood', name: 'Aero', address: AERO_ROUTERS[0] })
+    const { result } = await lookup({
+      network: 'robinhood',
+      name: 'Aero',
+      address: AERO_ROUTERS[0],
+    })
     expect(result.isError).toBe(true)
     expect(result.content[0]!.text).toBe('Give a name or an address, not both.')
     expect(calls).toHaveLength(0)

@@ -22,8 +22,8 @@ flowchart LR
 
 | File | Rows served | Why |
 |---|---|---|
-| [robinhood.md](robinhood.md) | 55 | registry version 5, recorded 2026-11-05; the `dyor` row and the Ekubo positions row are not served |
-| [robinhood.json](robinhood.json) | 35 exchanges | the served copy of `robinhood.md`, never edited by hand |
+| [robinhood.md](robinhood.md) | 83 | registry version 6, recorded 2026-11-05; the `dyor` row and the Ekubo positions row are not served |
+| [robinhood.json](robinhood.json) | 40 exchanges | the served copy of `robinhood.md`, never edited by hand |
 
 A change to the rows merged on `main` reaches every running proxy within one
 hour. No release is needed for a data change.
@@ -36,7 +36,11 @@ hour. No release is needed for a data change.
    data shows the address does what its role says:
    - `factory`: a contract that created pools;
    - `manager`: a contract that holds pools;
-   - `router`: a contract that forwards swaps.
+   - `router`: a contract that forwards swaps;
+   - `helper`: a contract of the exchange that the trail does not read: a
+     position NFT, a staking gauge, a parts deployer, or a swap router of a
+     vault, where the manager stays the contract past the swap. The chain or
+     its verified source must tie it to the exchange.
    Write the check into the file's `## Verification` section.
 3. **An unchecked row stays in the table.** Its verification cell says
    `not served:` and the reason. It is served later, when a check passes.
@@ -60,7 +64,7 @@ The `## Rows` table has twelve columns, in this order.
 | aliases | the names a user types, comma separated, on one row of the exchange or spread over several |
 | trail type | how money is traced through the exchange: `plain`, `vault`, `gauge` or `launchpad`. Every row of an exchange carries the same trail type |
 | adapter | the adapter id of the DEX indexer that reads the row's pools: `cl-gauge-v1`, `uniswap-v4` |
-| role | `factory` creates pools, `manager` holds pools, `router` forwards swaps |
+| role | `factory` creates pools, `manager` holds pools, `router` forwards swaps, `helper` is a contract of the exchange that the trail does not read. A lookup by address finds a helper; the reads of the exchange follow, none for the helper itself |
 | address | lowercase `0x` hex in backticks |
 | valid from block | the first block the row holds from, `0` when it is not known yet |
 | example pool | optional: one pool of the exchange, read live by the release suite. Empty or `-` when not given |
@@ -80,14 +84,14 @@ A row is refused for one of these reasons:
 | `duplicate row` | the same key, role and address twice |
 | `bad dex key` | the key is not lowercase letters, digits, `.`, `_` or `-` |
 | `bad address` | the address is not lowercase `0x` and 40 hex digits |
-| `unknown role` | the role is not `factory`, `manager` or `router` |
+| `unknown role` | the role is not `factory`, `manager`, `router` or `helper` |
 | `unknown trail type` | the trail type is not `plain`, `vault`, `gauge` or `launchpad` |
 | `bad adapter` | the adapter is empty or not an id |
 | `no source link` | the source link is not `[text](https://…)` |
 | `bad block`, `bad example pool`, `bad pool floor` | the cell is not a number or a pool |
 | `too long` | a value does not fit its column |
 | `dex rows disagree` | two rows of one exchange give a different display, trail type, example pool or pool floor |
-| `no factory or manager row for the dex` | the exchange has router rows only |
+| `no factory or manager row for the dex` | the exchange has router or helper rows only |
 
 ## The check
 
@@ -120,6 +124,8 @@ node scripts/render-dex-registry.mjs --check   # exit 1 when a memo table differ
 `registry/<network>.json` has the schema `chain-insights.dex-registry.v1`:
 
 - one entry per exchange, in the order the file first names it;
+- `helpers` lists its `helper` addresses, when it has any. An older proxy
+  ignores the field;
 - `factories` lists its `factory` and `manager` addresses, `routers` its
   `router` addresses; an exchange with no router row lists its manager there,
   because a vault forwards its own swaps;

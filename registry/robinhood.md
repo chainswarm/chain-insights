@@ -6,7 +6,7 @@ columns and the check are in the [README](README.md). The served copy is
 [robinhood.json](robinhood.json), written by
 `node scripts/pin-dex-registry.mjs registry/robinhood.md`.
 
-Registry version: 5.
+Registry version: 6.
 
 Recorded on: 2026-11-05.
 
@@ -18,6 +18,14 @@ Recorded on: 2026-11-05.
 | aero | Aero (Aerodrome and Velodrome, merged) |  | gauge | cl-gauge-v1 | router | `0x72e46c9edf828002fdbfdd0952419790576c0f18` | 94021838 | - | - | [census 2026-10-23](https://github.com/chainswarm/AP1000/blob/main/docs/evidence/2026-10-23-dex-protocol-skills.md) | served |
 | aero | Aero (Aerodrome and Velodrome, merged) |  | gauge | cl-gauge-v1 | router | `0x0fef9e88a7b76bcdbf451780c6774fe32965ee98` | 0 | - | - | [Dromos metarouter ledger](https://github.com/dromos-labs/metadex-slipstream-public/blob/main/deployment-addresses/cl-robinhood.json) | served |
 | aero | Aero (Aerodrome and Velodrome, merged) |  | gauge | cl-gauge-v1 | router | `0x9ee35bf1bd69a03c6f0393582030fce8bb93d418` | 0 | - | - | [Dromos CL ledger](https://github.com/dromos-labs/metadex-slipstream-public/blob/main/deployment-addresses/cl-robinhood.json) | served |
+| aero | Aero (Aerodrome and Velodrome, merged) |  | gauge | cl-gauge-v1 | helper | `0x4857db576ee0e45f10525ec59527bfd10beec60b` | 93974253 | - | - | [position NFT named by the verified gauge](https://sourcify.dev/server/v2/contract/4663/0x89e91a960154b1ed6c093039a8f0725ab67d14e0) | served |
+| aero | Aero (Aerodrome and Velodrome, merged) |  | gauge | cl-gauge-v1 | helper | `0xf437f62053acb121665b8fdbfea8f214fb8e589d` | 93974455 | - | - | [gauge factory of the verified gauge](https://sourcify.dev/server/v2/contract/4663/0x89e91a960154b1ed6c093039a8f0725ab67d14e0) | served |
+| aero | Aero (Aerodrome and Velodrome, merged) |  | gauge | cl-gauge-v1 | helper | `0x220d17d3260f130a4f91a1ba2d21f8f75f624942` | 94581179 | - | - | [clone of the verified ArbCLGauge](https://sourcify.dev/server/v2/contract/4663/0x89e91a960154b1ed6c093039a8f0725ab67d14e0) | served |
+| aero | Aero (Aerodrome and Velodrome, merged) |  | gauge | cl-gauge-v1 | helper | `0xe033f4bd3d7ccf537a2f954ecdc8eb1218e3b7a6` | 94581067 | - | - | [clone of the verified ArbCLGauge](https://sourcify.dev/server/v2/contract/4663/0x89e91a960154b1ed6c093039a8f0725ab67d14e0) | served |
+| aero | Aero (Aerodrome and Velodrome, merged) |  | gauge | cl-gauge-v1 | helper | `0x750a4e760873c863daf22890b8db55f4c71f1114` | 94581160 | - | - | [clone of the verified ArbCLGauge](https://sourcify.dev/server/v2/contract/4663/0x89e91a960154b1ed6c093039a8f0725ab67d14e0) | served |
+| aero | Aero (Aerodrome and Velodrome, merged) |  | gauge | cl-gauge-v1 | helper | `0x045ccb9d8a98cb748b39253005be2d6d5b955c14` | 94581169 | - | - | [clone of the verified ArbCLGauge](https://sourcify.dev/server/v2/contract/4663/0x89e91a960154b1ed6c093039a8f0725ab67d14e0) | served |
+| aero | Aero (Aerodrome and Velodrome, merged) |  | gauge | cl-gauge-v1 | helper | `0x5874f5b8728776993de4c90c61473d76eeab90db` | 94581072 | - | - | [clone of the verified ArbCLGauge](https://sourcify.dev/server/v2/contract/4663/0x89e91a960154b1ed6c093039a8f0725ab67d14e0) | served |
+| aero | Aero (Aerodrome and Velodrome, merged) |  | gauge | cl-gauge-v1 | helper | `0xe5b468c4e13b45ec10a1d22ace7e2c0fc0671da0` | 94581094 | - | - | [clone of the verified ArbCLGauge](https://sourcify.dev/server/v2/contract/4663/0x89e91a960154b1ed6c093039a8f0725ab67d14e0) | served |
 | up | up. | up., up, UP, up33, UP33, up.finance | gauge | cl-gauge-v1 | factory | `0x1ac9db4a2608ba45d6127b1737949b51bb54b7f3` | 6184096 | 0x4e8649be40ae67ebbcff99c291b92ee03015917b | 800 | [DefiLlama up-v3](https://github.com/DefiLlama/dimension-adapters/blob/master/dexs/up-v3/index.ts) | served |
 | up | up. |  | gauge | solidly-v2 | factory | `0xfa5429aeba338bea2bfcc1b9a889862ee395bc28` | 6180950 | - | - | [DefiLlama up-v2](https://github.com/DefiLlama/dimension-adapters/blob/master/dexs/up-v2/index.ts) | served |
 | up | up. |  | gauge | cl-gauge-v1 | router | `0xc062b870e813fca720f1e002c234369ab3ab9415` | 0 | - | - | [lp-terminal contract map](https://github.com/lp-terminal/contracts/blob/main/robinhood.json) | served |
@@ -41,6 +49,8 @@ Recorded on: 2026-11-05.
 | eth-usdg-router | unnamed ETH/USDG swap router (routes into Uniswap v3 and v4) | ETH/USDG router, ETH/USDG swap router, USDG swap router | plain | uniswap-v3 | factory | `0x1f7d7550b1b028f7571e69a784071f0205fd2efa` | 105000018 | 0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca | - | [scout-agent finding 164](https://github.com/chainswarm/scout-agent/issues/164) | served |
 | eth-usdg-router | unnamed ETH/USDG swap router (routes into Uniswap v3 and v4) |  | plain | uniswap-v3 | router | `0x7a39b98d31f84152bc724bc5ddb41dbcb338f2a5` | 105000018 | 0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca | - | [scout-agent finding 164](https://github.com/chainswarm/scout-agent/issues/164) | served |
 | uniswap-v4 | Uniswap v4 | Uniswap, UNI, Uniswap v4, Uni v4, PoolManager | vault | uniswap-v4 | manager | `0x8366a39cc670b4001a1121b8f6a443a643e40951` | 0 | - | - | [Uniswap v4 deployments](https://developers.uniswap.org/docs/protocols/v4/deployments) | served |
+| uniswap-v4 | Uniswap v4 |  | vault | uniswap-v4 | helper | `0x204faca1764b154221e35c0d20abb3c525710498` | 65727895 | - | - | [Uniswap v4 deployments](https://developers.uniswap.org/docs/protocols/v4/deployments) | served |
+| uniswap-v4 | Uniswap v4 |  | vault | uniswap-v4 | helper | `0x8876789976decbfcbbbe364623c63652db8c0904` | 18127 | - | - | [Uniswap v4 deployments](https://developers.uniswap.org/docs/protocols/v4/deployments) | served |
 | pancakeswap | PancakeSwap Infinity | PancakeSwap, Pancake, CAKE, PancakeSwap Infinity | vault | pancake-infinity-cl | manager | `0xee04c68742e6bf434be8039580d2e89bbe55bc6f` | 0 | - | - | [PancakeSwap infinity config](https://github.com/pancakeswap/infinity-periphery/blob/main/script/config/robinhood-mainnet.json) | served |
 | pancakeswap-v2 | PancakeSwap v2 | PancakeSwap v2, Pancake v2 | plain | uniswap-v2 | factory | `0x02a84c1b3bbd7401a5f7fa98a384ebc70bb5749e` | 0 | - | 40 | [PancakeSwap infinity config](https://github.com/pancakeswap/infinity-periphery/blob/main/script/config/robinhood-mainnet.json) | served |
 | pancakeswap-v3 | PancakeSwap v3 | PancakeSwap v3, Pancake v3 | plain | uniswap-v3 | factory | `0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865` | 0 | - | - | [PancakeSwap config](https://github.com/pancakeswap/infinity-periphery/blob/main/script/config/robinhood-mainnet.json) | served |
@@ -71,6 +81,24 @@ Recorded on: 2026-11-05.
 | single-router-launchpad | unnamed single-router bonding-curve launchpad | single-router bonding-curve launchpad, single-router launchpad | launchpad | mob-launch-curve | factory | `0x006fee8a9a5482dd7cdf7f21b4d78fa6e246ca4c` | 99903488 | - | - | [scout-agent finding 131](https://github.com/chainswarm/scout-agent/issues/131) | served |
 | single-router-launchpad | unnamed single-router bonding-curve launchpad |  | launchpad | mob-launch-curve | manager | `0x4ed0f046d97d508df86d6b7b058e763dbfb0027f` | 99903488 | - | - | [devops registry v29](https://github.com/chainswarm/devops/blob/e270ee1a3c8a2afc52e9d5549be5dbb8b98f0914/charts/chainswarm-indexer-evm-dex/registry/robinhood-v29.json) | served |
 | virtuals | Virtuals Protocol | Virtuals, VIRTUAL, Virtuals Protocol | launchpad | uniswap-v2 | factory | `0xfc2e4da3edb2e18100473339c763705d263d20a9` | 0 | - | - | [change silent-factory-discovery-and-labels](https://github.com/chainswarm/AP1000/blob/main/openspec/changes/archive/2026-10-16-silent-factory-discovery-and-labels/design.md) | served |
+| weth-unwrap-helper | unnamed WETH-unwrap helper of Uniswap sell routes | WETH-unwrap helper | plain | uniswap-v3 | factory | `0x1f7d7550b1b028f7571e69a784071f0205fd2efa` | 103295248 | - | - | [scout-agent finding 162](https://github.com/chainswarm/scout-agent/issues/162) | served |
+| weth-unwrap-helper | unnamed WETH-unwrap helper of Uniswap sell routes |  | plain | uniswap-v3 | router | `0x0849c295bc609da9fde347834f92a75c2c4eb178` | 103295248 | - | - | [scout-agent finding 162](https://github.com/chainswarm/scout-agent/issues/162) | served |
+| realm-etf | Realm ETF launchpad | Realm, Realm ETF, RealmEtf | launchpad | uniswap-v4 | factory | `0x124ad86c732b16366ed26445e3943adef635f123` | 101031051 | - | - | [Sourcify RealmEtfHook](https://sourcify.dev/server/v2/contract/4663/0x74dd0a05540f7c1ae419c18f8d55ff220076e8c8) | served |
+| realm-etf | Realm ETF launchpad |  | launchpad | uniswap-v4 | router | `0x74dd0a05540f7c1ae419c18f8d55ff220076e8c8` | 101031057 | - | - | [Sourcify RealmEtfHook](https://sourcify.dev/server/v2/contract/4663/0x74dd0a05540f7c1ae419c18f8d55ff220076e8c8) | served |
+| pangea | Pangea launch factory | Pangea, Pangea launch | launchpad | uniswap-v4 | factory | `0xadf9c12eaf14da2f7780c0587cc06034f1edf8d3` | 96290239 | - | - | [Sourcify UniswapLaunchFactoryV2](https://sourcify.dev/server/v2/contract/4663/0xadf9c12eaf14da2f7780c0587cc06034f1edf8d3) | served |
+| pangea | Pangea launch factory |  | launchpad | uniswap-v4 | helper | `0x6ea418b883571af6155145d5604187f92b2d7b92` | 96283385 | - | - | [Sourcify PartsDeployerV2](https://sourcify.dev/server/v2/contract/4663/0x6ea418b883571af6155145d5604187f92b2d7b92) | served |
+| icecreamswap | IceCreamSwap aggregator | IceCreamSwap, IceCream, Ice Cream Swap | plain | uniswap-v3 | factory | `0x1f7d7550b1b028f7571e69a784071f0205fd2efa` | 3087983 | - | - | [Sourcify AggregatorGuard](https://sourcify.dev/server/v2/contract/4663/0x603206d6105217dd972e4ab30676a220ca393346) | served |
+| icecreamswap | IceCreamSwap aggregator |  | plain | uniswap-v3 | router | `0x603206d6105217dd972e4ab30676a220ca393346` | 3087983 | - | - | [Sourcify AggregatorGuard](https://sourcify.dev/server/v2/contract/4663/0x603206d6105217dd972e4ab30676a220ca393346) | served |
+| icecreamswap | IceCreamSwap aggregator |  | plain | uniswap-v3 | router | `0x2ca37ff95caf25366ef16fc2e655b78a165d125f` | 3094087 | - | - | [Sourcify AggregatorGuard](https://sourcify.dev/server/v2/contract/4663/0x603206d6105217dd972e4ab30676a220ca393346) | served |
+| icecreamswap | IceCreamSwap aggregator |  | plain | uniswap-v3 | router | `0xec9aa0a6c2372131a0502aba6188269ab52cacb5` | 72179539 | - | - | [Sourcify AggregatorGuard](https://sourcify.dev/server/v2/contract/4663/0x603206d6105217dd972e4ab30676a220ca393346) | served |
+| icecreamswap | IceCreamSwap aggregator |  | plain | uniswap-v3 | router | `0xe6eeda550918638529c6cf2ea14f9ea0572d6f88` | 92800751 | - | - | [Sourcify AggregatorGuard](https://sourcify.dev/server/v2/contract/4663/0x603206d6105217dd972e4ab30676a220ca393346) | served |
+| per-launch-v4-router | unnamed per-launch Uniswap v4 swap routers | per-launch router, per-launch v4 router | vault | uniswap-v4 | manager | `0x8366a39cc670b4001a1121b8f6a443a643e40951` | 90471772 | - | - | [scout-agent finding 134](https://github.com/chainswarm/scout-agent/issues/134) | served |
+| per-launch-v4-router | unnamed per-launch Uniswap v4 swap routers |  | vault | uniswap-v4 | helper | `0xe672754903b2be414abbec68ee1a6d7884ba993b` | 100454866 | - | - | [scout-agent finding 134](https://github.com/chainswarm/scout-agent/issues/134) | served |
+| per-launch-v4-router | unnamed per-launch Uniswap v4 swap routers |  | vault | uniswap-v4 | helper | `0x0c388f9d803e17addc439a50a9c9b9e3937221f5` | 100437079 | - | - | [scout-agent finding 134](https://github.com/chainswarm/scout-agent/issues/134) | served |
+| per-launch-v4-router | unnamed per-launch Uniswap v4 swap routers |  | vault | uniswap-v4 | helper | `0x3201074c2a813d9827c563395c16a86560f57437` | 100215518 | - | - | [scout-agent finding 134](https://github.com/chainswarm/scout-agent/issues/134) | served |
+| per-launch-v4-router | unnamed per-launch Uniswap v4 swap routers |  | vault | uniswap-v4 | helper | `0x80d49714825e23d4801549a765cb88cf917f2f02` | 99533593 | - | - | [scout-agent finding 134](https://github.com/chainswarm/scout-agent/issues/134) | served |
+| per-launch-v4-router | unnamed per-launch Uniswap v4 swap routers |  | vault | uniswap-v4 | helper | `0xf5b7cba51da2cef7fb334aa34c83203efa1f083e` | 99416107 | - | - | [scout-agent finding 134](https://github.com/chainswarm/scout-agent/issues/134) | served |
+| per-launch-v4-router | unnamed per-launch Uniswap v4 swap routers |  | vault | uniswap-v4 | helper | `0xff4b110e9e3b70de24490bef682f18a2342b55a9` | 90471772 | - | - | [scout-agent finding 134](https://github.com/chainswarm/scout-agent/issues/134) | served |
 
 ## Verification
 
@@ -151,3 +179,44 @@ creation block. The example pool is the pool the router swaps in, the
 Uniswap v3 WETH/USDG pool `0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca`.
 That factory stays Uniswap v3's: a lookup of its address still answers
 Uniswap v3, the first exchange that names it.
+
+Registry version 6 (2026-11-05) serves the rows of six scout-agent findings
+and adds the role `helper`: a contract of an exchange that the trail does not
+read. That is a position NFT, a gauge, a parts deployer, or a swap router of a
+vault, where the manager stays the contract past the swap.
+
+- Finding 162: the Uniswap Universal Routers
+  `0x204faca1764b154221e35c0d20abb3c525710498` and
+  `0x8876789976decbfcbbbe364623c63652db8c0904`, both on Uniswap's own
+  Robinhood Chain list, and the WETH-unwrap contract
+  `0x0849c295bc609da9fde347834f92a75c2c4eb178`. Its code holds WETH, and the
+  graph shows 7,431 transfers from it to the first router. It has no verified
+  source and no known operator, so it has a plain description and its own key.
+- Finding 146: the Realm ETF launchpad. Sourcify verifies `RealmEtfHook`
+  `0x74dd0a05540f7c1ae419c18f8d55ff220076e8c8`, and its code holds its factory
+  `0x124ad86c732b16366ed26445e3943adef635f123` as an immutable.
+- Finding 134: six single-launch v4 routers with one code shape, each holding
+  the PoolManager in its code. No source names them. Later launches of the
+  series need a row each.
+- Finding 107: the Aero Slipstream staking contracts. Sourcify verifies the
+  implementation `ArbCLGauge` `0x89e91a960154b1ed6c093039a8f0725ab67d14e0`. Both
+  gauges read on 2026-11-05 answer `nft()` with the position NFT
+  `0x4857db576ee0e45f10525ec59527bfd10beec60b` ("Slipstream V3 Deposit",
+  AERO-CL) and `voter()` with `0x382409fad8503fbcdbb27a4211551fa03e884078`.
+  `0xe033f4bd3d7ccf537a2f954ecdc8eb1218e3b7a6` answers `pool()` with the Aero
+  pool `0x7615926023bb149f36095645c2a81dc367d39750`. Only the six gauges the
+  finding names are listed, out of more than 50.
+- Finding 100: the Pangea launch factory. Sourcify verifies
+  `UniswapLaunchFactoryV2` `0xadf9c12eaf14da2f7780c0587cc06034f1edf8d3`, whose
+  title names Pangea. Its code holds `PartsDeployerV2`
+  `0x6ea418b883571af6155145d5604187f92b2d7b92`, and its `platform()` answers
+  the 20 percent fee wallet `0xe8e219cccff046b8e6666f9803414f442e333940`.
+- Finding 50: the IceCreamSwap aggregator. Sourcify verifies `AggregatorGuard`
+  `0x603206d6105217dd972e4ab30676a220ca393346`, whose one entry function is
+  named `IceCreamSwap`. The name rests on that function alone. The three
+  executors are its routers.
+
+Each new key that has no factory of its own names the factory or manager it
+swaps through, valid from its own first block, as `eth-usdg-router` does. A
+lookup of that factory or manager still answers Uniswap, the first exchange
+that names it.

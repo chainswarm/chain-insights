@@ -15,6 +15,8 @@
 //   routers       its router rows, or, with no router row, its manager rows (a vault forwards its own swaps)
 //   adapters      every adapter of its factory and manager rows, in order
 //   roles         address -> factory, manager or router
+//   helpers       its helper rows: contracts of the exchange the trail does not read (a position
+//                 NFT, a gauge, a parts deployer, a vault's swap router); a lookup by address finds them
 //   since_block   the lowest valid-from block of its factory and manager rows
 //   source        the source link of the first of them
 //   example_pool, pool_floor   the exchange's optional cells, null when empty
@@ -53,7 +55,7 @@ export const COLUMNS = [
   'source link',
   'verification',
 ]
-export const ROLES = ['factory', 'manager', 'router']
+export const ROLES = ['factory', 'manager', 'router', 'helper']
 const POOL_ROLES = ['factory', 'manager']
 export const TRAIL_TYPES = ['plain', 'vault', 'gauge', 'launchpad']
 const MAX_DISPLAY = 96
@@ -231,6 +233,7 @@ export function pinDocument({ network, version, recordedOn, served }) {
   for (const dex of [...new Set(served.map((row) => row.dex))]) {
     const mine = served.filter((row) => row.dex === dex)
     const pools = mine.filter((row) => POOL_ROLES.includes(row.role))
+    const helpers = mine.filter((row) => row.role === 'helper').map((row) => row.address)
     let routers = mine.filter((row) => row.role === 'router').map((row) => row.address)
     if (routers.length === 0) {
       routers = pools.filter((row) => row.role === 'manager').map((row) => row.address)
@@ -241,7 +244,10 @@ export function pinDocument({ network, version, recordedOn, served }) {
       aliases: mine[0].dex_aliases,
       trail_type: mine[0].trail_type,
       adapters: [...new Set(pools.map((row) => row.adapter))],
-      roles: Object.fromEntries(mine.map((row) => [row.address, row.role])),
+      roles: Object.fromEntries(
+        mine.filter((row) => row.role !== 'helper').map((row) => [row.address, row.role])
+      ),
+      ...(helpers.length > 0 ? { helpers } : {}),
       factories: pools.map((row) => row.address),
       routers,
       example_pool: mine.find((row) => row.example_pool)?.example_pool ?? null,

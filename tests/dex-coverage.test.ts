@@ -42,7 +42,10 @@ describe('the coverage rule names what is missing', () => {
   it('names the type when its skill is gone, and the exchange when its eval is gone', () => {
     rmSync(join(copy, 'skills/chain-insights-dex-vault'), { recursive: true })
     rmSync(join(copy, 'plugin/evals/dex-aero'), { recursive: true })
-    expect(coverageGaps('uniswap-v4', copy)).toEqual(['no type skill: vault (uniswap-v4)'])
+    expect(coverageGaps('uniswap-v4', copy)).toEqual([
+      'no type skill: vault (uniswap-v4)',
+      'no type skill: vault (per-launch-v4-router)',
+    ])
     expect(coverageGaps('cl-gauge-v1', copy)).toEqual(['no name-only eval: aero'])
   })
 
