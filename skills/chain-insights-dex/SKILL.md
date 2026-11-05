@@ -85,7 +85,7 @@ hand. When the tool and the memo differ, follow the tool: it reads the
 newest file.
 
 <!-- dex-registry:start -->
-Memo of the exchange registry, version 5, robinhood, recorded 2026-11-05.
+Memo of the exchange registry, version 6, robinhood, recorded 2026-11-05.
 
 | Exchange | Key | Also written | Trail | Factories, or the manager | Router |
 |---|---|---|---|---|---|
@@ -124,6 +124,11 @@ Memo of the exchange registry, version 5, robinhood, recorded 2026-11-05.
 | unnamed native-ETH bonding-curve launchpad | `eth-curve-launchpad` | native-ETH bonding-curve launchpad, ETH bonding-curve launchpad | launchpad | `0xc4210279fb1e1de24a87d6f5cc597c9422aef899` | none |
 | unnamed single-router bonding-curve launchpad | `single-router-launchpad` | single-router bonding-curve launchpad, single-router launchpad | launchpad | `0x006fee8a9a5482dd7cdf7f21b4d78fa6e246ca4c`, `0x4ed0f046d97d508df86d6b7b058e763dbfb0027f` | `0x4ed0f046d97d508df86d6b7b058e763dbfb0027f` |
 | Virtuals Protocol | `virtuals` | Virtuals, VIRTUAL, Virtuals Protocol | launchpad | `0xfc2e4da3edb2e18100473339c763705d263d20a9` | none |
+| unnamed WETH-unwrap helper of Uniswap sell routes | `weth-unwrap-helper` | WETH-unwrap helper | plain | `0x1f7d7550b1b028f7571e69a784071f0205fd2efa` | `0x0849c295bc609da9fde347834f92a75c2c4eb178` |
+| Realm ETF launchpad | `realm-etf` | Realm, Realm ETF, RealmEtf | launchpad | `0x124ad86c732b16366ed26445e3943adef635f123` | `0x74dd0a05540f7c1ae419c18f8d55ff220076e8c8` |
+| Pangea launch factory | `pangea` | Pangea, Pangea launch | launchpad | `0xadf9c12eaf14da2f7780c0587cc06034f1edf8d3` | none |
+| IceCreamSwap aggregator | `icecreamswap` | IceCreamSwap, IceCream, Ice Cream Swap | plain | `0x1f7d7550b1b028f7571e69a784071f0205fd2efa` | `0x603206d6105217dd972e4ab30676a220ca393346`, `0x2ca37ff95caf25366ef16fc2e655b78a165d125f`, `0xec9aa0a6c2372131a0502aba6188269ab52cacb5`, `0xe6eeda550918638529c6cf2ea14f9ea0572d6f88` |
+| unnamed per-launch Uniswap v4 swap routers | `per-launch-v4-router` | per-launch router, per-launch v4 router | vault | manager `0x8366a39cc670b4001a1121b8f6a443a643e40951` | the manager |
 <!-- dex-registry:end -->
 
 ## Find the pools of an exchange

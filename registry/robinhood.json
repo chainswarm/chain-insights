@@ -1,7 +1,7 @@
 {
   "schema": "chain-insights.dex-registry.v1",
   "network": "robinhood",
-  "registry_version": 5,
+  "registry_version": 6,
   "recorded_on": "2026-11-05",
   "rows": [
     {
@@ -24,6 +24,16 @@
         "0x0fef9e88a7b76bcdbf451780c6774fe32965ee98": "router",
         "0x9ee35bf1bd69a03c6f0393582030fce8bb93d418": "router"
       },
+      "helpers": [
+        "0x4857db576ee0e45f10525ec59527bfd10beec60b",
+        "0xf437f62053acb121665b8fdbfea8f214fb8e589d",
+        "0x220d17d3260f130a4f91a1ba2d21f8f75f624942",
+        "0xe033f4bd3d7ccf537a2f954ecdc8eb1218e3b7a6",
+        "0x750a4e760873c863daf22890b8db55f4c71f1114",
+        "0x045ccb9d8a98cb748b39253005be2d6d5b955c14",
+        "0x5874f5b8728776993de4c90c61473d76eeab90db",
+        "0xe5b468c4e13b45ec10a1d22ace7e2c0fc0671da0"
+      ],
       "factories": [
         "0xc63d7338c178e805c544b8f897066bd3bbcbe136"
       ],
@@ -353,6 +363,10 @@
       "roles": {
         "0x8366a39cc670b4001a1121b8f6a443a643e40951": "manager"
       },
+      "helpers": [
+        "0x204faca1764b154221e35c0d20abb3c525710498",
+        "0x8876789976decbfcbbbe364623c63652db8c0904"
+      ],
       "factories": [
         "0x8366a39cc670b4001a1121b8f6a443a643e40951"
       ],
@@ -924,6 +938,150 @@
       "pool_floor": null,
       "since_block": 0,
       "source": "https://github.com/chainswarm/AP1000/blob/main/openspec/changes/archive/2026-10-16-silent-factory-discovery-and-labels/design.md"
+    },
+    {
+      "dex": "weth-unwrap-helper",
+      "display": "unnamed WETH-unwrap helper of Uniswap sell routes",
+      "aliases": [
+        "WETH-unwrap helper"
+      ],
+      "trail_type": "plain",
+      "adapters": [
+        "uniswap-v3"
+      ],
+      "roles": {
+        "0x1f7d7550b1b028f7571e69a784071f0205fd2efa": "factory",
+        "0x0849c295bc609da9fde347834f92a75c2c4eb178": "router"
+      },
+      "factories": [
+        "0x1f7d7550b1b028f7571e69a784071f0205fd2efa"
+      ],
+      "routers": [
+        "0x0849c295bc609da9fde347834f92a75c2c4eb178"
+      ],
+      "example_pool": null,
+      "pool_floor": null,
+      "since_block": 103295248,
+      "source": "https://github.com/chainswarm/scout-agent/issues/162"
+    },
+    {
+      "dex": "realm-etf",
+      "display": "Realm ETF launchpad",
+      "aliases": [
+        "Realm",
+        "Realm ETF",
+        "RealmEtf"
+      ],
+      "trail_type": "launchpad",
+      "adapters": [
+        "uniswap-v4"
+      ],
+      "roles": {
+        "0x124ad86c732b16366ed26445e3943adef635f123": "factory",
+        "0x74dd0a05540f7c1ae419c18f8d55ff220076e8c8": "router"
+      },
+      "factories": [
+        "0x124ad86c732b16366ed26445e3943adef635f123"
+      ],
+      "routers": [
+        "0x74dd0a05540f7c1ae419c18f8d55ff220076e8c8"
+      ],
+      "example_pool": null,
+      "pool_floor": null,
+      "since_block": 101031051,
+      "source": "https://sourcify.dev/server/v2/contract/4663/0x74dd0a05540f7c1ae419c18f8d55ff220076e8c8"
+    },
+    {
+      "dex": "pangea",
+      "display": "Pangea launch factory",
+      "aliases": [
+        "Pangea",
+        "Pangea launch"
+      ],
+      "trail_type": "launchpad",
+      "adapters": [
+        "uniswap-v4"
+      ],
+      "roles": {
+        "0xadf9c12eaf14da2f7780c0587cc06034f1edf8d3": "factory"
+      },
+      "helpers": [
+        "0x6ea418b883571af6155145d5604187f92b2d7b92"
+      ],
+      "factories": [
+        "0xadf9c12eaf14da2f7780c0587cc06034f1edf8d3"
+      ],
+      "routers": [],
+      "example_pool": null,
+      "pool_floor": null,
+      "since_block": 96290239,
+      "source": "https://sourcify.dev/server/v2/contract/4663/0xadf9c12eaf14da2f7780c0587cc06034f1edf8d3"
+    },
+    {
+      "dex": "icecreamswap",
+      "display": "IceCreamSwap aggregator",
+      "aliases": [
+        "IceCreamSwap",
+        "IceCream",
+        "Ice Cream Swap"
+      ],
+      "trail_type": "plain",
+      "adapters": [
+        "uniswap-v3"
+      ],
+      "roles": {
+        "0x1f7d7550b1b028f7571e69a784071f0205fd2efa": "factory",
+        "0x603206d6105217dd972e4ab30676a220ca393346": "router",
+        "0x2ca37ff95caf25366ef16fc2e655b78a165d125f": "router",
+        "0xec9aa0a6c2372131a0502aba6188269ab52cacb5": "router",
+        "0xe6eeda550918638529c6cf2ea14f9ea0572d6f88": "router"
+      },
+      "factories": [
+        "0x1f7d7550b1b028f7571e69a784071f0205fd2efa"
+      ],
+      "routers": [
+        "0x603206d6105217dd972e4ab30676a220ca393346",
+        "0x2ca37ff95caf25366ef16fc2e655b78a165d125f",
+        "0xec9aa0a6c2372131a0502aba6188269ab52cacb5",
+        "0xe6eeda550918638529c6cf2ea14f9ea0572d6f88"
+      ],
+      "example_pool": null,
+      "pool_floor": null,
+      "since_block": 3087983,
+      "source": "https://sourcify.dev/server/v2/contract/4663/0x603206d6105217dd972e4ab30676a220ca393346"
+    },
+    {
+      "dex": "per-launch-v4-router",
+      "display": "unnamed per-launch Uniswap v4 swap routers",
+      "aliases": [
+        "per-launch router",
+        "per-launch v4 router"
+      ],
+      "trail_type": "vault",
+      "adapters": [
+        "uniswap-v4"
+      ],
+      "roles": {
+        "0x8366a39cc670b4001a1121b8f6a443a643e40951": "manager"
+      },
+      "helpers": [
+        "0xe672754903b2be414abbec68ee1a6d7884ba993b",
+        "0x0c388f9d803e17addc439a50a9c9b9e3937221f5",
+        "0x3201074c2a813d9827c563395c16a86560f57437",
+        "0x80d49714825e23d4801549a765cb88cf917f2f02",
+        "0xf5b7cba51da2cef7fb334aa34c83203efa1f083e",
+        "0xff4b110e9e3b70de24490bef682f18a2342b55a9"
+      ],
+      "factories": [
+        "0x8366a39cc670b4001a1121b8f6a443a643e40951"
+      ],
+      "routers": [
+        "0x8366a39cc670b4001a1121b8f6a443a643e40951"
+      ],
+      "example_pool": null,
+      "pool_floor": null,
+      "since_block": 90471772,
+      "source": "https://github.com/chainswarm/scout-agent/issues/134"
     }
   ]
 }

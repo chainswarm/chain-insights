@@ -1,0 +1,22 @@
+schema_version: "1.0"
+name: dex-helper-by-address
+expected_outcome: From the meta_dex_lookup answer for the address, the reply names 0x220d17d3260f130a4f91a1ba2d21f8f75f624942 as a helper contract of Aero, writes every address in full, and does not call it an unknown contract or a pool.
+execution:
+  prompt: |
+    You are an AML analyst assistant using Chain Insights. Write the reply to the user from the tool answer below; load the chain-insights-dex skill first and call no graph tool.
+    User asked: "What is 0x220d17d3260f130a4f91a1ba2d21f8f75f624942? Position NFTs keep moving to it on robinhood."
+    meta_dex_lookup {network: robinhood, address: 0x220d17d3260f130a4f91a1ba2d21f8f75f624942} answered: matched dex aero, display "Aero (Aerodrome and Velodrome, merged)", trail_type gauge, took_for "helper, served", factories [0xc63d7338c178e805c544b8f897066bd3bbcbe136]; hint: Say in one line: "0x220d17d3260f130a4f91a1ba2d21f8f75f624942 is a helper, served row of Aero (Aerodrome and Velodrome, merged)."
+  max_turns: 4
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: names-the-address-in-full
+    target: last_message
+    pattern: '0x220d17d3260f130a4f91a1ba2d21f8f75f624942'
+    match: contains
+  - type: regex
+    name: names-aero
+    target: last_message
+    pattern: 'Aero'
+    match: contains

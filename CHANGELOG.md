@@ -3,6 +3,26 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.78.0] - 2026-11-05 — six more exchanges and their helper contracts in the lookup
+
+### Added
+
+- `meta_dex_lookup` answers for the addresses of six scout-agent findings.
+  A customer who asks about one of them hears what it is, not "no exchange row".
+  Registry version 6, recorded 2026-11-05.
+  - Uniswap's two Universal Routers on Robinhood Chain, and an unnamed
+    WETH-unwrap contract on their sell routes (finding 162).
+  - The Realm ETF launchpad and its v4 hook (finding 146).
+  - Six unnamed single-launch v4 routers (finding 134).
+  - The Aero position NFT, gauge factory and six gauges (finding 107).
+  - The Pangea launch factory (finding 100).
+  - The IceCreamSwap aggregator and its three executors (finding 50).
+- The registry role `helper`: a contract of an exchange that the trail does not
+  read. A lookup by address finds it, and needs this version. An older proxy
+  reads the same file and ignores the helper rows, so Uniswap's two routers, the
+  six single-launch routers, the Aero gauges and the Pangea parts deployer stay
+  unmatched there.
+
 ## [0.77.2] - 2026-11-05 — the ETH/USDG swap router is a known router
 
 ### Added
