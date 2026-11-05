@@ -1,0 +1,55 @@
+schema_version: "1.0"
+name: dex-eth-usdg-router-by-address
+expected_outcome: From the meta_dex_lookup answer for the address and one read of where the contract pays, the reply names 0x7a39b98d31f84152bc724bc5ddb41dbcb338f2a5 as the unnamed ETH/USDG swap router, says the wallets paying it are its callers trading ETH and USDG, names the Uniswap v3 WETH/USDG pool 0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca it swaps in, writes every address in full, and invents no exchange name.
+execution:
+  prompt: |
+    You are an AML analyst assistant using Chain Insights. Write the reply to the user from the two tool answers below; load the chain-insights-dex skill first and call no graph tool.
+    User asked: "What is 0x7a39b98d31f84152bc724bc5ddb41dbcb338f2a5? Hundreds of wallets are paying it on robinhood."
+    meta_dex_lookup {network: robinhood, address: 0x7a39b98d31f84152bc724bc5ddb41dbcb338f2a5} answered: matched dex eth-usdg-router, display "unnamed ETH/USDG swap router (routes into Uniswap v3 and v4)", trail_type plain, took_for "router, served", factories [0x1f7d7550b1b028f7571e69a784071f0205fd2efa], routers [0x7a39b98d31f84152bc724bc5ddb41dbcb338f2a5]; hint: Say in one line: "0x7a39b98d31f84152bc724bc5ddb41dbcb338f2a5 is a router, served row of unnamed ETH/USDG swap router (routes into Uniswap v3 and v4)."
+    The read of where the contract pays (USE topology, FLOWS_TO out of 0x7a39b98d31f84152bc724bc5ddb41dbcb338f2a5, biggest by transactions) answered three rows: 0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca (labels Pool, SelfTrader) 7041 transactions; 0x0000000000000000000000000000000000000000 5878 transactions; 0x0bd7d308f8e1639fab988df18a8011f41eacad73 (WETH) 3065 transactions. Senders into the router: 500 wallets, paying ETH and USDG 0x5fc5360d0400a0fd4f2af552add042d716f1d168.
+  max_turns: 4
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: names-the-router-in-full
+    target: last_message
+    pattern: '0x7a39b98d31f84152bc724bc5ddb41dbcb338f2a5'
+    match: contains
+  - type: regex
+    name: unnamed-swap-router
+    target: last_message
+    pattern: '(unnamed|no (known |public )?name|not named|nameless)[^.\n]{0,40}(ETH/USDG )?(swap )?router|ETH/USDG swap router'
+    flags: i
+    match: contains
+  - type: regex
+    name: names-the-pool-in-full
+    target: last_message
+    pattern: '0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca'
+    match: contains
+  - type: regex
+    name: pool-is-uniswap-v3
+    target: last_message
+    pattern: 'Uniswap v3'
+    flags: i
+    match: contains
+  - type: regex
+    name: no-invented-name
+    target: last_message
+    pattern: '\b(Universal Router|SwapRouter02|Uniswap(''s)? (v3 |v4 )?(swap )?router|1inch|Odos|ParaSwap|KyberSwap|0x Settler)\b'
+    flags: i
+    match: not_contains
+  - type: regex
+    name: full-addresses
+    target: last_message
+    pattern: '0x[0-9a-fA-F]{2,10}(…|\.\.\.)'
+    match: not_contains
+  - type: regex
+    name: never-asks-for-an-address
+    target: last_message
+    flags: i
+    pattern: '(give|send|share|provide|name|tell) me (an|one|the|a) (wallet |pool |router )?address'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

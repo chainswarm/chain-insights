@@ -1,0 +1,56 @@
+schema_version: "1.0"
+name: dex-eth-usdg-router
+expected_outcome: The agent takes the unnamed ETH/USDG swap router from meta_dex_lookup, or the memo when the tool is absent, with no address from the user, calls it an unnamed router, reads the pools it pays on FLOWS_TO anchored on the router, reads the callers' swaps as SWAPPED links, never calls the router the trader, and invents no exchange name.
+execution:
+  prompt: |
+    A user asks: "Who uses the ETH/USDG swap router on robinhood, and which pool does it
+    swap in?"
+
+    The Chain Insights tools are not reachable right now, so do not try
+    to call them. Write the first tool calls and graph queries you would
+    send, in full, and one line each on what their answers tell you.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: router-or-door-named
+    target: last_message
+    pattern: '0x7a39b98d31f84152bc724bc5ddb41dbcb338f2a5|meta_dex_lookup'
+    match: contains
+  - type: regex
+    name: door-first
+    target: last_message
+    pattern: 'meta_dex_lookup'
+    match: contains
+  - type: regex
+    name: pools-it-pays
+    target: last_message
+    pattern: 'FLOWS_TO|FLOWED_TO'
+    match: contains
+  - type: regex
+    name: no-invented-name
+    target: last_message
+    pattern: '\b(Universal Router|SwapRouter02|Uniswap(''s)? (v3 |v4 )?(swap )?router|1inch|Odos|ParaSwap|KyberSwap|0x Settler)\b'
+    flags: i
+    match: not_contains
+  - type: regex
+    name: router-never-trader
+    target: last_message
+    pattern: '\brouter\b[^.\n]{0,20}\b(is|was) the (trader|buyer|seller)\b|\bthe (trader|buyer|seller) (is|was) the router\b'
+    flags: i
+    match: not_contains
+  - type: regex
+    name: full-addresses
+    target: last_message
+    pattern: '0x[0-9a-fA-F]{2,10}(…|\.\.\.)'
+    match: not_contains
+  - type: regex
+    name: no-address-asked
+    target: last_message
+    pattern: '(give|send|share|provide|paste|tell) me (the |a |an |its )?(full )?((pool|factory|router|contract|exchange) )?address|what is the (pool|factory|router|contract) address|do you have (the|an?) ((pool|factory|router) )?address'
+    flags: i
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
