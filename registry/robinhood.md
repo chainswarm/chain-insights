@@ -6,7 +6,7 @@ columns and the check are in the [README](README.md). The served copy is
 [robinhood.json](robinhood.json), written by
 `node scripts/pin-dex-registry.mjs registry/robinhood.md`.
 
-Registry version: 6.
+Registry version: 7.
 
 Recorded on: 2026-11-05.
 
@@ -45,6 +45,7 @@ Recorded on: 2026-11-05.
 | swaphood | SwapHood | SwapHood, SwapHood Finance, SWT, swaphood.finance | gauge | solidly-v2 | factory | `0xe7206ecac3a51afe7e6179182ad4130a26068dd1` | 0 | - | 20 | [SwapHood contract addresses](https://swaphood-finance.gitbook.io/swaphood-finance-docs/contract-addresses.md) | served |
 | swaphood | SwapHood |  | gauge | solidly-v2 | router | `0x8f8056fec03159ebcc4aee1b8ea5a61d8fe405fc` | 0 | - | - | [SwapHood contract addresses](https://swaphood-finance.gitbook.io/swaphood-finance-docs/contract-addresses.md) | served |
 | uniswap-v2 | Uniswap v2 | Uniswap v2, Uni v2 | plain | uniswap-v2 | factory | `0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f` | 0 | 0x4a6a85252a6f6b383a5f747259ee157e65ff1307 | 10000 | [Uniswap v2 deployments](https://developers.uniswap.org/docs/protocols/v2/deployments) | served |
+| uniswap-v2 | Uniswap v2 |  | plain | uniswap-v2 | router | `0x89e5db8b5aa49aa85ac63f691524311aeb649eba` | 8929 | - | - | [Sourcify UniswapV2Router02](https://sourcify.dev/server/v2/contract/4663/0x89e5db8b5aa49aa85ac63f691524311aeb649eba) | served |
 | uniswap-v3 | Uniswap v3 | Uniswap v3, Uni v3 | plain | uniswap-v3 | factory | `0x1f7d7550b1b028f7571e69a784071f0205fd2efa` | 0 | 0x10cc6bd38112cac182db90b6a71d8bb5939526ba | 200000 | [Uniswap v3 Robinhood deployment](https://developers.uniswap.org/docs/protocols/v3/deployments/v3-robinhood-chain-deployments) | served |
 | eth-usdg-router | unnamed ETH/USDG swap router (routes into Uniswap v3 and v4) | ETH/USDG router, ETH/USDG swap router, USDG swap router | plain | uniswap-v3 | factory | `0x1f7d7550b1b028f7571e69a784071f0205fd2efa` | 105000018 | 0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca | - | [scout-agent finding 164](https://github.com/chainswarm/scout-agent/issues/164) | served |
 | eth-usdg-router | unnamed ETH/USDG swap router (routes into Uniswap v3 and v4) |  | plain | uniswap-v3 | router | `0x7a39b98d31f84152bc724bc5ddb41dbcb338f2a5` | 105000018 | 0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca | - | [scout-agent finding 164](https://github.com/chainswarm/scout-agent/issues/164) | served |
@@ -179,6 +180,12 @@ creation block. The example pool is the pool the router swaps in, the
 Uniswap v3 WETH/USDG pool `0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca`.
 That factory stays Uniswap v3's: a lookup of its address still answers
 Uniswap v3, the first exchange that names it.
+
+Registry version 7 (2026-11-05) adds Uniswap's v2 router
+`0x89e5db8b5aa49aa85ac63f691524311aeb649eba`. Sourcify verifies
+`UniswapV2Router02`, and its `factory()` returns the Uniswap v2 factory
+`0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f`. The scout digest of 2026-11-05
+named it as a router with no exchange row.
 
 Registry version 6 (2026-11-05) serves the rows of six scout-agent findings
 and adds the role `helper`: a contract of an exchange that the trail does not

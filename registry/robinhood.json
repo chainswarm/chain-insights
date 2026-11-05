@@ -1,7 +1,7 @@
 {
   "schema": "chain-insights.dex-registry.v1",
   "network": "robinhood",
-  "registry_version": 6,
+  "registry_version": 7,
   "recorded_on": "2026-11-05",
   "rows": [
     {
@@ -285,12 +285,15 @@
         "uniswap-v2"
       ],
       "roles": {
-        "0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f": "factory"
+        "0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f": "factory",
+        "0x89e5db8b5aa49aa85ac63f691524311aeb649eba": "router"
       },
       "factories": [
         "0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f"
       ],
-      "routers": [],
+      "routers": [
+        "0x89e5db8b5aa49aa85ac63f691524311aeb649eba"
+      ],
       "example_pool": "0x4a6a85252a6f6b383a5f747259ee157e65ff1307",
       "pool_floor": 10000,
       "since_block": 0,

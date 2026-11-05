@@ -34,8 +34,8 @@ describe('the reviewed table and its served copy', () => {
       cwd: repoRoot,
       encoding: 'utf8',
     })
-    expect(out).toContain('rows: 83 served, 0 refused, 2 not served')
-    expect(out).toContain('registry/robinhood.json up to date, registry version 6')
+    expect(out).toContain('rows: 84 served, 0 refused, 2 not served')
+    expect(out).toContain('registry/robinhood.json up to date, registry version 7')
   })
 
   it('fails on a hand edit of the served copy, naming both versions', () => {
@@ -49,7 +49,7 @@ describe('the reviewed table and its served copy', () => {
     const { ok, lines } = checkRegistry(join(dir, 'robinhood.md'))
     expect(ok).toBe(false)
     expect(lines.join('\n')).toMatch(
-      /the file gives registry version 6, the committed copy says registry version 1/
+      /the file gives registry version 7, the committed copy says registry version 1/
     )
   })
 
@@ -82,7 +82,7 @@ describe('the served copy', () => {
     expect(registry.schema).toBe('chain-insights.dex-registry.v1')
     expect(registry.network).toBe('robinhood')
     expect(registry.recorded_on).toMatch(/^\d{4}-\d{2}-\d{2}$/)
-    expect(registry.registry_version).toBe(6)
+    expect(registry.registry_version).toBe(7)
     expect(registry.rows).toHaveLength(40)
   })
 

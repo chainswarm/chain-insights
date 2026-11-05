@@ -85,7 +85,7 @@ hand. When the tool and the memo differ, follow the tool: it reads the
 newest file.
 
 <!-- dex-registry:start -->
-Memo of the exchange registry, version 6, robinhood, recorded 2026-11-05.
+Memo of the exchange registry, version 7, robinhood, recorded 2026-11-05.
 
 | Exchange | Key | Also written | Trail | Factories, or the manager | Router |
 |---|---|---|---|---|---|
@@ -98,7 +98,7 @@ Memo of the exchange registry, version 6, robinhood, recorded 2026-11-05.
 | Kittenswap | `kittenswap` | Kittenswap, KITTEN, KittenSwap | gauge | `0x45362763166cfed6174d312fa1449ea1fc37988a` | `0x7064c7bb85979f008212877c4ce41285ddf5374c` |
 | Morpheus | `morpheus` | Morpheus, Morpheus Farm | gauge | `0xd7cb0e0692f2d55a17ba81c1fe5501d66774fc4a` | none proven yet |
 | SwapHood | `swaphood` | SwapHood, SwapHood Finance, SWT, swaphood.finance | gauge | `0xe7206ecac3a51afe7e6179182ad4130a26068dd1` | `0x8f8056fec03159ebcc4aee1b8ea5a61d8fe405fc` |
-| Uniswap v2 | `uniswap-v2` | Uniswap v2, Uni v2 | plain | `0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f` | none |
+| Uniswap v2 | `uniswap-v2` | Uniswap v2, Uni v2 | plain | `0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f` | `0x89e5db8b5aa49aa85ac63f691524311aeb649eba` |
 | Uniswap v3 | `uniswap-v3` | Uniswap v3, Uni v3 | plain | `0x1f7d7550b1b028f7571e69a784071f0205fd2efa` | none |
 | unnamed ETH/USDG swap router (routes into Uniswap v3 and v4) | `eth-usdg-router` | ETH/USDG router, ETH/USDG swap router, USDG swap router | plain | `0x1f7d7550b1b028f7571e69a784071f0205fd2efa` | `0x7a39b98d31f84152bc724bc5ddb41dbcb338f2a5` |
 | Uniswap v4 | `uniswap-v4` | Uniswap, UNI, Uniswap v4, Uni v4, PoolManager | vault | manager `0x8366a39cc670b4001a1121b8f6a443a643e40951` | the manager |
