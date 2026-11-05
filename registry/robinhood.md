@@ -6,9 +6,9 @@ columns and the check are in the [README](README.md). The served copy is
 [robinhood.json](robinhood.json), written by
 `node scripts/pin-dex-registry.mjs registry/robinhood.md`.
 
-Registry version: 4.
+Registry version: 5.
 
-Recorded on: 2026-11-02.
+Recorded on: 2026-11-05.
 
 ## Rows
 
@@ -38,6 +38,8 @@ Recorded on: 2026-11-02.
 | swaphood | SwapHood |  | gauge | solidly-v2 | router | `0x8f8056fec03159ebcc4aee1b8ea5a61d8fe405fc` | 0 | - | - | [SwapHood contract addresses](https://swaphood-finance.gitbook.io/swaphood-finance-docs/contract-addresses.md) | served |
 | uniswap-v2 | Uniswap v2 | Uniswap v2, Uni v2 | plain | uniswap-v2 | factory | `0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f` | 0 | 0x4a6a85252a6f6b383a5f747259ee157e65ff1307 | 10000 | [Uniswap v2 deployments](https://developers.uniswap.org/docs/protocols/v2/deployments) | served |
 | uniswap-v3 | Uniswap v3 | Uniswap v3, Uni v3 | plain | uniswap-v3 | factory | `0x1f7d7550b1b028f7571e69a784071f0205fd2efa` | 0 | 0x10cc6bd38112cac182db90b6a71d8bb5939526ba | 200000 | [Uniswap v3 Robinhood deployment](https://developers.uniswap.org/docs/protocols/v3/deployments/v3-robinhood-chain-deployments) | served |
+| eth-usdg-router | unnamed ETH/USDG swap router (routes into Uniswap v3 and v4) | ETH/USDG router, ETH/USDG swap router, USDG swap router | plain | uniswap-v3 | factory | `0x1f7d7550b1b028f7571e69a784071f0205fd2efa` | 105000018 | 0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca | - | [scout-agent finding 164](https://github.com/chainswarm/scout-agent/issues/164) | served |
+| eth-usdg-router | unnamed ETH/USDG swap router (routes into Uniswap v3 and v4) |  | plain | uniswap-v3 | router | `0x7a39b98d31f84152bc724bc5ddb41dbcb338f2a5` | 105000018 | 0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca | - | [scout-agent finding 164](https://github.com/chainswarm/scout-agent/issues/164) | served |
 | uniswap-v4 | Uniswap v4 | Uniswap, UNI, Uniswap v4, Uni v4, PoolManager | vault | uniswap-v4 | manager | `0x8366a39cc670b4001a1121b8f6a443a643e40951` | 0 | - | - | [Uniswap v4 deployments](https://developers.uniswap.org/docs/protocols/v4/deployments) | served |
 | pancakeswap | PancakeSwap Infinity | PancakeSwap, Pancake, CAKE, PancakeSwap Infinity | vault | pancake-infinity-cl | manager | `0xee04c68742e6bf434be8039580d2e89bbe55bc6f` | 0 | - | - | [PancakeSwap infinity config](https://github.com/pancakeswap/infinity-periphery/blob/main/script/config/robinhood-mainnet.json) | served |
 | pancakeswap-v2 | PancakeSwap v2 | PancakeSwap v2, Pancake v2 | plain | uniswap-v2 | factory | `0x02a84c1b3bbd7401a5f7fa98a384ebc70bb5749e` | 0 | - | 40 | [PancakeSwap infinity config](https://github.com/pancakeswap/infinity-periphery/blob/main/script/config/robinhood-mainnet.json) | served |
@@ -106,6 +108,7 @@ swaps it forwarded.
 | `0x006fee8a9a5482dd7cdf7f21b4d78fa6e246ca4c` | factory | the token factory of the single-router launchpad: it created all 14 launched tokens on lane B, from Mob `0xe0165a1b3d8f9e276b0746adcb9c7094cbd05785` at block 99,903,488 to block 100,030,381. Created at block 99,884,248 by `0x9cd48fc444f80e6c79d90c4bcb9d045603747390`, the deployer of the router below. A launched token is not a pool: its curve is kept inside the router, so the row's factory serves the launches read, and the router holds the pools |
 | `0x4ed0f046d97d508df86d6b7b058e763dbfb0027f` | manager | one router holds every curve, each keyed by the launched token: 13 `mob-launch-curve` pools on lane B on 2026-11-02, from block 99,903,488 to 100,025,977, and 780 swap rows since 2026-10-28. The first, `0x331d64719b7a01f59ef03311e4f0c10f00b7271d1cef0dcdeb6321ae480efcd7` at block 99,903,517, is a buy the router refunded in part. Created at block 99,884,296 by `0x9cd48fc444f80e6c79d90c4bcb9d045603747390`; no source is verified and no project names it. The token Mob is a launch, never the launchpad's name |
 | `0x2f4579ca81717d3d61bf8b6f06571877bbe54a07` | manager | the one reserve holder of 105 market contracts that log `Swapped` and move no token themselves; the indexer names the first, `0x95e4a408590e5ace8aab498ab0f9f4236f5162e5` (the AMD market), and 104 more, all created by `0x8dbf0d37cad30b2510d5c74e0f87a210cb298086`. The holder takes the sold token and pays the bought one in every trade. Read on lane B's StarRocks on 2026-11-02: 52 `swapped-custody` pairs from block 461,784, each a pool of the holder keyed by its two tokens, and 225,885 swap rows from 2026-10-26 to 2026-11-02. On 2026-11-01 its trades were stock tokens (SNDK, SKHY, MU, MSTR, AMD, SPCX, USO, RDDT, DJT) against USDG, and some WETH and ETH; the first that day, `0x4e625db12c0affff1ab5634d587da84a0da4c474ab110d174b6c0cd6cd64887c` at block 102,958,054. Created at block 223,587 by `0xb97c121f7bf12bc21ed22b9739f3695bd2ab23a8`; no source is verified and no project names it. The market contracts have no row: each is one token's door, not a pool and not a router |
+| `0x7a39b98d31f84152bc724bc5ddb41dbcb338f2a5` | router | read on the production graph through the Chain Insights proxy on 2026-11-05 by scout-agent (finding 164): a contract with no label, created at block 105,000,018 (2026-11-03) by `0xf90e3e4f5b23b2ba5a53e7c72ccac139e0ff1c1b` in `0x3561086bf317b231da030bff5367f6213afdeb01724f990c1d4dc2bbed06d982`, below the DEX head 106,440,927. About 500 wallets call it directly with ETH and USDG `0x5fc5360d0400a0fd4f2af552add042d716f1d168`: 500 senders, 495 receivers, 19,962 transactions in and 21,858 out. It wraps and unwraps WETH `0x0bd7d308f8e1639fab988df18a8011f41eacad73` and swaps in the Uniswap v3 WETH/USDG pool `0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca` (7,041 transactions) and, for some trades, the Uniswap v4 PoolManager `0x8366a39cc670b4001a1121b8f6a443a643e40951`. Its `SWAPPED` links reach its callers through the pool, so the caller stays the trader. Sample call `0x4e675f9318bfced710a7c2072662701beb4662a6b61fcf57a608ac84fdbeae18` (block 106,301,475) from `0x7b6830c4f01d976d9a344febdf3588d99a23dfd0`, ETH value, 12 logs. No source is verified and no project names it |
 
 `0x0d1ebb179cdbca88d74c923c4255cb2b17474afd` created 254,650 `uniswap-v2`
 pairs with 38 USD of volume in all: the Flap launchpad's pair factory per
@@ -136,3 +139,15 @@ one reserve holder (`swapped-custody`). The adapter ids keep the indexer's
 words: the indexer named `hoodclub` and `mob` after token symbols, and
 neither is a cited exchange name. Only the native-ETH launchpad carries a pool floor; its count is the
 lowest proven, one pool.
+
+Registry version 5 (2026-11-05) serves the swap router of scout-agent
+finding 164: an unnamed ETH/USDG router, `eth-usdg-router`, that about 500
+wallets call directly and that swaps in Uniswap v3 and Uniswap v4 pools. No
+source names its operator, so it is served under a plain description. The
+review rule refuses an exchange with router rows only, so the key also
+carries a factory row for the Uniswap v3 factory
+`0x1f7d7550b1b028f7571e69a784071f0205fd2efa`, valid from the router's
+creation block. The example pool is the pool the router swaps in, the
+Uniswap v3 WETH/USDG pool `0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca`.
+That factory stays Uniswap v3's: a lookup of its address still answers
+Uniswap v3, the first exchange that names it.

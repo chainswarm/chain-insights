@@ -1,8 +1,8 @@
 {
   "schema": "chain-insights.dex-registry.v1",
   "network": "robinhood",
-  "registry_version": 4,
-  "recorded_on": "2026-11-02",
+  "registry_version": 5,
+  "recorded_on": "2026-11-05",
   "rows": [
     {
       "dex": "aero",
@@ -308,6 +308,33 @@
       "pool_floor": 200000,
       "since_block": 0,
       "source": "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-robinhood-chain-deployments"
+    },
+    {
+      "dex": "eth-usdg-router",
+      "display": "unnamed ETH/USDG swap router (routes into Uniswap v3 and v4)",
+      "aliases": [
+        "ETH/USDG router",
+        "ETH/USDG swap router",
+        "USDG swap router"
+      ],
+      "trail_type": "plain",
+      "adapters": [
+        "uniswap-v3"
+      ],
+      "roles": {
+        "0x1f7d7550b1b028f7571e69a784071f0205fd2efa": "factory",
+        "0x7a39b98d31f84152bc724bc5ddb41dbcb338f2a5": "router"
+      },
+      "factories": [
+        "0x1f7d7550b1b028f7571e69a784071f0205fd2efa"
+      ],
+      "routers": [
+        "0x7a39b98d31f84152bc724bc5ddb41dbcb338f2a5"
+      ],
+      "example_pool": "0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca",
+      "pool_floor": null,
+      "since_block": 105000018,
+      "source": "https://github.com/chainswarm/scout-agent/issues/164"
     },
     {
       "dex": "uniswap-v4",

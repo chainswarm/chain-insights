@@ -85,7 +85,7 @@ hand. When the tool and the memo differ, follow the tool: it reads the
 newest file.
 
 <!-- dex-registry:start -->
-Memo of the exchange registry, version 4, robinhood, recorded 2026-11-02.
+Memo of the exchange registry, version 5, robinhood, recorded 2026-11-05.
 
 | Exchange | Key | Also written | Trail | Factories, or the manager | Router |
 |---|---|---|---|---|---|
@@ -100,6 +100,7 @@ Memo of the exchange registry, version 4, robinhood, recorded 2026-11-02.
 | SwapHood | `swaphood` | SwapHood, SwapHood Finance, SWT, swaphood.finance | gauge | `0xe7206ecac3a51afe7e6179182ad4130a26068dd1` | `0x8f8056fec03159ebcc4aee1b8ea5a61d8fe405fc` |
 | Uniswap v2 | `uniswap-v2` | Uniswap v2, Uni v2 | plain | `0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f` | none |
 | Uniswap v3 | `uniswap-v3` | Uniswap v3, Uni v3 | plain | `0x1f7d7550b1b028f7571e69a784071f0205fd2efa` | none |
+| unnamed ETH/USDG swap router (routes into Uniswap v3 and v4) | `eth-usdg-router` | ETH/USDG router, ETH/USDG swap router, USDG swap router | plain | `0x1f7d7550b1b028f7571e69a784071f0205fd2efa` | `0x7a39b98d31f84152bc724bc5ddb41dbcb338f2a5` |
 | Uniswap v4 | `uniswap-v4` | Uniswap, UNI, Uniswap v4, Uni v4, PoolManager | vault | manager `0x8366a39cc670b4001a1121b8f6a443a643e40951` | the manager |
 | PancakeSwap Infinity | `pancakeswap` | PancakeSwap, Pancake, CAKE, PancakeSwap Infinity | vault | manager `0xee04c68742e6bf434be8039580d2e89bbe55bc6f` | the manager |
 | PancakeSwap v2 | `pancakeswap-v2` | PancakeSwap v2, Pancake v2 | plain | `0x02a84c1b3bbd7401a5f7fa98a384ebc70bb5749e` | none |

@@ -86,7 +86,7 @@ describe('meta_dex_lookup for Aero, against the recorded batch', () => {
     const { result, structured } = await lookup({ network: 'robinhood', name: 'Aerodrome' })
     expect(result.isError).toBe(false)
     expect(structured.schema).toBe('chain-insights.meta-dex-lookup.v1')
-    expect(structured.registry_version).toBe(4)
+    expect(structured.registry_version).toBe(5)
     expect(structured.registry_source).toBe('packaged')
     const matched = structured.matched!
     expect(matched.dex).toBe('aero')
@@ -198,13 +198,13 @@ describe('meta_dex_lookup for Aero, against the recorded batch', () => {
 })
 
 describe('meta_dex_lookup without a graph read', () => {
-  it('says Kyber is not covered, lists the 34 covered exchanges, and sends no batch', async () => {
+  it('says Kyber is not covered, lists the 35 covered exchanges, and sends no batch', async () => {
     const { calls, lookup } = harness()
     const { structured } = await lookup({ network: 'robinhood', name: 'Kyber' })
     expect(calls).toHaveLength(0)
     expect(structured.matched).toBeNull()
     expect(structured.candidates).toEqual([])
-    expect(structured.covered).toHaveLength(34)
+    expect(structured.covered).toHaveLength(35)
     expect(structured.hint).toContain('Kyber is not covered. Send no query for the name')
   })
 
@@ -223,7 +223,7 @@ describe('meta_dex_lookup without a graph read', () => {
     const { calls, lookup } = harness()
     const { structured } = await lookup({ network: 'robinhood' })
     expect(calls).toHaveLength(0)
-    expect(structured.exchanges).toHaveLength(34)
+    expect(structured.exchanges).toHaveLength(35)
     expect(structured.exchanges![0]).toMatchObject({
       dex: 'aero',
       display: 'Aero (Aerodrome and Velodrome, merged)',
@@ -264,13 +264,33 @@ describe('meta_dex_lookup by address', () => {
     expect(structured.took_for).toBe('factory, served')
   })
 
+  // The ETH/USDG router (scout-agent finding 164) has no exchange name. Its row
+  // carries the Uniswap v3 factory because the registry refuses an exchange with
+  // router rows only; that factory still answers as Uniswap v3, the first row
+  // that names it.
+  it('answers the ETH/USDG router as its unnamed exchange, and the shared factory as Uniswap v3', async () => {
+    const { lookup } = harness()
+    const router = '0x7a39b98d31f84152bc724bc5ddb41dbcb338f2a5'
+    const viaRouter = (await lookup({ network: 'robinhood', address: router })).structured
+    expect(viaRouter.matched).toMatchObject({ dex: 'eth-usdg-router', trail_type: 'plain' })
+    expect(viaRouter.matched!.display).toBe(
+      'unnamed ETH/USDG swap router (routes into Uniswap v3 and v4)'
+    )
+    expect(viaRouter.took_for).toBe('router, served')
+    expect(viaRouter.matched!.routers.map((row) => row.address)).toEqual([router])
+    const viaFactory = (
+      await lookup({ network: 'robinhood', address: '0x1f7d7550b1b028f7571e69a784071f0205fd2efa' })
+    ).structured
+    expect(viaFactory.matched!.dex).toBe('uniswap-v3')
+  })
+
   it('answers an unknown address with no match and no read', async () => {
     const { calls, lookup } = harness()
     const unknown = '0x00000000000000000000000000000000000000aa'
     const { structured } = await lookup({ network: 'robinhood', address: unknown })
     expect(structured.matched).toBeNull()
     expect(structured.candidates).toEqual([])
-    expect(structured.covered).toHaveLength(34)
+    expect(structured.covered).toHaveLength(35)
     expect(structured.hint).toContain(`No exchange row holds ${unknown}: it is not a registered exchange contract.`)
     expect(calls).toHaveLength(0)
   })
@@ -297,7 +317,7 @@ describe('meta_dex_lookup by address', () => {
 })
 
 describe('the reads of every exchange', () => {
-  it('stay anchored and within one batch for all 34 rows', () => {
+  it('stay anchored and within one batch for all 35 rows', () => {
     for (const entry of document.rows) {
       const queries = lookupQueries(entry, true)
       expect(queries.length, entry.dex).toBeLessThanOrEqual(20)

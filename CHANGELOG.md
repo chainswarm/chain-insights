@@ -3,6 +3,26 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.77.2] - 2026-11-05 — the ETH/USDG swap router is a known router
+
+### Added
+
+- `meta_dex_lookup` names the swap router
+  `0x7a39b98d31f84152bc724bc5ddb41dbcb338f2a5`, which about 500 wallets call
+  directly with ETH and USDG, as `eth-usdg-router`, the unnamed ETH/USDG swap
+  router that routes into Uniswap v3 and v4 (scout-agent finding 164). A
+  customer who asks about the address now hears it is an exchange router,
+  not an unnamed contract. Its swaps were already decoded and priced.
+  Registry version 5, recorded 2026-11-05.
+- No source names the router's operator, so the row carries a plain
+  description and no brand. The registry refuses an exchange with router
+  rows only, so the row also names the Uniswap v3 factory
+  `0x1f7d7550b1b028f7571e69a784071f0205fd2efa`, whose pool
+  `0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca` it swaps in. A lookup of that
+  factory still answers Uniswap v3.
+- Two evals: the router by name, and the router by its address with the
+  pool it swaps in.
+
 ## [0.77.1] - 2026-11-05 — drainer, sweeper and phantom reads by claim
 
 ### Changed
