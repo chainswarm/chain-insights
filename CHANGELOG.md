@@ -3,6 +3,14 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.78.1] - 2026-11-05 — the Uniswap v2 router in the lookup
+
+### Added
+
+- `meta_dex_lookup` answers for Uniswap's v2 router
+  `0x89e5db8b5aa49aa85ac63f691524311aeb649eba`, registry version 7. The
+  scout digest of 2026-11-05 named it as a router with no exchange row.
+
 ## [0.78.0] - 2026-11-05 — six more exchanges and their helper contracts in the lookup
 
 ### Added
