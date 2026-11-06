@@ -3,6 +3,21 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.79.0] - 2026-11-06 — who is behind a token: the deployer screen
+
+### Added
+
+- `aml_deployer_screen {network, address}`, a local tool of the MCP proxy. Give
+  it a token contract or a wallet and it returns who is behind it, as facts:
+  the creation transaction and the launcher (the wallet that sent it), the
+  launcher's first funder of all time and what kind of wallet that funder is
+  (wallet, contract, bridge, bundler, launchpad, exchange, mixer, scam), how many
+  addresses the funder ever paid, the sanctions, scam, victim and risk labels
+  on each, and the first inbound bridge deposit. It never returns a score or a
+  verdict. `not_covered` names what the graph cannot see yet. One
+  `graph_query_batch` of two anchored topology reads, billed as any read.
+  `cia mcp call aml_deployer_screen` runs it in a terminal.
+
 ## [0.78.2] - 2026-11-06 — two unnamed venues on the registry
 
 ### Changed

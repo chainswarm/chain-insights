@@ -108,6 +108,7 @@ Never touches:
 | `meta_schema`               | Read the live graph schema of a network: labels, link types, fields, indexes       |
 | `meta_dex_lookup`           | Turn an exchange name (Aero, Uniswap, Virtuals) into its contracts, pools, reads   |
 | `meta_token_lookup`         | Turn a ticker or a token name (TCITY, USDG) into every contract that carries it    |
+| `aml_deployer_screen`       | Screen who is behind a token or a wallet: launcher, first funder, labels           |
 | `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                           |
 | `meta_subscription_status`  | Check your wallet's subscription: days left, today's allowance, payments pending   |
 | `meta_rules`                | Read the answer rules when the `chain-insights-cypher` skill is not loaded         |

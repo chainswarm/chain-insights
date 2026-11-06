@@ -45,6 +45,8 @@ export const PUBLIC_MCP_TOOL_ALLOWED_ARGS: Record<string, string[]> = {
   meta_dex_lookup: ['network', 'name', 'address', 'pools'],
   // A local tool of the proxy (src/mcp/token-lookup.ts): the contracts of a ticker.
   meta_token_lookup: ['network', 'symbol'],
+  // A local tool of the proxy (src/mcp/deployer-screen.ts): who is behind a token or a wallet.
+  aml_deployer_screen: ['network', 'address'],
 }
 
 export function isHiddenRemoteToolName(name: string): boolean {

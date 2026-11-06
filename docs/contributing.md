@@ -14,8 +14,10 @@ node bin/cli.js --help
 
 ## Adding AML Tools
 
-No AML tool lives in the Chain Insights layer today. `aml_address_risk` is
-hidden until its verdict is fixed.
+One AML tool lives in the Chain Insights layer today: `aml_deployer_screen`, a
+local tool of the MCP proxy that returns facts about who is behind a token or
+a wallet, never a score. `aml_address_risk` is hidden until its verdict is
+fixed.
 
 When adding a tool, document:
 

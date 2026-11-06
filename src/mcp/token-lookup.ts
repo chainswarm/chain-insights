@@ -175,10 +175,10 @@ function answerText(answer: GraphAnswer): string {
     .trim()
 }
 
-type Refusal = { code: string; text: string; transient: boolean }
+export type Refusal = { code: string; text: string; transient: boolean }
 
 /** A graph_query answer that did not answer: its code, its text, and whether the same read may answer later. */
-function refusalOf(answer: GraphAnswer): Refusal {
+export function refusalOf(answer: GraphAnswer): Refusal {
   const text = answerText(answer)
   const detail = isRecord(answer.structuredContent)
     ? answer.structuredContent.error_detail
@@ -201,9 +201,10 @@ function rowsOf(answer: GraphAnswer): Array<Record<string, unknown>> | null {
   return Array.isArray(results) ? results.filter(isRecord) : null
 }
 
-type Member = { id?: unknown; ok?: unknown; results?: unknown; error?: unknown }
+export type Member = { id?: unknown; ok?: unknown; results?: unknown; error?: unknown }
 
-function membersOf(answer: GraphAnswer): Map<string, Member> {
+/** The members of a graph_query_batch answer by id. */
+export function membersOf(answer: GraphAnswer): Map<string, Member> {
   const facts = isRecord(answer.structuredContent) ? answer.structuredContent.facts : undefined
   const queries = isRecord(facts) ? facts.queries : undefined
   const members = new Map<string, Member>()
