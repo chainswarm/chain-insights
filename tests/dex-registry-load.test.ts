@@ -89,7 +89,7 @@ describe('loadRegistry', () => {
     const first = await loadRegistry('robinhood', { env: env(OFFLINE), log })
     expect(Date.now() - started).toBeLessThan(3_000)
     expect(first.source).toBe('packaged')
-    expect(first.document.registry_version).toBe(7)
+    expect(first.document.registry_version).toBe(8)
     expect(first.document.rows).toHaveLength(40)
     expect(lines).toHaveLength(1)
     expect(lines[0]).toMatch(/127\.0\.0\.1:1\/robinhood\.json unreachable/)
@@ -155,7 +155,7 @@ describe('loadRegistry', () => {
     writeCache({ registry_version: 1, cached_at_ms: Date.now(), checked_at_ms: Date.now() })
     const loaded = await loadRegistry('robinhood', { env: env(OFFLINE), log })
     expect(loaded.source).toBe('packaged')
-    expect(loaded.document.registry_version).toBe(7)
+    expect(loaded.document.registry_version).toBe(8)
   })
 
   it('shares one fetch between two calls at once', async () => {

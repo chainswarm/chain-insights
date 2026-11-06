@@ -86,7 +86,7 @@ describe('meta_dex_lookup for Aero, against the recorded batch', () => {
     const { result, structured } = await lookup({ network: 'robinhood', name: 'Aerodrome' })
     expect(result.isError).toBe(false)
     expect(structured.schema).toBe('chain-insights.meta-dex-lookup.v1')
-    expect(structured.registry_version).toBe(7)
+    expect(structured.registry_version).toBe(8)
     expect(structured.registry_source).toBe('packaged')
     const matched = structured.matched!
     expect(matched.dex).toBe('aero')
