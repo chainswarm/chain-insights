@@ -22,7 +22,7 @@ flowchart LR
 
 | File | Rows served | Why |
 |---|---|---|
-| [robinhood.md](robinhood.md) | 83 | registry version 6, recorded 2026-11-05; the `dyor` row and the Ekubo positions row are not served |
+| [robinhood.md](robinhood.md) | 84 | registry version 8, recorded 2026-11-06; the `dyor` row, the Ekubo positions row, the quoted stock-token market and the USDG raise launchpad are not served |
 | [robinhood.json](robinhood.json) | 40 exchanges | the served copy of `robinhood.md`, never edited by hand |
 
 A change to the rows merged on `main` reaches every running proxy within one
