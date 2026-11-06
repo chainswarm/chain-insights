@@ -868,12 +868,15 @@ const mcpCommand = program
             await import('./mcp/dex-tool.js')
           const { META_TOKEN_LOOKUP_DESCRIPTION, META_TOKEN_LOOKUP_TITLE, META_TOKEN_LOOKUP_TOOL } =
             await import('./mcp/token-lookup.js')
+          const { AML_DEPLOYER_SCREEN_DESCRIPTION, AML_DEPLOYER_SCREEN_TITLE, AML_DEPLOYER_SCREEN_TOOL } =
+            await import('./mcp/deployer-screen.js')
           console.log('')
           console.log(
             formatToolsTable(
               [
                 { name: META_DEX_LOOKUP_TOOL, description: `${META_DEX_LOOKUP_TITLE}. ${META_DEX_LOOKUP_DESCRIPTION}` },
                 { name: META_TOKEN_LOOKUP_TOOL, description: `${META_TOKEN_LOOKUP_TITLE}. ${META_TOKEN_LOOKUP_DESCRIPTION}` },
+                { name: AML_DEPLOYER_SCREEN_TOOL, description: `${AML_DEPLOYER_SCREEN_TITLE}. ${AML_DEPLOYER_SCREEN_DESCRIPTION}` },
               ],
               'Local proxy tool'
             )
@@ -957,6 +960,25 @@ mcpCommand.addCommand(
                 (await client.callTool({ name: 'graph_query_batch', arguments: batchArgs })) as Answer,
               describeFailure: (err) => (err as Error).message,
             })
+          )
+          console.log(result.content[0]?.text ?? '')
+          if (result.isError) process.exitCode = 1
+          return
+        }
+
+        if (tool === 'aml_deployer_screen') {
+          // The proxy's local tool, run here with the CLI's own graph session.
+          const { handleAmlDeployerScreen } = await import('./mcp/deployer-screen.js')
+          type Answer = { content?: unknown[]; structuredContent?: unknown; isError?: boolean }
+          const result = await withGraphMcpClient('chain-insights-cli-deployer-screen', (client) =>
+            handleAmlDeployerScreen(
+              { network: args['network'], address: args['address'] },
+              {
+                graphQueryBatch: async (batchArgs) =>
+                  (await client.callTool({ name: 'graph_query_batch', arguments: batchArgs })) as Answer,
+                describeFailure: (err) => (err as Error).message,
+              }
+            )
           )
           console.log(result.content[0]?.text ?? '')
           if (result.isError) process.exitCode = 1

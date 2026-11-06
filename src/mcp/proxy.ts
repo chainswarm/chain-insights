@@ -74,6 +74,13 @@ import {
   type GraphAnswer,
   type TokenToolDependencies,
 } from './token-lookup.js'
+import {
+  AML_DEPLOYER_SCREEN_ANNOTATIONS,
+  AML_DEPLOYER_SCREEN_DESCRIPTION,
+  AML_DEPLOYER_SCREEN_TITLE,
+  AML_DEPLOYER_SCREEN_TOOL,
+  handleAmlDeployerScreen,
+} from './deployer-screen.js'
 
 export const LOCAL_TOOL_NAMES = new Set([
   'meta_network_capabilities',
@@ -84,6 +91,7 @@ export const LOCAL_TOOL_NAMES = new Set([
   'meta_rules',
   META_DEX_LOOKUP_TOOL,
   META_TOKEN_LOOKUP_TOOL,
+  AML_DEPLOYER_SCREEN_TOOL,
   'wallet_balance',
   'wallet_topup',
   SUBSCRIPTION_TOPUP_TOOL,
@@ -183,6 +191,7 @@ export const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   meta_schema: META_SCHEMA_DESCRIPTION,
   [META_DEX_LOOKUP_TOOL]: META_DEX_LOOKUP_DESCRIPTION,
   [META_TOKEN_LOOKUP_TOOL]: META_TOKEN_LOOKUP_DESCRIPTION,
+  [AML_DEPLOYER_SCREEN_TOOL]: AML_DEPLOYER_SCREEN_DESCRIPTION,
   meta_usage_status: "Return the caller's public free graph_query quota for the current UTC day.",
   meta_subscription_status: META_SUBSCRIPTION_STATUS_DESCRIPTION,
   meta_help: 'Show a short guide to Chain Insights tools and workflow.',
@@ -1346,6 +1355,27 @@ export async function createProxy(): Promise<void> {
     async (args) => handleMetaTokenLookup(args, tokenDependencies)
   )
 
+  // aml_deployer_screen: a token or a wallet becomes the facts of who is behind
+  // it: the launcher, its first funder and what kind of wallet that is, their
+  // labels and the first inbound bridge deposit. One topology batch, billed as
+  // any read. Facts only: no score and no verdict.
+  server.registerTool(
+    AML_DEPLOYER_SCREEN_TOOL,
+    {
+      title: AML_DEPLOYER_SCREEN_TITLE,
+      description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS[AML_DEPLOYER_SCREEN_TOOL],
+      inputSchema: {
+        network: NETWORK_SCHEMA,
+        address: z
+          .string()
+          .min(1)
+          .describe('The token contract or the wallet to screen: 0x plus 40 hex characters, any case. A ticker is not an address: call meta_token_lookup first.'),
+      },
+      annotations: AML_DEPLOYER_SCREEN_ANNOTATIONS,
+    },
+    async (args) => handleAmlDeployerScreen(args, tokenDependencies)
+  )
+
   // One reader for the tool and for the browser page's free-credits meter.
   const readUsageStatus = async () => {
       try {
@@ -1670,6 +1700,7 @@ export async function createProxy(): Promise<void> {
                 '- meta_schema: read the live graph schema of one network: labels, link types and field names. Cached for 24 hours.',
                 '- meta_dex_lookup: turn an exchange name (Aero, Uniswap, Virtuals) into its factories, routers, pools and first reads. Call it first when a question names an exchange and gives no address.',
                 '- meta_token_lookup: turn a ticker or a token name (TCITY, USDG) into every contract that carries it, with its creator. Call it first when a question names a token and gives no contract; tickers collide.',
+                '- aml_deployer_screen: who is behind a token or a wallet, as facts: the launcher, its first funder and what kind of wallet that is, their labels and the first inbound bridge deposit. No score, no verdict.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
                 '- meta_subscription_status: check the subscription of the local wallet: window, days left, daily allowance and use, and payments not credited yet.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
@@ -1692,6 +1723,7 @@ export async function createProxy(): Promise<void> {
                 '- meta_schema: read the live graph schema of one network: labels, link types and field names. Cached for 24 hours.',
                 '- meta_dex_lookup: turn an exchange name (Aero, Uniswap, Virtuals) into its factories, routers, pools and first reads. Call it first when a question names an exchange and gives no address.',
                 '- meta_token_lookup: turn a ticker or a token name (TCITY, USDG) into every contract that carries it, with its creator. Call it first when a question names a token and gives no contract; tickers collide.',
+                '- aml_deployer_screen: who is behind a token or a wallet, as facts: the launcher, its first funder and what kind of wallet that is, their labels and the first inbound bridge deposit. No score, no verdict.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
                 '- meta_subscription_status: check the subscription of the local wallet: window, days left, daily allowance and use, and payments not credited yet.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',

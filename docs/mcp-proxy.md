@@ -83,6 +83,7 @@ The proxy:
 | `meta_schema`               | Show the live graph schema of a network: labels, link types, fields, indexes         |
 | `meta_dex_lookup`           | Turn an exchange name into its factories, routers or manager, pools and first reads  |
 | `meta_token_lookup`         | Turn a ticker or a token name into every contract that carries it, with its creator  |
+| `aml_deployer_screen`       | Screen who is behind a token or a wallet: launcher, first funder, labels, facts only |
 | `meta_rules`                | Read the answer rules when the `chain-insights-cypher` skill is not loaded           |
 | `meta_help`                 | Show Chain Insights tool and workflow guidance                                       |
 | `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                             |
@@ -158,6 +159,52 @@ already an anchor, read it on `USE topology`. A server that does not serve the
 the contract. Both reads are billed as any read.
 `cia mcp call meta_token_lookup network=robinhood symbol=TCITY` runs the same
 lookup in a terminal.
+
+`aml_deployer_screen` screens who is behind a token or a wallet. It takes
+`network` and `address` (both required; `address` is a token contract or a
+wallet, 0x plus 40 hex characters, any case). It returns facts only: never a
+score, a risk level or a verdict. The caller decides.
+
+```mermaid
+flowchart LR
+    F["first funder<br/>kind, labels, how many it paid"] -->|"first inbound flow"| L["launcher<br/>the creation sender"]
+    C["remote chain"] -->|"first bridge deposit"| L
+    L -->|"creation transaction"| T["token contract"]
+```
+
+1. One `graph_query_batch` sends two reads on `USE topology`, both anchored on
+   the address. The `token` read takes the address as a contract: its first
+   creation, and the launcher, the wallet that sent the creation transaction.
+   The `wallet` read takes the address as the launcher itself. Both read the
+   launcher's first inbound flow of all time (its first funder) and its first
+   inbound bridge deposit.
+2. When the `token` read holds a row, `input_kind` is `token` and `creation`
+   names the transaction, block, time, deployer, factory and `mode`
+   (`direct` or `factory`). Otherwise the `wallet` read answers and
+   `input_kind` is `wallet`. When neither holds a row, `found` is false: the
+   graph holds no node for the address. That is an answer, not an error.
+3. `launcher` and `first_funder` carry their roles (the graph labels), their
+   first activity, their degree (how many distinct addresses they received
+   from or paid) and `crime`: the sanctions, scam, victim and issuer-frozen
+   marks, and each risk label with its level. `first_funder.kind` is the
+   first of `scam`, `mixer`, `exchange`, `bridge`, `bundler`, `launchpad` (a
+   pool or a protocol), `contract` (a contract with no other role) that its
+   roles name, or `wallet`. It also carries
+   when and how often it paid the launcher, and the value in USD.
+4. `launcher_resolved` is false when the launcher is a bundler: a bundler sends
+   transactions for others, so the person behind the launch is not known.
+5. `bridged_in` names the first inbound bridge deposit: the remote chain, the
+   bridge endpoint, the kind, the asset and the first block.
+6. `not_covered` lists what the graph cannot see yet: `exploit_labels`,
+   `ml_labels`, `bridge_sender` (who sent a bridge deposit on the other chain)
+   and `ethereum_history`.
+
+A fresh launcher funded by a wallet that paid few addresses is the pattern to
+look at. A funder that paid thousands is shared infrastructure, such as a
+bridge or an exchange. Every timestamp has its `_utc` text twin. A failed read
+is an error that says it is not "not found". The batch is billed as any read.
+`cia mcp call aml_deployer_screen network=robinhood address=0x...` runs the
+same screen in a terminal.
 
 ## Host parity
 

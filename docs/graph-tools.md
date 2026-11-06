@@ -29,9 +29,14 @@ each network's remote tools.
 Use `cia mcp call` for low-level GraphRAG calls and custom read-only queries.
 
 The Chain Insights MCP proxy adds the local tools `meta_network_capabilities`,
-`meta_schema`, `meta_rules`, `meta_help`, `meta_usage_status`,
+`meta_schema`, `meta_dex_lookup`, `meta_token_lookup`, `aml_deployer_screen`,
+`meta_rules`, `meta_help`, `meta_usage_status`,
 `meta_subscription_status`, `wallet_balance`, `wallet_topup` and
-`subscription_topup`. On hosted
+`subscription_topup`. `aml_deployer_screen` screens who is behind a token or a
+wallet from two anchored topology reads: the launcher, its first funder and
+what kind of wallet that is, their labels and the first inbound bridge
+deposit. It returns facts only, never a score; see
+[MCP proxy](mcp-proxy.md#local-tools). On hosted
 backends, `meta_usage_status` can reflect remote quota telemetry. On
 backends without a quota tool, Chain Insights returns a local unmetered
 primitive-backend status instead.
