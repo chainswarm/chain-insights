@@ -3,6 +3,14 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.79.1] - 2026-11-06 — the exchange registry names only what is served
+
+### Changed
+
+- `registry/robinhood.md` holds served rows only, and `scripts/pin-dex-registry.mjs`
+  refuses any other row. No served row changes; `registry/robinhood.json` stays at
+  version 8.
+
 ## [0.79.0] - 2026-11-06 — who is behind a token: the deployer screen
 
 ### Added

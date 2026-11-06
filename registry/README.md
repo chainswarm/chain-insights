@@ -22,7 +22,7 @@ flowchart LR
 
 | File | Rows served | Why |
 |---|---|---|
-| [robinhood.md](robinhood.md) | 84 | registry version 8, recorded 2026-11-06; the `dyor` row, the Ekubo positions row, the quoted stock-token market and the USDG raise launchpad are not served |
+| [robinhood.md](robinhood.md) | 84 | registry version 8, recorded 2026-11-06 |
 | [robinhood.json](robinhood.json) | 40 exchanges | the served copy of `robinhood.md`, never edited by hand |
 
 A change to the rows merged on `main` reaches every running proxy within one
@@ -42,8 +42,8 @@ hour. No release is needed for a data change.
      vault, where the manager stays the contract past the swap. The chain or
      its verified source must tie it to the exchange.
    Write the check into the file's `## Verification` section.
-3. **An unchecked row stays in the table.** Its verification cell says
-   `not served:` and the reason. It is served later, when a check passes.
+3. **An unchecked exchange has no row.** A row enters the table when its support
+   is serving and its check passes. Its facts wait on an AP1000 issue until then.
 4. **The chain wins over the source.** When the chain shows a different
    factory or block than the source, the row follows the chain and the file
    says so.
@@ -70,7 +70,7 @@ The `## Rows` table has twelve columns, in this order.
 | example pool | optional: one pool of the exchange, read live by the release suite. Empty or `-` when not given |
 | pool floor | optional: the least number of pools the exchange must show on a lane. Empty or `-` when not given |
 | source link | the one link that confirms the row, as `[text](https://…)` |
-| verification | `served`, or `not served:` and the reason |
+| verification | `served` |
 
 Each network file states `Registry version: N`. Bump it in every change to
 the rows. Each file also states `Recorded on: YYYY-MM-DD`, the day of the
@@ -108,7 +108,7 @@ pull request:
 node scripts/pin-dex-registry.mjs --check registry/robinhood.md
 ```
 
-It prints `rows: N served, M refused, K not served` and
+It prints `rows: N served, M refused` and
 `registry/robinhood.json up to date, registry version V`. It exits 1 when a
 row is refused or the committed copy differs, and names both versions.
 
