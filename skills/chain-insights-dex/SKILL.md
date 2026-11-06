@@ -85,7 +85,7 @@ hand. When the tool and the memo differ, follow the tool: it reads the
 newest file.
 
 <!-- dex-registry:start -->
-Memo of the exchange registry, version 7, robinhood, recorded 2026-11-05.
+Memo of the exchange registry, version 8, robinhood, recorded 2026-11-06.
 
 | Exchange | Key | Also written | Trail | Factories, or the manager | Router |
 |---|---|---|---|---|---|
