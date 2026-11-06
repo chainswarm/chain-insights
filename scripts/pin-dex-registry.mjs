@@ -178,10 +178,9 @@ export function validate(rows) {
   const candidates = []
   const refused = []
   const seen = new Set()
-  let notServed = 0
   for (const row of rows) {
     if (!row.malformed && !row['verification'].startsWith('served')) {
-      notServed += 1
+      refused.push(['verification is not served: a row enters when its support is serving', rowLabel(row)])
       continue
     }
     const [reason, parsed] = checkRow(row)
@@ -224,7 +223,7 @@ export function validate(rows) {
     }
     for (const row of mine) served.push({ ...row, dex_aliases: aliases })
   }
-  return { served, refused, notServed }
+  return { served, refused }
 }
 
 /** The served copy of the served rows, in the shape of chain-insights.dex-registry.v1. */
@@ -291,7 +290,7 @@ export function checkRegistry(path) {
   const registry = readRegistry(path)
   const { checked } = registry
   const lines = [
-    `rows: ${checked.served.length} served, ${checked.refused.length} refused, ${checked.notServed} not served`,
+    `rows: ${checked.served.length} served, ${checked.refused.length} refused`,
   ]
   for (const reason of REFUSAL_REASONS) {
     for (const [found, label] of checked.refused)
