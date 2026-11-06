@@ -74,8 +74,8 @@ read: a token launched there, such as Mob, is never the launchpad's name.
 5. **The first pool** (L3): the launched contract's `ADDED_LIQUIDITY` links
    into a `:Pool`, oldest first. The first one is the graduation: the curve's
    money moved into an exchange pool.
-6. When L3 is empty, say the graduation is not in the graph yet. Never guess
-   a pool from the token's name.
+6. When L3 is empty, no liquidity link shows a graduation: say that plainly.
+   Never guess a pool from the token's name.
 7. After graduation the token trades on that pool. Load `chain-insights-dex`
    for the pool's exchange and its trail.
 
@@ -101,12 +101,9 @@ indexer finds them by their shape, with one rule for every operator:
 - **No name, no row.** `meta_dex_lookup` with F's address answers
   `matched: null`. For F that means "no exchange row", not "no data": read
   the graph below. Never give F a name you have not read.
-- **What the graph holds today.** The launches are rows of the rule
-  `v4-launch-factory-v1` in the warehouse. The graph does not mark F yet:
-  no `:Launchpad`, no `:Pool`, no rule name in its `labels`. The
-  `:Launchpad` mark for a factory of two launches or more is coming in the
-  graph's pools layer. Until a read of F shows it, do not ask by mark for
-  F: read the shape from its links.
+- **The mark.** A factory of two launches or more carries `:Launchpad` and
+  `:Protocol`, with the word `Launchpad` in `labels` and no name. A contract
+  of one launch does not.
 
 1. **The launches**: L1, anchored on F. Each `DEPLOYED_CONTRACT` link is a
    contract F created. Count the tokens to say whether F is a launchpad.
@@ -118,8 +115,8 @@ indexer finds them by their shape, with one rule for every operator:
    pool manager by a 32-byte pool id. It is not a contract of its own: say
    "a pool of the Uniswap v4 pool manager". Read the id from `pools` on a
    `SWAPPED` link that sold or bought the token, anchored on the creator.
-   When no such link shows, say the graph does not serve that pool id yet.
-   The creator and the launch transaction still answer who launched it.
+   When no such link shows, leave the pool out. The creator and the launch
+   transaction still answer who launched it.
 4. **The trades** are ordinary Uniswap v4 swaps on the pool manager. Load
    `chain-insights-dex-vault` and follow its trail. The pool manager is
    never the buyer, and no topology hop goes out of it.
