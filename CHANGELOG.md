@@ -3,6 +3,15 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.78.2] - 2026-11-06 — two unnamed venues on the registry
+
+### Changed
+
+- Registry version 8 adds rows for the quoted stock-token market
+  `0x9d9806fe54de0dca35eb6839374d2222aca3c967` and the USDG raise launchpad
+  `0xe631942cc960f4058290ed1419ebbaa5e4749386`. Neither is served yet, so
+  `meta_dex_lookup` answers as before. Scout-agent #183 and #184.
+
 ## [0.78.1] - 2026-11-05 — the Uniswap v2 router in the lookup
 
 ### Added
