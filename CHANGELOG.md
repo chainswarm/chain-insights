@@ -11,6 +11,22 @@ All notable changes to Chain Insights are recorded here.
   refuses any other row. No served row changes; `registry/robinhood.json` stays at
   version 8.
 
+## [0.79.2] - 2026-11-06 — a copied token name is not a scam
+
+### Changed
+
+- `FAKE_TOKEN` now means two things, by the list it sits in, and every host
+  is told so: the `graph_query` description, the server instructions, the
+  `chain-insights-cypher` skill and the graph guides. On `:Scam`, in
+  `risk_claims`, it is a fake-token scam with a proven act: the token was sent
+  to holders of the real token, or used as poisoning bait. In
+  `suspect_labels`, with no mark, it is a copied name: a token that copies the
+  name of a listed token, a record that accuses nobody and is never called a
+  scam. A fake-token list asks both, `MATCH (a:Scam) WHERE "FAKE_TOKEN" IN
+  a.risk_claims` and `MATCH (a:Token) WHERE "FAKE_TOKEN" IN a.suspect_labels`,
+  and keeps them apart. `FAKE_TOKEN_DEPLOYER` names the sender of the
+  transaction that created a fake-token scam, even through a factory.
+
 ## [0.79.0] - 2026-11-06 — who is behind a token: the deployer screen
 
 ### Added
