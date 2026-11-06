@@ -412,13 +412,16 @@ not yet proven to have lost money) and `:OnMoneyTrail` (on the trail the
 evidence walk followed from an accused address). Beside the marks, sorted
 lists say why: `risk_claims` on `:Scam`, `:Poisoned` and `:Sanctioned`,
 `protection_claims` on `:Victim` and `:Targeted`, `traced_claims` on
-`:OnMoneyTrail`, and `suspect_labels` for an address that used a mixer pool.
+`:OnMoneyTrail`, and `suspect_labels` for a warning or a record that accuses
+nobody: an address that used a mixer pool, or a token that copies a listed
+token's name (`FAKE_TOKEN` there is a copied name, never a scam).
 The values and their meaning are in
 [Graph tools](graph-tools.md#judgement-marks-and-their-claims).
 
 | Form                                                          | Result                                   |
 | ------------------------------------------------------------- | ---------------------------------------- |
 | `MATCH (a:Scam) WHERE "FAKE_TOKEN" IN a.risk_claims RETURN a.address, a.risk_claims LIMIT 25` | ✅ the mark is the anchor |
+| `MATCH (a:Token) WHERE "FAKE_TOKEN" IN a.suspect_labels RETURN a.address, a.suspect_labels LIMIT 25` | ✅ the mark is the anchor |
 | `MATCH (a:Address {address: "0x1111111111111111111111111111111111111111"}) RETURN a.protection_claims LIMIT 1` | ✅ anchored on one address                |
 | `MATCH (a:Address) WHERE "FAKE_TOKEN" IN a.risk_claims`         | refused: no mark and no address          |
 
