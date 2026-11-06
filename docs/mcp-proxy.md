@@ -154,9 +154,8 @@ never picks one.
 
 Zero candidates is an answer: no contract on the network carries the symbol
 or the name. A contract address sent as `symbol` sends no read: an address is
-already an anchor, read it on `USE topology`. A server that does not serve the
-`Asset` read yet answers with no candidates and a `hint` to ask the user for
-the contract. Both reads are billed as any read.
+already an anchor, read it on `USE topology`. When the `Asset` read is refused, the
+tool answers with no candidates and a `hint` to ask the user for the contract. Both reads are billed as any read.
 `cia mcp call meta_token_lookup network=robinhood symbol=TCITY` runs the same
 lookup in a terminal.
 

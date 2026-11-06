@@ -3,6 +3,15 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.79.2] - 2026-11-06 — the launchpad skill answers what the graph holds
+
+### Changed
+
+- `chain-insights-dex-launchpad` drops its stale note that the graph does not
+  mark a launch factory: a factory of two launches or more carries `:Launchpad`.
+  The skill and the token lookup's hint no longer tell a reader what the server
+  lacks. They say what to do instead.
+
 ## [0.79.1] - 2026-11-06 — the exchange registry names only what is served
 
 ### Changed

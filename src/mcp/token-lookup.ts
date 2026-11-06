@@ -431,7 +431,7 @@ export async function handleMetaTokenLookup(
       total: 0,
       truncated: false,
       hint:
-        `${ANSWER_HINT} This Chain Insights server does not serve the token lookup yet (${read.refusal.code}). ` +
+        `${ANSWER_HINT} This lookup gave no answer (${read.refusal.code}). ` +
         `That is not "no contract carries ${symbol}": ask the user for the token's contract, 0x plus 40 hex characters. ${NO_WEB}`,
     })
   }
