@@ -8,6 +8,7 @@ import {
   ADDRESS_SAMPLE_LIMIT,
   FACTS_TRANSFER_COLUMNS,
   GraphSchemaError,
+  EXCHANGE_SCHEMA_NOTE,
   SAMPLED_LINK_TYPES,
   addressSampleQuery,
   buildGraphSchema,
@@ -87,6 +88,10 @@ function refusal(code: string, text: string) {
   }
 }
 
+// The recording of 2026-10-06 predates SWEPT (layer cex_sweeps): a build
+// against it samples every main link type but that one.
+const RECORDED_LINK_TYPES = SAMPLED_LINK_TYPES.filter((type) => type !== 'SWEPT')
+
 const readsOfOneBuild = [
   CAPABILITIES,
   LABELS,
@@ -94,7 +99,7 @@ const readsOfOneBuild = [
   PROPERTY_KEYS,
   INDEXES,
   addressSampleQuery(),
-  ...SAMPLED_LINK_TYPES.map((type) => linkSampleQuery(type)),
+  ...RECORDED_LINK_TYPES.map((type) => linkSampleQuery(type)),
 ]
 
 describe('the graph schema built from the recorded catalog answers', () => {
@@ -225,7 +230,7 @@ describe('the graph schema built from the recorded catalog answers', () => {
     const { document } = await buildGraphSchema({ client, network: 'robinhood', now: () => T0 })
     const { samples } = document.layers.topology
 
-    expect(Object.keys(samples)).toEqual(['Address', ...SAMPLED_LINK_TYPES])
+    expect(Object.keys(samples)).toEqual(['Address', ...RECORDED_LINK_TYPES])
     expect(samples['FLOWED_TO']).toEqual([
       'amount_usd_sum',
       'first_seen_timestamp',
@@ -251,6 +256,53 @@ describe('the graph schema built from the recorded catalog answers', () => {
     for (const keys of rows) expect(samples['Address']).toEqual(expect.arrayContaining(keys))
     expect(samples['Address']).toEqual(expect.arrayContaining(['address', 'network', 'labels']))
     for (const keys of Object.values(samples)) expect(keys).toEqual([...keys].sort())
+  })
+
+  it('samples SWEPT and names cex_role when the graph serves the exchange sweeps', async () => {
+    // The recorded catalog with the link SWEPT and the key cex_role added, as a
+    // graph with the layer cex_sweeps serves them.
+    const withRows = (key: string, extra: Record<string, unknown>[]) => {
+      const reply = replyFor(key) as { structuredContent: { facts: { query: { results: unknown[] } } } }
+      const structured = structuredClone(reply.structuredContent)
+      structured.facts.query.results = [...structured.facts.query.results, ...extra]
+      return { content: [{ type: 'text', text: JSON.stringify(structured) }], structuredContent: structured }
+    }
+    const swept = linkSampleQuery('SWEPT')
+    const { calls, client } = fakeClient((key) => {
+      if (key === LINK_TYPES) return withRows(key, [{ relationshipType: 'SWEPT' }])
+      if (key === PROPERTY_KEYS) return withRows(key, [{ propertyKey: 'cex_role' }])
+      if (key === swept) {
+        const structured = {
+          facts: {
+            query: {
+              billable_units: 40,
+              results: [{ keys: ['sweep_count', 'amount_raw_sum', 'amount_usd_sum', 'paths'] }],
+            },
+          },
+        }
+        return { content: [{ type: 'text', text: JSON.stringify(structured) }], structuredContent: structured }
+      }
+      return undefined
+    })
+    const { document } = await buildGraphSchema({ client, network: 'robinhood', now: () => T0 })
+
+    expect(calls.at(-1)).toBe(swept)
+    expect(document.layers.topology.link_types).toContain('SWEPT')
+    expect(document.layers.topology.samples['SWEPT']).toEqual([
+      'amount_raw_sum',
+      'amount_usd_sum',
+      'paths',
+      'sweep_count',
+    ])
+    expect(document.notes).toContain(EXCHANGE_SCHEMA_NOTE)
+    expect(EXCHANGE_SCHEMA_NOTE).toContain('deposit, hot_wallet, cold_wallet, withdrawal')
+    expect(formatGraphSchemaText(document)).toContain(EXCHANGE_SCHEMA_NOTE)
+  })
+
+  it('names no exchange sweeps on a graph that serves neither SWEPT nor cex_role', async () => {
+    const { client } = fakeClient()
+    const { document } = await buildGraphSchema({ client, network: 'robinhood', now: () => T0 })
+    expect(document.notes).not.toContain(EXCHANGE_SCHEMA_NOTE)
   })
 
   it('takes the facts relationships and the chain lookups from the published capabilities', async () => {
@@ -352,7 +404,7 @@ describe('a read that fails leaves a note and its section empty', () => {
     expect(document.layers.topology.property_keys).toEqual([])
     expect(document.layers.topology.labels.length).toBeGreaterThan(0)
     expect(Object.keys(document.layers.topology.samples)).toHaveLength(
-      1 + SAMPLED_LINK_TYPES.length
+      1 + RECORDED_LINK_TYPES.length
     )
     expect(document.notes[0]).toBe(
       'property keys could not be read: unsupported_topology_dialect: CALL is not served'

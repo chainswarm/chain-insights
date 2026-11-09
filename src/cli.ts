@@ -985,6 +985,40 @@ mcpCommand.addCommand(
           return
         }
 
+        if (tool === 'meta_exchange_lookup') {
+          // The proxy's local tool: the lookup file alone, no graph session.
+          const { handleMetaExchangeLookup } = await import('./mcp/exchange-tool.js')
+          const { loadExchangeRegistry } = await import('./mcp/exchange-registry.js')
+          const result = await handleMetaExchangeLookup(
+            { network: args['network'], name: args['name'], address: args['address'] },
+            { loadExchangeRegistry: (network) => loadExchangeRegistry(network) }
+          )
+          console.log(result.content[0]?.text ?? '')
+          if (result.isError) process.exitCode = 1
+          return
+        }
+
+        if (tool === 'aml_exchange_deposit_check') {
+          // The proxy's local tool, run here with the CLI's own graph session.
+          const { handleAmlExchangeDepositCheck } = await import('./mcp/exchange-deposit-check.js')
+          const { loadExchangeRegistry } = await import('./mcp/exchange-registry.js')
+          type Answer = { content?: unknown[]; structuredContent?: unknown; isError?: boolean }
+          const result = await withGraphMcpClient('chain-insights-cli-exchange-deposit-check', (client) =>
+            handleAmlExchangeDepositCheck(
+              { network: args['network'], address: args['address'] },
+              {
+                loadExchangeRegistry: (network) => loadExchangeRegistry(network),
+                graphQueryBatch: async (batchArgs) =>
+                  (await client.callTool({ name: 'graph_query_batch', arguments: batchArgs })) as Answer,
+                describeFailure: (err) => (err as Error).message,
+              }
+            )
+          )
+          console.log(result.content[0]?.text ?? '')
+          if (result.isError) process.exitCode = 1
+          return
+        }
+
         if (tool === 'graph_expand') {
           throw new Error(
             'graph_expand is used only by the Chain Insights view in Claude. Run `cia mcp call graph_query` with your own query instead.'

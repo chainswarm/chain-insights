@@ -84,6 +84,8 @@ The proxy:
 | `meta_dex_lookup`           | Turn an exchange name into its factories, routers or manager, pools and first reads  |
 | `meta_token_lookup`         | Turn a ticker or a token name into every contract that carries it, with its creator  |
 | `aml_deployer_screen`       | Screen who is behind a token or a wallet: launcher, first funder, labels, facts only |
+| `meta_exchange_lookup`      | Turn a centralized exchange name, or one of its wallets, into its listed wallets     |
+| `aml_exchange_deposit_check`| Check one address: an exchange deposit, of which exchange, swept into which wallet   |
 | `meta_rules`                | Read the answer rules when the `chain-insights-cypher` skill is not loaded           |
 | `meta_help`                 | Show Chain Insights tool and workflow guidance                                       |
 | `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                             |
@@ -205,6 +207,60 @@ is an error that says it is not "not found". The batch is billed as any read.
 `cia mcp call aml_deployer_screen network=robinhood address=0x...` runs the
 same screen in a terminal.
 
+`meta_exchange_lookup` turns the name of a centralized exchange (Binance, OKX,
+Bitget) into its wallets on one network. It takes `network` (required) and
+`name` or `address` (one of them, not both; with neither, every listed exchange
+is returned with its hot wallet count). It reads the public exchange lookup
+`registry/exchanges/<network>.json` and sends no graph read. The file lists
+every exchange of the network, and only the wallets proven on that network's
+own data: at least 20 clean payers, and at least 90 % of a 200-payer sample
+pay only this exchange, pinned at `proven_at_block`. An exchange may list no
+wallet. Exchange tags and wallets of another network stay out of the file;
+the graph still marks them, and `aml_exchange_deposit_check` reads them there.
+
+- `hot_wallets` receive the sweeps of the exchange's deposits; `gas_wallets`
+  top deposits up so they can pay their own sweep; `spenders` pull approved
+  deposits.
+- A misspelling within two letters is taken and named in `took_for`. An
+  `address` answers whose wallet it is, with its role in `took_for`.
+- The file is read like the DEX registry: from `main` over
+  `raw.githubusercontent.com`, cached one hour under `~/.chain-insights/cache/`,
+  with the packaged copy as the offline fallback. A row merged on `main`
+  reaches every running proxy within the hour, with no release.
+- `scripts/pin-exchange-registry.mjs <wallets.json> --write` writes the file
+  from the indexer-evm-cex registry of the network and leaves out every
+  wallet with no block; `tests/exchange-registry.test.ts` holds every file to
+  the rules.
+
+`cia mcp call meta_exchange_lookup network=robinhood name=Bitget` runs the
+same lookup in a terminal.
+
+`aml_exchange_deposit_check` checks one address. It takes `network` and
+`address` (both required). One `graph_query_batch` sends two reads on
+`USE topology`, both anchored on the address: the address with its
+`cex_role`, and its `SWEPT` links with each hot wallet it swept into.
+
+```mermaid
+flowchart LR
+    T["a trail"] -->|"FLOWED_TO"| D["deposit<br/>cex_role deposit"]
+    D -->|"SWEPT<br/>sweep_count, paths"| H["hot wallet<br/>cex_role hot_wallet"]
+```
+
+- `is_deposit` is true when the address carries `cex_role` `deposit` or has a
+  `SWEPT` link. `SWEPT` is drawn only from an address the deposit rule judged a
+  deposit.
+- `exchange` is named from the hot wallet it swept into, through the exchange
+  lookup, else from the address's label words.
+- `swept` lists each hot wallet with the sweep count, the USD sum, the paths
+  (`plain`, `gas_topped`, `approval_pull`, `forwarder_flush`,
+  `forwarder_batch`) and the first and last sweep, each with its `_utc` twin.
+- A trail that reaches a deposit ends there: the exchange can name the
+  customer behind it. A failed read is an error that says it is not "no
+  deposit". The batch is billed as any read.
+
+`cia mcp call aml_exchange_deposit_check network=robinhood address=0x...` runs
+the same check in a terminal.
+
 ## Host parity
 
 **A rule a host never loads does not exist for that host.** Each host loads a
@@ -219,6 +275,7 @@ different part of what this package ships:
 | result `hint` | yes | yes | yes | yes | yes | yes |
 | protocol tool doors | yes | yes | yes | yes | yes | yes |
 | token door `meta_token_lookup` | yes | yes | yes | yes | yes | yes |
+| exchange doors `meta_exchange_lookup`, `aml_exchange_deposit_check` | yes | yes | yes | yes | yes | yes |
 
 The scout agent pins the CLI by version in its image and copies only
 `chain-insights-cypher` and `chain-insights-virtuals` into its project, yet asks
@@ -235,8 +292,11 @@ flowchart LR
 
 The rule:
 
-1. A protocol skill ships with a tool door: frontmatter `door: <tool>`.
-2. The door's description carries the rule the skill opens with, and names
+1. A protocol skill ships with a tool door: frontmatter `door: <tool>`, or
+   `door: <tool>, <tool>` for a skill with two doors.
+   `chain-insights-aml-exchange` has two: `meta_exchange_lookup` for an
+   exchange by name and `aml_exchange_deposit_check` for one address.
+2. Each door's description carries the rule the skill opens with, and names
    the skill's trigger words.
 3. The skill names the door as its first step.
 

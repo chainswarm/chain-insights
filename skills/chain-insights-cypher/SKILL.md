@@ -125,6 +125,7 @@ Route by what the question names: an address, a pair with a day, a transaction o
 `USE chain` with `Address` reads the balance, the nonce or the kind of one address, now or at a past block with `at_block`. A past block must be at least `chain_admission.at_block_min_depth` blocks below the tip. To find the counterparties of an address, search `USE topology`, then read the pair and one day on `USE facts`.
 A transaction is a chain question: read it on `USE chain` by its `tx_id`. Chain gives its `block_date`; the transfers between a pair on that day are a `USE facts` read. "Every token that moved inside this transaction": read the chain record for `from_address`, `to_address` and `block_date`, then the facts `TRANSFER` rows of that pair on that day and keep the rows whose `tx_id` matches; a `kind` of `internal` is ETH a contract moved while it ran. Tokens the transaction moved between other pairs are not reachable from the hash alone: say so, and name the pairs you did read.
 The layers hand each other keys, and each key keeps its name. Topology gives the pair and the first and last seen time. Facts gives the `tx_id` and the `block_height`. Chain takes an `address`, a `tx_id`, a `block_height` or a `block_hash`, and gives the `block_date` of a transaction or a block.
+`SWEPT` runs from an exchange deposit to the hot wallet it swept into (layer `cex_sweeps`, family annotations), and `cex_role` on an `:Exchange` address says which wallet of its exchange it is: `deposit`, `hot_wallet`, `cold_wallet` or `withdrawal`. A trail that reaches a `SWEPT` link ends there: say the money entered the exchange at that deposit, swept n times into that hot wallet, name the exchange from `labels`, and never walk on past a hot wallet. Read `SWEPT` anchored on an address; call `aml_exchange_deposit_check` for one address and `meta_exchange_lookup` for an exchange by name.
 A question about the whole chain (recent activity, the biggest senders, a top list) is a `USE topology` search: bound it by time with `f.last_seen_timestamp >= <epoch ms>` on the `FLOWED_TO` link, then sort and `LIMIT`. A search has 10 s. Read `Head` first (`USE chain MATCH (h:Head) RETURN h.behind_money, h.behind_dex, h.behind_transfers`, under a second): a `FLOWED_TO` search is sent when `behind_money` is at most 100000; a `SWAPPED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY` search when `behind_dex` is at most 100000; a `TRANSFERRED` search when `behind_transfers` is at most 100000 (100000 blocks is a few hours: a robinhood block is about a tenth of a second apart from the next). When the family is further behind, the search cannot finish, so do not send it: say which family, how many blocks, and ask for an address. On a server whose Head has no `behind_money`, read `h.graph_blocks_behind` and hold it to the same limit. On a server whose Head has no `behind_transfers`, it serves no `TRANSFERRED` link: send no `TRANSFERRED` search. Never turn the block count into days or hours by head. To say how fresh the data is, give the newest `_utc` time you read on the layer you used: a family's lag counts its slowest layer, and the links of an address and the facts rows are often newer than it. If the server refuses the search with `anchor_missing` or `family_behind`, or stops it with `query_timeout`, it cannot search the whole chain now: say so in one line, name the family the refusal names, and ask for an address or drop the link type that is behind. A narrower window times out the same way, so do not send it again.
 
 The graph's layers are grouped into six families, and a family is as fresh as its slowest layer. The family of a link type decides which `Head` lag a whole-chain search on it waits for.
@@ -135,7 +136,7 @@ The graph's layers are grouped into six families, and a family is as fresh as it
 | dex              | `dex_swaps`, `dex_liquidity`, `dex_pools`      | `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`             | `behind_dex`            |
 | interactions     | `approvals`, `bridged`, `contracts`, `authorization` | `APPROVED`, `BRIDGED`, `DEPLOYED_CONTRACT`, `SIGNED_AUTHORIZATION` | `behind_interactions`   |
 | smart_accounts   | `sponsored`, `bundled`, `signers`, `owners`    | `SPONSORED`, `BUNDLED`, `SIGNED_FOR`, `LINKED`                | `behind_smart_accounts` |
-| annotations      | `labels`, `ml`, `inferred`, `kinds`, `assets`  | none                                                          | `annotations_fresh`     |
+| annotations      | `labels`, `ml`, `inferred`, `kinds`, `assets`, `cex_sweeps` | `SWEPT`                                              | `annotations_fresh`     |
 | transfers        | `transfers_by_asset`                           | `TRANSFERRED`                                                 | `behind_transfers`      |
 
 `transfers` is its own family: a `FLOWED_TO` search never waits for it, and a `TRANSFERRED` search never waits for `money`.
@@ -147,6 +148,7 @@ Find the question in this table. Send its first query, once, with the addresses 
 | Recent activity or newest links of one address               | `topology` | Newest links of one address (see Graph searches)                       |
 | Who sent money to an address? Who received from it?          | `topology` | Newest links of one address, the arrow flipped for senders             |
 | Where did the money go, or come from, in N hops?             | `topology` | Where the money went, or came from (`{0,N-1}`, N up to 5)              |
+| Is an address an exchange deposit, where did a deposit's money go? | `topology` | `aml_exchange_deposit_check`, skill `chain-insights-aml-exchange`, not a walk |
 | Is there a route between two addresses?                      | `topology` | Route between two addresses, `SHORTEST 1`                              |
 | What do two addresses have in common?                        | `topology` | Counterparties that two addresses share                                |
 | Biggest senders or receivers of one address                  | `topology` | Newest links of one address, `ORDER BY f.amount_usd_sum DESC LIMIT 10` |
@@ -343,7 +345,7 @@ bridges and the `LINKED` overlay. The server checks these before it runs:
 
 ## Graph searches
 
-Each query below is admitted by the live server. Change only the addresses and the `RETURN`. Keep the guards inside the pattern: they apply the [pool trace rule](#pool-trace-rule) and the system guard below it, and a `WHERE` after a `SHORTEST` pattern runs too late. A walk of two or more hops carries the long guard on its start and on every address in its middle. A walk follows links, not coins: confirm a hop with a pair and a day on `USE facts`.
+Each query below is admitted by the live server. Change only the addresses and the `RETURN`. Keep the guards inside the pattern: they apply the [pool trace rule](#pool-trace-rule), the [exchange stop](#exchange-stop) and the system guard below it, and a `WHERE` after a `SHORTEST` pattern runs too late. A walk of two or more hops carries the long guard on its start and on every address in its middle. A walk follows links, not coins: confirm a hop with a pair and a day on `USE facts`.
 
 Newest links of one address, its receivers. Its newest senders are the same read with the arrow flipped:
 
@@ -382,7 +384,7 @@ MATCH (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"})
 RETURN a.degree_in AS senders, a.degree_out AS receivers, a.tx_total_count AS tx_count, a.total_volume_usd AS volume_usd, a.first_activity_timestamp AS first_active, a.last_activity_timestamp AS last_active LIMIT 1
 ```
 
-Which exchange an address cashed out to: its receivers that carry the exchange flag, one hop. Ask this first; it answers in under a second.
+Which exchange an address cashed out to: its receivers that carry the exchange flag, one hop. Ask this first; it answers in under a second. A receiver whose `cex_role` is `deposit` is a deposit address of the exchange its `labels` name: check it with `aml_exchange_deposit_check` for the hot wallet it was swept into.
 
 ```cypher
 USE topology
@@ -396,7 +398,7 @@ Route between two addresses, one path. Only `MATCH SHORTEST 1` and `MATCH ANY SH
 
 ```cypher
 USE topology
-MATCH p = SHORTEST 1 (a:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: "0x7e3702e9dfaa847f9829a258f1e26fa431160662"})
+MATCH p = SHORTEST 1 (a:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND NOT via:Exchange){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: "0x7e3702e9dfaa847f9829a258f1e26fa431160662"})
 RETURN [n IN nodes(p) | n.address] AS route
 LIMIT 5
 ```
@@ -405,7 +407,7 @@ Several routes, up to 3 hops, in no set order. Add no `ORDER BY`: it can end in 
 
 ```cypher
 USE topology
-MATCH p = (a:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,2} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: "0x7e3702e9dfaa847f9829a258f1e26fa431160662"})
+MATCH p = (a:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND NOT via:Exchange){0,2} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: "0x7e3702e9dfaa847f9829a258f1e26fa431160662"})
 RETURN [n IN nodes(p) | n.address] AS route, length(p) AS hops LIMIT 5
 ```
 
@@ -413,7 +415,7 @@ Where the money went, up to 3 hops out:
 
 ```cypher
 USE topology
-MATCH p = (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO|SWAPPED]->(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,2} ()-[:FLOWED_TO|SWAPPED]->(b:Address)
+MATCH p = (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO|SWAPPED]->(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND NOT via:Exchange){0,2} ()-[:FLOWED_TO|SWAPPED]->(b:Address)
 RETURN b.address AS to_address, length(p) AS hops LIMIT 25
 ```
 
@@ -421,7 +423,7 @@ Where the money came from, up to 3 hops in:
 
 ```cypher
 USE topology
-MATCH p = (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()<-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,2} ()<-[:FLOWED_TO|SWAPPED]-(b:Address)
+MATCH p = (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()<-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND NOT via:Exchange){0,2} ()<-[:FLOWED_TO|SWAPPED]-(b:Address)
 RETURN b.address AS from_address, length(p) AS hops LIMIT 25
 ```
 
@@ -516,7 +518,7 @@ Where one token went, up to 3 hops out. Every hop carries the same `asset`, so t
 
 ```cypher
 USE topology
-MATCH p = (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System) (()-[t:TRANSFERRED WHERE t.asset = "0x5fc5360d0400a0fd4f2af552add042d716f1d168"]->(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,2} ()-[:TRANSFERRED {asset: "0x5fc5360d0400a0fd4f2af552add042d716f1d168"}]->(b:Address)
+MATCH p = (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System) (()-[t:TRANSFERRED WHERE t.asset = "0x5fc5360d0400a0fd4f2af552add042d716f1d168"]->(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND NOT via:Exchange){0,2} ()-[:TRANSFERRED {asset: "0x5fc5360d0400a0fd4f2af552add042d716f1d168"}]->(b:Address)
 RETURN b.address AS to_address, length(p) AS hops LIMIT 25
 ```
 
@@ -558,7 +560,35 @@ trader who used it. Every trace follows this rule:
 4. Across a swap, follow `SWAPPED` from payer to recipient, between two
    different addresses. Do not walk through the pool.
 
-So a walk never starts at a pool and never passes through one. It may end at one. Guard the start with `WHERE NOT a:Pool` and each address in the middle with `WHERE NOT via:Pool`, and follow `FLOWED_TO|SWAPPED`, as above. Exchange hot wallets end a trace: pass through an address only when `is_exchange IS NULL`.
+So a walk never starts at a pool and never passes through one. It may end at one. Guard the start with `WHERE NOT a:Pool` and each address in the middle with `WHERE NOT via:Pool`, and follow `FLOWED_TO|SWAPPED`, as above.
+
+### Exchange stop
+
+An `:Exchange` address ends a trace: a hot wallet, a cold wallet, a
+withdrawal wallet or a deposit of a centralized exchange. Money that reaches
+one entered the exchange; past it are the exchange's other customers, and a
+route through it connects nothing. So every walk carries `NOT via:Exchange`
+on each address in its middle, as the walks below do, and may end at one.
+`is_exchange IS NULL` is the same test on a fixed-hop walk.
+
+A deposit is an `:Exchange` address too: `is_exchange` is set on it, and its
+`labels` carry `Exchange` and the exchange id (`gate`, `bitget`), as a hot
+wallet's do. "Where did the money from <a deposit> go" is answered by its
+`SWEPT` link alone, read with `aml_exchange_deposit_check`, never by a walk:
+"the money entered <exchange> at deposit D and was swept n times into hot
+wallet H". Use the word swept: it is the move the exchange made.
+
+When a walk ends at an `:Exchange` address, name the exchange from its
+`labels`, then:
+
+- a deposit (`cex_role` `deposit`): read its `SWEPT` link, with
+  `aml_exchange_deposit_check`, and say "the money entered <exchange> at
+  deposit D, swept n times into hot wallet H". The exchange can name the
+  customer behind D.
+- a hot wallet: say the money entered the exchange there, with no deposit
+  to name.
+
+Never send the walk again from the exchange address.
 
 ### System guard
 
@@ -608,7 +638,7 @@ USE topology
 MATCH ()-[r:FLOWED_TO]->() RETURN keys(r) AS keys LIMIT 5
 ```
 
-Name another link type to read its keys: `SWAPPED`, `LINKED`, `OPERATED_BY`, `BRIDGED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY`. The keys of an address and of a link include `network`: it is the query's `network`, computed on every node and link. `synced_through_height` and `pair_key` are bookkeeping: never filter or sort on them.
+Name another link type to read its keys: `SWAPPED`, `LINKED`, `OPERATED_BY`, `BRIDGED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY` or `SWEPT`. The keys of an address and of a link include `network`: it is the query's `network`, computed on every node and link. `synced_through_height` and `pair_key` are bookkeeping: never filter or sort on them.
 
 The server serves five read-only catalog calls: `CALL db.labels()`, `CALL db.relationshipTypes()`, `CALL db.propertyKeys()`, `CALL db.schema.visualization()` and `SHOW INDEXES`. `meta_schema` sends four of them for you through one session and keeps the answer, so do not send them yourself.
 

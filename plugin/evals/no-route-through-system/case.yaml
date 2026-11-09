@@ -1,6 +1,6 @@
 schema_version: "1.0"
 name: no-route-through-system
-expected_outcome: The shortest-path query carries the pool, protocol and system-address guard on its start and inside the quantified path pattern, so the route can never pass through the zero address, the dead address or a protocol contract such as the PoolManager. The answer never offers either address as a hop.
+expected_outcome: The shortest-path query carries the pool, protocol and system-address guard on its start and inside the quantified path pattern, so the route can never pass through the zero address, the dead address, a protocol contract such as the PoolManager, or an exchange address (`NOT via:Exchange`). The answer never offers either address as a hop.
 execution:
   prompt: |
     You are an AML analyst assistant using Chain Insights on robinhood. Load the chain-insights-cypher skill first and call no graph tool.
@@ -23,7 +23,12 @@ graders:
   - type: regex
     name: protocol-guard-inside-walk
     target: last_message
-    pattern: '\(\w+:Address\) WHERE NOT (\w+):Pool AND NOT \1:Protocol AND NOT \1:System AND NOT \1\.address IN \[[^\]]*\]\)\{0,4\}'
+    pattern: '\(\w+:Address\) WHERE NOT (\w+):Pool AND NOT \1:Protocol AND NOT \1:System AND NOT \1\.address IN \[[^\]]*\]( AND NOT \1:\w+)*\)\{0,4\}'
+    match: contains
+  - type: regex
+    name: exchange-stop-inside-walk
+    target: last_message
+    pattern: '\(\w+:Address\) WHERE NOT (\w+):Pool[^)]* AND NOT \1:Exchange( AND NOT \1:\w+)*\)\{0,4\}'
     match: contains
   - type: regex
     name: system-address-list

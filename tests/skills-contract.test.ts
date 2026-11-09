@@ -42,7 +42,7 @@ function markdownFiles(dir: string): string[] {
 // SHORTEST is not served. The start and every address in the middle carry the
 // pool guard and the system guard (walkGuard).
 function routeContractShapes(): string[] {
-  const walk = `(()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE ${walkGuard('via')}){0,4} ()-[:FLOWED_TO|SWAPPED]-`
+  const walk = `(()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE ${middleGuard('via')}){0,4} ()-[:FLOWED_TO|SWAPPED]-`
   return [
     ...['SHORTEST 1', 'ANY SHORTEST'].map(
       (selector) =>
@@ -59,7 +59,7 @@ function routeContractShapes(): string[] {
 // FLOWED_TO. The variable names are fixed, as in the route shapes. No selector:
 // a count above 1 on SHORTEST is not served, so several routes drop it.
 function walkContractShapes(): string[] {
-  const via = `(via:Address) WHERE ${walkGuard('via')}){0,2} ()`
+  const via = `(via:Address) WHERE ${middleGuard('via')}){0,2} ()`
   const start = (address: string) => `(a:Address {address: ${address}} WHERE ${walkGuard('a')}) (()`
   return [
     `MATCH p = ${start('$from')}-[:FLOWED_TO|SWAPPED]-${via}-[:FLOWED_TO|SWAPPED]-(b:Address {address: $to})`,
@@ -120,6 +120,14 @@ const SYSTEM_ADDRESS_LIST = `[${SYSTEM_ADDRESSES.map((a) => `"${a}"`).join(', ')
 // The guard of one address: the pool, the protocol and the system addresses.
 function walkGuard(name: string): string {
   return `NOT ${name}:Pool AND NOT ${name}:Protocol AND NOT ${name}:System AND NOT ${name}.address IN ${SYSTEM_ADDRESS_LIST}`
+}
+
+// The guard of an address in the middle of a walk: the walk guard, and the
+// exchange stop (ruled 2026-11-09, change indexer-evm-cex): money that reaches
+// an :Exchange address (a deposit, a hot wallet) entered the exchange, so a
+// walk may end there and never passes through one.
+function middleGuard(name: string): string {
+  return `${walkGuard(name)} AND NOT ${name}:Exchange`
 }
 
 // Every surface an agent or an MCP client reads a query from.
@@ -603,7 +611,7 @@ describe('shipped Chain Insights skills contract', () => {
   })
 
   it('the pool-guard check recognises every walk shape it must refuse', () => {
-    const walk = `(()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE ${walkGuard('via')}){0,4} ()-[:FLOWED_TO|SWAPPED]-`
+    const walk = `(()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE ${middleGuard('via')}){0,4} ()-[:FLOWED_TO|SWAPPED]-`
     const startGuard = walkGuard('a')
     const [route, anyRoute, openTarget] = routeContractShapes()
     const A = '"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"'

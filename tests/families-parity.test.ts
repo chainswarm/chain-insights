@@ -27,15 +27,18 @@ import { flat, read } from './support/schema-text.js'
 // graph-migrations-and-marks added two layers after the first two recordings
 // (`dex_pools` under dex, `assets` under annotations); `added` names those per
 // recording, so the table must equal the recorded reply plus exactly those
-// layers, in that order. The live reply of 2026-10-20 adds nothing.
+// layers, in that order. The exchange sweeps (2026-11-09) add the layer
+// `cex_sweeps` and its link `SWEPT` to annotations after every recording, so each
+// recording also gets that layer.
 
 type ReplyFamily = { name: string; layers: string[] }
 type Reply = { graph_progress: { families: ReplyFamily[] } }
 type Recording = { file: string; count: number; added: Record<string, string[]> }
 const ADDED_BY_GRAPH_MIGRATIONS_AND_MARKS: Record<string, string[]> = {
   dex: ['dex_pools'],
-  annotations: ['assets'],
+  annotations: ['assets', 'cex_sweeps'],
 }
+const ADDED_BY_CEX_SWEEPS: Record<string, string[]> = { annotations: ['cex_sweeps'] }
 const recordings: Recording[] = [
   {
     file: 'tests/fixtures/network-capabilities-robinhood-families.json',
@@ -47,7 +50,11 @@ const recordings: Recording[] = [
     count: 5,
     added: ADDED_BY_GRAPH_MIGRATIONS_AND_MARKS,
   },
-  { file: 'tests/fixtures/network-capabilities-robinhood-20261020.json', count: LAYER_FAMILIES.length, added: {} },
+  {
+    file: 'tests/fixtures/network-capabilities-robinhood-20261020.json',
+    count: LAYER_FAMILIES.length,
+    added: ADDED_BY_CEX_SWEEPS,
+  },
 ]
 const replies: [string, Reply, number, Record<string, string[]>][] = recordings.map(
   ({ file, count, added }) => [file, JSON.parse(read(file)) as Reply, count, added],
@@ -96,13 +103,16 @@ describe('the family table', () => {
     })
   }
 
-  it('gives every link type one family, and annotations none', () => {
+  it('gives every link type one family, and annotations SWEPT only', () => {
     const types = LAYER_FAMILIES.flatMap((family) => family.link_types)
     expect(new Set(types).size).toBe(types.length)
     for (const family of LAYER_FAMILIES) {
       for (const type of family.link_types) expect(familyOfLinkType(type)?.name).toBe(family.name)
     }
-    expect(LAYER_FAMILIES.find((family) => family.name === 'annotations')?.link_types).toEqual([])
+    expect(LAYER_FAMILIES.find((family) => family.name === 'annotations')?.link_types).toEqual([
+      'SWEPT',
+    ])
+    expect(familyOfLinkType('SWEPT')?.name).toBe('annotations')
     expect(familyOfLinkType('FLOWED_TO')?.name).toBe('money')
     expect(familyOfLinkType('SWAPPED')?.name).toBe('dex')
     expect(familyOfLinkType('TRANSFERRED')?.name).toBe('transfers')

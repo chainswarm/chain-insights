@@ -81,6 +81,22 @@ import {
   AML_DEPLOYER_SCREEN_TOOL,
   handleAmlDeployerScreen,
 } from './deployer-screen.js'
+import {
+  META_EXCHANGE_LOOKUP_ANNOTATIONS,
+  META_EXCHANGE_LOOKUP_DESCRIPTION,
+  META_EXCHANGE_LOOKUP_TITLE,
+  META_EXCHANGE_LOOKUP_TOOL,
+  handleMetaExchangeLookup,
+} from './exchange-tool.js'
+import {
+  AML_EXCHANGE_DEPOSIT_CHECK_ANNOTATIONS,
+  AML_EXCHANGE_DEPOSIT_CHECK_DESCRIPTION,
+  AML_EXCHANGE_DEPOSIT_CHECK_TITLE,
+  AML_EXCHANGE_DEPOSIT_CHECK_TOOL,
+  handleAmlExchangeDepositCheck,
+  type ExchangeDepositCheckDependencies,
+} from './exchange-deposit-check.js'
+import { loadExchangeRegistry } from './exchange-registry.js'
 
 export const LOCAL_TOOL_NAMES = new Set([
   'meta_network_capabilities',
@@ -92,6 +108,8 @@ export const LOCAL_TOOL_NAMES = new Set([
   META_DEX_LOOKUP_TOOL,
   META_TOKEN_LOOKUP_TOOL,
   AML_DEPLOYER_SCREEN_TOOL,
+  META_EXCHANGE_LOOKUP_TOOL,
+  AML_EXCHANGE_DEPOSIT_CHECK_TOOL,
   'wallet_balance',
   'wallet_topup',
   SUBSCRIPTION_TOPUP_TOOL,
@@ -165,7 +183,7 @@ export function resolveMcpProxyMode(env: NodeJS.ProcessEnv = process.env): McpPr
 }
 
 const GRAPH_LAYERS_TEXT =
-  "Use USE topology for topology (address/FLOWED_TO/OPERATED_BY/LINKED graph with SWAPPED, ADDED_LIQUIDITY, REMOVED_LIQUIDITY, BRIDGED and the Pool, Token and NFT labels, unified recent+historical) and USE facts for bounded TRANSFER, SWAP, LIQUIDITY_ADD, LIQUIDITY_REMOVE and BRIDGE_CROSSING rows and enrichment, and USE chain for the chain node's own record of one known transaction, block, address or the head."
+  "Use USE topology for topology (address/FLOWED_TO/OPERATED_BY/LINKED graph with SWAPPED, ADDED_LIQUIDITY, REMOVED_LIQUIDITY, BRIDGED, SWEPT and the Pool, Token, NFT and Exchange labels, unified recent+historical) and USE facts for bounded TRANSFER, SWAP, LIQUIDITY_ADD, LIQUIDITY_REMOVE and BRIDGE_CROSSING rows and enrichment, and USE chain for the chain node's own record of one known transaction, block, address or the head."
 
 // The rules where every host reads them, the tool description: a host that
 // loads no skill and keeps no server instructions still sees this first.
@@ -175,6 +193,10 @@ const TOOL_RULES_FIRST =
 // The one sentence that sends a named exchange to the door, never to a scan.
 export const GRAPH_QUERY_DEX_DOOR_SENTENCE =
   'A question that names an exchange and no address starts with meta_dex_lookup, never with a scan of :Protocol, :Pool or labels.'
+
+// The one sentence that sends a named centralized exchange to its door.
+export const GRAPH_QUERY_CEX_DOOR_SENTENCE =
+  'A question that names a centralized exchange (Binance, OKX, Bitget) starts with meta_exchange_lookup; one address that may be its deposit goes to aml_exchange_deposit_check.'
 
 // The one sentence that sends a named token to its door, never to a guess.
 export const GRAPH_QUERY_TOKEN_DOOR_SENTENCE =
@@ -192,6 +214,8 @@ export const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   [META_DEX_LOOKUP_TOOL]: META_DEX_LOOKUP_DESCRIPTION,
   [META_TOKEN_LOOKUP_TOOL]: META_TOKEN_LOOKUP_DESCRIPTION,
   [AML_DEPLOYER_SCREEN_TOOL]: AML_DEPLOYER_SCREEN_DESCRIPTION,
+  [META_EXCHANGE_LOOKUP_TOOL]: META_EXCHANGE_LOOKUP_DESCRIPTION,
+  [AML_EXCHANGE_DEPOSIT_CHECK_TOOL]: AML_EXCHANGE_DEPOSIT_CHECK_DESCRIPTION,
   meta_usage_status: "Return the caller's public free graph_query quota for the current UTC day.",
   meta_subscription_status: META_SUBSCRIPTION_STATUS_DESCRIPTION,
   meta_help: 'Show a short guide to Chain Insights tools and workflow.',
@@ -199,7 +223,7 @@ export const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
     'Return the Chain Insights rules: how to write graph_query and graph_query_batch reads that are served, how to name columns so the answer is drawn as a graph, a time series or a table, and how to write the answer. Call it once per chat, before the first graph query, when the chain-insights-cypher skill is not loaded. Takes no arguments: send {}.',
   wallet_balance:
     'Show the local Chain Insights payment wallet address, payment network, token, and amount.',
-  graph_query: `${TOOL_RULES_FIRST} Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. ${GRAPH_LAYERS_TEXT} ${GRAPH_QUERY_DEX_DOOR_SENTENCE} ${GRAPH_QUERY_TOKEN_DOOR_SENTENCE} ${GRAPH_QUERY_ROLE_MARKS_SENTENCE} ${GRAPH_QUERY_JUDGEMENT_MARKS_SENTENCE} ${ROUTING_NOT_SERVED} Preserve full addresses exactly, and write every address in full, all 42 characters, in your answer: never shorten one with ... or ….`,
+  graph_query: `${TOOL_RULES_FIRST} Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. ${GRAPH_LAYERS_TEXT} ${GRAPH_QUERY_DEX_DOOR_SENTENCE} ${GRAPH_QUERY_CEX_DOOR_SENTENCE} ${GRAPH_QUERY_TOKEN_DOOR_SENTENCE} ${GRAPH_QUERY_ROLE_MARKS_SENTENCE} ${GRAPH_QUERY_JUDGEMENT_MARKS_SENTENCE} ${ROUTING_NOT_SERVED} Preserve full addresses exactly, and write every address in full, all 42 characters, in your answer: never shorten one with ... or ….`,
   graph_query_batch: `${TOOL_RULES_FIRST} Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads. For a time series across days, send one USE facts total per day with the query id set to the day, "YYYY-MM-DD": the view joins them into one series. Write every address in full in your answer, all 42 characters.`,
 }
 // Titles for proxied tools whose graph endpoint definition carries none.
@@ -289,13 +313,13 @@ const GRAPH_SCHEMA_HINTS = [
   '- Pool trace rule, for every trace: 1. Enter a `:Pool` on any edge. 2. Leave a `:Pool` only on `REMOVED_LIQUIDITY`, to the address the liquidity was paid to. 3. Never leave a `:Pool` on `FLOWED_TO`. 4. Across a swap, follow `SWAPPED` from payer to recipient, between two different addresses. Do not walk through the pool. Rug-pull probe: MATCH (victim:Address {address: $addr})-[paid:FLOWED_TO]->(pool:Pool)-[removal:REMOVED_LIQUIDITY]->(receiver:Address) WHERE NOT victim:Pool AND NOT victim:Protocol AND NOT victim:System AND NOT victim.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND receiver.address <> victim.address RETURN pool.address AS pool_address, receiver.address AS receiver_address, sum(removal.usd) AS removed_usd, max(removal.receiver_added_usd) AS receiver_added_usd, max(removal.receiver_provided) AS receiver_provided LIMIT 25.',
   '- USE facts serves the single events. (payer:Address)-[s:SWAP]->(recipient:Address) is one row per swap route, self swaps included, with strength, reason, route_id and the sold_ and bought_ asset, amount and usd columns. (provider:Address)-[:LIQUIDITY_ADD]->(pool:Address) and (pool:Address)-[:LIQUIDITY_REMOVE]->(receiver:Address) are one row per liquidity event, with party_state and evidence_state. (sender:Address)-[c:BRIDGE_CROSSING]->(recipient:Address) is one row per bridge event. SWAP, LIQUIDITY_* and BRIDGE_CROSSING take the same rule as TRANSFER: an address pair with one day. USD comes from the daily price services, never from a swap: with no price, USD is empty and the matching price_missing column is true (price_missing on TRANSFER, sold_price_missing and bought_price_missing on SWAP, amount0_price_missing and amount1_price_missing on LIQUIDITY_*). block_timestamp on TRANSFER, SWAP and LIQUIDITY_* rows is epoch milliseconds, in filters and in results; BRIDGE_CROSSING has none.',
   '- A USE facts SWAP row carries no route: it has no pools and no families column. A read that names one of them, to return it, to filter on it or to order by it, is refused. The route of a swap stays a topology question. For the pools of the swaps of an address, read SWAPPED.pools and SWAPPED.families on USE topology, anchored on the payer or the recipient. SWAPPED has one link per payer, recipient, sold asset and bought asset, so its pools cover every route on the link, not one route.',
-  '- Traversal rule: for BFS, fixed-hop fallback, shortest-path, or manual FLOWED_TO traversal, exchange hot wallets are terminal endpoints only. Do not expand from, through, or classify exchange nodes as deposit, suspect, or intermediate candidates; filter every non-terminal node with is_exchange IS NULL. is_exchange is absent unless true, so a labelled node with no is_exchange is walked through, and is_scam, is_victim and is_sanctioned do not end a walk. At a Pool, follow the pool trace rule above.',
-  '- Pool guard: a trace walks FLOWED_TO and SWAPPED, so it crosses a swap from payer to recipient without passing through the pool. A walk may end at a Pool, but never starts at one or passes through one: its start and every address in its middle stay off a Pool. A walk of two or more hops also never starts at or passes through a Protocol contract or a System address. System is the kind of the mint and burn addresses 0x0000000000000000000000000000000000000000 and 0x000000000000000000000000000000000000dead; Protocol is shared infrastructure such as a PoolManager, a router or a bridge (the PoolManager 0x8366a39cc670b4001a1121b8f6a443a643e40951 is one, and it is no Pool). Each links millions of unrelated wallets, so a route through one connects nothing. Its start and every address in its middle carry NOT x:Pool AND NOT x:Protocol AND NOT x:System AND NOT x.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"], each its own AND term, never inside an OR. The graph does not write the System kind yet, so keep the address test too; it becomes redundant once System is written. A one-hop read of such an address needs no guard. A fixed-hop walk adds these terms for src and mid in its WHERE. A quantified or shortest-path walk puts the guards inside the path pattern, on the start and on up to 4 guarded hops before one last hop: MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: $to}) RETURN [n IN nodes(p) | n.address] AS route LIMIT 5. ANY SHORTEST takes the same pattern. A route search asks for one path. An open target from one address: MATCH SHORTEST 1 (a:Address {address: $addr} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address) RETURN b.address LIMIT 50. Use these shapes as written, changing only the addresses and the RETURN. A WHERE placed after a SHORTEST pattern runs after the shortest route is chosen, so it drops a route that crosses a pool or a system address instead of finding the route that avoids it.',
+  '- Traversal rule: for BFS, fixed-hop fallback, shortest-path, or manual FLOWED_TO traversal, exchange hot wallets are terminal endpoints only, and so are exchange deposits: every Exchange address (is_exchange set; cex_role says deposit, hot_wallet, cold_wallet or withdrawal) ends a walk. Do not expand from or through exchange nodes, or count them as suspect or intermediate candidates; filter every non-terminal node with is_exchange IS NULL, and in a quantified walk add NOT via:Exchange to every address in its middle. When a walk ends at a deposit, its SWEPT link names the hot wallet it was swept into: call aml_exchange_deposit_check with the deposit and name the exchange. is_exchange is absent unless true, so a labelled node with no is_exchange is walked through, and is_scam, is_victim and is_sanctioned do not end a walk. At a Pool, follow the pool trace rule above.',
+  '- Pool guard: a trace walks FLOWED_TO and SWAPPED, so it crosses a swap from payer to recipient without passing through the pool. A walk may end at a Pool, but never starts at one or passes through one: its start and every address in its middle stay off a Pool. A walk of two or more hops also never starts at or passes through a Protocol contract or a System address. System is the kind of the mint and burn addresses 0x0000000000000000000000000000000000000000 and 0x000000000000000000000000000000000000dead; Protocol is shared infrastructure such as a PoolManager, a router or a bridge (the PoolManager 0x8366a39cc670b4001a1121b8f6a443a643e40951 is one, and it is no Pool). Each links millions of unrelated wallets, so a route through one connects nothing. Its start and every address in its middle carry NOT x:Pool AND NOT x:Protocol AND NOT x:System AND NOT x.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"], each its own AND term, never inside an OR. The graph does not write the System kind yet, so keep the address test too; it becomes redundant once System is written. A one-hop read of such an address needs no guard. A fixed-hop walk adds these terms for src and mid in its WHERE. A quantified or shortest-path walk puts the guards inside the path pattern, on the start and on up to 4 guarded hops before one last hop: MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND NOT via:Exchange){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: $to}) RETURN [n IN nodes(p) | n.address] AS route LIMIT 5. ANY SHORTEST takes the same pattern. A route search asks for one path. An open target from one address: MATCH SHORTEST 1 (a:Address {address: $addr} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND NOT via:Exchange){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address) RETURN b.address LIMIT 50. Use these shapes as written, changing only the addresses and the RETURN. A WHERE placed after a SHORTEST pattern runs after the shortest route is chosen, so it drops a route that crosses a pool or a system address instead of finding the route that avoids it.',
   '- Call meta_schema {network} first when you need field names; it is cached for 24 hours. The two discovery reads below are the fallback.',
   '- Start schema discovery with endpoint-safe property reads: MATCH (n:Address) RETURN n.address AS address, n.network AS network, n.labels AS labels, n.last_activity_timestamp AS last_activity_timestamp LIMIT 20',
   '- Relationship discovery: MATCH (:Address)-[r:FLOWED_TO]->(:Address) RETURN r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count LIMIT 20',
   "- Anchor every topology read that filters on a link property: put an address in its pattern. Without one, a read starts from every link of the type it names, and you should not count on the filter to narrow that: WHERE x.strength = 'swap' on SWAPPED checks every SWAPPED link, LIMIT stops the read only after enough rows match, and a filter that matches few or none can run to the 60 s topology limit and fail with query_timeout. Example: MATCH (a:Address {address: $addr})-[x:SWAPPED]->(b:Address) WHERE x.swap_count >= 2 RETURN b.address, x.swap_count LIMIT 25. Pick an address with few links: degree_out and degree_in are a rough guide, because they count neighbours, not links, and an address with hundreds of thousands of neighbours can fail the same way. Discovery probes with LIMIT and no filter stay valid. The queries of one batch share a 100 s budget; USE facts queries stop at 30 s.",
-  '- graph_query uses the active Chain Insights graph endpoint. Select the graph with USE topology for topology (address/FLOWED_TO/OPERATED_BY/LINKED graph with SWAPPED, ADDED_LIQUIDITY, REMOVED_LIQUIDITY, BRIDGED and the Pool, Token and NFT labels, unified recent+historical) and USE facts for bounded TRANSFER, SWAP, LIQUIDITY_ADD, LIQUIDITY_REMOVE and BRIDGE_CROSSING rows and enrichment, and USE chain for one keyed lookup on the chain node: a transaction by tx_id, a block by block_height or block_hash, an address at one block, or the head. On topology, address is the node grain, not the topology name.',
+  '- graph_query uses the active Chain Insights graph endpoint. Select the graph with USE topology for topology (address/FLOWED_TO/OPERATED_BY/LINKED graph with SWAPPED, ADDED_LIQUIDITY, REMOVED_LIQUIDITY, BRIDGED, SWEPT and the Pool, Token, NFT and Exchange labels, unified recent+historical) and USE facts for bounded TRANSFER, SWAP, LIQUIDITY_ADD, LIQUIDITY_REMOVE and BRIDGE_CROSSING rows and enrichment, and USE chain for one keyed lookup on the chain node: a transaction by tx_id, a block by block_height or block_hash, an address at one block, or the head. On topology, address is the node grain, not the topology name.',
   '- All graph_query calls are read-only. Never use CREATE, INSERT, MERGE, SET, DELETE, REMOVE, DROP, DETACH, ADD, CONNECT, DISCONNECT, ALTER, TRUNCATE, GRANT, or REVOKE.',
   '- Use USE facts graph patterns for fact and enrichment reads. Do not query internal table namespaces directly.',
 ].join('\n')
@@ -1376,6 +1400,62 @@ export async function createProxy(): Promise<void> {
     async (args) => handleAmlDeployerScreen(args, tokenDependencies)
   )
 
+  // meta_exchange_lookup: a centralized exchange's name, or one of its wallets,
+  // becomes its proven hot wallets and gas wallets, from the public exchange
+  // lookup file (cached 1 hour, packaged copy offline). No graph read.
+  const loadExchanges = (network: string) =>
+    loadExchangeRegistry(network, {
+      log: (line) => {
+        void logger.info('exchange_registry.fault', { line })
+      },
+    })
+  server.registerTool(
+    META_EXCHANGE_LOOKUP_TOOL,
+    {
+      title: META_EXCHANGE_LOOKUP_TITLE,
+      description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS[META_EXCHANGE_LOOKUP_TOOL],
+      inputSchema: {
+        network: NETWORK_SCHEMA,
+        name: z
+          .string()
+          .optional()
+          .describe('The centralized exchange as the user wrote it: Binance, OKX, gate.io. With no name and no address, every listed exchange is returned.'),
+        address: z
+          .string()
+          .optional()
+          .describe('A wallet (0x plus 40 hex, any case) instead of a name: the exchange whose hot wallet or gas wallet it is. Not with name.'),
+      },
+      annotations: META_EXCHANGE_LOOKUP_ANNOTATIONS,
+    },
+    async (args) => handleMetaExchangeLookup(args, { loadExchangeRegistry: loadExchanges })
+  )
+
+  // aml_exchange_deposit_check: one address becomes whether it is an exchange
+  // deposit, of which exchange, and the hot wallets it swept into. One topology
+  // batch anchored on the address, billed as any read.
+  const depositCheckDependencies: ExchangeDepositCheckDependencies = {
+    loadExchangeRegistry: loadExchanges,
+    graphQueryBatch: tokenDependencies.graphQueryBatch,
+    unavailable: tokenDependencies.unavailable,
+    describeFailure: dexDependencies.describeFailure,
+  }
+  server.registerTool(
+    AML_EXCHANGE_DEPOSIT_CHECK_TOOL,
+    {
+      title: AML_EXCHANGE_DEPOSIT_CHECK_TITLE,
+      description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS[AML_EXCHANGE_DEPOSIT_CHECK_TOOL],
+      inputSchema: {
+        network: NETWORK_SCHEMA,
+        address: z
+          .string()
+          .min(1)
+          .describe('The address to check: 0x plus 40 hex characters, any case. An exchange name is not an address: call meta_exchange_lookup first.'),
+      },
+      annotations: AML_EXCHANGE_DEPOSIT_CHECK_ANNOTATIONS,
+    },
+    async (args) => handleAmlExchangeDepositCheck(args, depositCheckDependencies)
+  )
+
   // One reader for the tool and for the browser page's free-credits meter.
   const readUsageStatus = async () => {
       try {
@@ -1701,6 +1781,8 @@ export async function createProxy(): Promise<void> {
                 '- meta_dex_lookup: turn an exchange name (Aero, Uniswap, Virtuals) into its factories, routers, pools and first reads. Call it first when a question names an exchange and gives no address.',
                 '- meta_token_lookup: turn a ticker or a token name (TCITY, USDG) into every contract that carries it, with its creator. Call it first when a question names a token and gives no contract; tickers collide.',
                 '- aml_deployer_screen: who is behind a token or a wallet, as facts: the launcher, its first funder and what kind of wallet that is, their labels and the first inbound bridge deposit. No score, no verdict.',
+                '- meta_exchange_lookup: turn a centralized exchange name (Binance, OKX, Bitget) into its hot wallets, each proven on the chain. Call it first when a question names one.',
+                '- aml_exchange_deposit_check: is this address an exchange deposit, of which exchange, and into which hot wallet was it swept. A trail ends at a deposit.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
                 '- meta_subscription_status: check the subscription of the local wallet: window, days left, daily allowance and use, and payments not credited yet.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
@@ -1724,6 +1806,8 @@ export async function createProxy(): Promise<void> {
                 '- meta_dex_lookup: turn an exchange name (Aero, Uniswap, Virtuals) into its factories, routers, pools and first reads. Call it first when a question names an exchange and gives no address.',
                 '- meta_token_lookup: turn a ticker or a token name (TCITY, USDG) into every contract that carries it, with its creator. Call it first when a question names a token and gives no contract; tickers collide.',
                 '- aml_deployer_screen: who is behind a token or a wallet, as facts: the launcher, its first funder and what kind of wallet that is, their labels and the first inbound bridge deposit. No score, no verdict.',
+                '- meta_exchange_lookup: turn a centralized exchange name (Binance, OKX, Bitget) into its hot wallets, each proven on the chain. Call it first when a question names one.',
+                '- aml_exchange_deposit_check: is this address an exchange deposit, of which exchange, and into which hot wallet was it swept. A trail ends at a deposit.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
                 '- meta_subscription_status: check the subscription of the local wallet: window, days left, daily allowance and use, and payments not credited yet.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',

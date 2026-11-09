@@ -47,6 +47,10 @@ export const PUBLIC_MCP_TOOL_ALLOWED_ARGS: Record<string, string[]> = {
   meta_token_lookup: ['network', 'symbol'],
   // A local tool of the proxy (src/mcp/deployer-screen.ts): who is behind a token or a wallet.
   aml_deployer_screen: ['network', 'address'],
+  // A local tool of the proxy (src/mcp/exchange-tool.ts): a centralized exchange by name.
+  meta_exchange_lookup: ['network', 'name', 'address'],
+  // A local tool of the proxy (src/mcp/exchange-deposit-check.ts): is this address an exchange deposit.
+  aml_exchange_deposit_check: ['network', 'address'],
 }
 
 export function isHiddenRemoteToolName(name: string): boolean {
