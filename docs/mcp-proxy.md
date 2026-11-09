@@ -211,16 +211,12 @@ same screen in a terminal.
 Bitget) into its wallets on one network. It takes `network` (required) and
 `name` or `address` (one of them, not both; with neither, every listed exchange
 is returned with its hot wallet count). It reads the public exchange lookup
-`registry/exchanges/<network>.json` and sends no graph read. Every wallet in it
-carries its `evidence`, one of three:
-
-- a proof on that network's own data: at least 20 clean payers, and at least
-  90 % of a 200-payer sample pay only this exchange, pinned at
-  `proven_at_block`;
-- an exchange tag of that network, trusted on its own chain
-  (`proven_at_block` 0);
-- a wallet of another network at the same address, seen at work on this one
-  with its own clean payers (`proven_at_block` 0).
+`registry/exchanges/<network>.json` and sends no graph read. The file lists
+every exchange of the network, and only the wallets proven on that network's
+own data: at least 20 clean payers, and at least 90 % of a 200-payer sample
+pay only this exchange, pinned at `proven_at_block`. An exchange may list no
+wallet. Exchange tags and wallets of another network stay out of the file;
+the graph still marks them, and `aml_exchange_deposit_check` reads them there.
 
 - `hot_wallets` receive the sweeps of the exchange's deposits; `gas_wallets`
   top deposits up so they can pay their own sweep; `spenders` pull approved
@@ -232,8 +228,9 @@ carries its `evidence`, one of three:
   with the packaged copy as the offline fallback. A row merged on `main`
   reaches every running proxy within the hour, with no release.
 - `scripts/pin-exchange-registry.mjs <wallets.json> --write` writes the file
-  from a wallet list; `tests/exchange-registry.test.ts` holds every
-  file to the rules.
+  from the indexer-evm-cex registry of the network and leaves out every
+  wallet with no block; `tests/exchange-registry.test.ts` holds every file to
+  the rules.
 
 `cia mcp call meta_exchange_lookup network=robinhood name=Bitget` runs the
 same lookup in a terminal.

@@ -3,10 +3,11 @@
  *
  * A local tool of the proxy. It matches the name against the exchange lookup
  * file (src/mcp/exchange-registry.ts) and answers from it alone: no graph read,
- * no cost. Every wallet it returns carries its evidence: a proof on that
- * network's own data pinned at a block, or an exchange tag of that network
- * (proven_at_block 0). An address instead of a name says
- * whose wallet the address is.
+ * no cost. The file lists every exchange, and only the wallets proven on that
+ * network's own data, each with its payer proof and the block it was proven
+ * at. An address instead of a name says whose wallet the address is. Whether
+ * an address is a deposit, and which hot wallet it swept into, is read from
+ * the graph by aml_exchange_deposit_check.
  *
  * The description below is the contract with every host, Claude Desktop chat
  * included, which reads no skill: it carries the rule the skill
@@ -40,7 +41,8 @@ export const META_EXCHANGE_LOOKUP_TITLE = 'Centralized exchange by name or addre
 export const META_EXCHANGE_LOOKUP_DESCRIPTION =
   'Call this first when a question names a centralized exchange (Binance, Bitget, Bybit, Coinbase, Gate, KuCoin, MEXC, OKX, ...) ' +
   'and gives no address, or asks which exchange a wallet belongs to. It turns the name into the hot wallets of that exchange on the network, ' +
-  "each with its evidence (a proof on that chain's own data, or an exchange tag of that chain) and the block it was proven at (0 for a tag), and its gas wallets. " +
+  "The file lists only wallets proven on that chain's own data, each with its payer proof and the block it was proven at, and its gas wallets; " +
+  'an exchange may list none, and its deposits and hot wallets are still marked in the graph. ' +
   'A misspelling within two letters is taken and named in took_for. Send address instead (0x plus 40 hex, any case) to learn whose hot wallet ' +
   'or gas wallet it is. It reads no graph and costs nothing. ' +
   `${EXCHANGE_OPENING_RULE} Give a name or an address, not both.`
@@ -145,8 +147,9 @@ function hintFor(
   const { network } = result
   if (address !== null && !result.matched) {
     return (
-      `${ANSWER_HINT} ${address} is no wallet the exchange lookup lists for ${network}. ` +
-      `To learn whether it is an exchange deposit, call aml_exchange_deposit_check {network: "${network}", address: "${address}"}.`
+      `${ANSWER_HINT} ${address} is no wallet the exchange lookup lists for ${network}: the file lists only wallets proven on this chain. ` +
+      `The graph marks deposits and hot wallets of every exchange: call aml_exchange_deposit_check {network: "${network}", address: "${address}"} ` +
+      'to read its cex_role, its exchange and its SWEPT links.'
     )
   }
   if (address !== null && result.matched) {
@@ -163,9 +166,14 @@ function hintFor(
     const took = result.took_for
       ? `Say in one line: "I took ${matched.display} for ${result.took_for}." Ask nothing. `
       : ''
+    const count = matched.hot_wallets.length
+    const wallets =
+      count === 0
+        ? `${matched.display} on ${network}: the lookup lists no wallet of it proven on this chain yet; the graph marks its deposits and hot wallets. `
+        : `${matched.display} on ${network}: ${count} hot wallet${count === 1 ? '' : 's'} proven on this chain. `
     return (
-      `${ANSWER_HINT} ${took}${matched.display} on ${network}: ${matched.hot_wallets.length} hot wallet${matched.hot_wallets.length === 1 ? '' : 's'}. ` +
-      'A deposit of this exchange has a SWEPT link into one of them. Read SWEPT anchored on the address the trail reached, never on a hot wallet: ' +
+      `${ANSWER_HINT} ${took}${wallets}` +
+      'A deposit of this exchange has a SWEPT link into its hot wallet. Read SWEPT anchored on the address the trail reached, never on a hot wallet: ' +
       'a hot wallet links to many thousands of deposits. To check one address, call aml_exchange_deposit_check. ' +
       `${EXCHANGE_OPENING_RULE}`
     )

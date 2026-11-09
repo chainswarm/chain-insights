@@ -90,18 +90,25 @@ An exchange (DEX) reaches every host through one served file and one tool.
 A centralized exchange (Binance, OKX, Bitget) reaches every host through one
 served file per network and two tools.
 
-- `registry/exchanges/<network>.json` lists each exchange's wallets on the
-  network: hot wallets, gas wallets and spenders, each with its `evidence`
-  (a payer proof on that chain, an exchange tag of that chain, or a wallet of
-  another chain seen at work on this one) and `proven_at_block` (0 when it is
-  no payer proof). Only an exchange with a hot wallet is listed. Write it with
-  `node scripts/pin-exchange-registry.mjs <wallets.json> --write`;
+- `registry/exchanges/<network>.json` lists every exchange of the
+  indexer-evm-cex registry of the network (id, display name, aliases), and
+  under each only the wallets proven on that chain's own data: hot wallets,
+  gas wallets and spenders, each with its payer proof in `evidence` and
+  `proven_at_block` above 0. An exchange tag, or a wallet of another chain at
+  the same address, stays in the indexer's registry and reaches the graph,
+  never this file. Write it with
+  `node scripts/pin-exchange-registry.mjs <indexer-evm-cex registry/<network>.json> --write`;
   `tests/exchange-registry.test.ts` holds every file to the rules.
 - `meta_exchange_lookup` (`src/mcp/exchange-tool.ts`) reads the file like
   `meta_dex_lookup` reads the DEX registry: from `main`, cached one hour, the
   packaged copy offline. It sends no graph read.
 - `aml_exchange_deposit_check` (`src/mcp/exchange-deposit-check.ts`) reads one
-  address's `cex_role` and its `SWEPT` links, anchored on the address.
+  address's `cex_role` and its `SWEPT` links on the graph, anchored on the
+  address. Whether an address is a deposit is always read from the graph,
+  never from the file.
+- Every walk of the cypher skill stops at an `:Exchange` address: each
+  address in its middle carries `NOT via:Exchange`, and the served route
+  shapes in `tests/skills-contract.test.ts` hold it.
 - The skill `chain-insights-aml-exchange` names both doors. A trail that
   reaches a `SWEPT` link ends at the deposit.
 - No file, tool answer or skill says an exchange is missing or unsupported.

@@ -16,12 +16,6 @@
           "role": "hot_wallet",
           "evidence": "1987 clean payers 2026-10-09 to 2026-11-07; 199 of 200 sampled pay only this exchange",
           "proven_at_block": 108803217
-        },
-        {
-          "address": "0x4cad1efbfd5f0848e0c3c14fab23f92b2fa81f17",
-          "role": "hot_wallet",
-          "evidence": "ethereum registry wallet, same address; 6 clean payers on robinhood 2026-10-09 to 2026-11-07",
-          "proven_at_block": 0
         }
       ]
     },
@@ -31,14 +25,7 @@
       "aliases": [
         "bitrue"
       ],
-      "wallets": [
-        {
-          "address": "0x6cc8dcbca746a6e4fdefb98e1d0df903b107fd21",
-          "role": "hot_wallet",
-          "evidence": "ethereum registry wallet, same address; 14 clean payers on robinhood 2026-10-09 to 2026-11-07",
-          "proven_at_block": 0
-        }
-      ]
+      "wallets": []
     },
     {
       "exchange": "bitunix",
@@ -46,14 +33,7 @@
       "aliases": [
         "bitunix"
       ],
-      "wallets": [
-        {
-          "address": "0x6fe39f2831caf58529779efdb73341aa64df50ab",
-          "role": "hot_wallet",
-          "evidence": "ethereum registry wallet, same address; 24 clean payers on robinhood 2026-10-09 to 2026-11-07",
-          "proven_at_block": 0
-        }
-      ]
+      "wallets": []
     },
     {
       "exchange": "blofin",
@@ -61,14 +41,7 @@
       "aliases": [
         "blofin"
       ],
-      "wallets": [
-        {
-          "address": "0x7ff8bbf9c8ab106db589e7863fb100525f61cce5",
-          "role": "hot_wallet",
-          "evidence": "ethereum registry wallet, same address; 60 clean payers on robinhood 2026-10-09 to 2026-11-07",
-          "proven_at_block": 0
-        }
-      ]
+      "wallets": []
     },
     {
       "exchange": "bybit",
@@ -82,12 +55,6 @@
           "role": "hot_wallet",
           "evidence": "123 clean payers 2026-10-09 to 2026-11-07; 114 of 123 sampled pay only this exchange",
           "proven_at_block": 108803217
-        },
-        {
-          "address": "0xf440139a62b2b939699c5b3e09f88e40464ab9bc",
-          "role": "hot_wallet",
-          "evidence": "ethereum registry wallet, same address; 11 clean payers on robinhood 2026-10-09 to 2026-11-07",
-          "proven_at_block": 0
         }
       ]
     },
@@ -105,12 +72,6 @@
           "role": "hot_wallet",
           "evidence": "1208 clean payers 2026-10-09 to 2026-11-07; 193 of 200 sampled pay only this exchange",
           "proven_at_block": 108803217
-        },
-        {
-          "address": "0x6b9c05b935bdaddddffa6c315483e02401f31307",
-          "role": "hot_wallet",
-          "evidence": "ethereum registry wallet, same address; 10 clean payers on robinhood 2026-10-09 to 2026-11-07",
-          "proven_at_block": 0
         }
       ]
     },
@@ -120,20 +81,7 @@
       "aliases": [
         "pionex"
       ],
-      "wallets": [
-        {
-          "address": "0xf6d4e5a7c5215f91f59a95065190cca24bf64554",
-          "role": "hot_wallet",
-          "evidence": "ethereum registry wallet, same address; 7 clean payers on robinhood 2026-10-09 to 2026-11-07",
-          "proven_at_block": 0
-        },
-        {
-          "address": "0x67be8ce27ef8158d51d8593bb5b26eafacc955d9",
-          "role": "hot_wallet",
-          "evidence": "ethereum registry wallet, same address; 17 clean payers on robinhood 2026-10-09 to 2026-11-07",
-          "proven_at_block": 0
-        }
-      ]
+      "wallets": []
     }
   ]
 }

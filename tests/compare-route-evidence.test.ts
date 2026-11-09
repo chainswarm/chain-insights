@@ -96,6 +96,7 @@ describe('routeFromPathValue', () => {
       hops: 2,
       identities: ['idA', 'mid1', 'idB'],
       exchange_intermediates: ['mid1'],
+      links_addresses: false,
       amount_usd_sum_total: 140,
     })
   })
@@ -222,10 +223,12 @@ describe('buildRouteEvidence', () => {
       route_rank_basis: 'hop_count',
       depth_bound: 5,
       route_found: true,
+      linked_outside_exchanges: true,
       outbound: {
         hops: 1,
         identities: ['idA', 'idB'],
         exchange_intermediates: [],
+        links_addresses: true,
         amount_usd_sum_total: 5,
       },
       inbound: null,

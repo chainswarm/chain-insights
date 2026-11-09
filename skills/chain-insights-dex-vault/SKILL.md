@@ -86,6 +86,8 @@ End with who to trace next: the buyer's biggest receivers, the newest-links
 read of `chain-insights-cypher` anchored on the buyer. When the buyer is the
 seller itself, trace the seller's onward flows instead.
 
+A receiver that is an `:Exchange` address (`is_exchange` set, a deposit or a hot wallet) is no lead to trace: the money entered that exchange. Name the exchange from its `labels`, and for a deposit the hot wallet it was swept into, with `aml_exchange_deposit_check` (skill `chain-insights-aml-exchange`).
+
 ## Queries
 
 ### V1. One seller's swaps

@@ -79,6 +79,8 @@ End every answer with who to trace next, in one short paragraph:
 Never walk out of the router or the pool on `FLOWED_TO`: the router has
 thousands of receivers, and the buyer is noise there.
 
+A receiver that is an `:Exchange` address (`is_exchange` set, a deposit or a hot wallet) is no lead to trace: the money entered that exchange. Name the exchange from its `labels`, and for a deposit the hot wallet it was swept into, with `aml_exchange_deposit_check` (skill `chain-insights-aml-exchange`).
+
 ## Queries
 
 ### G1. Sellers into the pool

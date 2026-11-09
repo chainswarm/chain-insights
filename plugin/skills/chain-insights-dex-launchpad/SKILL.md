@@ -127,6 +127,8 @@ End with who to trace next: the creator's first funders (the newest-links
 read of `chain-insights-cypher`, arrow flipped, sorted by
 `first_seen_timestamp`), or the biggest early buyer's onward flows.
 
+A receiver that is an `:Exchange` address (`is_exchange` set, a deposit or a hot wallet) is no lead to trace: the money entered that exchange. Name the exchange from its `labels`, and for a deposit the hot wallet it was swept into, with `aml_exchange_deposit_check` (skill `chain-insights-aml-exchange`).
+
 ## Queries
 
 ### L1. Launches of one launchpad, newest first

@@ -142,32 +142,35 @@ pools, and every example pool is a `:Pool` deployed by its factory.
 
 ## Centralized exchanges
 
-`exchanges/<network>.json` lists, per centralized exchange, its wallets on the
-network, each with the evidence that names it. The proxy tool `meta_exchange_lookup` serves it, and
-`aml_exchange_deposit_check` names an exchange from it.
+`exchanges/<network>.json` lists every centralized exchange of the
+indexer-evm-cex registry of the network, and under each only the wallets
+proven on that network's own data. The proxy tool `meta_exchange_lookup`
+serves it, and `aml_exchange_deposit_check` names an exchange from it.
+Whether an address is a deposit is read from the graph, never from this file:
+`aml_exchange_deposit_check` reads the address's `cex_role` and its `SWEPT`
+links.
 
-| File | Exchanges | Wallets |
+| File | Exchanges | Wallets proven on the chain |
 |---|---|---|
-| [exchanges/ethereum.json](exchanges/ethereum.json) | 57 | 1,535 |
-| [exchanges/robinhood.json](exchanges/robinhood.json) | 7 | 11 |
+| [exchanges/ethereum.json](exchanges/ethereum.json) | 57 | 72 |
+| [exchanges/robinhood.json](exchanges/robinhood.json) | 7 | 3 |
 
-1. **Every wallet carries its evidence**, one of three:
-   - a payer proof on this chain: at least 20 clean payers, and at least 90 %
-     of a 200-payer sample pay only this exchange, pinned at
-     `proven_at_block`; for a gas wallet, at least 90 % of its native
-     recipients are this exchange's deposits;
-   - an exchange tag of this chain, trusted on its own chain
-     (`proven_at_block` 0);
-   - a wallet of another chain at the same address, seen at work on this one
-     with at least 5 clean payers here (`proven_at_block` 0).
-   A tag of another chain alone never enters.
-2. **Only served exchanges are listed.** An exchange with no hot wallet has no
-   row.
-3. **One wallet, one exchange.** A wallet listed for two exchanges is refused.
-4. **The id is the word the graph's labels carry.** `display` and `aliases` are
+1. **Every exchange is listed**, with its id, its display name and its
+   aliases, so a user's word finds it. An exchange may list no wallet.
+2. **Only a wallet proven on the chain is listed.** The proof is a payer
+   proof on this chain: at least 20 clean payers, and at least 90 % of a
+   200-payer sample pay only this exchange, pinned at `proven_at_block`; for
+   a gas wallet, at least 90 % of its native recipients are this exchange's
+   deposits. `proven_at_block` is always above 0.
+3. **Tags stay out.** An exchange tag (Etherscan) and a wallet of another
+   chain at the same address have `proven_at_block` 0 in the indexer's
+   registry. They stay there and reach the graph's labels, never this file.
+4. **One wallet, one exchange.** A wallet listed for two exchanges is refused.
+5. **The id is the word the graph's labels carry.** `display` and `aliases` are
    the names a user writes.
 
-`node scripts/pin-exchange-registry.mjs <wallets.json> --write` writes the file
-from a wallet list and keeps each exchange's display name and aliases.
+`node scripts/pin-exchange-registry.mjs <indexer-evm-cex registry/<network>.json> --write`
+writes the file from the indexer's registry, leaves out every wallet with no
+block, and keeps each exchange's display name and aliases.
 `tests/exchange-registry.test.ts` holds every file to these rules. A row merged
 on `main` reaches every running proxy within one hour.

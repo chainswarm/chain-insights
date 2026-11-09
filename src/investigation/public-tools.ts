@@ -379,6 +379,10 @@ function exchangeOutflowQueryAtDepth(
   // through the intermediates, so none of them may be a :Pool, and on two or
   // more hops none a :Protocol or a system address. The exchange end is the
   // target, which may be one.
+  // Exchange stop: the walk ends at the first :Exchange address (is_exchange
+  // set), a hot wallet or a deposit alike. When that end is a deposit
+  // (cex_role deposit), resolveExchangeEnd makes it the deposit_address and
+  // the SWEPT read names the hot wallet it was swept into.
   const poolGuards = walkGuardTerms(['a', ...intermediateVariables], depth)
   const depositVariable = nodeVariables[nodeVariables.length - 2]!
   const terminalEdgeVariable = edgeVariables[edgeVariables.length - 1]!
@@ -387,7 +391,7 @@ function exchangeOutflowQueryAtDepth(
     query: [
       `MATCH (a:Address {address: "${escapeCypherString(address)}"})${relationshipChain}`,
       `WHERE a.address <> exchange.address AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''} AND ${poolGuards}`,
-      `RETURN "outflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${depositVariable}.address AS deposit_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      `RETURN "outflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, exchange.cex_role AS exchange_cex_role, ${depositVariable}.address AS deposit_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       'ORDER BY hops ASC',
       'LIMIT 200',
     ].join(' '),
@@ -427,11 +431,145 @@ function exchangeInflowQueryAtDepth(address: string, depth: number): { id: strin
     query: [
       `MATCH (exchange:Address)${relationshipChain}`,
       `WHERE a.address = "${escapeCypherString(address)}" AND a.address <> exchange.address AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''} AND ${poolGuards}`,
-      `RETURN "inflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${withdrawalVariable}.address AS withdrawal_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      `RETURN "inflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, exchange.cex_role AS exchange_cex_role, ${withdrawalVariable}.address AS withdrawal_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       'ORDER BY hops ASC',
       'LIMIT 200',
     ].join(' '),
   }
+}
+
+// ── Exchange ends ──
+// The labels layer marks every wallet of a centralized exchange :Exchange
+// with is_exchange set, a deposit as well as a hot wallet, and says which one
+// in cex_role (deposit, hot_wallet, cold_wallet, withdrawal). The exchange
+// walks above end at the first such address. When that end is a deposit, the
+// deposit IS the exchange end: the node before it is the payer, never the
+// deposit, and the exchange is named through the deposit's SWEPT link to the
+// hot wallet it was swept into (layer cex_sweeps).
+
+/** How many deposits one screen reads SWEPT for, at most. */
+export const EXCHANGE_DEPOSIT_SWEPT_LOOKUPS = 10
+/** How many SWEPT links of one deposit the screen keeps, largest first. */
+export const EXCHANGE_DEPOSIT_SWEPT_LIMIT = 20
+
+/** The exchange id an :Exchange address's labels name (`gate`, `bitget`). */
+export function exchangeIdFromLabels(labels: unknown): string | undefined {
+  return stringArrayValue(labels)
+    ?.map((label) => label.trim())
+    .find((label) => label !== '' && label.toLowerCase() !== 'exchange')
+}
+
+/**
+ * One exchange walk row with its end resolved: `exchange_role` is the end's
+ * cex_role (`exchange` when the graph carries none), `exchange` its id. An
+ * outflow that ends at a deposit reports the deposit as `deposit_address`
+ * and the node the money came from as `payer_address`.
+ */
+export function resolveExchangeEnd(row: Record<string, unknown>): Record<string, unknown> {
+  const role = firstString(row['exchange_cex_role'])?.toLowerCase()
+  const exchangeId = exchangeIdFromLabels(
+    row['exchange_system_labels'] ?? row['exchange_display_labels'] ?? row['exchange_labels']
+  )
+  const resolved: Record<string, unknown> = {
+    ...row,
+    exchange_role: role ?? 'exchange',
+    ...(exchangeId ? { exchange: exchangeId } : {}),
+  }
+  if (row['direction'] === 'outflow' && role === 'deposit') {
+    resolved['payer_address'] = row['deposit_address']
+    resolved['deposit_address'] = row['exchange_address']
+  }
+  return resolved
+}
+
+/** The deposits among resolved outflow rows, nearest first, no repeats. */
+export function exchangeDepositEnds(rows: Array<Record<string, unknown>>): string[] {
+  const deposits: string[] = []
+  const ordered = [...rows].sort(
+    (left, right) => (numberValue(left['hops']) ?? 0) - (numberValue(right['hops']) ?? 0)
+  )
+  for (const row of ordered) {
+    if (row['direction'] !== 'outflow' || row['exchange_role'] !== 'deposit') continue
+    const deposit = firstString(row['exchange_address'])
+    if (deposit && !deposits.includes(deposit)) deposits.push(deposit)
+    if (deposits.length >= EXCHANGE_DEPOSIT_SWEPT_LOOKUPS) break
+  }
+  return deposits
+}
+
+/** The SWEPT read of one deposit: each hot wallet it was swept into. */
+export function exchangeDepositSweptQuery(
+  deposit: string,
+  index: number
+): { id: string; query: string } {
+  return {
+    id: `exchange_deposit_swept_${index + 1}`,
+    query: [
+      `MATCH (d:Address {address: "${escapeCypherString(deposit)}"})-[s:SWEPT]->(h:Address)`,
+      'RETURN d.address AS deposit_address, h.address AS hot_wallet, h.labels AS hot_wallet_labels, h.cex_role AS hot_wallet_role, s.sweep_count AS sweep_count, s.amount_usd_sum AS amount_usd_sum, s.paths AS paths, s.first_seen_timestamp AS first_seen_timestamp, s.last_seen_timestamp AS last_seen_timestamp',
+      `LIMIT ${EXCHANGE_DEPOSIT_SWEPT_LIMIT}`,
+    ].join(' '),
+  }
+}
+
+export interface SweptHotWallet {
+  hot_wallet: string
+  hot_wallet_exchange?: string
+  hot_wallet_role?: string
+  sweep_count?: number
+  amount_usd_sum?: number
+  paths?: string[]
+  first_seen_timestamp?: number
+  last_seen_timestamp?: number
+}
+
+/**
+ * Attach each deposit's SWEPT links to the rows that end at it, largest sum
+ * first. `swept_status` says whether the read ran: `read` (with or without
+ * links), or `not_read` when the read failed or the deposit was past the
+ * lookup cap, so an empty list never reads as "never swept".
+ */
+export function attachSweptHotWallets(
+  rows: Array<Record<string, unknown>>,
+  sweptRows: Array<Record<string, unknown>>,
+  readDeposits: string[]
+): Array<Record<string, unknown>> {
+  const byDeposit = new Map<string, SweptHotWallet[]>()
+  for (const swept of sweptRows) {
+    const deposit = firstString(swept['deposit_address'])
+    const hotWallet = firstString(swept['hot_wallet'])
+    if (!deposit || !hotWallet) continue
+    const exchange = exchangeIdFromLabels(swept['hot_wallet_labels'])
+    const role = firstString(swept['hot_wallet_role'])
+    const sweepCount = numberValue(swept['sweep_count'])
+    const amount = numberValue(swept['amount_usd_sum'])
+    const paths = stringArrayValue(swept['paths'])
+    const firstSeen = numberValue(swept['first_seen_timestamp'])
+    const lastSeen = numberValue(swept['last_seen_timestamp'])
+    const entry: SweptHotWallet = {
+      hot_wallet: hotWallet,
+      ...(exchange ? { hot_wallet_exchange: exchange } : {}),
+      ...(role ? { hot_wallet_role: role } : {}),
+      ...(sweepCount !== undefined ? { sweep_count: sweepCount } : {}),
+      ...(amount !== undefined ? { amount_usd_sum: amount } : {}),
+      ...(paths ? { paths } : {}),
+      ...(firstSeen !== undefined ? { first_seen_timestamp: firstSeen } : {}),
+      ...(lastSeen !== undefined ? { last_seen_timestamp: lastSeen } : {}),
+    }
+    byDeposit.set(deposit, [...(byDeposit.get(deposit) ?? []), entry])
+  }
+  for (const list of byDeposit.values()) {
+    list.sort((left, right) => (right.amount_usd_sum ?? 0) - (left.amount_usd_sum ?? 0))
+  }
+  return rows.map((row) => {
+    if (row['direction'] !== 'outflow' || row['exchange_role'] !== 'deposit') return row
+    const deposit = String(row['exchange_address'] ?? '')
+    return {
+      ...row,
+      swept_into: byDeposit.get(deposit) ?? [],
+      swept_status: readDeposits.includes(deposit) ? 'read' : 'not_read',
+    }
+  })
 }
 
 function connectionProbeQuery(
@@ -559,6 +697,9 @@ export interface RouteEvidenceSide {
   hops: number
   identities: string[]
   exchange_intermediates: string[]
+  // false when the route passes through an :Exchange address: past an
+  // exchange are its other customers, so such a route links nothing.
+  links_addresses: boolean
   amount_usd_sum_total: number
 }
 
@@ -623,6 +764,7 @@ export function routeFromPathValue(value: unknown): RouteEvidenceSide | null {
     hops: nodes.length - 1,
     identities,
     exchange_intermediates: exchangeIntermediates,
+    links_addresses: exchangeIntermediates.length === 0,
     amount_usd_sum_total: edges.reduce((total, edge) => total + Number(edge['amount_usd_sum']), 0),
   }
 }
@@ -632,6 +774,8 @@ export interface RouteEvidence {
   route_rank_basis: 'hop_count'
   depth_bound: number
   route_found: boolean
+  // true only when a found route passes through no exchange address.
+  linked_outside_exchanges: boolean
   outbound: RouteEvidenceSide | null
   inbound: RouteEvidenceSide | null
 }
@@ -653,6 +797,9 @@ export function buildRouteEvidence(
     route_rank_basis: 'hop_count',
     depth_bound: CONNECTION_ROUTE_MAX_HOPS,
     route_found: outbound !== null || inbound !== null,
+    linked_outside_exchanges: [outbound, inbound].some(
+      (side) => side !== null && side.links_addresses
+    ),
     outbound,
     inbound,
   }
@@ -661,10 +808,27 @@ export function buildRouteEvidence(
 function formatExchangeRows(rows: Array<Record<string, unknown>>): string[] {
   return rows.map((row) => {
     const direction = String(row['direction'] ?? 'flow')
-    const exchange = String(row['exchange_address'] ?? '')
+    const exchangeAddress = String(row['exchange_address'] ?? '')
     const amount = row['amount_usd_sum'] ?? ''
     const hops = row['hops'] ?? ''
-    return `- ${direction}: ${exchange} (${hops} hop(s), amount_usd_sum ${amount})`
+    const exchangeId = typeof row['exchange'] === 'string' ? row['exchange'] : undefined
+    const role = typeof row['exchange_role'] === 'string' ? row['exchange_role'] : 'exchange'
+    const named = exchangeId ? `${exchangeId} ${role.replace(/_/g, ' ')}` : undefined
+    const base = `- ${direction}: ${exchangeAddress}${named ? ` (${named})` : ''} (${hops} hop(s), amount_usd_sum ${amount})`
+    if (direction !== 'outflow' || role !== 'deposit') return base
+    const swept = Array.isArray(row['swept_into']) ? (row['swept_into'] as SweptHotWallet[]) : []
+    if (swept.length > 0) {
+      const into = swept
+        .map(
+          (link) =>
+            `hot wallet ${link.hot_wallet}${link.hot_wallet_exchange ? ` (${link.hot_wallet_exchange})` : ''}, ${link.sweep_count ?? '?'} sweep(s)`
+        )
+        .join('; ')
+      return `${base}: the money entered ${exchangeId ?? 'the exchange'} at this deposit, swept into ${into}. The trail ends here.`
+    }
+    return row['swept_status'] === 'read'
+      ? `${base}: the money entered ${exchangeId ?? 'the exchange'} at this deposit; the graph holds no SWEPT link of it yet. The trail ends here.`
+      : `${base}: the money entered ${exchangeId ?? 'the exchange'} at this deposit; its SWEPT link was not read, call aml_exchange_deposit_check for the hot wallet. The trail ends here.`
   })
 }
 
@@ -1034,8 +1198,39 @@ function buildRiskGraph(
         node_type: 'address',
         labels: displayLabels,
         ...(systemLabels.length > 0 ? { system_labels: systemLabels } : {}),
-        roles: ['exchange'],
+        roles:
+          row['exchange_role'] === 'deposit' ||
+          row['exchange_role'] === 'hot_wallet' ||
+          row['exchange_role'] === 'cold_wallet' ||
+          row['exchange_role'] === 'withdrawal'
+            ? ['exchange', String(row['exchange_role'])]
+            : ['exchange'],
       })
+      // A deposit end: draw its SWEPT link to each hot wallet it was swept
+      // into. The trail ends there; nothing past the hot wallet is drawn.
+      const swept = Array.isArray(row['swept_into']) ? (row['swept_into'] as SweptHotWallet[]) : []
+      for (const link of swept) {
+        if (!nodes.has(link.hot_wallet)) {
+          nodes.set(link.hot_wallet, {
+            id: link.hot_wallet,
+            address: link.hot_wallet,
+            node_type: 'address',
+            labels: link.hot_wallet_exchange
+              ? ['Exchange', link.hot_wallet_exchange]
+              : ['Exchange'],
+            roles: ['exchange', link.hot_wallet_role ?? 'hot_wallet'],
+          })
+        }
+        edges.push({
+          source: exchange,
+          target: link.hot_wallet,
+          edge_type: 'swept',
+          usd_amount: link.amount_usd_sum ?? 0,
+          amount_usd_sum: link.amount_usd_sum ?? 0,
+          tx_count: link.sweep_count ?? 0,
+          direction: 'outflow',
+        })
+      }
     }
     for (let index = 0; index < path.length - 1; index += 1) {
       const edgeProps = Array.isArray(row['edge_props'])
@@ -1161,12 +1356,41 @@ export async function addressRisk(
     ...(optionalResultsFor(batch, 'address_feature', partialQueryFailures)[0] ?? {}),
   }
   const labelRows = deriveLabelRows(profile)
-  const outflows = enrichExchangeRows(
+  const resolvedOutflows = enrichExchangeRows(
     optionalResultsWithPrefix(batch, 'exchange_outflows_', partialQueryFailures)
-  )
+  ).map(resolveExchangeEnd)
   const inflows = enrichExchangeRows(
     optionalResultsWithPrefix(batch, 'exchange_inflows_', partialQueryFailures)
-  )
+  ).map(resolveExchangeEnd)
+  // An outflow that ended at a deposit names its exchange through the
+  // deposit's SWEPT link. One read per deposit, anchored on it; a failed read
+  // degrades to swept_status not_read, never fails the screen.
+  const depositEnds = exchangeDepositEnds(resolvedOutflows)
+  let sweptRows: Array<Record<string, unknown>> = []
+  let sweptRead: string[] = []
+  if (depositEnds.length > 0) {
+    const sweptQueries = depositEnds.map(exchangeDepositSweptQuery)
+    try {
+      const sweptBatch = await callGraphBatch(trackedClient, network, sweptQueries)
+      sweptRead = depositEnds.filter((_, index) =>
+        (sweptBatch.facts?.queries ?? []).some(
+          (entry) => entry.id === sweptQueries[index]!.id && entry.ok !== false
+        )
+      )
+      sweptRows = optionalResultsWithPrefix(
+        sweptBatch,
+        'exchange_deposit_swept_',
+        partialQueryFailures
+      )
+    } catch (error) {
+      collectQueryFailure(
+        partialQueryFailures,
+        'exchange_deposit_swept',
+        error instanceof Error ? error.message : String(error)
+      )
+    }
+  }
+  const outflows = attachSweptHotWallets(resolvedOutflows, sweptRows, sweptRead)
   const connections = compareAddress
     ? optionalResultsFor(batch, 'connection_probe', partialQueryFailures)
     : []
@@ -1275,6 +1499,14 @@ export async function addressRisk(
         ? `Connection paths found: ${connections.length}`
         : 'Connection paths found: 0'
     )
+    const exchangeCrossings = [routeEvidence?.outbound, routeEvidence?.inbound].flatMap(
+      (side) => side?.exchange_intermediates ?? []
+    )
+    if (routeEvidence?.route_found && !routeEvidence.linked_outside_exchanges) {
+      lines.push(
+        `Shortest route passes through exchange address ${[...new Set(exchangeCrossings)].join(', ')}: past an exchange are its other customers, so this route links nothing.`
+      )
+    }
   }
   if (compareUnresolved) {
     lines.push(
@@ -1380,12 +1612,24 @@ function toCsvValue(value: unknown): string {
   return value === undefined || value === null ? '' : String(value)
 }
 
+// The subject-side node next to the exchange end: who paid the exchange on an
+// outflow (the payer before a deposit end, or the node before a hot wallet),
+// who it paid on an inflow.
 function subjectNodeForExchangeRow(row: Record<string, unknown>, fallbackAddress: string): string {
   return String(
     row['direction'] === 'inflow'
       ? (row['withdrawal_address'] ?? row['deposit_address'] ?? fallbackAddress)
-      : (row['deposit_address'] ?? row['withdrawal_address'] ?? fallbackAddress)
+      : (row['payer_address'] ??
+          row['deposit_address'] ??
+          row['withdrawal_address'] ??
+          fallbackAddress)
   )
+}
+
+// The hot wallets a deposit end was swept into, `;`-joined, for the table.
+function sweptIntoCell(row: Record<string, unknown>): string {
+  const swept = Array.isArray(row['swept_into']) ? (row['swept_into'] as SweptHotWallet[]) : []
+  return swept.map((link) => link.hot_wallet).join(';')
 }
 
 function buildAddressRiskTableHtml(
@@ -1396,7 +1640,10 @@ function buildAddressRiskTableHtml(
 ): string {
   const headers = [
     'direction',
+    'exchange',
+    'exchange_role',
     'exchange_address',
+    'swept_into_hot_wallet',
     'subject_path_node',
     'hops',
     'amount_usd_sum',
@@ -1408,7 +1655,10 @@ function buildAddressRiskTableHtml(
       const subjectNode = subjectNodeForExchangeRow(row, subject)
       const rowValues = [
         row['direction'] ?? '',
+        row['exchange'] ?? '',
+        row['exchange_role'] ?? '',
         exchangeAddress,
+        sweptIntoCell(row),
         subjectNode,
         row['hops'] ?? '',
         row['amount_usd_sum'] ?? '',
@@ -1475,7 +1725,10 @@ async function writeAddressRiskArtifacts(
   const reportPath = path.join(paths.reportsRoot, `${slug}.aml-address-report.md`)
   const header = [
     'direction',
+    'exchange',
+    'exchange_role',
     'exchange_address',
+    'swept_into_hot_wallet',
     'subject_path_node',
     'hops',
     'amount_usd_sum',
@@ -1489,7 +1742,10 @@ async function writeAddressRiskArtifacts(
         const subjectPathNode = subjectNodeForExchangeRow(row, address)
         return [
           row['direction'] ?? '',
+          row['exchange'] ?? '',
+          row['exchange_role'] ?? '',
           exchangeAddress,
+          sweptIntoCell(row),
           subjectPathNode,
           row['hops'] ?? '',
           row['amount_usd_sum'] ?? '',
@@ -1510,7 +1766,10 @@ async function writeAddressRiskArtifacts(
     profile: {
       exchange_rows: exchangeRows.map((row) => ({
         direction: row['direction'],
+        exchange: row['exchange'],
+        exchange_role: row['exchange_role'],
         exchange_address: row['exchange_address'],
+        ...(Array.isArray(row['swept_into']) ? { swept_into: row['swept_into'] } : {}),
         subject_node: subjectNodeForExchangeRow(row, address),
         hops: row['hops'],
         amount_usd_sum: row['amount_usd_sum'],
@@ -1625,6 +1884,7 @@ export const queryBuilderContract = {
   addressFeatureQuery,
   exchangeOutflowQueries,
   exchangeInflowQueries,
+  exchangeDepositSweptQuery,
   connectionProbeQuery,
   connectionRouteQueries,
   linkedExposureQueries,

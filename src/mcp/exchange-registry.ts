@@ -2,15 +2,18 @@
  * The centralized exchange lookup, as meta_exchange_lookup and
  * aml_exchange_deposit_check read it.
  *
- * registry/exchanges/<network>.json lists, per exchange, the wallets the
- * chain's own data proved: hot wallets that receive the sweeps of its deposits,
- * gas wallets that top deposits up, and spenders that pull approved deposits.
- * Each wallet carries its evidence and the block it was proven at: 0 when the
- * entry is an exchange tag of that network, or a wallet of another network
- * seen at work on this one, rather than a payer proof. It is written by
- * scripts/pin-exchange-registry.mjs and held to the rules below by
- * tests/exchange-registry.test.ts. Only exchanges with a hot wallet are
- * listed.
+ * registry/exchanges/<network>.json lists every centralized exchange the
+ * indexer-evm-cex registry of the network names, with its id, its display name
+ * and its aliases, and under each only the wallets proven on that network's
+ * own data: hot wallets that receive the sweeps of its deposits, gas wallets
+ * that top deposits up, and spenders that pull approved deposits. Each wallet
+ * carries the payer proof and the block it was proven at, always above 0. An
+ * exchange tag, or a wallet of another network at the same address, never
+ * enters the file: it stays in the indexer's registry and reaches the graph.
+ * So an exchange may list no wallet; its deposits, its SWEPT links and its
+ * hot wallets are read from the graph (aml_exchange_deposit_check). It is
+ * written by scripts/pin-exchange-registry.mjs and held to the rules below by
+ * tests/exchange-registry.test.ts.
  *
  * The proxy reads the file as it reads the DEX registry (src/mcp/dex-registry.ts):
  *
@@ -54,6 +57,7 @@ export interface ExchangeWallet {
   role: WalletRole
   /** What the chain showed: payers, the sample that pays only this exchange, the window. */
   evidence: string
+  /** The block the payer proof is pinned at, always above 0. */
   proven_at_block: number
 }
 
@@ -116,8 +120,7 @@ export function exchangeRegistryFault(value: unknown, network: string): string |
     if (typeof row.display !== 'string' || row.display.trim() === '')
       return `${at} (${row.exchange}) has no display`
     if (!isStringList(row.aliases)) return `${at} (${row.exchange}) aliases is not a list of names`
-    if (!Array.isArray(row.wallets) || row.wallets.length === 0)
-      return `${at} (${row.exchange}) has no wallet`
+    if (!Array.isArray(row.wallets)) return `${at} (${row.exchange}) wallets is not a list`
     for (const wallet of row.wallets) {
       if (!isRecord(wallet)) return `${at} (${row.exchange}) has a wallet that is not an object`
       const address = wallet.address
@@ -127,15 +130,13 @@ export function exchangeRegistryFault(value: unknown, network: string): string |
         return `${at} (${row.exchange}) role ${String(wallet.role)} is not hot_wallet, gas_wallet or spender`
       if (typeof wallet.evidence !== 'string' || wallet.evidence.trim() === '')
         return `${at} (${row.exchange}) ${address} has no evidence`
-      if (!Number.isInteger(wallet.proven_at_block) || (wallet.proven_at_block as number) < 0)
-        return `${at} (${row.exchange}) ${address} proven_at_block is not a block or 0`
+      if (!Number.isInteger(wallet.proven_at_block) || (wallet.proven_at_block as number) <= 0)
+        return `${at} (${row.exchange}) ${address} proven_at_block is not a block above 0: only a wallet proven on this chain is listed`
       const owner = owners.get(address)
       if (owner !== undefined)
         return `${at} (${row.exchange}) ${address} is also a wallet of ${owner}`
       owners.set(address, row.exchange)
     }
-    if (!row.wallets.some((wallet) => isRecord(wallet) && wallet.role === 'hot_wallet'))
-      return `${at} (${row.exchange}) has no hot wallet`
   }
   return null
 }

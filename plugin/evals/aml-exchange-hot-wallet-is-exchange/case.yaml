@@ -1,0 +1,81 @@
+schema_version: "1.0"
+name: aml-exchange-hot-wallet-is-exchange
+expected_outcome: The agent asks meta_exchange_lookup with the address, and answers yes, it is a hot wallet of Bitget on robinhood, with the address in full and the proof the lookup gives; a trail that reaches it ends there.
+execution:
+  prompt: |
+    Is 0xed9ab5bc05a0152b9dc2f7902e8369af7bc18771 an exchange, on Robinhood
+    Chain? Use Chain Insights.
+
+    Load the Chain Insights skill for this question first, and call no
+    Chain Insights tool. Say which tool you would call first, with its exact
+    arguments.
+    That call answered this (the lane A answer of 2026-11-09):
+
+    {
+      "schema": "chain-insights.meta-exchange-lookup.v1",
+      "network": "robinhood",
+      "registry_version": 1,
+      "registry_source": "packaged",
+      "recorded_on": "2026-11-09",
+      "matched": {
+        "exchange": "bitget",
+        "display": "Bitget",
+        "hot_wallets": [
+          {
+            "address": "0xed9ab5bc05a0152b9dc2f7902e8369af7bc18771",
+            "evidence": "1987 clean payers 2026-10-09 to 2026-11-07; 199 of 200 sampled pay only this exchange",
+            "proven_at_block": 108803217
+          }
+        ],
+        "gas_wallets": [],
+        "spenders": []
+      },
+      "took_for": "a hot wallet",
+      "candidates": [],
+      "listed": [
+        "Bitget",
+        "Bitrue",
+        "Bitunix",
+        "BloFin",
+        "Bybit",
+        "Gate",
+        "Pionex"
+      ]
+    }
+
+    Write the answer.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: lookup-by-address
+    target: last_message
+    pattern: 'meta_exchange_lookup'
+    match: contains
+  - type: regex
+    name: says-yes
+    target: last_message
+    pattern: '\byes\b'
+    flags: i
+    match: contains
+  - type: regex
+    name: bitget-hot-wallet
+    target: last_message
+    pattern: 'hot wallet[^.]*Bitget|Bitget[^.]*hot wallet'
+    flags: i
+    match: contains
+  - type: regex
+    name: full-address
+    target: last_message
+    pattern: '0xed9ab5bc05a0152b9dc2f7902e8369af7bc18771'
+    flags: i
+    match: contains
+  - type: regex
+    name: full-addresses
+    target: last_message
+    pattern: '0x[0-9a-fA-F]{2,10}(…|\.\.\.)'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

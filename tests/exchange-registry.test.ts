@@ -18,8 +18,9 @@ import {
 } from '../src/mcp/exchange-registry.js'
 import { repoRoot } from './dex-registry.js'
 
-// The centralized exchange lookup: registry/exchanges/<network>.json lists the
-// wallets each exchange's own chain data proved. Every served file holds to the
+// The centralized exchange lookup: registry/exchanges/<network>.json lists every
+// exchange of the indexer-evm-cex registry, and under it only the wallets proven
+// on that chain's own data (proven_at_block above 0). Every served file holds to the
 // rules, the pin script rewrites it unchanged, the name and the address lookups
 // find the right exchange, and the loader takes the public file, then the cache,
 // then the packaged copy. HOME points at a fresh directory: the cache is this
@@ -39,14 +40,14 @@ describe('the served exchange lookup files', () => {
 
   for (const file of files) {
     const network = file.replace(/\.json$/, '')
-    it(`${file} holds to the rules: one id per exchange, wallets with evidence only, every exchange with a hot wallet`, () => {
+    it(`${file} holds to the rules: one id per exchange, only wallets proven on this chain, each with its evidence`, () => {
       const document = read(network)
       expect(exchangeRegistryFault(document, network)).toBeNull()
       expect(document.schema).toBe(EXCHANGE_REGISTRY_SCHEMA)
       for (const row of document.rows) {
         for (const wallet of row.wallets) {
           expect(wallet.evidence.trim(), `${row.exchange} ${wallet.address}`).not.toBe('')
-          expect(wallet.proven_at_block).toBeGreaterThanOrEqual(0)
+          expect(wallet.proven_at_block).toBeGreaterThan(0)
         }
       }
       // Nothing a reader sees says an exchange is missing: the file lists served exchanges only.
@@ -54,16 +55,16 @@ describe('the served exchange lookup files', () => {
     })
   }
 
-  it('robinhood lists seven exchanges, 11 hot wallets; a wallet carried from ethereum says so and has no block', () => {
+  it('robinhood lists seven exchanges and the three hot wallets proven on robinhood', () => {
     const document = read('robinhood')
     expect(document.rows.map((row) => [row.exchange, row.wallets.length])).toEqual([
-      ['bitget', 2],
-      ['bitrue', 1],
-      ['bitunix', 1],
-      ['blofin', 1],
-      ['bybit', 2],
-      ['gate', 2],
-      ['pionex', 2],
+      ['bitget', 1],
+      ['bitrue', 0],
+      ['bitunix', 0],
+      ['blofin', 0],
+      ['bybit', 1],
+      ['gate', 1],
+      ['pionex', 0],
     ])
     const gate = document.rows.find((row) => row.exchange === 'gate')!
     expect(gate.wallets[0]).toMatchObject({
@@ -71,18 +72,20 @@ describe('the served exchange lookup files', () => {
       role: 'hot_wallet',
       proven_at_block: 108803217,
     })
-    for (const wallet of document.rows.flatMap((row) => row.wallets)) {
-      if (wallet.proven_at_block === 0) expect(wallet.evidence).toMatch(/clean payers on robinhood/)
-    }
+    // A wallet carried from ethereum at the same address stays in the indexer's
+    // registry and in the graph, never in the public file.
+    const listed = document.rows.flatMap((row) => row.wallets.map((wallet) => wallet.address))
+    expect(listed).not.toContain('0x4cad1efbfd5f0848e0c3c14fab23f92b2fa81f17')
   })
 
-  it('ethereum lists 57 exchanges, 1,535 wallets, binance with 45 hot wallets and one gas wallet', () => {
+  it('ethereum lists 57 exchanges, 72 proven wallets, binance with 4 hot wallets and one gas wallet', () => {
     const document = read('ethereum')
     expect(document.registry_version).toBe(2)
     expect(document.rows).toHaveLength(57)
-    expect(document.rows.flatMap((row) => row.wallets)).toHaveLength(1535)
+    expect(document.rows.flatMap((row) => row.wallets)).toHaveLength(72)
+    expect(document.rows.filter((row) => row.wallets.length > 0)).toHaveLength(12)
     const binance = document.rows.find((row) => row.exchange === 'binance')!
-    expect(binance.wallets.filter((w) => w.role === 'hot_wallet')).toHaveLength(45)
+    expect(binance.wallets.filter((w) => w.role === 'hot_wallet')).toHaveLength(4)
     expect(binance.wallets.filter((w) => w.role === 'gas_wallet').map((w) => w.address)).toEqual([
       '0x9430801ebaf509ad49202aabc5f5bc6fd8a3daf8',
     ])
@@ -116,7 +119,42 @@ describe('the served exchange lookup files', () => {
     }
   })
 
-  it('refuses a wallet listed for two exchanges, a role it does not know, and an exchange with no hot wallet', () => {
+  it('the pin script leaves out a wallet with no block and keeps its exchange', () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'exchange-pin-'))
+    try {
+      const document = read('robinhood')
+      const source = join(scratch, 'robinhood.json')
+      const tagged = {
+        address: '0x4cad1efbfd5f0848e0c3c14fab23f92b2fa81f17',
+        role: 'hot_wallet',
+        evidence: 'ethereum registry wallet, same address; 6 clean payers on robinhood',
+        proven_at_block: 0,
+      }
+      writeFileSync(
+        source,
+        JSON.stringify({
+          network: document.network,
+          version: document.registry_version,
+          exchanges: document.rows.map((row) => ({
+            id: row.exchange,
+            wallets: row.exchange === 'bitget' ? [...row.wallets, tagged] : row.wallets,
+          })),
+        })
+      )
+      // Exit 0: the output, with the tagged wallet left out, is the served copy.
+      const out = execFileSync(
+        'node',
+        ['scripts/pin-exchange-registry.mjs', source, '--recorded-on', document.recorded_on],
+        { cwd: repoRoot, stdio: 'pipe' }
+      ).toString()
+      expect(out).not.toContain(tagged.address)
+      expect((JSON.parse(out) as ExchangeRegistryDocument).rows).toHaveLength(7)
+    } finally {
+      rmSync(scratch, { recursive: true, force: true })
+    }
+  })
+
+  it('refuses a wallet listed for two exchanges, a role it does not know, and a wallet with no block', () => {
     const document = read('robinhood')
     const twice = structuredClone(document)
     twice.rows[1]!.wallets.push({ ...twice.rows[0]!.wallets[0]! })
@@ -126,9 +164,11 @@ describe('the served exchange lookup files', () => {
     }
     role.rows[0]!.wallets[0]!.role = 'deposit'
     expect(exchangeRegistryFault(role, 'robinhood')).toMatch(/role deposit is not/)
-    const gasOnly = structuredClone(document)
-    gasOnly.rows[1]!.wallets[0]!.role = 'gas_wallet'
-    expect(exchangeRegistryFault(gasOnly, 'robinhood')).toMatch(/has no hot wallet/)
+    const tagged = structuredClone(document)
+    tagged.rows[0]!.wallets[0]!.proven_at_block = 0
+    expect(exchangeRegistryFault(tagged, 'robinhood')).toMatch(
+      /proven_at_block is not a block above 0/
+    )
     expect(exchangeRegistryFault(document, 'ethereum')).toMatch(/network is "robinhood"/)
   })
 })

@@ -1,16 +1,24 @@
 #!/usr/bin/env node
 // Writes the served exchange lookup file registry/exchanges/<network>.json from
-// a proven wallet list: one entry per centralized exchange, each wallet with
-// its role, the proof the chain gave and the block it was proven at.
+// the indexer-evm-cex registry of that network: one entry per centralized
+// exchange, and under it only the wallets proven on that network's own data.
 //
 //   node scripts/pin-exchange-registry.mjs <wallets.json> [--write] [--recorded-on YYYY-MM-DD]
 //
 // The input is {network, version, exchanges: [{id, wallets: [{address, role,
-// evidence, proven_at_block}]}]}. Only proven wallets are in it, so only served
-// exchanges are listed. The display name and the aliases of an exchange are
-// kept from the file already served, or taken from DISPLAY below for a new one.
-// With no --write the script prints the file and exits 1 when the served copy
-// differs. tests/exchange-registry.test.ts holds every served file to the rules.
+// evidence, proven_at_block}]}]}, the file registry/<network>.json of
+// indexer-evm-cex. Every exchange is kept, with its id, its display name and
+// its aliases, so a user's word still finds it. A wallet is kept only when
+// proven_at_block is above 0: a payer proof pinned at a block of this chain.
+// A wallet with proven_at_block 0 (an exchange tag, or a wallet of another
+// chain at the same address) stays in the indexer's registry and in the graph,
+// never in the public file. An exchange may so list no wallet: its deposits
+// and hot wallets are still read from the graph.
+//
+// The display name and the aliases of an exchange are kept from the file
+// already served, or taken from DISPLAY below for a new one. With no --write
+// the script prints the file and exits 1 when the served copy differs.
+// tests/exchange-registry.test.ts holds every served file to the rules.
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -105,15 +113,21 @@ const known = new Map(served.rows.map((row) => [row.exchange, row]))
 const rows = [...source.exchanges]
   .sort((a, b) => a.id.localeCompare(b.id))
   .map((exchange) => {
-    const wallets = exchange.wallets.map((wallet) => {
+    const wallets = exchange.wallets.flatMap((wallet) => {
       if (!ROLES.has(wallet.role))
         throw new Error(`${exchange.id}: role ${wallet.role} is not served`)
-      return {
-        address: wallet.address.toLowerCase(),
-        role: wallet.role,
-        evidence: wallet.evidence,
-        proven_at_block: wallet.proven_at_block,
-      }
+      if (!Number.isInteger(wallet.proven_at_block) || wallet.proven_at_block < 0)
+        throw new Error(`${exchange.id}: ${wallet.address} proven_at_block is not a block or 0`)
+      // Only a wallet proven on this chain's own data is public.
+      if (wallet.proven_at_block === 0) return []
+      return [
+        {
+          address: wallet.address.toLowerCase(),
+          role: wallet.role,
+          evidence: wallet.evidence,
+          proven_at_block: wallet.proven_at_block,
+        },
+      ]
     })
     const before = known.get(exchange.id)
     const [display, aliases] = before
@@ -121,7 +135,6 @@ const rows = [...source.exchanges]
       : (DISPLAY[exchange.id] ?? [exchange.id, [exchange.id]])
     return { exchange: exchange.id, display, aliases, wallets }
   })
-  .filter((row) => row.wallets.some((wallet) => wallet.role === 'hot_wallet'))
 
 const document = {
   schema: SCHEMA,

@@ -114,6 +114,14 @@ add(
   queryBuilderContract.connectionRouteQueries(ADDR_QUOTED, COMPARE)
 )
 
+// Exchange ends: the SWEPT read of a deposit an exchange walk ended at.
+add(
+  'exchangeDepositSweptQuery',
+  { address: ADDR },
+  'topology',
+  queryBuilderContract.exchangeDepositSweptQuery(ADDR, 0)
+)
+
 // LINKED ownership overlay: served on the topology graph (also on facts).
 add(
   'linkedExposureQueries',

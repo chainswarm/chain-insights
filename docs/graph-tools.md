@@ -300,7 +300,7 @@ one path only:
 ```bash
 cia mcp call graph_query \
   network=robinhood \
-  'query=USE topology MATCH p = SHORTEST 1 (a:Address {address: "0x..."} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: "0x..."}) RETURN [n IN nodes(p) | n.address] AS route LIMIT 5'
+  'query=USE topology MATCH p = SHORTEST 1 (a:Address {address: "0x..."} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND NOT via:Exchange){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: "0x..."}) RETURN [n IN nodes(p) | n.address] AS route LIMIT 5'
 ```
 
 The `chain-insights-cypher` skill shows how to read the properties of a link
@@ -365,7 +365,7 @@ Where one token went, up to 3 hops out. Every hop carries the same `asset`:
 
 ```cypher
 USE topology
-MATCH p = (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System) (()-[t:TRANSFERRED WHERE t.asset = "0x5fc5360d0400a0fd4f2af552add042d716f1d168"]->(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,2} ()-[:TRANSFERRED {asset: "0x5fc5360d0400a0fd4f2af552add042d716f1d168"}]->(b:Address)
+MATCH p = (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System) (()-[t:TRANSFERRED WHERE t.asset = "0x5fc5360d0400a0fd4f2af552add042d716f1d168"]->(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND NOT via:Exchange){0,2} ()-[:TRANSFERRED {asset: "0x5fc5360d0400a0fd4f2af552add042d716f1d168"}]->(b:Address)
 RETURN b.address AS to_address, length(p) AS hops LIMIT 25
 ```
 
@@ -467,8 +467,11 @@ What each value means:
 - Each flag is absent unless true. An address carries the flag only while it
   has a live label of that role. A flag is never `false`.
 - Test a flag with `IS NOT NULL` or `IS NULL`. Do not test `= false`.
-- Only `is_exchange` ends a walk: exchange hot wallets are terminals, and a
-  node with no `is_exchange` is walked through.
+- Only `is_exchange` ends a walk: every `:Exchange` address is a terminal, a
+  hot wallet and a deposit alike, and a node with no `is_exchange` is walked
+  through. A quantified walk carries `NOT via:Exchange` on every address in
+  its middle. A walk that ends at a deposit names the exchange from its
+  `SWEPT` link (`aml_exchange_deposit_check`).
 - The `chain-insights-cypher` skill shows how to read every property from a
   sample.
 

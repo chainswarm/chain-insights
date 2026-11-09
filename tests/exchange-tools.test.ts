@@ -46,7 +46,7 @@ const BITGET_HOT = '0xed9ab5bc05a0152b9dc2f7902e8369af7bc18771'
 const DEPOSIT = '0x31a817802ee183eb8b13167ffe24bd28dcc6f30c'
 
 describe('meta_exchange_lookup', () => {
-  it('turns a name into the hot wallets of the network, each with its evidence and block', async () => {
+  it('turns a name into the hot wallets proven on the network, each with its evidence and block', async () => {
     const { result, structured } = await lookupResult({ network: 'robinhood', name: 'Bitget' })
     expect(result.isError).toBe(false)
     expect(structured.matched).toEqual({
@@ -59,17 +59,11 @@ describe('meta_exchange_lookup', () => {
             '1987 clean payers 2026-10-09 to 2026-11-07; 199 of 200 sampled pay only this exchange',
           proven_at_block: 108803217,
         },
-        {
-          address: '0x4cad1efbfd5f0848e0c3c14fab23f92b2fa81f17',
-          evidence:
-            'ethereum registry wallet, same address; 6 clean payers on robinhood 2026-10-09 to 2026-11-07',
-          proven_at_block: 0,
-        },
       ],
       gas_wallets: [],
       spenders: [],
     })
-    expect(structured.hint).toContain('Bitget on robinhood: 2 hot wallets.')
+    expect(structured.hint).toContain('Bitget on robinhood: 1 hot wallet proven on this chain.')
     expect(structured.hint).toContain(EXCHANGE_OPENING_RULE)
   })
 
@@ -98,14 +92,35 @@ describe('meta_exchange_lookup', () => {
   it('lists every exchange of the network with no name, with its hot wallet count', async () => {
     const { structured } = await lookupResult({ network: 'robinhood' })
     expect(structured.exchanges).toEqual([
-      { exchange: 'bitget', display: 'Bitget', hot_wallets: 2 },
-      { exchange: 'bitrue', display: 'Bitrue', hot_wallets: 1 },
-      { exchange: 'bitunix', display: 'Bitunix', hot_wallets: 1 },
-      { exchange: 'blofin', display: 'BloFin', hot_wallets: 1 },
-      { exchange: 'bybit', display: 'Bybit', hot_wallets: 2 },
-      { exchange: 'gate', display: 'Gate', hot_wallets: 2 },
-      { exchange: 'pionex', display: 'Pionex', hot_wallets: 2 },
+      { exchange: 'bitget', display: 'Bitget', hot_wallets: 1 },
+      { exchange: 'bitrue', display: 'Bitrue', hot_wallets: 0 },
+      { exchange: 'bitunix', display: 'Bitunix', hot_wallets: 0 },
+      { exchange: 'blofin', display: 'BloFin', hot_wallets: 0 },
+      { exchange: 'bybit', display: 'Bybit', hot_wallets: 1 },
+      { exchange: 'gate', display: 'Gate', hot_wallets: 1 },
+      { exchange: 'pionex', display: 'Pionex', hot_wallets: 0 },
     ])
+  })
+
+  it('an exchange with no wallet proven on the chain is still found, and the hint sends the trail to the graph', async () => {
+    const { result, structured } = await lookupResult({ network: 'robinhood', name: 'pionex' })
+    expect(result.isError).toBe(false)
+    expect(structured.matched).toMatchObject({ exchange: 'pionex', hot_wallets: [] })
+    expect(structured.hint).toContain('the graph marks its deposits and hot wallets')
+    expect(structured.hint).toContain('call aml_exchange_deposit_check')
+    expect(structured.hint).not.toMatch(/not (covered|served|supported)|unsupported|unknown/i)
+  })
+
+  it('a wallet the file leaves out sends the reader to the graph check', async () => {
+    const { structured } = await lookupResult({
+      network: 'robinhood',
+      address: '0x4cad1efbfd5f0848e0c3c14fab23f92b2fa81f17',
+    })
+    expect(structured.matched).toBeNull()
+    expect(structured.hint).toContain('the file lists only wallets proven on this chain')
+    expect(structured.hint).toContain(
+      'call aml_exchange_deposit_check {network: "robinhood", address: "0x4cad1efbfd5f0848e0c3c14fab23f92b2fa81f17"}'
+    )
   })
 
   it('a name with no row sends the user to an address and never says the exchange is unsupported', async () => {
@@ -258,6 +273,23 @@ describe('aml_exchange_deposit_check', () => {
       `Say: "${DEPOSIT} is a deposit address of Bitget on robinhood."`
     )
     expect(structured.hint).toContain(`It swept 3 times into the hot wallet ${BITGET_HOT}.`)
+  })
+
+  it('a deposit that swept into a hot wallet the file leaves out is named from the label words of that wallet', async () => {
+    const { structured } = await check([
+      nodeMember({ address: DEPOSIT, labels: [], cex_role: 'deposit' }),
+      sweptMember([
+        {
+          hot_wallet: '0x4cad1efbfd5f0848e0c3c14fab23f92b2fa81f17',
+          hot_wallet_labels: ['Exchange', 'bitget'],
+          hot_wallet_role: 'hot_wallet',
+          sweep_count: 1,
+        },
+      ]),
+    ])
+    expect(structured).toMatchObject({ is_deposit: true, exchange: 'bitget' })
+    expect(structured.swept[0]).toMatchObject({ hot_wallet_exchange: 'bitget' })
+    expect(structured.hint).toContain('is a deposit address of Bitget on robinhood.')
   })
 
   it('a hot wallet is an exchange wallet but no deposit', async () => {

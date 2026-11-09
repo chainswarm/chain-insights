@@ -38,22 +38,26 @@ wallet, and marks each exchange wallet with `cex_role`.
 `SWEPT` is drawn only from an address the deposit rule judged a deposit: it
 sends everything to the hot wallets of one exchange, was paid by few
 outside addresses and never traded on a DEX. A customer who pays a hot
-wallet directly has no `SWEPT` link: that payment stays `FLOWED_TO`. The
-hot wallet's `labels` carry the exchange's name, and its `is_exchange` is
-set.
+wallet directly has no `SWEPT` link: that payment stays `FLOWED_TO`. A
+deposit and a hot wallet are both `:Exchange` addresses: their `labels`
+carry `Exchange` and the exchange id (`gate`, `bitget`), and `is_exchange`
+is set on both.
 
 ## Step 1: the doors
 
 1. **A named exchange: `meta_exchange_lookup`.** Call it first with the
    network and the name as the user wrote it:
    `{"network": "robinhood", "name": "Bitget"}`. It answers from the
-   exchange lookup, at no cost: the exchange's hot wallets on that network,
-   each with its `evidence` (a proof on that chain's own data, or an
-   exchange tag of that chain) and `proven_at_block` (0 for a tag), and its
-   gas wallets. It takes a typo within two letters and
+   exchange lookup, at no cost: the exchange's hot wallets and gas wallets
+   proven on that chain's own data, each with its payer proof in `evidence`
+   and the block it was proven at in `proven_at_block`. The file lists every
+   exchange, and only the wallets proven on that chain: an exchange may list
+   none. Its deposits and hot wallets are still marked in the graph, and
+   `aml_exchange_deposit_check` reads them there. It takes a typo within two letters and
    names it in `took_for`; say which you took in one line, and ask
    nothing. Send `address` instead of `name` to learn whose wallet an
-   address is.
+   address is. An address the file does not list may still be an exchange
+   wallet: check it with `aml_exchange_deposit_check` before you answer.
 2. **One address: `aml_exchange_deposit_check`.** Call it with the network
    and the address in full:
    `{"network": "robinhood", "address": "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c"}`.
@@ -68,11 +72,29 @@ set.
    `aml_exchange_deposit_check`. **Send no graph search by name**: the graph
    has no name search, and a scan of `labels` walks the whole chain.
 
+## Two questions, answered
+
+- **"Is 0xed9ab5bc05a0152b9dc2f7902e8369af7bc18771 an exchange?"** Call
+  `meta_exchange_lookup` with the `address`. It answers "a hot wallet of
+  Bitget on robinhood": say yes, a hot wallet of Bitget, with the address in
+  full. When the file lists no wallet of that address, call
+  `aml_exchange_deposit_check`: its `cex_role` and the exchange it names
+  answer the question from the graph.
+- **"Where did the money from 0x64ba5fafa7a6e1991f7f60c9b594a7131a784540
+  go?"** Call `aml_exchange_deposit_check` first. When the address is a
+  deposit, the answer is its `SWEPT` link: the money entered Gate at that
+  deposit and was swept into the Gate hot wallet
+  0x0d0707963952f2fba59dd06f2b425ace40b492fe. The trail ends there. Send no
+  walk past the hot wallet: what leaves it is the exchange paying other
+  customers.
+
 ## A trail that reaches an exchange
 
-Every trace in `chain-insights-cypher` stops at an exchange hot wallet
-(`is_exchange IS NULL` lets a walk pass). This skill adds the deposit: a
-trail ends at the first address with a `SWEPT` link.
+Every walk in `chain-insights-cypher` stops at an `:Exchange` address: each
+address in its middle carries `NOT via:Exchange`, so a deposit and a hot
+wallet can only end it. This skill names what the end is: a trail ends at
+the first `:Exchange` address, and a deposit names its hot wallet through
+its `SWEPT` link.
 
 Did the money pass from this address straight into an exchange deposit?
 Anchor on the address the trail reached, with the guard of
@@ -96,8 +118,8 @@ MATCH (a:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c"})-[s:SWE
 - **Answer the investigator's question.** "The money entered Bitget at
   deposit D on robinhood, which was swept 3 times into hot wallet H." The
   exchange can name the customer behind D: that is the lead to hand over.
-- **Name the exchange** from the hot wallet through `meta_exchange_lookup`
-  with its `address`, or from the deposit's `labels`.
+- **Name the exchange** from the deposit's `labels`, or from the hot wallet
+  through `meta_exchange_lookup` with its `address`.
 - **A payment straight into a hot wallet** ends the trail too: the money
   entered the exchange, but there is no deposit to name. Say so.
 
