@@ -3,6 +3,12 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.79.3] - 2026-11-09 — the fake-token seeder word
+
+### Added
+
+- `FAKE_TOKEN_LP` marks the wallet that seeded a fake token's pool and pulled its liquidity after the buyers paid. It is a `risk_claims` value on `:Scam`, named in the judgement marks, the `chain-insights-cypher` skill and `docs/graph-tools.md`.
+
 ## [0.79.2] - 2026-11-06 — the launchpad skill answers what the graph holds
 
 ### Changed

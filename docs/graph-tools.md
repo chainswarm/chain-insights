@@ -429,6 +429,7 @@ What each value means:
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `FAKE_TOKEN`                 | A fake token: a spoof contract that imitates a real token.                                                               |
 | `FAKE_TOKEN_DEPLOYER`        | The creator of a fake token.                                                                                             |
+| `FAKE_TOKEN_LP`              | The wallet that seeded a fake token's pool and pulled its liquidity after the buyers paid.                               |
 | `ADDRESS_POISONING`          | A poisoner: a look-alike address that sent worthless dust so the target copies it from its history. `:Poisoned`, never `:Scam`. |
 | `INBOUND_IMPERSONATION`      | A look-alike address that paid the target to get into its history.                                                      |
 | `PHANTOM_TRANSFER`           | A contract that writes fake transfer events, claiming a transfer from a look-alike that never happened.                  |
