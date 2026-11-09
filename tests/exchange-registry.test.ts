@@ -39,14 +39,14 @@ describe('the served exchange lookup files', () => {
 
   for (const file of files) {
     const network = file.replace(/\.json$/, '')
-    it(`${file} holds to the rules: one id per exchange, proven wallets only, every exchange with a hot wallet`, () => {
+    it(`${file} holds to the rules: one id per exchange, wallets with evidence only, every exchange with a hot wallet`, () => {
       const document = read(network)
       expect(exchangeRegistryFault(document, network)).toBeNull()
       expect(document.schema).toBe(EXCHANGE_REGISTRY_SCHEMA)
       for (const row of document.rows) {
         for (const wallet of row.wallets) {
-          expect(wallet.evidence, `${row.exchange} ${wallet.address}`).toMatch(/\d/)
-          expect(wallet.proven_at_block).toBeGreaterThan(0)
+          expect(wallet.evidence.trim(), `${row.exchange} ${wallet.address}`).not.toBe('')
+          expect(wallet.proven_at_block).toBeGreaterThanOrEqual(0)
         }
       }
       // Nothing a reader sees says an exchange is missing: the file lists served exchanges only.
@@ -54,35 +54,40 @@ describe('the served exchange lookup files', () => {
     })
   }
 
-  it('robinhood lists the three exchanges proven on robinhood data, each with its hot wallet', () => {
+  it('robinhood lists seven exchanges, 11 hot wallets; a wallet carried from ethereum says so and has no block', () => {
     const document = read('robinhood')
-    expect(
-      document.rows.map((row) => [row.exchange, row.wallets.map((w) => `${w.role} ${w.address}`)])
-    ).toEqual([
-      ['bitget', ['hot_wallet 0xed9ab5bc05a0152b9dc2f7902e8369af7bc18771']],
-      ['bybit', ['hot_wallet 0xc0e17ad342afabd36b3971f8305ff147006962ae']],
-      ['gate', ['hot_wallet 0x0d0707963952f2fba59dd06f2b425ace40b492fe']],
+    expect(document.rows.map((row) => [row.exchange, row.wallets.length])).toEqual([
+      ['bitget', 2],
+      ['bitrue', 1],
+      ['bitunix', 1],
+      ['blofin', 1],
+      ['bybit', 2],
+      ['gate', 2],
+      ['pionex', 2],
     ])
+    const gate = document.rows.find((row) => row.exchange === 'gate')!
+    expect(gate.wallets[0]).toMatchObject({
+      address: '0x0d0707963952f2fba59dd06f2b425ace40b492fe',
+      role: 'hot_wallet',
+      proven_at_block: 108803217,
+    })
+    for (const wallet of document.rows.flatMap((row) => row.wallets)) {
+      if (wallet.proven_at_block === 0) expect(wallet.evidence).toMatch(/clean payers on robinhood/)
+    }
   })
 
-  it('ethereum lists eight exchanges, 65 wallets, binance with four hot wallets and one gas wallet', () => {
+  it('ethereum lists 57 exchanges, 1,535 wallets, binance with 45 hot wallets and one gas wallet', () => {
     const document = read('ethereum')
-    expect(document.rows.map((row) => row.exchange)).toEqual([
-      'binance',
-      'bitget',
-      'bybit',
-      'coinbase',
-      'gate',
-      'kucoin',
-      'mexc',
-      'okx',
-    ])
-    expect(document.rows.flatMap((row) => row.wallets)).toHaveLength(65)
+    expect(document.registry_version).toBe(2)
+    expect(document.rows).toHaveLength(57)
+    expect(document.rows.flatMap((row) => row.wallets)).toHaveLength(1535)
     const binance = document.rows.find((row) => row.exchange === 'binance')!
-    expect(binance.wallets.filter((w) => w.role === 'hot_wallet')).toHaveLength(4)
+    expect(binance.wallets.filter((w) => w.role === 'hot_wallet')).toHaveLength(45)
     expect(binance.wallets.filter((w) => w.role === 'gas_wallet').map((w) => w.address)).toEqual([
       '0x9430801ebaf509ad49202aabc5f5bc6fd8a3daf8',
     ])
+    // A new id gets the name a user writes, from the pin script.
+    expect(document.rows.find((row) => row.exchange === 'crypto-com')?.display).toBe('Crypto.com')
   })
 
   it('the pin script rewrites a file from its own wallets unchanged', () => {
@@ -122,8 +127,8 @@ describe('the served exchange lookup files', () => {
     role.rows[0]!.wallets[0]!.role = 'deposit'
     expect(exchangeRegistryFault(role, 'robinhood')).toMatch(/role deposit is not/)
     const gasOnly = structuredClone(document)
-    gasOnly.rows[0]!.wallets[0]!.role = 'gas_wallet'
-    expect(exchangeRegistryFault(gasOnly, 'robinhood')).toMatch(/has no proven hot wallet/)
+    gasOnly.rows[1]!.wallets[0]!.role = 'gas_wallet'
+    expect(exchangeRegistryFault(gasOnly, 'robinhood')).toMatch(/has no hot wallet/)
     expect(exchangeRegistryFault(document, 'ethereum')).toMatch(/network is "robinhood"/)
   })
 })
@@ -145,19 +150,11 @@ describe('the name and the address lookups', () => {
   })
 
   it('a name that fits none matches nothing and lists the exchanges of the file', () => {
-    const match = matchExchange('Kraken', rows)
+    const match = matchExchange('Deribit', rows)
     expect(match.matched).toBeNull()
     expect(match.candidates).toEqual([])
-    expect(match.listed).toEqual([
-      'Binance',
-      'Bitget',
-      'Bybit',
-      'Coinbase',
-      'Gate',
-      'KuCoin',
-      'MEXC',
-      'OKX',
-    ])
+    expect(match.listed).toHaveLength(57)
+    expect(match.listed).toContain('Kraken')
   })
 
   it('a wallet address names its exchange and its role; a label word names its exchange', () => {
@@ -224,7 +221,15 @@ describe('loadExchangeRegistry', () => {
   it('falls back to the packaged copy offline, and never takes a malformed public file', async () => {
     const down = await loadExchangeRegistry('robinhood', { fetch: offline, log })
     expect(down.source).toBe('packaged')
-    expect(down.document.rows.map((row) => row.exchange)).toEqual(['bitget', 'bybit', 'gate'])
+    expect(down.document.rows.map((row) => row.exchange)).toEqual([
+      'bitget',
+      'bitrue',
+      'bitunix',
+      'blofin',
+      'bybit',
+      'gate',
+      'pionex',
+    ])
     expect(lines.join('\n')).toContain('unreachable')
 
     rmSync(home, { recursive: true, force: true })

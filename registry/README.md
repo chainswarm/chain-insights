@@ -142,29 +142,32 @@ pools, and every example pool is a `:Pool` deployed by its factory.
 
 ## Centralized exchanges
 
-`exchanges/<network>.json` lists, per centralized exchange, the wallets the
-network's own data proved. The proxy tool `meta_exchange_lookup` serves it, and
+`exchanges/<network>.json` lists, per centralized exchange, its wallets on the
+network, each with the evidence that names it. The proxy tool `meta_exchange_lookup` serves it, and
 `aml_exchange_deposit_check` names an exchange from it.
 
 | File | Exchanges | Wallets |
 |---|---|---|
-| [exchanges/ethereum.json](exchanges/ethereum.json) | 8 | 65 |
-| [exchanges/robinhood.json](exchanges/robinhood.json) | 3 | 3 |
+| [exchanges/ethereum.json](exchanges/ethereum.json) | 57 | 1,535 |
+| [exchanges/robinhood.json](exchanges/robinhood.json) | 7 | 11 |
 
-1. **The chain proves every wallet.** A hot wallet has at least 20 clean
-   payers, and at least 90 % of a 200-payer sample pay only this exchange. A
-   gas wallet sends the native coin to this exchange's deposits, and at least
-   90 % of its native recipients are those deposits. A label from another
-   chain counts only once this chain's own data proves the wallet.
-2. **Every wallet carries its proof.** `evidence` says what the chain showed,
-   and `proven_at_block` the block it was proven at.
-3. **Only served exchanges are listed.** An exchange with no proven hot wallet
-   has no row.
-4. **One wallet, one exchange.** A wallet listed for two exchanges is refused.
-5. **The id is the word the graph's labels carry.** `display` and `aliases` are
+1. **Every wallet carries its evidence**, one of three:
+   - a payer proof on this chain: at least 20 clean payers, and at least 90 %
+     of a 200-payer sample pay only this exchange, pinned at
+     `proven_at_block`; for a gas wallet, at least 90 % of its native
+     recipients are this exchange's deposits;
+   - an exchange tag of this chain, trusted on its own chain
+     (`proven_at_block` 0);
+   - a wallet of another chain at the same address, seen at work on this one
+     with at least 5 clean payers here (`proven_at_block` 0).
+   A tag of another chain alone never enters.
+2. **Only served exchanges are listed.** An exchange with no hot wallet has no
+   row.
+3. **One wallet, one exchange.** A wallet listed for two exchanges is refused.
+4. **The id is the word the graph's labels carry.** `display` and `aliases` are
    the names a user writes.
 
 `node scripts/pin-exchange-registry.mjs <wallets.json> --write` writes the file
-from a proven wallet list and keeps each exchange's display name and aliases.
+from a wallet list and keeps each exchange's display name and aliases.
 `tests/exchange-registry.test.ts` holds every file to these rules. A row merged
 on `main` reaches every running proxy within one hour.

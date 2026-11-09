@@ -109,7 +109,7 @@ Never touches:
 | `meta_dex_lookup`           | Turn an exchange name (Aero, Uniswap, Virtuals) into its contracts, pools, reads   |
 | `meta_token_lookup`         | Turn a ticker or a token name (TCITY, USDG) into every contract that carries it    |
 | `aml_deployer_screen`       | Screen who is behind a token or a wallet: launcher, first funder, labels           |
-| `meta_exchange_lookup`      | Turn a centralized exchange name (Binance, OKX) into its proven hot wallets        |
+| `meta_exchange_lookup`      | Turn a centralized exchange name (Binance, OKX) into its hot wallets               |
 | `aml_exchange_deposit_check`| Check an address: an exchange deposit, of which exchange, swept into which wallet  |
 | `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                           |
 | `meta_subscription_status`  | Check your wallet's subscription: days left, today's allowance, payments pending   |

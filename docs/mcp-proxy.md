@@ -84,7 +84,7 @@ The proxy:
 | `meta_dex_lookup`           | Turn an exchange name into its factories, routers or manager, pools and first reads  |
 | `meta_token_lookup`         | Turn a ticker or a token name into every contract that carries it, with its creator  |
 | `aml_deployer_screen`       | Screen who is behind a token or a wallet: launcher, first funder, labels, facts only |
-| `meta_exchange_lookup`      | Turn a centralized exchange name, or one of its wallets, into its proven wallets     |
+| `meta_exchange_lookup`      | Turn a centralized exchange name, or one of its wallets, into its listed wallets     |
 | `aml_exchange_deposit_check`| Check one address: an exchange deposit, of which exchange, swept into which wallet   |
 | `meta_rules`                | Read the answer rules when the `chain-insights-cypher` skill is not loaded           |
 | `meta_help`                 | Show Chain Insights tool and workflow guidance                                       |
@@ -212,9 +212,15 @@ Bitget) into its wallets on one network. It takes `network` (required) and
 `name` or `address` (one of them, not both; with neither, every listed exchange
 is returned with its hot wallet count). It reads the public exchange lookup
 `registry/exchanges/<network>.json` and sends no graph read. Every wallet in it
-was proven on that network's own data: a hot wallet has at least 20 clean
-payers, and at least 90 % of a 200-payer sample pay only this exchange. Each
-wallet carries that proof as `evidence` and the block it was proven at.
+carries its `evidence`, one of three:
+
+- a proof on that network's own data: at least 20 clean payers, and at least
+  90 % of a 200-payer sample pay only this exchange, pinned at
+  `proven_at_block`;
+- an exchange tag of that network, trusted on its own chain
+  (`proven_at_block` 0);
+- a wallet of another network at the same address, seen at work on this one
+  with its own clean payers (`proven_at_block` 0).
 
 - `hot_wallets` receive the sweeps of the exchange's deposits; `gas_wallets`
   top deposits up so they can pay their own sweep; `spenders` pull approved
@@ -226,7 +232,7 @@ wallet carries that proof as `evidence` and the block it was proven at.
   with the packaged copy as the offline fallback. A row merged on `main`
   reaches every running proxy within the hour, with no release.
 - `scripts/pin-exchange-registry.mjs <wallets.json> --write` writes the file
-  from a proven wallet list; `tests/exchange-registry.test.ts` holds every
+  from a wallet list; `tests/exchange-registry.test.ts` holds every
   file to the rules.
 
 `cia mcp call meta_exchange_lookup network=robinhood name=Bitget` runs the

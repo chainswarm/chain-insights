@@ -1,10 +1,11 @@
 /**
- * meta_exchange_lookup: a centralized exchange's name becomes its proven wallets.
+ * meta_exchange_lookup: a centralized exchange's name becomes its wallets.
  *
  * A local tool of the proxy. It matches the name against the exchange lookup
  * file (src/mcp/exchange-registry.ts) and answers from it alone: no graph read,
- * no cost. Every wallet it returns was proven on that network's own data, with
- * the proof and the block it was proven at. An address instead of a name says
+ * no cost. Every wallet it returns carries its evidence: a proof on that
+ * network's own data pinned at a block, or an exchange tag of that network
+ * (proven_at_block 0). An address instead of a name says
  * whose wallet the address is.
  *
  * The description below is the contract with every host, Claude Desktop chat
@@ -39,7 +40,7 @@ export const META_EXCHANGE_LOOKUP_TITLE = 'Centralized exchange by name or addre
 export const META_EXCHANGE_LOOKUP_DESCRIPTION =
   'Call this first when a question names a centralized exchange (Binance, Bitget, Bybit, Coinbase, Gate, KuCoin, MEXC, OKX, ...) ' +
   'and gives no address, or asks which exchange a wallet belongs to. It turns the name into the hot wallets of that exchange on the network, ' +
-  "each proven on that chain's own data, with the proof and the block it was proven at, and its gas wallets. " +
+  "each with its evidence (a proof on that chain's own data, or an exchange tag of that chain) and the block it was proven at (0 for a tag), and its gas wallets. " +
   'A misspelling within two letters is taken and named in took_for. Send address instead (0x plus 40 hex, any case) to learn whose hot wallet ' +
   'or gas wallet it is. It reads no graph and costs nothing. ' +
   `${EXCHANGE_OPENING_RULE} Give a name or an address, not both.`
@@ -150,12 +151,12 @@ function hintFor(
   }
   if (address !== null && result.matched) {
     return (
-      `${ANSWER_HINT} Say in one line: "${address} is ${result.took_for} of ${result.matched.display}, proven on ${network}." ` +
+      `${ANSWER_HINT} Say in one line: "${address} is ${result.took_for} of ${result.matched.display} on ${network}." ` +
       'A trail that reaches it has entered the exchange: end the trail there. Never walk on past a hot wallet.'
     )
   }
   if (name === null) {
-    return `${ANSWER_HINT} These are the exchanges the lookup lists for ${network}. Call meta_exchange_lookup with a name for its proven wallets.`
+    return `${ANSWER_HINT} These are the exchanges the lookup lists for ${network}. Call meta_exchange_lookup with a name for its wallets.`
   }
   if (result.matched) {
     const { matched } = result
@@ -163,7 +164,7 @@ function hintFor(
       ? `Say in one line: "I took ${matched.display} for ${result.took_for}." Ask nothing. `
       : ''
     return (
-      `${ANSWER_HINT} ${took}${matched.display} on ${network}: ${matched.hot_wallets.length} proven hot wallet${matched.hot_wallets.length === 1 ? '' : 's'}. ` +
+      `${ANSWER_HINT} ${took}${matched.display} on ${network}: ${matched.hot_wallets.length} hot wallet${matched.hot_wallets.length === 1 ? '' : 's'}. ` +
       'A deposit of this exchange has a SWEPT link into one of them. Read SWEPT anchored on the address the trail reached, never on a hot wallet: ' +
       'a hot wallet links to many thousands of deposits. To check one address, call aml_exchange_deposit_check. ' +
       `${EXCHANGE_OPENING_RULE}`

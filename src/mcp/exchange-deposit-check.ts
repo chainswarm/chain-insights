@@ -237,6 +237,12 @@ export function depositCheckFromMembers(
   return { result: { ...result, hint: hintFor(result) } }
 }
 
+/** " once", " 3 times", or "" when the graph gave no count. */
+function timesText(count: number | null): string {
+  if (count === null) return ''
+  return count === 1 ? ' once' : ` ${count} times`
+}
+
 function hintFor(result: Omit<AmlExchangeDepositCheckResult, 'hint'>): string {
   const { address, network } = result
   const name = result.exchange_display ?? 'its exchange (name it from labels)'
@@ -249,7 +255,7 @@ function hintFor(result: Omit<AmlExchangeDepositCheckResult, 'hint'>): string {
   if (result.is_deposit) {
     const top = result.swept[0]
     const into = top
-      ? ` It swept ${top.sweep_count ?? 'an unknown number of'} times into the hot wallet ${top.hot_wallet}` +
+      ? ` It swept${timesText(top.sweep_count)} into the hot wallet ${top.hot_wallet}` +
         (result.swept.length > 1
           ? `, and into ${result.swept.length - 1} more hot wallets (swept lists them)`
           : '') +
@@ -269,7 +275,7 @@ function hintFor(result: Omit<AmlExchangeDepositCheckResult, 'hint'>): string {
   }
   return (
     `${ANSWER_HINT} ${address} carries no deposit mark: no SWEPT link and no cex_role. ` +
-    'Say that the graph shows no sweep of it into a proven exchange hot wallet. That is not proof the address belongs to no exchange; ' +
+    'Say that the graph shows no sweep of it into a listed exchange hot wallet. That is not proof the address belongs to no exchange; ' +
     'its labels and its links say what else it is.'
   )
 }

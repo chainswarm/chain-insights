@@ -46,7 +46,7 @@ const BITGET_HOT = '0xed9ab5bc05a0152b9dc2f7902e8369af7bc18771'
 const DEPOSIT = '0x31a817802ee183eb8b13167ffe24bd28dcc6f30c'
 
 describe('meta_exchange_lookup', () => {
-  it('turns a name into the proven hot wallets of the network, with proof and block', async () => {
+  it('turns a name into the hot wallets of the network, each with its evidence and block', async () => {
     const { result, structured } = await lookupResult({ network: 'robinhood', name: 'Bitget' })
     expect(result.isError).toBe(false)
     expect(structured.matched).toEqual({
@@ -59,11 +59,17 @@ describe('meta_exchange_lookup', () => {
             '1987 clean payers 2026-10-09 to 2026-11-07; 199 of 200 sampled pay only this exchange',
           proven_at_block: 108803217,
         },
+        {
+          address: '0x4cad1efbfd5f0848e0c3c14fab23f92b2fa81f17',
+          evidence:
+            'ethereum registry wallet, same address; 6 clean payers on robinhood 2026-10-09 to 2026-11-07',
+          proven_at_block: 0,
+        },
       ],
       gas_wallets: [],
       spenders: [],
     })
-    expect(structured.hint).toContain('Bitget on robinhood: 1 proven hot wallet.')
+    expect(structured.hint).toContain('Bitget on robinhood: 2 hot wallets.')
     expect(structured.hint).toContain(EXCHANGE_OPENING_RULE)
   })
 
@@ -85,16 +91,20 @@ describe('meta_exchange_lookup', () => {
     expect(structured.matched?.exchange).toBe('binance')
     expect(structured.took_for).toBe('a gas wallet')
     expect(structured.hint).toContain(
-      '0x9430801ebaf509ad49202aabc5f5bc6fd8a3daf8 is a gas wallet of Binance, proven on ethereum.'
+      '0x9430801ebaf509ad49202aabc5f5bc6fd8a3daf8 is a gas wallet of Binance on ethereum.'
     )
   })
 
   it('lists every exchange of the network with no name, with its hot wallet count', async () => {
     const { structured } = await lookupResult({ network: 'robinhood' })
     expect(structured.exchanges).toEqual([
-      { exchange: 'bitget', display: 'Bitget', hot_wallets: 1 },
-      { exchange: 'bybit', display: 'Bybit', hot_wallets: 1 },
-      { exchange: 'gate', display: 'Gate', hot_wallets: 1 },
+      { exchange: 'bitget', display: 'Bitget', hot_wallets: 2 },
+      { exchange: 'bitrue', display: 'Bitrue', hot_wallets: 1 },
+      { exchange: 'bitunix', display: 'Bitunix', hot_wallets: 1 },
+      { exchange: 'blofin', display: 'BloFin', hot_wallets: 1 },
+      { exchange: 'bybit', display: 'Bybit', hot_wallets: 2 },
+      { exchange: 'gate', display: 'Gate', hot_wallets: 2 },
+      { exchange: 'pionex', display: 'Pionex', hot_wallets: 2 },
     ])
   })
 
@@ -102,7 +112,15 @@ describe('meta_exchange_lookup', () => {
     const { result, structured } = await lookupResult({ network: 'robinhood', name: 'Kraken' })
     expect(result.isError).toBe(false)
     expect(structured.matched).toBeNull()
-    expect(structured.listed).toEqual(['Bitget', 'Bybit', 'Gate'])
+    expect(structured.listed).toEqual([
+      'Bitget',
+      'Bitrue',
+      'Bitunix',
+      'BloFin',
+      'Bybit',
+      'Gate',
+      'Pionex',
+    ])
     expect(structured.hint).toContain('call aml_exchange_deposit_check with it')
     expect(structured.hint).toContain('Send no graph search by name.')
     expect(structured.hint).not.toMatch(/not (covered|served|supported)|unsupported|unknown/i)

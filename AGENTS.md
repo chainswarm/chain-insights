@@ -90,10 +90,11 @@ An exchange (DEX) reaches every host through one served file and one tool.
 A centralized exchange (Binance, OKX, Bitget) reaches every host through one
 served file per network and two tools.
 
-- `registry/exchanges/<network>.json` lists each exchange's wallets that the
-  network's own data proved: hot wallets, gas wallets and spenders, each with
-  its `evidence` and `proven_at_block`. Only an exchange with a proven hot
-  wallet is listed. Write it with
+- `registry/exchanges/<network>.json` lists each exchange's wallets on the
+  network: hot wallets, gas wallets and spenders, each with its `evidence`
+  (a payer proof on that chain, an exchange tag of that chain, or a wallet of
+  another chain seen at work on this one) and `proven_at_block` (0 when it is
+  no payer proof). Only an exchange with a hot wallet is listed. Write it with
   `node scripts/pin-exchange-registry.mjs <wallets.json> --write`;
   `tests/exchange-registry.test.ts` holds every file to the rules.
 - `meta_exchange_lookup` (`src/mcp/exchange-tool.ts`) reads the file like

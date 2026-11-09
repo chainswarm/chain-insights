@@ -3,6 +3,31 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.80.0] - 2026-11-09 — where money entered an exchange
+
+### Added
+
+- The graph link `SWEPT`, from an exchange deposit to the hot wallet it swept
+  into (layer `cex_sweeps`, family annotations), and `cex_role` on an
+  `:Exchange` address: `deposit`, `hot_wallet`, `cold_wallet` or `withdrawal`.
+  Both are in the family table, `meta_schema`, the routing rules, the
+  `chain-insights-cypher` skill and the guides. A trail that reaches a `SWEPT`
+  link ends at the deposit.
+- `meta_exchange_lookup {network, name | address}`, a local tool of the MCP
+  proxy. It turns a centralized exchange name (Binance, OKX, Bitget), or one of
+  its wallets, into the exchange's hot wallets and gas wallets on the network,
+  each with its evidence. It reads `registry/exchanges/<network>.json` from
+  `main`, cached one hour, with the packaged copy offline, and sends no graph
+  read. The files list 57 exchanges with 1,535 wallets on ethereum and 7
+  exchanges with 11 wallets on robinhood.
+- `aml_exchange_deposit_check {network, address}`, a local tool of the MCP
+  proxy. It says whether an address is an exchange deposit, of which exchange,
+  and into which hot wallet it was swept, how many times, by which path and
+  when. One `graph_query_batch` of two topology reads anchored on the address,
+  billed as any read.
+- The skill `chain-insights-aml-exchange`, with both tools as its doors.
+  `cia mcp call` runs both tools in a terminal.
+
 ## [0.79.3] - 2026-11-09 — the fake-token seeder word
 
 ### Added

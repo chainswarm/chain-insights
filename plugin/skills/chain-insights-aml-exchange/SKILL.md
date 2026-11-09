@@ -48,8 +48,9 @@ set.
    network and the name as the user wrote it:
    `{"network": "robinhood", "name": "Bitget"}`. It answers from the
    exchange lookup, at no cost: the exchange's hot wallets on that network,
-   each proven on that chain's own data with its proof and the block it was
-   proven at, and its gas wallets. It takes a typo within two letters and
+   each with its `evidence` (a proof on that chain's own data, or an
+   exchange tag of that chain) and `proven_at_block` (0 for a tag), and its
+   gas wallets. It takes a typo within two letters and
    names it in `took_for`; say which you took in one line, and ask
    nothing. Send `address` instead of `name` to learn whose wallet an
    address is.

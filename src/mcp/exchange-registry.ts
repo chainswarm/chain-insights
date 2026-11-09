@@ -5,9 +5,11 @@
  * registry/exchanges/<network>.json lists, per exchange, the wallets the
  * chain's own data proved: hot wallets that receive the sweeps of its deposits,
  * gas wallets that top deposits up, and spenders that pull approved deposits.
- * Each wallet carries its proof and the block it was proven at. It is written by
+ * Each wallet carries its evidence and the block it was proven at: 0 when the
+ * entry is an exchange tag of that network, or a wallet of another network
+ * seen at work on this one, rather than a payer proof. It is written by
  * scripts/pin-exchange-registry.mjs and held to the rules below by
- * tests/exchange-registry.test.ts. Only exchanges with a proven hot wallet are
+ * tests/exchange-registry.test.ts. Only exchanges with a hot wallet are
  * listed.
  *
  * The proxy reads the file as it reads the DEX registry (src/mcp/dex-registry.ts):
@@ -46,7 +48,7 @@ export const WALLET_ROLES = ['hot_wallet', 'gas_wallet', 'spender'] as const
 export type WalletRole = (typeof WALLET_ROLES)[number]
 export type ExchangeRegistrySource = 'fetched' | 'cached' | 'packaged' | 'none'
 
-/** One proven wallet of an exchange. */
+/** One wallet of an exchange, with its evidence. */
 export interface ExchangeWallet {
   address: string
   role: WalletRole
@@ -125,15 +127,15 @@ export function exchangeRegistryFault(value: unknown, network: string): string |
         return `${at} (${row.exchange}) role ${String(wallet.role)} is not hot_wallet, gas_wallet or spender`
       if (typeof wallet.evidence !== 'string' || wallet.evidence.trim() === '')
         return `${at} (${row.exchange}) ${address} has no evidence`
-      if (!Number.isInteger(wallet.proven_at_block) || (wallet.proven_at_block as number) <= 0)
-        return `${at} (${row.exchange}) ${address} has no proven_at_block`
+      if (!Number.isInteger(wallet.proven_at_block) || (wallet.proven_at_block as number) < 0)
+        return `${at} (${row.exchange}) ${address} proven_at_block is not a block or 0`
       const owner = owners.get(address)
       if (owner !== undefined)
         return `${at} (${row.exchange}) ${address} is also a wallet of ${owner}`
       owners.set(address, row.exchange)
     }
     if (!row.wallets.some((wallet) => isRecord(wallet) && wallet.role === 'hot_wallet'))
-      return `${at} (${row.exchange}) has no proven hot wallet`
+      return `${at} (${row.exchange}) has no hot wallet`
   }
   return null
 }
