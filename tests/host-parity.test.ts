@@ -12,6 +12,7 @@ import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 
 import { KNOWN_PUBLIC_TOOL_DESCRIPTIONS, LOCAL_TOOL_NAMES } from '../src/mcp/proxy.js'
+import { EXCHANGE_OPENING_RULE } from '../src/mcp/exchange-tool.js'
 import { readRegistry, repoRoot } from './dex-registry.js'
 
 // Host parity: a rule a host never loads does not exist for that host. Claude
@@ -19,11 +20,14 @@ import { readRegistry, repoRoot } from './dex-registry.js'
 // instructions and never call meta_rules; they read tool descriptions and
 // result hints only. So every protocol skill names a tool door:
 //
-//   1. skills/chain-insights-<protocol>/SKILL.md carries `door: <tool>` in its frontmatter;
-//   2. the door is a local tool of the proxy, in LOCAL_TOOL_NAMES of src/mcp/proxy.ts;
-//   3. the door's description names the skill's trigger words: at least one of
-//      the exchange names the skill's own description names;
-//   4. the skill names the door in its text, as its first step.
+//   1. skills/chain-insights-<protocol>/SKILL.md carries `door: <tool>` in its
+//      frontmatter, or `door: <tool>, <tool>` for a skill with two doors;
+//   2. each door is a local tool of the proxy, in LOCAL_TOOL_NAMES of src/mcp/proxy.ts;
+//   3. each door's description names the skill's trigger words: at least one of
+//      the exchange names the skill's own description names. The names are the
+//      display names and aliases of the DEX registry (registry/<network>.json)
+//      and of the centralized exchange lookup (registry/exchanges/<network>.json);
+//   4. the skill names each door in its text, as its first step.
 //
 // The core skill chain-insights-cypher is exempt: its door is meta_rules plus
 // the graph_query description. The host matrix is in docs/mcp-proxy.md.
@@ -55,9 +59,26 @@ function frontMatter(text: string): Record<string, string> {
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-/** The exchange names (display names and aliases of the served registry) a text names as words. */
+/** The display names and aliases of every centralized exchange lookup file. */
+function centralizedExchangeNames(root: string): string[] {
+  const dir = join(root, 'registry', 'exchanges')
+  if (!existsSync(dir)) return []
+  return readdirSync(dir)
+    .filter((file) => file.endsWith('.json'))
+    .flatMap((file) => {
+      const document = JSON.parse(readFileSync(join(dir, file), 'utf8')) as {
+        rows: Array<{ display: string; aliases: string[] }>
+      }
+      return document.rows.flatMap((row) => [row.display, ...row.aliases])
+    })
+}
+
+/** The exchange names (display names and aliases of the served registries) a text names as words. */
 function exchangeNames(text: string, root: string): string[] {
-  const names = readRegistry(root).rows.flatMap((row) => [row.display, ...row.aliases])
+  const names = [
+    ...readRegistry(root).rows.flatMap((row) => [row.display, ...row.aliases]),
+    ...centralizedExchangeNames(root),
+  ]
   return [...new Set(names)]
     .filter((name) => name.length >= 3)
     .filter((name) => new RegExp(`(^|[^A-Za-z0-9])${escape(name)}(?![A-Za-z0-9])`, 'i').test(text))
@@ -71,31 +92,38 @@ export function hostParityProblems(root: string = repoRoot): string[] {
     const path = `skills/${name}/SKILL.md`
     const text = readFileSync(join(root, path), 'utf8')
     const meta = frontMatter(text)
-    const door = meta['door']?.trim()
-    if (!door) {
+    const doors = (meta['door'] ?? '')
+      .split(',')
+      .map((door) => door.trim())
+      .filter((door) => door !== '')
+    if (doors.length === 0) {
       problems.push(`${path}: no door: line in the frontmatter`)
       continue
     }
-    if (!LOCAL_TOOL_NAMES.has(door)) {
-      problems.push(`${path}: door ${door} is not a local tool of the proxy`)
-      continue
-    }
-    const description = KNOWN_PUBLIC_TOOL_DESCRIPTIONS[door] ?? ''
     const triggers = exchangeNames(meta['description'] ?? '', root)
     if (triggers.length === 0) {
       problems.push(
         `${path}: its description names no exchange of the registry, so no door can carry its trigger words`
       )
-    } else if (
-      exchangeNames(description, root).filter((word) => triggers.includes(word)).length === 0
-    ) {
-      problems.push(
-        `${path}: the description of ${door} names none of its trigger words (${triggers.join(', ')})`
-      )
     }
     const body = text.replace(/^---\n[\s\S]*?\n---\n/, '')
-    if (!body.includes(`\`${door}\``))
-      problems.push(`${path}: the skill never names its door ${door}`)
+    for (const door of doors) {
+      if (!LOCAL_TOOL_NAMES.has(door)) {
+        problems.push(`${path}: door ${door} is not a local tool of the proxy`)
+        continue
+      }
+      const description = KNOWN_PUBLIC_TOOL_DESCRIPTIONS[door] ?? ''
+      if (
+        triggers.length > 0 &&
+        exchangeNames(description, root).filter((word) => triggers.includes(word)).length === 0
+      ) {
+        problems.push(
+          `${path}: the description of ${door} names none of its trigger words (${triggers.join(', ')})`
+        )
+      }
+      if (!body.includes(`\`${door}\``))
+        problems.push(`${path}: the skill never names its door ${door}`)
+    }
   }
   return problems
 }
@@ -106,6 +134,7 @@ describe('host parity', () => {
 
   it('every protocol skill names a local tool door that carries its trigger words', () => {
     expect(protocolSkills(repoRoot)).toEqual([
+      'chain-insights-aml-exchange',
       'chain-insights-dex',
       'chain-insights-dex-gauge',
       'chain-insights-dex-launchpad',
@@ -116,12 +145,43 @@ describe('host parity', () => {
   })
 
   it('the exchange skills and Virtuals open on meta_dex_lookup', () => {
-    for (const name of protocolSkills(repoRoot)) {
+    for (const name of protocolSkills(repoRoot).filter((skill) => skill !== 'chain-insights-aml-exchange')) {
       expect(
         frontMatter(readFileSync(join(repoRoot, 'skills', name, 'SKILL.md'), 'utf8'))['door'],
         name
       ).toBe('meta_dex_lookup')
     }
+  })
+
+  it('the centralized exchange skill opens on its two doors, and each carries the opening rule', () => {
+    const text = readFileSync(join(repoRoot, 'skills/chain-insights-aml-exchange/SKILL.md'), 'utf8')
+    expect(frontMatter(text)['door']).toBe('meta_exchange_lookup, aml_exchange_deposit_check')
+    const flat = text.replace(/\s+/g, ' ').replace(/\*\*/g, '').replace(/`/g, '')
+    for (const door of ['meta_exchange_lookup', 'aml_exchange_deposit_check']) {
+      expect(LOCAL_TOOL_NAMES.has(door), door).toBe(true)
+      expect(KNOWN_PUBLIC_TOOL_DESCRIPTIONS[door], door).toContain(EXCHANGE_OPENING_RULE)
+    }
+    expect(flat).toContain(EXCHANGE_OPENING_RULE)
+    expect(KNOWN_PUBLIC_TOOL_DESCRIPTIONS['graph_query']).toContain(
+      'A question that names a centralized exchange (Binance, OKX, Bitget) starts with meta_exchange_lookup'
+    )
+  })
+
+  it('a door of a two-door skill that is no local tool is red, naming the door', () => {
+    const dir = join(copy, 'two-doors')
+    for (const sub of ['skills', 'registry'])
+      cpSync(join(repoRoot, sub), join(dir, sub), { recursive: true })
+    const path = join(dir, 'skills/chain-insights-aml-exchange/SKILL.md')
+    writeFileSync(
+      path,
+      readFileSync(path, 'utf8').replace(
+        /^door: .*$/m,
+        'door: meta_exchange_lookup, aml_exchange_screen'
+      )
+    )
+    expect(hostParityProblems(dir)).toEqual([
+      'skills/chain-insights-aml-exchange/SKILL.md: door aml_exchange_screen is not a local tool of the proxy',
+    ])
   })
 
   it('the graph_query description points a named exchange at the door', () => {

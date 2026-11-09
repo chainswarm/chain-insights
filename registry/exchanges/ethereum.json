@@ -1,0 +1,473 @@
+{
+  "schema": "chain-insights.exchange-registry.v1",
+  "network": "ethereum",
+  "registry_version": 1,
+  "recorded_on": "2026-11-09",
+  "rows": [
+    {
+      "exchange": "binance",
+      "display": "Binance",
+      "aliases": [
+        "binance"
+      ],
+      "wallets": [
+        {
+          "address": "0x28c6c06298d514db089934071355e5743bf21d60",
+          "role": "hot_wallet",
+          "evidence": "375676 clean payers 2026-10-04 to 2026-11-07; 200 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x690c3eebf6ee237f00fc96f9766282f096c191cc",
+          "role": "hot_wallet",
+          "evidence": "254488 clean payers 2026-10-04 to 2026-11-07; 200 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0xee7ae85f2fe2239e27d9c1e23fffe168d63b4055",
+          "role": "hot_wallet",
+          "evidence": "84920 clean payers 2026-10-04 to 2026-11-07; 200 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0xce43851485f437005ef3c1821e250c4d3c53b946",
+          "role": "hot_wallet",
+          "evidence": "63881 clean payers 2026-10-04 to 2026-11-07; 200 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x9430801ebaf509ad49202aabc5f5bc6fd8a3daf8",
+          "role": "gas_wallet",
+          "evidence": "funded 515 of 3000 sampled rebuilt deposits 2026-10-04 to 2026-11-07; 116354 of 116508 recipients are rebuilt deposits",
+          "proven_at_block": 26366423
+        }
+      ]
+    },
+    {
+      "exchange": "bitget",
+      "display": "Bitget",
+      "aliases": [
+        "bitget"
+      ],
+      "wallets": [
+        {
+          "address": "0xed9ab5bc05a0152b9dc2f7902e8369af7bc18771",
+          "role": "hot_wallet",
+          "evidence": "58775 clean payers 2026-10-04 to 2026-11-07; 200 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        }
+      ]
+    },
+    {
+      "exchange": "bybit",
+      "display": "Bybit",
+      "aliases": [
+        "bybit"
+      ],
+      "wallets": [
+        {
+          "address": "0xa1abfa21f80ecf401bd41365adbb6fef6fefdf09",
+          "role": "hot_wallet",
+          "evidence": "280149 clean payers 2026-10-04 to 2026-11-07; 199 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x62425cd6bdcb6bfe51558ea465b063486b70dc9f",
+          "role": "hot_wallet",
+          "evidence": "260165 clean payers 2026-10-04 to 2026-11-07; 200 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x18e296053cbdf986196903e889b7dca7a73882f6",
+          "role": "hot_wallet",
+          "evidence": "81600 clean payers 2026-10-04 to 2026-11-07; 199 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x6fa5b6d93e2539caea358518d3fe8f75418e5a1d",
+          "role": "hot_wallet",
+          "evidence": "38526 clean payers 2026-10-04 to 2026-11-07; 199 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0xf440139a62b2b939699c5b3e09f88e40464ab9bc",
+          "role": "hot_wallet",
+          "evidence": "16675 clean payers 2026-10-04 to 2026-11-07; 200 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x93228d328c9c74c2bfe9f97638bbb5ef322f2bd5",
+          "role": "hot_wallet",
+          "evidence": "7249 clean payers 2026-10-04 to 2026-11-07; 199 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x5a22c49ea09a2995aa1ad15fa6953b9c4109f439",
+          "role": "hot_wallet",
+          "evidence": "2579 clean payers 2026-10-04 to 2026-11-07; 200 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0xa4b9569bf942c3aad23c0c2d322fe4aff8e1bf30",
+          "role": "hot_wallet",
+          "evidence": "2255 clean payers 2026-10-04 to 2026-11-07; 199 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0xefef30bd1cca520619306c95091ab18473febc5c",
+          "role": "hot_wallet",
+          "evidence": "1625 clean payers 2026-10-04 to 2026-11-07; 199 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x651641299c7ec0aa44ad7ed9b7e12702fed2022f",
+          "role": "hot_wallet",
+          "evidence": "1588 clean payers 2026-10-04 to 2026-11-07; 197 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x260b364fe0d3d37e6fd3cda0fa50926a06c54cea",
+          "role": "hot_wallet",
+          "evidence": "1543 clean payers 2026-10-04 to 2026-11-07; 199 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x6522b7f9d481eceb96557f44753a4b893f837e90",
+          "role": "hot_wallet",
+          "evidence": "1432 clean payers 2026-10-04 to 2026-11-07; 197 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x187c9fbf5bd0f266883c03f320260c407c7b4100",
+          "role": "hot_wallet",
+          "evidence": "1378 clean payers 2026-10-04 to 2026-11-07; 199 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0xa31231e727ca53ff95f0d00a06c645110c4ab647",
+          "role": "hot_wallet",
+          "evidence": "1355 clean payers 2026-10-04 to 2026-11-07; 197 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0xf42aac93ab142090db9fdc0bc86aab73cb36f173",
+          "role": "hot_wallet",
+          "evidence": "1240 clean payers 2026-10-04 to 2026-11-07; 197 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0xf89d7b9c864f589bbf53a82105107622b35eaa40",
+          "role": "hot_wallet",
+          "evidence": "1179 clean payers 2026-10-04 to 2026-11-07; 194 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x31cc188c4c8db0bb5d30ff7c74e04c4d64d81e1b",
+          "role": "hot_wallet",
+          "evidence": "1076 clean payers 2026-10-04 to 2026-11-07; 198 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x8fa129f87b8a11ee1ca35abd46674f8b66984d4a",
+          "role": "hot_wallet",
+          "evidence": "1000 clean payers 2026-10-04 to 2026-11-07; 199 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x70167b76543c4a12b49b2f2b70cbf04d99345786",
+          "role": "hot_wallet",
+          "evidence": "882 clean payers 2026-10-04 to 2026-11-07; 199 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0xad85405cbb1476825b78a021fa9e543bf7937549",
+          "role": "hot_wallet",
+          "evidence": "432 clean payers 2026-10-04 to 2026-11-07; 200 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0xd07e6ab4b75b3da5a96b5e81064a65fc04f98814",
+          "role": "hot_wallet",
+          "evidence": "157 clean payers 2026-10-04 to 2026-11-07; 155 of 157 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x4865d4bcf4ab92e1c9ba5011560e7d4c36f54106",
+          "role": "hot_wallet",
+          "evidence": "127 clean payers 2026-10-04 to 2026-11-07; 127 of 127 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x9814ba501c7ad64bed5ac731d0a4f9a506e18f8a",
+          "role": "hot_wallet",
+          "evidence": "116 clean payers 2026-10-04 to 2026-11-07; 116 of 116 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0xc6c6a48ee8e9f593724161c72414d76e94cda93f",
+          "role": "hot_wallet",
+          "evidence": "114 clean payers 2026-10-04 to 2026-11-07; 113 of 114 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x223fea5291d43a2fb372c5f332e9ade371ded0b5",
+          "role": "hot_wallet",
+          "evidence": "69 clean payers 2026-10-04 to 2026-11-07; 66 of 69 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0xab97925eb84fe0260779f58b7cb08d77dcb1ee2b",
+          "role": "gas_wallet",
+          "evidence": "funded 385 of 3000 sampled rebuilt deposits 2026-10-04 to 2026-11-07; 77662 of 77858 recipients are rebuilt deposits",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x584f44d4fdcaf2326b9b1d03ed3097de619c1d35",
+          "role": "gas_wallet",
+          "evidence": "funded 47 of 3000 sampled rebuilt deposits 2026-10-04 to 2026-11-07; 9154 of 9235 recipients are rebuilt deposits",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0xfc74ef61d00d7e1d41f9c7780ae83f011c1b5062",
+          "role": "gas_wallet",
+          "evidence": "funded 25 of 3000 sampled rebuilt deposits 2026-10-04 to 2026-11-07; 5625 of 5629 recipients are rebuilt deposits",
+          "proven_at_block": 26366423
+        }
+      ]
+    },
+    {
+      "exchange": "coinbase",
+      "display": "Coinbase",
+      "aliases": [
+        "coinbase"
+      ],
+      "wallets": [
+        {
+          "address": "0xa9d1e08c7793af67e9d92fe308d5697fb81d3e43",
+          "role": "hot_wallet",
+          "evidence": "131487 clean payers 2026-10-04 to 2026-11-07; 200 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0xb5d85cbf7cb3ee0d56b3bb207d5fc4b82f43f511",
+          "role": "hot_wallet",
+          "evidence": "25169 clean payers 2026-10-04 to 2026-11-07; 199 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0xa090e606e30bd747d4e6245a1517ebe430f0057e",
+          "role": "hot_wallet",
+          "evidence": "9547 clean payers 2026-10-04 to 2026-11-07; 200 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        }
+      ]
+    },
+    {
+      "exchange": "gate",
+      "display": "Gate",
+      "aliases": [
+        "gate",
+        "gate.io",
+        "gateio"
+      ],
+      "wallets": [
+        {
+          "address": "0x0d0707963952f2fba59dd06f2b425ace40b492fe",
+          "role": "hot_wallet",
+          "evidence": "35094 clean payers 2026-10-04 to 2026-11-07; 199 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0xf379a3d1ab6625eef34347d054cfaeafdf8f24a7",
+          "role": "hot_wallet",
+          "evidence": "3366 clean payers 2026-10-04 to 2026-11-07; 199 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0xfc89c020774524c9d03bd5de48fec149b10bdec3",
+          "role": "hot_wallet",
+          "evidence": "49 clean payers 2026-10-04 to 2026-11-07; 45 of 49 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x6596da8b65995d5feacff8c2936f0b7a2051b0d0",
+          "role": "gas_wallet",
+          "evidence": "funded 917 of 3000 sampled rebuilt deposits 2026-10-04 to 2026-11-07; 11884 of 12827 recipients are rebuilt deposits",
+          "proven_at_block": 26366423
+        }
+      ]
+    },
+    {
+      "exchange": "kucoin",
+      "display": "KuCoin",
+      "aliases": [
+        "kucoin"
+      ],
+      "wallets": [
+        {
+          "address": "0x58edf78281334335effa23101bbe3371b6a36a51",
+          "role": "hot_wallet",
+          "evidence": "9475 clean payers 2026-10-04 to 2026-11-07; 200 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x83c41363cbee0081dab75cb841fa24f3db46627e",
+          "role": "hot_wallet",
+          "evidence": "6787 clean payers 2026-10-04 to 2026-11-07; 199 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x45300136662dd4e58fc0df61e6290dffd992b785",
+          "role": "hot_wallet",
+          "evidence": "5829 clean payers 2026-10-04 to 2026-11-07; 196 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x7491f26a0fcb459111b3a1db2fbfc4035d096933",
+          "role": "hot_wallet",
+          "evidence": "3671 clean payers 2026-10-04 to 2026-11-07; 199 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0xf97deb1c0bb4536ff16617d29e5f4b340fe231df",
+          "role": "hot_wallet",
+          "evidence": "1428 clean payers 2026-10-04 to 2026-11-07; 200 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x41e29c02713929f800419abe5770faa8a5b4dadc",
+          "role": "hot_wallet",
+          "evidence": "1181 clean payers 2026-10-04 to 2026-11-07; 200 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0xd91efec7e42f80156d1d9f660a69847188950747",
+          "role": "hot_wallet",
+          "evidence": "568 clean payers 2026-10-04 to 2026-11-07; 199 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x061f7937b7b2bc7596539959804f86538b6368dc",
+          "role": "gas_wallet",
+          "evidence": "funded 866 of 3000 sampled rebuilt deposits 2026-10-04 to 2026-11-07; 6486 of 6521 recipients are rebuilt deposits",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x0c32131b67a9306a42e5b66f869bc213d40e43f0",
+          "role": "gas_wallet",
+          "evidence": "funded 423 of 3000 sampled rebuilt deposits 2026-10-04 to 2026-11-07; 3145 of 3152 recipients are rebuilt deposits",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x41e2c6b9fb2e367274cd5cdafddcf3170eb5dadc",
+          "role": "gas_wallet",
+          "evidence": "funded 20 of 3000 sampled rebuilt deposits 2026-10-04 to 2026-11-07; 185 of 185 recipients are rebuilt deposits",
+          "proven_at_block": 26366423
+        }
+      ]
+    },
+    {
+      "exchange": "mexc",
+      "display": "MEXC",
+      "aliases": [
+        "mexc"
+      ],
+      "wallets": [
+        {
+          "address": "0x9642b23ed1e01df1092b92641051881a322f5d4e",
+          "role": "hot_wallet",
+          "evidence": "34513 clean payers 2026-10-04 to 2026-11-07; 200 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x3cc936b795a188f0e246cbb2d74c5bd190aecf18",
+          "role": "hot_wallet",
+          "evidence": "6213 clean payers 2026-10-04 to 2026-11-07; 200 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x75e89d5979e4f6fba9f97c104c2f0afb3f1dcb88",
+          "role": "hot_wallet",
+          "evidence": "619 clean payers 2026-10-04 to 2026-11-07; 198 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x4ac71ec43df19581d95eab5596c6fadc89170989",
+          "role": "hot_wallet",
+          "evidence": "28 clean payers 2026-10-04 to 2026-11-07; 27 of 28 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0xe8832a868c091263ed190a9f4be304a03895dd91",
+          "role": "gas_wallet",
+          "evidence": "funded 1280 of 3000 sampled rebuilt deposits 2026-10-04 to 2026-11-07; 15702 of 15974 recipients are rebuilt deposits",
+          "proven_at_block": 26366423
+        }
+      ]
+    },
+    {
+      "exchange": "okx",
+      "display": "OKX",
+      "aliases": [
+        "okx",
+        "okex"
+      ],
+      "wallets": [
+        {
+          "address": "0x559432e18b281731c054cd703d4b49872be4ed53",
+          "role": "hot_wallet",
+          "evidence": "73480 clean payers 2026-10-04 to 2026-11-07; 200 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0xa9ac43f5b5e38155a288d1a01d2cbc4478e14573",
+          "role": "hot_wallet",
+          "evidence": "10778 clean payers 2026-10-04 to 2026-11-07; 190 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x445f16314284b43dfa1fd3cd77b9dea4a1bebd97",
+          "role": "hot_wallet",
+          "evidence": "9821 clean payers 2026-10-04 to 2026-11-07; 200 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0xebf6c883a1d60ab38c8ed4780aadbfe4c805ed4f",
+          "role": "hot_wallet",
+          "evidence": "9246 clean payers 2026-10-04 to 2026-11-07; 186 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x91d40e4818f4d4c57b4578d9eca6afc92ac8debe",
+          "role": "hot_wallet",
+          "evidence": "5134 clean payers 2026-10-04 to 2026-11-07; 198 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x3b98b9e9cb75c1cb1729aab8f09ced2936505e4f",
+          "role": "hot_wallet",
+          "evidence": "395 clean payers 2026-10-04 to 2026-11-07; 197 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x9938ee74ba7a5c1abcd157272a18fcfc9ec9e8d5",
+          "role": "hot_wallet",
+          "evidence": "302 clean payers 2026-10-04 to 2026-11-07; 188 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0x1dfc6bec8499fcb5e3151c7c6d27feb9d7eae1d4",
+          "role": "hot_wallet",
+          "evidence": "243 clean payers 2026-10-04 to 2026-11-07; 195 of 200 sampled pay only this exchange",
+          "proven_at_block": 26366423
+        },
+        {
+          "address": "0xc5267f13b9b4ba7bb73bdd53a2a3c944733a2961",
+          "role": "gas_wallet",
+          "evidence": "funded 1607 of 3000 sampled rebuilt deposits 2026-10-04 to 2026-11-07; 56163 of 56470 recipients are rebuilt deposits",
+          "proven_at_block": 26366423
+        }
+      ]
+    }
+  ]
+}

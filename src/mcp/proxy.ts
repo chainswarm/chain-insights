@@ -81,6 +81,22 @@ import {
   AML_DEPLOYER_SCREEN_TOOL,
   handleAmlDeployerScreen,
 } from './deployer-screen.js'
+import {
+  META_EXCHANGE_LOOKUP_ANNOTATIONS,
+  META_EXCHANGE_LOOKUP_DESCRIPTION,
+  META_EXCHANGE_LOOKUP_TITLE,
+  META_EXCHANGE_LOOKUP_TOOL,
+  handleMetaExchangeLookup,
+} from './exchange-tool.js'
+import {
+  AML_EXCHANGE_DEPOSIT_CHECK_ANNOTATIONS,
+  AML_EXCHANGE_DEPOSIT_CHECK_DESCRIPTION,
+  AML_EXCHANGE_DEPOSIT_CHECK_TITLE,
+  AML_EXCHANGE_DEPOSIT_CHECK_TOOL,
+  handleAmlExchangeDepositCheck,
+  type ExchangeDepositCheckDependencies,
+} from './exchange-deposit-check.js'
+import { loadExchangeRegistry } from './exchange-registry.js'
 
 export const LOCAL_TOOL_NAMES = new Set([
   'meta_network_capabilities',
@@ -92,6 +108,8 @@ export const LOCAL_TOOL_NAMES = new Set([
   META_DEX_LOOKUP_TOOL,
   META_TOKEN_LOOKUP_TOOL,
   AML_DEPLOYER_SCREEN_TOOL,
+  META_EXCHANGE_LOOKUP_TOOL,
+  AML_EXCHANGE_DEPOSIT_CHECK_TOOL,
   'wallet_balance',
   'wallet_topup',
   SUBSCRIPTION_TOPUP_TOOL,
@@ -165,7 +183,7 @@ export function resolveMcpProxyMode(env: NodeJS.ProcessEnv = process.env): McpPr
 }
 
 const GRAPH_LAYERS_TEXT =
-  "Use USE topology for topology (address/FLOWED_TO/OPERATED_BY/LINKED graph with SWAPPED, ADDED_LIQUIDITY, REMOVED_LIQUIDITY, BRIDGED and the Pool, Token and NFT labels, unified recent+historical) and USE facts for bounded TRANSFER, SWAP, LIQUIDITY_ADD, LIQUIDITY_REMOVE and BRIDGE_CROSSING rows and enrichment, and USE chain for the chain node's own record of one known transaction, block, address or the head."
+  "Use USE topology for topology (address/FLOWED_TO/OPERATED_BY/LINKED graph with SWAPPED, ADDED_LIQUIDITY, REMOVED_LIQUIDITY, BRIDGED, SWEPT and the Pool, Token, NFT and Exchange labels, unified recent+historical) and USE facts for bounded TRANSFER, SWAP, LIQUIDITY_ADD, LIQUIDITY_REMOVE and BRIDGE_CROSSING rows and enrichment, and USE chain for the chain node's own record of one known transaction, block, address or the head."
 
 // The rules where every host reads them, the tool description: a host that
 // loads no skill and keeps no server instructions still sees this first.
@@ -175,6 +193,10 @@ const TOOL_RULES_FIRST =
 // The one sentence that sends a named exchange to the door, never to a scan.
 export const GRAPH_QUERY_DEX_DOOR_SENTENCE =
   'A question that names an exchange and no address starts with meta_dex_lookup, never with a scan of :Protocol, :Pool or labels.'
+
+// The one sentence that sends a named centralized exchange to its door.
+export const GRAPH_QUERY_CEX_DOOR_SENTENCE =
+  'A question that names a centralized exchange (Binance, OKX, Bitget) starts with meta_exchange_lookup; one address that may be its deposit goes to aml_exchange_deposit_check.'
 
 // The one sentence that sends a named token to its door, never to a guess.
 export const GRAPH_QUERY_TOKEN_DOOR_SENTENCE =
@@ -192,6 +214,8 @@ export const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   [META_DEX_LOOKUP_TOOL]: META_DEX_LOOKUP_DESCRIPTION,
   [META_TOKEN_LOOKUP_TOOL]: META_TOKEN_LOOKUP_DESCRIPTION,
   [AML_DEPLOYER_SCREEN_TOOL]: AML_DEPLOYER_SCREEN_DESCRIPTION,
+  [META_EXCHANGE_LOOKUP_TOOL]: META_EXCHANGE_LOOKUP_DESCRIPTION,
+  [AML_EXCHANGE_DEPOSIT_CHECK_TOOL]: AML_EXCHANGE_DEPOSIT_CHECK_DESCRIPTION,
   meta_usage_status: "Return the caller's public free graph_query quota for the current UTC day.",
   meta_subscription_status: META_SUBSCRIPTION_STATUS_DESCRIPTION,
   meta_help: 'Show a short guide to Chain Insights tools and workflow.',
@@ -199,7 +223,7 @@ export const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
     'Return the Chain Insights rules: how to write graph_query and graph_query_batch reads that are served, how to name columns so the answer is drawn as a graph, a time series or a table, and how to write the answer. Call it once per chat, before the first graph query, when the chain-insights-cypher skill is not loaded. Takes no arguments: send {}.',
   wallet_balance:
     'Show the local Chain Insights payment wallet address, payment network, token, and amount.',
-  graph_query: `${TOOL_RULES_FIRST} Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. ${GRAPH_LAYERS_TEXT} ${GRAPH_QUERY_DEX_DOOR_SENTENCE} ${GRAPH_QUERY_TOKEN_DOOR_SENTENCE} ${GRAPH_QUERY_ROLE_MARKS_SENTENCE} ${GRAPH_QUERY_JUDGEMENT_MARKS_SENTENCE} ${ROUTING_NOT_SERVED} Preserve full addresses exactly, and write every address in full, all 42 characters, in your answer: never shorten one with ... or ….`,
+  graph_query: `${TOOL_RULES_FIRST} Run a read-only GQL/Cypher query through the Chain Insights graph endpoint. ${GRAPH_LAYERS_TEXT} ${GRAPH_QUERY_DEX_DOOR_SENTENCE} ${GRAPH_QUERY_CEX_DOOR_SENTENCE} ${GRAPH_QUERY_TOKEN_DOOR_SENTENCE} ${GRAPH_QUERY_ROLE_MARKS_SENTENCE} ${GRAPH_QUERY_JUDGEMENT_MARKS_SENTENCE} ${ROUTING_NOT_SERVED} Preserve full addresses exactly, and write every address in full, all 42 characters, in your answer: never shorten one with ... or ….`,
   graph_query_batch: `${TOOL_RULES_FIRST} Run multiple read-only GQL/Cypher queries through the Chain Insights graph endpoint in one paid batch. Prefer this for related topology/facts reads. For a time series across days, send one USE facts total per day with the query id set to the day, "YYYY-MM-DD": the view joins them into one series. Write every address in full in your answer, all 42 characters.`,
 }
 // Titles for proxied tools whose graph endpoint definition carries none.
@@ -295,7 +319,7 @@ const GRAPH_SCHEMA_HINTS = [
   '- Start schema discovery with endpoint-safe property reads: MATCH (n:Address) RETURN n.address AS address, n.network AS network, n.labels AS labels, n.last_activity_timestamp AS last_activity_timestamp LIMIT 20',
   '- Relationship discovery: MATCH (:Address)-[r:FLOWED_TO]->(:Address) RETURN r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count LIMIT 20',
   "- Anchor every topology read that filters on a link property: put an address in its pattern. Without one, a read starts from every link of the type it names, and you should not count on the filter to narrow that: WHERE x.strength = 'swap' on SWAPPED checks every SWAPPED link, LIMIT stops the read only after enough rows match, and a filter that matches few or none can run to the 60 s topology limit and fail with query_timeout. Example: MATCH (a:Address {address: $addr})-[x:SWAPPED]->(b:Address) WHERE x.swap_count >= 2 RETURN b.address, x.swap_count LIMIT 25. Pick an address with few links: degree_out and degree_in are a rough guide, because they count neighbours, not links, and an address with hundreds of thousands of neighbours can fail the same way. Discovery probes with LIMIT and no filter stay valid. The queries of one batch share a 100 s budget; USE facts queries stop at 30 s.",
-  '- graph_query uses the active Chain Insights graph endpoint. Select the graph with USE topology for topology (address/FLOWED_TO/OPERATED_BY/LINKED graph with SWAPPED, ADDED_LIQUIDITY, REMOVED_LIQUIDITY, BRIDGED and the Pool, Token and NFT labels, unified recent+historical) and USE facts for bounded TRANSFER, SWAP, LIQUIDITY_ADD, LIQUIDITY_REMOVE and BRIDGE_CROSSING rows and enrichment, and USE chain for one keyed lookup on the chain node: a transaction by tx_id, a block by block_height or block_hash, an address at one block, or the head. On topology, address is the node grain, not the topology name.',
+  '- graph_query uses the active Chain Insights graph endpoint. Select the graph with USE topology for topology (address/FLOWED_TO/OPERATED_BY/LINKED graph with SWAPPED, ADDED_LIQUIDITY, REMOVED_LIQUIDITY, BRIDGED, SWEPT and the Pool, Token, NFT and Exchange labels, unified recent+historical) and USE facts for bounded TRANSFER, SWAP, LIQUIDITY_ADD, LIQUIDITY_REMOVE and BRIDGE_CROSSING rows and enrichment, and USE chain for one keyed lookup on the chain node: a transaction by tx_id, a block by block_height or block_hash, an address at one block, or the head. On topology, address is the node grain, not the topology name.',
   '- All graph_query calls are read-only. Never use CREATE, INSERT, MERGE, SET, DELETE, REMOVE, DROP, DETACH, ADD, CONNECT, DISCONNECT, ALTER, TRUNCATE, GRANT, or REVOKE.',
   '- Use USE facts graph patterns for fact and enrichment reads. Do not query internal table namespaces directly.',
 ].join('\n')
@@ -1376,6 +1400,62 @@ export async function createProxy(): Promise<void> {
     async (args) => handleAmlDeployerScreen(args, tokenDependencies)
   )
 
+  // meta_exchange_lookup: a centralized exchange's name, or one of its wallets,
+  // becomes its proven hot wallets and gas wallets, from the public exchange
+  // lookup file (cached 1 hour, packaged copy offline). No graph read.
+  const loadExchanges = (network: string) =>
+    loadExchangeRegistry(network, {
+      log: (line) => {
+        void logger.info('exchange_registry.fault', { line })
+      },
+    })
+  server.registerTool(
+    META_EXCHANGE_LOOKUP_TOOL,
+    {
+      title: META_EXCHANGE_LOOKUP_TITLE,
+      description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS[META_EXCHANGE_LOOKUP_TOOL],
+      inputSchema: {
+        network: NETWORK_SCHEMA,
+        name: z
+          .string()
+          .optional()
+          .describe('The centralized exchange as the user wrote it: Binance, OKX, gate.io. With no name and no address, every listed exchange is returned.'),
+        address: z
+          .string()
+          .optional()
+          .describe('A wallet (0x plus 40 hex, any case) instead of a name: the exchange whose hot wallet or gas wallet it is. Not with name.'),
+      },
+      annotations: META_EXCHANGE_LOOKUP_ANNOTATIONS,
+    },
+    async (args) => handleMetaExchangeLookup(args, { loadExchangeRegistry: loadExchanges })
+  )
+
+  // aml_exchange_deposit_check: one address becomes whether it is an exchange
+  // deposit, of which exchange, and the hot wallets it swept into. One topology
+  // batch anchored on the address, billed as any read.
+  const depositCheckDependencies: ExchangeDepositCheckDependencies = {
+    loadExchangeRegistry: loadExchanges,
+    graphQueryBatch: tokenDependencies.graphQueryBatch,
+    unavailable: tokenDependencies.unavailable,
+    describeFailure: dexDependencies.describeFailure,
+  }
+  server.registerTool(
+    AML_EXCHANGE_DEPOSIT_CHECK_TOOL,
+    {
+      title: AML_EXCHANGE_DEPOSIT_CHECK_TITLE,
+      description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS[AML_EXCHANGE_DEPOSIT_CHECK_TOOL],
+      inputSchema: {
+        network: NETWORK_SCHEMA,
+        address: z
+          .string()
+          .min(1)
+          .describe('The address to check: 0x plus 40 hex characters, any case. An exchange name is not an address: call meta_exchange_lookup first.'),
+      },
+      annotations: AML_EXCHANGE_DEPOSIT_CHECK_ANNOTATIONS,
+    },
+    async (args) => handleAmlExchangeDepositCheck(args, depositCheckDependencies)
+  )
+
   // One reader for the tool and for the browser page's free-credits meter.
   const readUsageStatus = async () => {
       try {
@@ -1701,6 +1781,8 @@ export async function createProxy(): Promise<void> {
                 '- meta_dex_lookup: turn an exchange name (Aero, Uniswap, Virtuals) into its factories, routers, pools and first reads. Call it first when a question names an exchange and gives no address.',
                 '- meta_token_lookup: turn a ticker or a token name (TCITY, USDG) into every contract that carries it, with its creator. Call it first when a question names a token and gives no contract; tickers collide.',
                 '- aml_deployer_screen: who is behind a token or a wallet, as facts: the launcher, its first funder and what kind of wallet that is, their labels and the first inbound bridge deposit. No score, no verdict.',
+                '- meta_exchange_lookup: turn a centralized exchange name (Binance, OKX, Bitget) into its hot wallets, each proven on the chain. Call it first when a question names one.',
+                '- aml_exchange_deposit_check: is this address an exchange deposit, of which exchange, and into which hot wallet was it swept. A trail ends at a deposit.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
                 '- meta_subscription_status: check the subscription of the local wallet: window, days left, daily allowance and use, and payments not credited yet.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
@@ -1724,6 +1806,8 @@ export async function createProxy(): Promise<void> {
                 '- meta_dex_lookup: turn an exchange name (Aero, Uniswap, Virtuals) into its factories, routers, pools and first reads. Call it first when a question names an exchange and gives no address.',
                 '- meta_token_lookup: turn a ticker or a token name (TCITY, USDG) into every contract that carries it, with its creator. Call it first when a question names a token and gives no contract; tickers collide.',
                 '- aml_deployer_screen: who is behind a token or a wallet, as facts: the launcher, its first funder and what kind of wallet that is, their labels and the first inbound bridge deposit. No score, no verdict.',
+                '- meta_exchange_lookup: turn a centralized exchange name (Binance, OKX, Bitget) into its hot wallets, each proven on the chain. Call it first when a question names one.',
+                '- aml_exchange_deposit_check: is this address an exchange deposit, of which exchange, and into which hot wallet was it swept. A trail ends at a deposit.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
                 '- meta_subscription_status: check the subscription of the local wallet: window, days left, daily allowance and use, and payments not credited yet.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',

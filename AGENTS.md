@@ -85,6 +85,26 @@ An exchange (DEX) reaches every host through one served file and one tool.
   `vitest --project integration`, `CHAIN_INSIGHTS_LIVE_GRAPH_MCP_ENDPOINT` and
   `CHAIN_INSIGHTS_LIVE_GRAPH_MCP_TOKEN`. They never run in the push gate.
 
+## Centralized exchanges
+
+A centralized exchange (Binance, OKX, Bitget) reaches every host through one
+served file per network and two tools.
+
+- `registry/exchanges/<network>.json` lists each exchange's wallets that the
+  network's own data proved: hot wallets, gas wallets and spenders, each with
+  its `evidence` and `proven_at_block`. Only an exchange with a proven hot
+  wallet is listed. Write it with
+  `node scripts/pin-exchange-registry.mjs <wallets.json> --write`;
+  `tests/exchange-registry.test.ts` holds every file to the rules.
+- `meta_exchange_lookup` (`src/mcp/exchange-tool.ts`) reads the file like
+  `meta_dex_lookup` reads the DEX registry: from `main`, cached one hour, the
+  packaged copy offline. It sends no graph read.
+- `aml_exchange_deposit_check` (`src/mcp/exchange-deposit-check.ts`) reads one
+  address's `cex_role` and its `SWEPT` links, anchored on the address.
+- The skill `chain-insights-aml-exchange` names both doors. A trail that
+  reaches a `SWEPT` link ends at the deposit.
+- No file, tool answer or skill says an exchange is missing or unsupported.
+
 ## Host parity
 
 A rule a host never loads does not exist for that host. Claude Desktop chat
@@ -93,7 +113,8 @@ call `meta_rules`. They read only tool descriptions and result hints.
 
 - Every protocol skill, `skills/chain-insights-<protocol>/SKILL.md`, names a
   tool door in its frontmatter: `door: meta_dex_lookup` for the exchange and
-  Virtuals skills.
+  Virtuals skills, `door: meta_exchange_lookup, aml_exchange_deposit_check`
+  for `chain-insights-aml-exchange`. Each door is checked.
 - The door is a local tool of the proxy, listed in `LOCAL_TOOL_NAMES` of
   `src/mcp/proxy.ts`. Its description carries the rule the skill opens with
   and names the skill's trigger words.

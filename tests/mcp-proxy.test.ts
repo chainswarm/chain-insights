@@ -1561,7 +1561,14 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
   it('no MCP tool can buy: no local tool name contains buy or deposit', async () => {
     const { LOCAL_TOOL_NAMES } = await import('../src/mcp/proxy.js')
-    expect([...LOCAL_TOOL_NAMES].filter((name) => /buy|deposit|pay|approve/.test(name))).toEqual([])
+    // aml_exchange_deposit_check reads whether an address is an exchange
+    // deposit: an AML check of someone else's address, read-only, never a
+    // payment. It is the one name the rule lets through.
+    const READ_ONLY_CHECKS = new Set(['aml_exchange_deposit_check'])
+    const { AML_EXCHANGE_DEPOSIT_CHECK_ANNOTATIONS } = await import('../src/mcp/exchange-deposit-check.js')
+    expect(AML_EXCHANGE_DEPOSIT_CHECK_ANNOTATIONS.readOnlyHint).toBe(true)
+    const isPayment = (name: string) => /buy|deposit|pay|approve/.test(name) && !READ_ONLY_CHECKS.has(name)
+    expect([...LOCAL_TOOL_NAMES].filter(isPayment)).toEqual([])
     const { createProxy } = await import('../src/mcp/proxy.js')
     const { McpServer } = await import('@modelcontextprotocol/sdk/server/mcp.js')
     await createProxy()
@@ -1570,7 +1577,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     }
     const names = serverInstance.registerTool.mock.calls.map((entry) => entry[0] as string)
     expect(names).toContain('subscription_topup')
-    expect(names.filter((name) => /buy|deposit/.test(name))).toEqual([])
+    expect(names.filter((name) => /buy|deposit/.test(name) && !READ_ONLY_CHECKS.has(name))).toEqual([])
   })
 
   it('returns an unavailable subscription status when the remote subscription_status tool is absent', async () => {

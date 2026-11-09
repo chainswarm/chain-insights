@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Chain Insights Centralized Exchanges'
+  short_description: 'Where money entered an exchange: deposits, hot wallets and SWEPT'
+  default_prompt: 'Load chain-insights-cypher first. For a question that names a centralized exchange, call meta_exchange_lookup with the name first; for one address that may be an exchange deposit, call aml_exchange_deposit_check. A trail that reaches a deposit with a SWEPT link ends there: say which exchange and which deposit, and never walk on past a hot wallet.'

@@ -125,6 +125,7 @@ Route by what the question names: an address, a pair with a day, a transaction o
 `USE chain` with `Address` reads the balance, the nonce or the kind of one address, now or at a past block with `at_block`. A past block must be at least `chain_admission.at_block_min_depth` blocks below the tip. To find the counterparties of an address, search `USE topology`, then read the pair and one day on `USE facts`.
 A transaction is a chain question: read it on `USE chain` by its `tx_id`. Chain gives its `block_date`; the transfers between a pair on that day are a `USE facts` read. "Every token that moved inside this transaction": read the chain record for `from_address`, `to_address` and `block_date`, then the facts `TRANSFER` rows of that pair on that day and keep the rows whose `tx_id` matches; a `kind` of `internal` is ETH a contract moved while it ran. Tokens the transaction moved between other pairs are not reachable from the hash alone: say so, and name the pairs you did read.
 The layers hand each other keys, and each key keeps its name. Topology gives the pair and the first and last seen time. Facts gives the `tx_id` and the `block_height`. Chain takes an `address`, a `tx_id`, a `block_height` or a `block_hash`, and gives the `block_date` of a transaction or a block.
+`SWEPT` runs from an exchange deposit to the hot wallet it swept into (layer `cex_sweeps`, family annotations), and `cex_role` on an `:Exchange` address says which wallet of its exchange it is: `deposit`, `hot_wallet`, `cold_wallet` or `withdrawal`. A trail that reaches a `SWEPT` link ends there: say the money entered the exchange at that deposit, swept n times into that hot wallet, name the exchange from `labels`, and never walk on past a hot wallet. Read `SWEPT` anchored on an address; call `aml_exchange_deposit_check` for one address and `meta_exchange_lookup` for an exchange by name.
 A question about the whole chain (recent activity, the biggest senders, a top list) is a `USE topology` search: bound it by time with `f.last_seen_timestamp >= <epoch ms>` on the `FLOWED_TO` link, then sort and `LIMIT`. A search has 10 s. Read `Head` first (`USE chain MATCH (h:Head) RETURN h.behind_money, h.behind_dex, h.behind_transfers`, under a second): a `FLOWED_TO` search is sent when `behind_money` is at most 100000; a `SWAPPED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY` search when `behind_dex` is at most 100000; a `TRANSFERRED` search when `behind_transfers` is at most 100000 (100000 blocks is a few hours: a robinhood block is about a tenth of a second apart from the next). When the family is further behind, the search cannot finish, so do not send it: say which family, how many blocks, and ask for an address. On a server whose Head has no `behind_money`, read `h.graph_blocks_behind` and hold it to the same limit. On a server whose Head has no `behind_transfers`, it serves no `TRANSFERRED` link: send no `TRANSFERRED` search. Never turn the block count into days or hours by head. To say how fresh the data is, give the newest `_utc` time you read on the layer you used: a family's lag counts its slowest layer, and the links of an address and the facts rows are often newer than it. If the server refuses the search with `anchor_missing` or `family_behind`, or stops it with `query_timeout`, it cannot search the whole chain now: say so in one line, name the family the refusal names, and ask for an address or drop the link type that is behind. A narrower window times out the same way, so do not send it again.
 
 The graph's layers are grouped into six families, and a family is as fresh as its slowest layer. The family of a link type decides which `Head` lag a whole-chain search on it waits for.
@@ -135,7 +136,7 @@ The graph's layers are grouped into six families, and a family is as fresh as it
 | dex              | `dex_swaps`, `dex_liquidity`, `dex_pools`      | `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`             | `behind_dex`            |
 | interactions     | `approvals`, `bridged`, `contracts`, `authorization` | `APPROVED`, `BRIDGED`, `DEPLOYED_CONTRACT`, `SIGNED_AUTHORIZATION` | `behind_interactions`   |
 | smart_accounts   | `sponsored`, `bundled`, `signers`, `owners`    | `SPONSORED`, `BUNDLED`, `SIGNED_FOR`, `LINKED`                | `behind_smart_accounts` |
-| annotations      | `labels`, `ml`, `inferred`, `kinds`, `assets`  | none                                                          | `annotations_fresh`     |
+| annotations      | `labels`, `ml`, `inferred`, `kinds`, `assets`, `cex_sweeps` | `SWEPT`                                              | `annotations_fresh`     |
 | transfers        | `transfers_by_asset`                           | `TRANSFERRED`                                                 | `behind_transfers`      |
 
 `transfers` is its own family: a `FLOWED_TO` search never waits for it, and a `TRANSFERRED` search never waits for `money`.
@@ -558,7 +559,7 @@ trader who used it. Every trace follows this rule:
 4. Across a swap, follow `SWAPPED` from payer to recipient, between two
    different addresses. Do not walk through the pool.
 
-So a walk never starts at a pool and never passes through one. It may end at one. Guard the start with `WHERE NOT a:Pool` and each address in the middle with `WHERE NOT via:Pool`, and follow `FLOWED_TO|SWAPPED`, as above. Exchange hot wallets end a trace: pass through an address only when `is_exchange IS NULL`.
+So a walk never starts at a pool and never passes through one. It may end at one. Guard the start with `WHERE NOT a:Pool` and each address in the middle with `WHERE NOT via:Pool`, and follow `FLOWED_TO|SWAPPED`, as above. Exchange hot wallets end a trace: pass through an address only when `is_exchange IS NULL`. An exchange deposit with a `SWEPT` link ends it too.
 
 ### System guard
 
@@ -608,7 +609,7 @@ USE topology
 MATCH ()-[r:FLOWED_TO]->() RETURN keys(r) AS keys LIMIT 5
 ```
 
-Name another link type to read its keys: `SWAPPED`, `LINKED`, `OPERATED_BY`, `BRIDGED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY`. The keys of an address and of a link include `network`: it is the query's `network`, computed on every node and link. `synced_through_height` and `pair_key` are bookkeeping: never filter or sort on them.
+Name another link type to read its keys: `SWAPPED`, `LINKED`, `OPERATED_BY`, `BRIDGED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY` or `SWEPT`. The keys of an address and of a link include `network`: it is the query's `network`, computed on every node and link. `synced_through_height` and `pair_key` are bookkeeping: never filter or sort on them.
 
 The server serves five read-only catalog calls: `CALL db.labels()`, `CALL db.relationshipTypes()`, `CALL db.propertyKeys()`, `CALL db.schema.visualization()` and `SHOW INDEXES`. `meta_schema` sends four of them for you through one session and keeps the answer, so do not send them yourself.
 

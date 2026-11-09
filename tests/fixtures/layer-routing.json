@@ -581,6 +581,20 @@
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
+   "id": "skill-aml-exchange-1",
+   "layer": "topology",
+   "anchor": "address",
+   "query": "USE topology MATCH (a:Address {address: \"0x7e3702e9dfaa847f9829a258f1e26fa431160662\"})-[f:FLOWED_TO]->(d:Address)-[s:SWEPT]->(h:Address) WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT d:Pool AND NOT d:Protocol AND NOT d:System AND NOT d.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] RETURN a.address AS from_address, d.address AS to_address, d.labels AS deposit_labels, h.address AS hot_wallet, h.labels AS hot_wallet_labels, f.amount_usd_sum AS amount_usd_sum, s.sweep_count AS sweep_count LIMIT 25",
+   "source": "skills/chain-insights-aml-exchange/SKILL.md"
+  },
+  {
+   "id": "skill-aml-exchange-2",
+   "layer": "topology",
+   "anchor": "address",
+   "query": "USE topology MATCH (a:Address {address: \"0x31a817802ee183eb8b13167ffe24bd28dcc6f30c\"})-[s:SWEPT]->(h:Address) RETURN h.address AS hot_wallet, h.labels AS hot_wallet_labels, h.cex_role AS hot_wallet_role, s.sweep_count AS sweep_count, s.amount_usd_sum AS amount_usd_sum, s.paths AS paths LIMIT 20",
+   "source": "skills/chain-insights-aml-exchange/SKILL.md"
+  },
+  {
    "id": "skill-dex-reference-1",
    "layer": "topology",
    "anchor": "address",

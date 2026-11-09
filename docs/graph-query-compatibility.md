@@ -250,6 +250,18 @@ pattern joins: `CYCLE_PARTICIPANT`, `LAYERING_HOP`, `SMURFING_CLUSTER`,
 one carries `kind`, `source_event` `ml_pattern` and the run id in `run_id`. A
 newer run replaces them. None is money flow.
 
+### `SWEPT` — exchange deposit sweeps (topology only)
+
+`(:Address)-[:SWEPT]->(:Address)` runs from an exchange deposit to the hot
+wallet it swept into, in the layer `cex_sweeps` of the family annotations. It
+is drawn only from an address the deposit rule judged a deposit; a payment
+straight into a hot wallet stays `FLOWED_TO`. It carries `sweep_count`,
+`amount_raw_sum`, `amount_usd_sum`, `paths` (the sweep paths seen: `plain`,
+`gas_topped`, `approval_pull`, `forwarder_flush`, `forwarder_batch`) and the
+first and last sweep. A withdrawn deposit loses its links. No brand sits on the
+link: the exchange is named by the `labels` of its two ends. Read it anchored
+on the deposit, never on a hot wallet. A trail that reaches it ends there.
+
 ### Swap attribution
 
 Swap attribution is read from `SWAPPED`, the aggregate (`strength`, pools,
@@ -405,6 +417,10 @@ this wallet; the token in `labels` says which. Each is absent unless true: an ad
 while it has a live label of that role. A flag is never `false`, so test it
 with `IS NOT NULL` or `IS NULL`, not `= false`. A withdrawn label removes its
 node label and its flag. Only `is_exchange` ends a walk.
+
+An `:Exchange` address also carries `cex_role`, which wallet of its exchange it
+is: `deposit`, `hot_wallet`, `cold_wallet` or `withdrawal`. It is absent when
+no live exchange label names a role.
 
 The labels layer adds three judgement marks with no flag: `:Poisoned` (a
 look-alike address that sent worthless dust), `:Targeted` (a poisoning target
