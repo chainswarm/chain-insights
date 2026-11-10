@@ -20,6 +20,13 @@ name: Verify
 # runs on every pull request and every push to main, on the ms-a2-1 runners,
 # and branch protection requires its check. The local receipt of 2026-10-04 is
 # retired; the comment above that names it is history.
+# A pull request from a fork never runs on our own machines (security report
+# of 2026-11-10): this repository is public, and a stranger's code on a
+# persistent self-hosted runner can stay there and read what later jobs use.
+# Every job below picks its machine by where the pull request comes from: a
+# fork gets a GitHub-hosted machine that is thrown away after the job; our own
+# branches and main keep the build host. Never give a job in this file a plain
+# self-hosted `runs-on`.
 on:
   pull_request:
   push:
@@ -36,7 +43,7 @@ concurrency:
 jobs:
   t1:
     name: T1 (typecheck, build, test)
-    runs-on: [self-hosted, chainswarm-runner, X64]
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-latest' || fromJSON('["self-hosted","chainswarm-runner","X64"]') }}
     timeout-minutes: 20
 
     steps:
@@ -71,7 +78,7 @@ jobs:
 
   t2:
     name: T2 (anvil)
-    runs-on: [self-hosted, chainswarm-runner, X64]
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-latest' || fromJSON('["self-hosted","chainswarm-runner","X64"]') }}
     timeout-minutes: 20
 
     steps:
@@ -88,7 +95,7 @@ jobs:
 
   lint:
     name: lint
-    runs-on: [self-hosted, chainswarm-runner, X64]
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-latest' || fromJSON('["self-hosted","chainswarm-runner","X64"]') }}
     timeout-minutes: 10
 
     steps:
@@ -108,7 +115,7 @@ jobs:
 
   build:
     name: Build, Pack
-    runs-on: [self-hosted, chainswarm-runner, X64]
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-latest' || fromJSON('["self-hosted","chainswarm-runner","X64"]') }}
     timeout-minutes: 20
 
     steps:
