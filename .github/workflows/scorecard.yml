@@ -1,20 +1,16 @@
 name: Scorecard
 
 on:
+  # Tests run before an image build, never on a pull request or a push
+  # (operator ruling 2026-11-11, AP1000 AGENTS.md "Tests run before a release").
   branch_protection_rule:
-  pull_request:
-    branches: [main]
-  push:
-    branches: [main]
   schedule:
     - cron: '37 5 * * 2'
   workflow_dispatch:
 
-permissions: read-all
+  workflow_call:
 
-concurrency:
-  group: scorecard-${{ github.ref }}
-  cancel-in-progress: true
+permissions: read-all
 
 jobs:
   scorecard:
