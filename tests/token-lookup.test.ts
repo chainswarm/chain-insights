@@ -350,7 +350,7 @@ describe('meta_token_lookup when a read fails', () => {
       expect(structured.candidates).toEqual([])
       expect(structured.matched_on).toBeNull()
       expect(structured.hint).toContain(
-        'This Chain Insights server does not serve the token lookup yet'
+        'This lookup gave no answer'
       )
       expect(structured.hint).toContain("ask the user for the token's contract")
       expect(structured.hint).toContain('Do not search the web')

@@ -4,7 +4,7 @@
     {"name": "dex", "layers": ["dex_swaps", "dex_liquidity", "dex_pools"], "link_types": ["SWAPPED", "ADDED_LIQUIDITY", "REMOVED_LIQUIDITY"]},
     {"name": "interactions", "layers": ["approvals", "bridged", "contracts", "authorization"], "link_types": ["APPROVED", "BRIDGED", "DEPLOYED_CONTRACT", "SIGNED_AUTHORIZATION"]},
     {"name": "smart_accounts", "layers": ["sponsored", "bundled", "signers", "owners"], "link_types": ["SPONSORED", "BUNDLED", "SIGNED_FOR", "LINKED"]},
-    {"name": "annotations", "layers": ["labels", "ml", "inferred", "kinds", "assets"], "link_types": []},
+    {"name": "annotations", "layers": ["labels", "ml", "inferred", "kinds", "assets", "cex_sweeps"], "link_types": ["SWEPT"]},
     {"name": "transfers", "layers": ["transfers_by_asset"], "link_types": ["TRANSFERRED"]}
   ]
 }

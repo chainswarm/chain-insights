@@ -122,21 +122,21 @@
    "id": "recipe_topology_15",
    "layer": "topology",
    "anchor": "address",
-   "query": "USE topology MATCH SHORTEST 1 (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address) RETURN b.address LIMIT 50",
+   "query": "USE topology MATCH SHORTEST 1 (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT via:Exchange){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address) RETURN b.address LIMIT 50",
    "source": "tests/fixtures/documented-recipes.json"
   },
   {
    "id": "recipe_topology_16",
    "layer": "topology",
    "anchor": "address",
-   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN p LIMIT 5",
+   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT via:Exchange){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN p LIMIT 5",
    "source": "tests/fixtures/documented-recipes.json"
   },
   {
    "id": "recipe_topology_17",
    "layer": "topology",
    "anchor": "address",
-   "query": "USE topology MATCH p = ANY SHORTEST (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN p LIMIT 5",
+   "query": "USE topology MATCH p = ANY SHORTEST (a:Address {address: \"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT via:Exchange){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: \"5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty\"}) RETURN p LIMIT 5",
    "source": "tests/fixtures/documented-recipes.json"
   },
   {
@@ -409,28 +409,28 @@
    "id": "skill-cypher-18",
    "layer": "topology",
    "anchor": "address",
-   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"0x31a817802ee183eb8b13167ffe24bd28dcc6f30c\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: \"0x7e3702e9dfaa847f9829a258f1e26fa431160662\"}) RETURN [n IN nodes(p) | n.address] AS route LIMIT 5",
+   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"0x31a817802ee183eb8b13167ffe24bd28dcc6f30c\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT via:Exchange){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: \"0x7e3702e9dfaa847f9829a258f1e26fa431160662\"}) RETURN [n IN nodes(p) | n.address] AS route LIMIT 5",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
    "id": "skill-cypher-19",
    "layer": "topology",
    "anchor": "address",
-   "query": "USE topology MATCH p = (a:Address {address: \"0x31a817802ee183eb8b13167ffe24bd28dcc6f30c\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]){0,2} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: \"0x7e3702e9dfaa847f9829a258f1e26fa431160662\"}) RETURN [n IN nodes(p) | n.address] AS route, length(p) AS hops LIMIT 5",
+   "query": "USE topology MATCH p = (a:Address {address: \"0x31a817802ee183eb8b13167ffe24bd28dcc6f30c\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT via:Exchange){0,2} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: \"0x7e3702e9dfaa847f9829a258f1e26fa431160662\"}) RETURN [n IN nodes(p) | n.address] AS route, length(p) AS hops LIMIT 5",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
    "id": "skill-cypher-20",
    "layer": "topology",
    "anchor": "address",
-   "query": "USE topology MATCH p = (a:Address {address: \"0x04911a118f11c75667e4d0dfb8e640af5a353550\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|SWAPPED]->(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]){0,2} ()-[:FLOWED_TO|SWAPPED]->(b:Address) RETURN b.address AS to_address, length(p) AS hops LIMIT 25",
+   "query": "USE topology MATCH p = (a:Address {address: \"0x04911a118f11c75667e4d0dfb8e640af5a353550\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|SWAPPED]->(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT via:Exchange){0,2} ()-[:FLOWED_TO|SWAPPED]->(b:Address) RETURN b.address AS to_address, length(p) AS hops LIMIT 25",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
    "id": "skill-cypher-21",
    "layer": "topology",
    "anchor": "address",
-   "query": "USE topology MATCH p = (a:Address {address: \"0x04911a118f11c75667e4d0dfb8e640af5a353550\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()<-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]){0,2} ()<-[:FLOWED_TO|SWAPPED]-(b:Address) RETURN b.address AS from_address, length(p) AS hops LIMIT 25",
+   "query": "USE topology MATCH p = (a:Address {address: \"0x04911a118f11c75667e4d0dfb8e640af5a353550\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()<-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT via:Exchange){0,2} ()<-[:FLOWED_TO|SWAPPED]-(b:Address) RETURN b.address AS from_address, length(p) AS hops LIMIT 25",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
@@ -493,7 +493,7 @@
    "id": "skill-cypher-30",
    "layer": "topology",
    "anchor": "address",
-   "query": "USE topology MATCH p = (a:Address {address: \"0x04911a118f11c75667e4d0dfb8e640af5a353550\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System) (()-[t:TRANSFERRED WHERE t.asset = \"0x5fc5360d0400a0fd4f2af552add042d716f1d168\"]->(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]){0,2} ()-[:TRANSFERRED {asset: \"0x5fc5360d0400a0fd4f2af552add042d716f1d168\"}]->(b:Address) RETURN b.address AS to_address, length(p) AS hops LIMIT 25",
+   "query": "USE topology MATCH p = (a:Address {address: \"0x04911a118f11c75667e4d0dfb8e640af5a353550\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System) (()-[t:TRANSFERRED WHERE t.asset = \"0x5fc5360d0400a0fd4f2af552add042d716f1d168\"]->(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT via:Exchange){0,2} ()-[:TRANSFERRED {asset: \"0x5fc5360d0400a0fd4f2af552add042d716f1d168\"}]->(b:Address) RETURN b.address AS to_address, length(p) AS hops LIMIT 25",
    "source": "skills/chain-insights-cypher/SKILL.md"
   },
   {
@@ -586,6 +586,20 @@
    "anchor": "key",
    "query": "USE chain MATCH (b:Block {block_height: 61184414}) RETURN b.block_height, b.block_timestamp",
    "source": "skills/chain-insights-cypher/SKILL.md"
+  },
+  {
+   "id": "skill-aml-exchange-1",
+   "layer": "topology",
+   "anchor": "address",
+   "query": "USE topology MATCH (a:Address {address: \"0x7e3702e9dfaa847f9829a258f1e26fa431160662\"})-[f:FLOWED_TO]->(d:Address)-[s:SWEPT]->(h:Address) WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT d:Pool AND NOT d:Protocol AND NOT d:System AND NOT d.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] RETURN a.address AS from_address, d.address AS to_address, d.labels AS deposit_labels, h.address AS hot_wallet, h.labels AS hot_wallet_labels, f.amount_usd_sum AS amount_usd_sum, s.sweep_count AS sweep_count LIMIT 25",
+   "source": "skills/chain-insights-aml-exchange/SKILL.md"
+  },
+  {
+   "id": "skill-aml-exchange-2",
+   "layer": "topology",
+   "anchor": "address",
+   "query": "USE topology MATCH (a:Address {address: \"0x31a817802ee183eb8b13167ffe24bd28dcc6f30c\"})-[s:SWEPT]->(h:Address) RETURN h.address AS hot_wallet, h.labels AS hot_wallet_labels, h.cex_role AS hot_wallet_role, s.sweep_count AS sweep_count, s.amount_usd_sum AS amount_usd_sum, s.paths AS paths LIMIT 20",
+   "source": "skills/chain-insights-aml-exchange/SKILL.md"
   },
   {
    "id": "skill-dex-reference-1",
@@ -913,14 +927,14 @@
    "id": "hint-9",
    "layer": "topology",
    "anchor": "address",
-   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"corpus-address-a\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: \"corpus-address-a\"}) RETURN [n IN nodes(p) | n.address] AS route LIMIT 5",
+   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"corpus-address-a\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT via:Exchange){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: \"corpus-address-a\"}) RETURN [n IN nodes(p) | n.address] AS route LIMIT 5",
    "source": "src/mcp/proxy.ts graph hints"
   },
   {
    "id": "hint-10",
    "layer": "topology",
    "anchor": "address",
-   "query": "USE topology MATCH SHORTEST 1 (a:Address {address: \"corpus-address-a\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address) RETURN b.address LIMIT 50",
+   "query": "USE topology MATCH SHORTEST 1 (a:Address {address: \"corpus-address-a\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT via:Exchange){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address) RETURN b.address LIMIT 50",
    "source": "src/mcp/proxy.ts graph hints"
   },
   {

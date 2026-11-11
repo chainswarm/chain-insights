@@ -250,6 +250,18 @@ pattern joins: `CYCLE_PARTICIPANT`, `LAYERING_HOP`, `SMURFING_CLUSTER`,
 one carries `kind`, `source_event` `ml_pattern` and the run id in `run_id`. A
 newer run replaces them. None is money flow.
 
+### `SWEPT` — exchange deposit sweeps (topology only)
+
+`(:Address)-[:SWEPT]->(:Address)` runs from an exchange deposit to the hot
+wallet it swept into, in the layer `cex_sweeps` of the family annotations. It
+is drawn only from an address the deposit rule judged a deposit; a payment
+straight into a hot wallet stays `FLOWED_TO`. It carries `sweep_count`,
+`amount_raw_sum`, `amount_usd_sum`, `paths` (the sweep paths seen: `plain`,
+`gas_topped`, `approval_pull`, `forwarder_flush`, `forwarder_batch`) and the
+first and last sweep. A withdrawn deposit loses its links. No brand sits on the
+link: the exchange is named by the `labels` of its two ends. Read it anchored
+on the deposit, never on a hot wallet. A trail that reaches it ends there.
+
 ### Swap attribution
 
 Swap attribution is read from `SWAPPED`, the aggregate (`strength`, pools,
@@ -271,10 +283,10 @@ asset, with `asset` and `amount_raw_sum` (and `fees_raw_sum` on a removal).
 
 | Form              | Syntax                                                                                                                                                                                    | Supported          |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| Quantified path   | `MATCH p = (a:Address WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWED_TO\|SWAPPED]-(b:Address)`                                              | ✅ upper bound ≤ 5 |
-| One shortest path | `MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWED_TO\|SWAPPED]-(b:Address {address: $to})`   | ✅ upper bound ≤ 5 |
-| Any shortest path | `MATCH p = ANY SHORTEST (a:Address {address: $from} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWED_TO\|SWAPPED]-(b:Address {address: $to})` | ✅ upper bound ≤ 5 |
-| Open target       | `MATCH SHORTEST 1 (a:Address {address: $addr} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWED_TO\|SWAPPED]-(b:Address)`                      | ✅ upper bound ≤ 5 |
+| Quantified path   | `MATCH p = (a:Address WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND NOT via:Exchange){0,4} ()-[:FLOWED_TO\|SWAPPED]-(b:Address)`                                              | ✅ upper bound ≤ 5 |
+| One shortest path | `MATCH p = SHORTEST 1 (a:Address {address: $from} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND NOT via:Exchange){0,4} ()-[:FLOWED_TO\|SWAPPED]-(b:Address {address: $to})`   | ✅ upper bound ≤ 5 |
+| Any shortest path | `MATCH p = ANY SHORTEST (a:Address {address: $from} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND NOT via:Exchange){0,4} ()-[:FLOWED_TO\|SWAPPED]-(b:Address {address: $to})` | ✅ upper bound ≤ 5 |
+| Open target       | `MATCH SHORTEST 1 (a:Address {address: $addr} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND NOT via:Exchange){0,4} ()-[:FLOWED_TO\|SWAPPED]-(b:Address)`                      | ✅ upper bound ≤ 5 |
 
 Every form above carries the pool guard and walks `SWAPPED` beside
 `FLOWED_TO`. `WHERE NOT a:Pool` keeps the walk from starting at a `:Pool`, the
@@ -405,6 +417,10 @@ this wallet; the token in `labels` says which. Each is absent unless true: an ad
 while it has a live label of that role. A flag is never `false`, so test it
 with `IS NOT NULL` or `IS NULL`, not `= false`. A withdrawn label removes its
 node label and its flag. Only `is_exchange` ends a walk.
+
+An `:Exchange` address also carries `cex_role`, which wallet of its exchange it
+is: `deposit`, `hot_wallet`, `cold_wallet` or `withdrawal`. It is absent when
+no live exchange label names a role.
 
 The labels layer adds three judgement marks with no flag: `:Poisoned` (a
 look-alike address that sent worthless dust), `:Targeted` (a poisoning target

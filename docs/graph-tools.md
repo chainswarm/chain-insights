@@ -30,13 +30,16 @@ Use `cia mcp call` for low-level GraphRAG calls and custom read-only queries.
 
 The Chain Insights MCP proxy adds the local tools `meta_network_capabilities`,
 `meta_schema`, `meta_dex_lookup`, `meta_token_lookup`, `aml_deployer_screen`,
-`meta_rules`, `meta_help`, `meta_usage_status`,
+`meta_exchange_lookup`, `aml_exchange_deposit_check`, `meta_rules`, `meta_help`, `meta_usage_status`,
 `meta_subscription_status`, `wallet_balance`, `wallet_topup` and
 `subscription_topup`. `aml_deployer_screen` screens who is behind a token or a
 wallet from two anchored topology reads: the launcher, its first funder and
 what kind of wallet that is, their labels and the first inbound bridge
 deposit. It returns facts only, never a score; see
-[MCP proxy](mcp-proxy.md#local-tools). On hosted
+[MCP proxy](mcp-proxy.md#local-tools). `meta_exchange_lookup` turns a
+centralized exchange name into its proven hot wallets, and
+`aml_exchange_deposit_check` says whether one address is an exchange deposit,
+of which exchange, and into which hot wallet it was swept (`SWEPT`). On hosted
 backends, `meta_usage_status` can reflect remote quota telemetry. On
 backends without a quota tool, Chain Insights returns a local unmetered
 primitive-backend status instead.
@@ -58,14 +61,16 @@ A transaction is a chain question: read it on `USE chain` by its `tx_id`. Chain 
 
 The layers hand each other keys, and each key keeps its name. Topology gives the pair and the first and last seen time. Facts gives the `tx_id` and the `block_height`. Chain takes an `address`, a `tx_id`, a `block_height` or a `block_hash`, and gives the `block_date` of a transaction or a block.
 
+`SWEPT` runs from an exchange deposit to the hot wallet it swept into (layer `cex_sweeps`, family annotations), and `cex_role` on an `:Exchange` address says which wallet of its exchange it is: `deposit`, `hot_wallet`, `cold_wallet` or `withdrawal`. A trail that reaches a `SWEPT` link ends there: say the money entered the exchange at that deposit, swept n times into that hot wallet, name the exchange from `labels`, and never walk on past a hot wallet. Read `SWEPT` anchored on an address; call `aml_exchange_deposit_check` for one address and `meta_exchange_lookup` for an exchange by name.
+
 A question about the whole chain (recent activity, the biggest senders, a top list) is a `USE topology` search: bound it by time with `f.last_seen_timestamp >= <epoch ms>` on the `FLOWED_TO` link, then sort and `LIMIT`. A search has 10 s. Read `Head` first (`USE chain MATCH (h:Head) RETURN h.behind_money, h.behind_dex, h.behind_transfers`, under a second): a `FLOWED_TO` search is sent when `behind_money` is at most 100000; a `SWAPPED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY` search when `behind_dex` is at most 100000; a `TRANSFERRED` search when `behind_transfers` is at most 100000 (100000 blocks is a few hours: a robinhood block is about a tenth of a second apart from the next). When the family is further behind, the search cannot finish, so do not send it: say which family, how many blocks, and ask for an address. On a server whose Head has no `behind_money`, read `h.graph_blocks_behind` and hold it to the same limit. On a server whose Head has no `behind_transfers`, it serves no `TRANSFERRED` link: send no `TRANSFERRED` search. Never turn the block count into days or hours by head. To say how fresh the data is, give the newest `_utc` time you read on the layer you used: a family's lag counts its slowest layer, and the links of an address and the facts rows are often newer than it. If the server refuses the search with `anchor_missing` or `family_behind`, or stops it with `query_timeout`, it cannot search the whole chain now: say so in one line, name the family the refusal names, and ask for an address or drop the link type that is behind. A narrower window times out the same way, so do not send it again.
 
 The graph layers are grouped into six families, and each family is as fresh
 as its slowest layer: `money` (`FLOWED_TO`, `OPERATED_BY`), `dex` (`SWAPPED`,
 `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`), `interactions` (`APPROVED`,
 `BRIDGED`, `DEPLOYED_CONTRACT`, `SIGNED_AUTHORIZATION`), `smart_accounts`
-(`SPONSORED`, `BUNDLED`, `SIGNED_FOR`, `LINKED`), `annotations` (labels
-and kinds, which follow runs, not blocks) and `transfers` (`TRANSFERRED`).
+(`SPONSORED`, `BUNDLED`, `SIGNED_FOR`, `LINKED`), `annotations` (labels,
+kinds and `SWEPT`, which follow runs, not blocks) and `transfers` (`TRANSFERRED`).
 `cia network <name>` prints one
 row per family with its height and its blocks behind the head, and
 `annotations` as `fresh` or `walking`. The `Head` node of `USE chain` serves
@@ -295,7 +300,7 @@ one path only:
 ```bash
 cia mcp call graph_query \
   network=robinhood \
-  'query=USE topology MATCH p = SHORTEST 1 (a:Address {address: "0x..."} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: "0x..."}) RETURN [n IN nodes(p) | n.address] AS route LIMIT 5'
+  'query=USE topology MATCH p = SHORTEST 1 (a:Address {address: "0x..."} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND NOT via:Exchange){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: "0x..."}) RETURN [n IN nodes(p) | n.address] AS route LIMIT 5'
 ```
 
 The `chain-insights-cypher` skill shows how to read the properties of a link
@@ -360,7 +365,7 @@ Where one token went, up to 3 hops out. Every hop carries the same `asset`:
 
 ```cypher
 USE topology
-MATCH p = (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System) (()-[t:TRANSFERRED WHERE t.asset = "0x5fc5360d0400a0fd4f2af552add042d716f1d168"]->(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]){0,2} ()-[:TRANSFERRED {asset: "0x5fc5360d0400a0fd4f2af552add042d716f1d168"}]->(b:Address)
+MATCH p = (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System) (()-[t:TRANSFERRED WHERE t.asset = "0x5fc5360d0400a0fd4f2af552add042d716f1d168"]->(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND NOT via:Exchange){0,2} ()-[:TRANSFERRED {asset: "0x5fc5360d0400a0fd4f2af552add042d716f1d168"}]->(b:Address)
 RETURN b.address AS to_address, length(p) AS hops LIMIT 25
 ```
 
@@ -430,6 +435,7 @@ What each value means:
 | `FAKE_TOKEN` on `:Scam`, in `risk_claims` | A fake-token scam: a token that copies a listed token and was sent to holders of the real token, or used as poisoning bait. |
 | `FAKE_TOKEN` in `suspect_labels` | A copied name: a token that copies the name of a listed token. A record that accuses nobody: no `:Scam`, no `is_scam`, never called a scam. |
 | `FAKE_TOKEN_DEPLOYER`        | The sender of the transaction that created a fake-token scam, even through a factory.                                    |
+| `FAKE_TOKEN_LP`              | The wallet that seeded a fake token's pool and pulled its liquidity after the buyers paid.                               |
 | `ADDRESS_POISONING`          | A poisoner: a look-alike address that sent worthless dust so the target copies it from its history. `:Poisoned`, never `:Scam`. |
 | `INBOUND_IMPERSONATION`      | A look-alike address that paid the target to get into its history.                                                      |
 | `PHANTOM_TRANSFER`           | A contract that writes fake transfer events, claiming a transfer from a look-alike that never happened.                  |
@@ -465,8 +471,11 @@ What each value means:
 - Each flag is absent unless true. An address carries the flag only while it
   has a live label of that role. A flag is never `false`.
 - Test a flag with `IS NOT NULL` or `IS NULL`. Do not test `= false`.
-- Only `is_exchange` ends a walk: exchange hot wallets are terminals, and a
-  node with no `is_exchange` is walked through.
+- Only `is_exchange` ends a walk: every `:Exchange` address is a terminal, a
+  hot wallet and a deposit alike, and a node with no `is_exchange` is walked
+  through. A quantified walk carries `NOT via:Exchange` on every address in
+  its middle. A walk that ends at a deposit names the exchange from its
+  `SWEPT` link (`aml_exchange_deposit_check`).
 - The `chain-insights-cypher` skill shows how to read every property from a
   sample.
 

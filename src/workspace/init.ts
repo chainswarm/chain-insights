@@ -329,12 +329,17 @@ Rules:
   Avoid storing whole node or relationship property blobs unless
   the purpose of the query is schema discovery or debugging.
 - When using BFS, fixed-depth traversal fallbacks, or any manual \`FLOWED_TO\`
-  traversal, treat exchange hot wallets as terminal endpoints only. Do not
-  expand from, through, or classify exchange nodes as deposit, suspect, or
-  intermediate candidates. In Cypher, require every non-terminal traversal node
-  to satisfy \`is_exchange IS NULL\`; only the final exchange endpoint should
-  satisfy \`is_exchange IS NOT NULL\`. \`is_exchange\` is absent unless true, so
-  a labelled node with no \`is_exchange\` is walked through.
+  traversal, treat exchange hot wallets as terminal endpoints only, and
+  exchange deposits too: every \`:Exchange\` address ends a walk, and its
+  \`cex_role\` says whether it is a deposit, a hot wallet, a cold wallet or a
+  withdrawal wallet. Do not expand from or through exchange nodes, or count
+  them as suspect or intermediate candidates. In Cypher, require every
+  non-terminal traversal node to satisfy \`is_exchange IS NULL\` (in a
+  quantified walk, \`NOT via:Exchange\`); only the final exchange endpoint
+  should satisfy \`is_exchange IS NOT NULL\`. \`is_exchange\` is absent unless
+  true, so a labelled node with no \`is_exchange\` is walked through. When a
+  walk ends at a deposit, its \`SWEPT\` link names the hot wallet it was
+  swept into: call \`aml_exchange_deposit_check\` and name the exchange.
 - When a trace reaches a \`:Pool\`, follow the pool trace rule in the
   \`chain-insights-cypher\` skill. \`:Pool\` is a pool contract the DEX
   indexer knows, traded or not. \`:Token\` and \`:NFT\` mark token contracts,

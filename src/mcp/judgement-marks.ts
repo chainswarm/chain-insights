@@ -46,6 +46,13 @@ export const JUDGEMENT_CLAIMS: readonly JudgementClaim[] = Object.freeze([
     plain: 'the sender of the transaction that created a fake-token scam, even through a factory',
   },
   {
+    value: 'FAKE_TOKEN_LP',
+    property: 'risk_claims',
+    mark: 'Scam',
+    plain:
+      "the wallet that seeded a fake token's pool and pulled its liquidity after the buyers paid",
+  },
+  {
     value: 'ADDRESS_POISONING',
     property: 'risk_claims',
     mark: 'Poisoned',

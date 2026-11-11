@@ -1,0 +1,87 @@
+{
+  "schema": "chain-insights.exchange-registry.v1",
+  "network": "robinhood",
+  "registry_version": 1,
+  "recorded_on": "2026-11-09",
+  "rows": [
+    {
+      "exchange": "bitget",
+      "display": "Bitget",
+      "aliases": [
+        "bitget"
+      ],
+      "wallets": [
+        {
+          "address": "0xed9ab5bc05a0152b9dc2f7902e8369af7bc18771",
+          "role": "hot_wallet",
+          "evidence": "1987 clean payers 2026-10-09 to 2026-11-07; 199 of 200 sampled pay only this exchange",
+          "proven_at_block": 108803217
+        }
+      ]
+    },
+    {
+      "exchange": "bitrue",
+      "display": "Bitrue",
+      "aliases": [
+        "bitrue"
+      ],
+      "wallets": []
+    },
+    {
+      "exchange": "bitunix",
+      "display": "Bitunix",
+      "aliases": [
+        "bitunix"
+      ],
+      "wallets": []
+    },
+    {
+      "exchange": "blofin",
+      "display": "BloFin",
+      "aliases": [
+        "blofin"
+      ],
+      "wallets": []
+    },
+    {
+      "exchange": "bybit",
+      "display": "Bybit",
+      "aliases": [
+        "bybit"
+      ],
+      "wallets": [
+        {
+          "address": "0xc0e17ad342afabd36b3971f8305ff147006962ae",
+          "role": "hot_wallet",
+          "evidence": "123 clean payers 2026-10-09 to 2026-11-07; 114 of 123 sampled pay only this exchange",
+          "proven_at_block": 108803217
+        }
+      ]
+    },
+    {
+      "exchange": "gate",
+      "display": "Gate",
+      "aliases": [
+        "gate",
+        "gate.io",
+        "gateio"
+      ],
+      "wallets": [
+        {
+          "address": "0x0d0707963952f2fba59dd06f2b425ace40b492fe",
+          "role": "hot_wallet",
+          "evidence": "1208 clean payers 2026-10-09 to 2026-11-07; 193 of 200 sampled pay only this exchange",
+          "proven_at_block": 108803217
+        }
+      ]
+    },
+    {
+      "exchange": "pionex",
+      "display": "Pionex",
+      "aliases": [
+        "pionex"
+      ],
+      "wallets": []
+    }
+  ]
+}

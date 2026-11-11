@@ -190,7 +190,7 @@ pool and the pool pays the buyer:
   and the next lead.
 - **The next lead.** End with who to trace next: the buyer's biggest
   receivers, or the seller's first funders. Both are the newest-links read of
-  `chain-insights-cypher`, anchored on that one address.
+  `chain-insights-cypher`, anchored on that one address. A receiver that is an `:Exchange` address (`is_exchange` set, a deposit or a hot wallet) is no lead to trace: the money entered that exchange. Name the exchange from its `labels`, and for a deposit the hot wallet it was swept into, with `aml_exchange_deposit_check` (skill `chain-insights-aml-exchange`).
 - A pool's volume and a link's totals are lifetime totals. The money of one
   day is a facts read of a pair and that day.
 - Zero pools from a factory is not "the exchange has no pools": say the

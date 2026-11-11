@@ -3,15 +3,7 @@
 
 All notable changes to Chain Insights are recorded here.
 
-## [0.79.1] - 2026-11-06 — the exchange registry names only what is served
-
-### Changed
-
-- `registry/robinhood.md` holds served rows only, and `scripts/pin-dex-registry.mjs`
-  refuses any other row. No served row changes; `registry/robinhood.json` stays at
-  version 8.
-
-## [0.79.2] - 2026-11-06 — a copied token name is not a scam
+## [0.80.1] - 2026-11-11 — a copied token name is not a scam
 
 ### Changed
 
@@ -26,6 +18,76 @@ All notable changes to Chain Insights are recorded here.
   a.risk_claims` and `MATCH (a:Token) WHERE "FAKE_TOKEN" IN a.suspect_labels`,
   and keeps them apart. `FAKE_TOKEN_DEPLOYER` names the sender of the
   transaction that created a fake-token scam, even through a factory.
+
+## [0.80.0] - 2026-11-09 — where money entered an exchange
+
+### Added
+
+- The graph link `SWEPT`, from an exchange deposit to the hot wallet it swept
+  into (layer `cex_sweeps`, family annotations), and `cex_role` on an
+  `:Exchange` address: `deposit`, `hot_wallet`, `cold_wallet` or `withdrawal`.
+  Both are in the family table, `meta_schema`, the routing rules, the
+  `chain-insights-cypher` skill and the guides. A trail that reaches a `SWEPT`
+  link ends at the deposit.
+- The exchange stop: every walk of the `chain-insights-cypher` skill, the
+  served route shapes and the proxy's graph hints carry `NOT via:Exchange` on
+  each address in the middle, so a walk ends at an exchange deposit or hot
+  wallet and never passes through one. On lane A a 3-hop walk from a Gate
+  deposit had gone on past the Gate hot wallet into the exchange's other
+  customers (24 of the 25 rows the read returned); with the stop it ends at the hot wallet. The DEX trail skills say
+  an `:Exchange` receiver is no lead to trace.
+- `aml_address_risk` (still hidden from the proxy, run by
+  `cia workflow aml-address-risk`) reads an exchange walk that ends at a
+  deposit as a deposit: the deposit is the exchange end and `deposit_address`,
+  the address that paid it is `payer_address`, and one `SWEPT` read anchored
+  on each deposit (at most 10) names the hot wallet it was swept into. Before,
+  a walk ending at a deposit called the screened wallet, or the hop before the
+  deposit, the deposit. The table and the CSV gain `exchange`,
+  `exchange_role` and `swept_into_hot_wallet`. A compare route that passes
+  through an exchange address says it links nothing
+  (`linked_outside_exchanges: false`).
+- `meta_exchange_lookup {network, name | address}`, a local tool of the MCP
+  proxy. It turns a centralized exchange name (Binance, OKX, Bitget), or one of
+  its wallets, into the exchange's hot wallets and gas wallets proven on the
+  network's own data, each with its payer proof. It reads
+  `registry/exchanges/<network>.json` from `main`, cached one hour, with the
+  packaged copy offline, and sends no graph read. The files list every
+  exchange of the indexer-evm-cex registry and only the wallets proven on that
+  chain: 57 exchanges with 72 wallets on ethereum and 7 exchanges with 3
+  wallets on robinhood. Exchange tags stay out of the file and reach the
+  graph.
+- `aml_exchange_deposit_check {network, address}`, a local tool of the MCP
+  proxy. It says whether an address is an exchange deposit, of which exchange,
+  and into which hot wallet it was swept, how many times, by which path and
+  when. One `graph_query_batch` of two topology reads anchored on the address,
+  billed as any read.
+- The skill `chain-insights-aml-exchange`, with both tools as its doors.
+  `cia mcp call` runs both tools in a terminal. Eval cases
+  `aml-exchange-deposit-where-money-went` and
+  `aml-exchange-hot-wallet-is-exchange`.
+
+## [0.79.3] - 2026-11-09 — the fake-token seeder word
+
+### Added
+
+- `FAKE_TOKEN_LP` marks the wallet that seeded a fake token's pool and pulled its liquidity after the buyers paid. It is a `risk_claims` value on `:Scam`, named in the judgement marks, the `chain-insights-cypher` skill and `docs/graph-tools.md`.
+
+## [0.79.2] - 2026-11-06 — the launchpad skill answers what the graph holds
+
+### Changed
+
+- `chain-insights-dex-launchpad` drops its stale note that the graph does not
+  mark a launch factory: a factory of two launches or more carries `:Launchpad`.
+  The skill and the token lookup's hint no longer tell a reader what the server
+  lacks. They say what to do instead.
+
+## [0.79.1] - 2026-11-06 — the exchange registry names only what is served
+
+### Changed
+
+- `registry/robinhood.md` holds served rows only, and `scripts/pin-dex-registry.mjs`
+  refuses any other row. No served row changes; `registry/robinhood.json` stays at
+  version 8.
 
 ## [0.79.0] - 2026-11-06 — who is behind a token: the deployer screen
 

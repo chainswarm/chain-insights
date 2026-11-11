@@ -42,7 +42,7 @@ export const META_DEX_LOOKUP_DESCRIPTION =
   'When the user gives a contract address instead of a name, send it as address (0x plus 40 hex, ' +
   'any case, with no name): the answer is the exchange whose factory, router or manager it is, ' +
   'and took_for names the role it holds. When matched is null no exchange row holds the address: ' +
-  'send no read for it. Give a name or an address, not both.'
+  'send no read for it. A centralized exchange (Binance, OKX, Bitget) goes to meta_exchange_lookup instead. Give a name or an address, not both.'
 export const META_DEX_LOOKUP_ANNOTATIONS = {
   readOnlyHint: true,
   idempotentHint: true,

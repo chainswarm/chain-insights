@@ -80,7 +80,8 @@ names the source file it was verified against.
 ### Public MCP Tool Surface
 
 - The canonical public tool surface is the prefixed set `graph_*` /
-  `meta_*` / `wallet_*`, plus the local AML tool `aml_deployer_screen`.
+  `meta_*` / `wallet_*`, plus the local AML tools `aml_deployer_screen` and
+  `aml_exchange_deposit_check`.
 - `visibleRemoteTools()` in `src/mcp/tool-visibility.ts` hides unprefixed
   backend names (`address_risk`, `trace_victim_funds`, `trace_suspect_funds`,
   `trace_deposit_sources`, `trace_funds`, `track_funds`,
@@ -90,7 +91,8 @@ names the source file it was verified against.
   `aml_address_risk`, hidden until its verdict is fixed.
 - Local tools live in `src/mcp/proxy.ts` (`LOCAL_TOOL_NAMES`):
   `meta_network_capabilities`, `meta_schema`, `meta_dex_lookup`,
-  `meta_token_lookup`, `aml_deployer_screen`, `meta_rules`, `meta_help`,
+  `meta_token_lookup`, `aml_deployer_screen`, `meta_exchange_lookup`,
+  `aml_exchange_deposit_check`, `meta_rules`, `meta_help`,
   `meta_usage_status`, `meta_subscription_status`, `wallet_balance`,
   `wallet_topup`, `subscription_topup`, and `graph_expand`, which only the view calls
   (`APP_ONLY_LOCAL_TOOL_NAMES`).

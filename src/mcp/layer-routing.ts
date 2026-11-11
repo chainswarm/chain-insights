@@ -49,6 +49,13 @@ export const ROUTING_HANDOFF =
   'The layers hand each other keys, and each key keeps its name. Topology gives the pair and the first and last seen time. Facts gives the `tx_id` and the `block_height`. Chain takes an `address`, a `tx_id`, a `block_height` or a `block_hash`, and gives the `block_date` of a transaction or a block.'
 
 /**
+ * Where money entered an exchange: the link `SWEPT` (layer `cex_sweeps`, family
+ * annotations) and the node property `cex_role`. A trail ends at it.
+ */
+export const ROUTING_SWEPT =
+  "`SWEPT` runs from an exchange deposit to the hot wallet it swept into (layer `cex_sweeps`, family annotations), and `cex_role` on an `:Exchange` address says which wallet of its exchange it is: `deposit`, `hot_wallet`, `cold_wallet` or `withdrawal`. A trail that reaches a `SWEPT` link ends there: say the money entered the exchange at that deposit, swept n times into that hot wallet, name the exchange from `labels`, and never walk on past a hot wallet. Read `SWEPT` anchored on an address; call `aml_exchange_deposit_check` for one address and `meta_exchange_lookup` for an exchange by name."
+
+/**
  * A whole-chain question is a time-bounded topology search, sent only when the
  * family of its link type is close to the head; a refusal names the family.
  */
@@ -88,6 +95,7 @@ export function routingLines(): string[] {
     ROUTING_ADDRESS_ON_CHAIN,
     ROUTING_TWO_FIT,
     ROUTING_HANDOFF,
+    ROUTING_SWEPT,
     ROUTING_NOT_SERVED,
   ]
 }
@@ -123,7 +131,7 @@ export function routingHead(): string {
  */
 export function routingHintLines(): string[] {
   return [
-    `- Pick the layer first. ${ROUTING_RULE} 1. ${ROUTING_LINES[0]} 2. ${ROUTING_LINES[1]} 3. ${ROUTING_LINES[2]} ${ROUTING_NOT_SERVED} ${ROUTING_ADDRESS_ON_CHAIN} ${ROUTING_TWO_FIT} ${ROUTING_HANDOFF} The lookups that USE chain serves are listed in chain_admission.lookups of meta_network_capabilities. Read every limit that the server publishes from meta_network_capabilities (chain_admission and, when the server sends them, topology_admission and facts_admission). Never write a limit down.`,
+    `- Pick the layer first. ${ROUTING_RULE} 1. ${ROUTING_LINES[0]} 2. ${ROUTING_LINES[1]} 3. ${ROUTING_LINES[2]} ${ROUTING_NOT_SERVED} ${ROUTING_ADDRESS_ON_CHAIN} ${ROUTING_TWO_FIT} ${ROUTING_HANDOFF} ${ROUTING_SWEPT} The lookups that USE chain serves are listed in chain_admission.lookups of meta_network_capabilities. Read every limit that the server publishes from meta_network_capabilities (chain_admission and, when the server sends them, topology_admission and facts_admission). Never write a limit down.`,
     `- Act on a refusal by its class. ${moveLines().join(' ')}`,
   ]
 }

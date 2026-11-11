@@ -42,7 +42,21 @@ export const SAMPLED_LINK_TYPES = [
   'BRIDGED',
   'ADDED_LIQUIDITY',
   'REMOVED_LIQUIDITY',
+  'SWEPT',
 ] as const
+
+/**
+ * The values of `cex_role` on an `:Exchange` address: which wallet of its
+ * exchange the address is. The labels layer sets it from the exchange label's
+ * subtype; `SWEPT` (layer `cex_sweeps`) runs from a `deposit` to the
+ * `hot_wallet` it swept into.
+ */
+export const CEX_ROLES = ['deposit', 'hot_wallet', 'cold_wallet', 'withdrawal'] as const
+
+/** The note a schema carries when the graph serves `SWEPT` or `cex_role`. */
+export const EXCHANGE_SCHEMA_NOTE =
+  `cex_role on an :Exchange address says which wallet of its exchange it is: ${CEX_ROLES.join(', ')}. ` +
+  'SWEPT runs from an exchange deposit to the hot wallet it swept into; a trail that reaches it ends there.'
 
 // The TRANSFER columns the cypher skill lists, in its order. tests/graph-schema.test.ts
 // holds this list to the skill and to the columns the graph server maps on TRANSFER
@@ -436,6 +450,9 @@ export async function buildGraphSchema(options: BuildOptions): Promise<BuildResu
     remarks.push(
       'synced_through_height and pair_key are sync bookkeeping: never filter or sort on them.'
     )
+  }
+  if (topology.link_types.includes('SWEPT') || topology.property_keys.includes('cex_role')) {
+    remarks.push(EXCHANGE_SCHEMA_NOTE)
   }
   remarks.push('Fields come from a sample of the live graph. A rare field may be missing.')
 
