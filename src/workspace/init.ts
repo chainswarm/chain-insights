@@ -221,8 +221,13 @@ The address-grain graph schema:
   written by the labels layer: \`risk_claims\` beside \`:Scam\`,
   \`:Poisoned\` and \`:Sanctioned\`, \`protection_claims\` beside
   \`:Victim\` and \`:Targeted\`, \`traced_claims\` beside
-  \`:OnMoneyTrail\`, and \`suspect_labels\` when the address itself used
-  a mixer pool. The values (\`FAKE_TOKEN\`, \`ADDRESS_POISONING\`,
+  \`:OnMoneyTrail\`, and \`suspect_labels\`, with no mark, for a warning
+  or a record that accuses nobody: the address used a mixer pool, or it is
+  a token that copies a listed token's name. \`FAKE_TOKEN\` on \`:Scam\`
+  is a fake token with a proven act (sent to holders of the real token, or
+  used as poisoning bait); \`FAKE_TOKEN\` in \`suspect_labels\` is a
+  copied name that accuses nobody, never called a scam. A fake-token list
+  asks both and keeps them apart. The values (\`FAKE_TOKEN\`, \`ADDRESS_POISONING\`,
   \`APPROVAL_DRAINER\`, \`VICTIM\`, \`LAUNDERED\` and the rest) and
   their meaning are in the \`chain-insights-cypher\` skill, section
   Judgement marks. Ask by mark (\`MATCH (a:Scam) WHERE "FAKE_TOKEN" IN

@@ -426,14 +426,15 @@ sorted list on the node, beside the mark.
 | `:Victim`       | `protection_claims` | `VICTIM`                                          |
 | `:Targeted`     | `protection_claims` | `ADDRESS_POISONING_TARGET`, an older value        |
 | `:OnMoneyTrail` | `traced_claims`     | the trail values below                            |
-| none            | `suspect_labels`    | `MIXER_DEPOSITOR`, `MIXER_WITHDRAWER`             |
+| none            | `suspect_labels`    | `FAKE_TOKEN`, `MIXER_DEPOSITOR`, `MIXER_WITHDRAWER` |
 
 What each value means:
 
 | Value                        | Meaning                                                                                                                  |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `FAKE_TOKEN`                 | A fake token: a spoof contract that imitates a real token.                                                               |
-| `FAKE_TOKEN_DEPLOYER`        | The creator of a fake token.                                                                                             |
+| `FAKE_TOKEN` on `:Scam`, in `risk_claims` | A fake-token scam: a token that copies a listed token and was sent to holders of the real token, or used as poisoning bait. |
+| `FAKE_TOKEN` in `suspect_labels` | A copied name: a token that copies the name of a listed token. A record that accuses nobody: no `:Scam`, no `is_scam`, never called a scam. |
+| `FAKE_TOKEN_DEPLOYER`        | The sender of the transaction that created a fake-token scam, even through a factory.                                    |
 | `FAKE_TOKEN_LP`              | The wallet that seeded a fake token's pool and pulled its liquidity after the buyers paid.                               |
 | `ADDRESS_POISONING`          | A poisoner: a look-alike address that sent worthless dust so the target copies it from its history. `:Poisoned`, never `:Scam`. |
 | `INBOUND_IMPERSONATION`      | A look-alike address that paid the target to get into its history.                                                      |
@@ -456,7 +457,10 @@ What each value means:
 | `MIXER_WITHDRAWER`           | It took money out of a mixer pool. A warning, not a theft.                                                               |
 
 - Ask by mark, `MATCH (a:Scam) WHERE "FAKE_TOKEN" IN a.risk_claims` for fake
-  tokens, or anchor on one full address. The mark is the anchor, and a
+  tokens, or anchor on one full address.
+- A fake-token list asks both lists and keeps them apart: the scams on
+  `:Scam`, then the copied names, `MATCH (a:Token) WHERE "FAKE_TOKEN" IN
+  a.suspect_labels`. A copied name is a record, never a scam. The mark is the anchor, and a
   `WHERE` on its own properties is allowed. A `WHERE` with no mark and no
   address is refused.
 - The graph holds no link from an accused address to its victims. Answer per

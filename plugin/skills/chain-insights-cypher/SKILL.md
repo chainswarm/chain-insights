@@ -221,7 +221,7 @@ Marks say what an address is. They sit beside the kind and are never an anchor:
   MATCH (a:Address {address: "0xc33acc93942105c57602e59e8e448c20ba718a85"})-[w:SWAPPED]->(a)
   RETURN w.swap_count AS swap_count, w.sold_usd AS sold_usd, w.bought_usd AS bought_usd, w.pools AS pools LIMIT 1
   ```
-- `:Scam` (`is_scam`), `:Poisoned`, `:Victim` (`is_victim`), `:Targeted` and `:OnMoneyTrail` are judgement marks from the labels layer. Why the mark is there sits in a sorted list on the node: `risk_claims` beside `:Scam`, `:Poisoned` and `:Sanctioned`, `protection_claims` beside `:Victim` and `:Targeted`, `traced_claims` beside `:OnMoneyTrail`. `suspect_labels` says the address itself used a mixer pool, and has no mark of its own. See [Judgement marks](#judgement-marks-scams-victims-and-trails).
+- `:Scam` (`is_scam`), `:Poisoned`, `:Victim` (`is_victim`), `:Targeted` and `:OnMoneyTrail` are judgement marks from the labels layer. Why the mark is there sits in a sorted list on the node: `risk_claims` beside `:Scam`, `:Poisoned` and `:Sanctioned`, `protection_claims` beside `:Victim` and `:Targeted`, `traced_claims` beside `:OnMoneyTrail`. `suspect_labels` holds a warning or a record that accuses nobody: the address used a mixer pool, or it is a token that copies a listed token's name. It has no mark of its own. See [Judgement marks](#judgement-marks-scams-victims-and-trails).
 - A basket is a Robinhood stock-basket token: one token that holds several stock tokens in near-equal USD weights. One factory, `0xe78b036bd6da158cd61a3dac3f67e18f62ecddfd`, creates every basket, and one router, `0xb672a5d825f82dea8574711d1da696fcc48d2ae0`, mints and redeems them. A basket is `:Protocol` and `:Token`, and its `labels` carry the word `Basket`. The factory is `:Protocol` and its `labels` carry `BasketFactory`. The router has no mark of its own beyond `:Contract`. See [Baskets](#baskets-is-this-a-basket-and-what-does-it-trade).
 
 **Ask by mark.** A question that names a kind of thing (mixers, launchpad pools, NFT collections, tokens of one standard, arbitrage bots) is a label match on the mark, a probe the server answers from the label index: nine `:Mixer` rows come back in 13 ms, a count of 2.4 million `:Token` in 4 s.
@@ -285,13 +285,15 @@ A mark says what the labels layer judged. The claims list beside it says why. Th
 
 | Mark | List | Value: what it means |
 | --- | --- | --- |
-| `:Scam` | `risk_claims` | `FAKE_TOKEN`: a fake token, a spoof contract that imitates a real token. `FAKE_TOKEN_DEPLOYER`: its creator. `FAKE_TOKEN_LP`: the wallet that seeded its pool and pulled the liquidity after the buyers paid. `INBOUND_IMPERSONATION`: a look-alike address that paid the target to get into its history. `PHANTOM_TRANSFER`, `PHANTOM_TRANSFER_EMITTER`, `PHANTOM_ENTRYPOINT`: a contract that writes fake transfer events, claiming a transfer from a look-alike that never happened. `SWEEPER_DELEGATE`: an EIP-7702 delegate that empties the accounts that delegate to it. `SWEEP_BENEFICIARY`: where it sends the funds. `UNSAFE_DELEGATE`: a delegate any caller can use to empty the account. `APPROVAL_DRAINER`: a spender that moved the tokens of at least three owners with their approval or Permit2 within 72 hours of the grant, and paid nothing back. `APPROVAL_DRAIN_BENEFICIARY`: the receiver of those tokens. |
+| `:Scam` | `risk_claims` | `FAKE_TOKEN`: a fake-token scam, a token that copies a listed token and was sent to holders of the real token, or used as poisoning bait. `FAKE_TOKEN_DEPLOYER`: the sender of the transaction that created it, even through a factory. `FAKE_TOKEN_LP`: the wallet that seeded its pool and pulled the liquidity after the buyers paid. `INBOUND_IMPERSONATION`: a look-alike address that paid the target to get into its history. `PHANTOM_TRANSFER`, `PHANTOM_TRANSFER_EMITTER`, `PHANTOM_ENTRYPOINT`: a contract that writes fake transfer events, claiming a transfer from a look-alike that never happened. `SWEEPER_DELEGATE`: an EIP-7702 delegate that empties the accounts that delegate to it. `SWEEP_BENEFICIARY`: where it sends the funds. `UNSAFE_DELEGATE`: a delegate any caller can use to empty the account. `APPROVAL_DRAINER`: a spender that moved the tokens of at least three owners with their approval or Permit2 within 72 hours of the grant, and paid nothing back. `APPROVAL_DRAIN_BENEFICIARY`: the receiver of those tokens. |
 | `:Poisoned` | `risk_claims` | `ADDRESS_POISONING`: a poisoner, a look-alike address that sent worthless dust so the target copies it from its history. Never `:Scam`. |
 | `:Sanctioned` | `risk_claims` | `SANCTIONED`: on a sanctions list. |
 | `:Victim` | `protection_claims` | `VICTIM`: it lost money to a scam the evidence walk traced. It paid the accused, was swept, or was drained after the attempt. Receiving a fake token or dust never makes a victim. |
 | `:Targeted` | `protection_claims` | `ADDRESS_POISONING_TARGET`, an older value a lane may still hold: a poisoning target the walk has not proven lost money. Never call it a victim. |
 | `:OnMoneyTrail` | `traced_claims` | The trail the evidence walk followed from an accused address. `LAUNDERED`: it received the accused's money along the walk and moved it on. `RECEIVED`: it received that money and still holds it (it becomes `LAUNDERED` when it forwards it). `FUNDER`: it funded the accused address. `MIXED`: it received that money and paid it into a mixer pool, where the walk ends. |
-| none | `suspect_labels` | `MIXER_DEPOSITOR`, `MIXER_WITHDRAWER`: it put money into, or took money out of, a mixer pool. A warning, not a theft. |
+| none | `suspect_labels` | `FAKE_TOKEN`: a copied name, a token that copies the name of a listed token. A record that accuses nobody: no `:Scam`, no `is_scam`. `MIXER_DEPOSITOR`, `MIXER_WITHDRAWER`: it put money into, or took money out of, a mixer pool. A warning, not a theft. |
+
+`FAKE_TOKEN` means two things, by the list it sits in. On `:Scam`, in `risk_claims`, it is a fake token with a proven act: it was sent to holders of the real token, or used as poisoning bait. In `suspect_labels` it is a copied name: it accuses nobody, and it is never called a scam. Say "a token that copies the name of a listed token", never "a fake-token scam", for that one.
 
 Ask by mark, or anchor on the full address. Never scan a claims list with no mark and no address: it reads every address and times out. A lane that has not written the lists yet returns null for them: name the mark, and say the graph gives no reason yet.
 
@@ -301,6 +303,14 @@ List fake-token scams: the `:Scam` mark is the anchor, and a `WHERE` on its own 
 USE topology
 MATCH (a:Scam) WHERE "FAKE_TOKEN" IN a.risk_claims
 RETURN a.address AS address, a.risk_claims AS risk_claims, a.labels AS labels LIMIT 25
+```
+
+A fake-token list asks both lists and keeps them apart. After the scams, ask the copied names, anchored on the `:Token` mark, and list them under their own heading as records, not scams:
+
+```cypher
+USE topology
+MATCH (a:Token) WHERE "FAKE_TOKEN" IN a.suspect_labels
+RETURN a.address AS address, a.suspect_labels AS suspect_labels, a.labels AS labels LIMIT 25
 ```
 
 Is this address a victim, and of what? Read its marks and lists first, anchored on the address:
