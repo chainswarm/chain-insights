@@ -28,17 +28,14 @@ name: Verify
 # branches and main keep the build host. Never give a job in this file a plain
 # self-hosted `runs-on`.
 on:
-  pull_request:
-  push:
-    branches: [main]
+  # Tests run before an image build, never on a pull request or a push
+  # (operator ruling 2026-11-11, AP1000 AGENTS.md "Tests run before a release").
   workflow_dispatch:
+
+  workflow_call:
 
 permissions:
   contents: read
-
-concurrency:
-  group: verify-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   t1:
