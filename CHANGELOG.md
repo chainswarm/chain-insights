@@ -3,7 +3,7 @@
 
 All notable changes to Chain Insights are recorded here.
 
-## [Unreleased] — what a contract is, and what its owner can do
+## [0.81.0] - 2026-11-14 — what a contract is, and what its owner can do
 
 ### Added
 
