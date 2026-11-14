@@ -80,9 +80,11 @@ USE facts MATCH (a:Address {address:"0x…"})-[t:TRANSFER]->(b:Address {address:
 A filter on `network` is no anchor: a facts read still names an address pair
 with one day, or one `tx_id`. `Address` on facts is served only as a `TRANSFER`
 relationship endpoint, so a single-node `MATCH (a:Address)` is refused there as
-well. Facts serves no kind label: a read that names `:Account` or `:Contract` is
-refused, so read the kind on `USE topology`, or on `USE chain` with
-`is_contract` and `nonce`.
+well. Facts serves no kind label: a read that names `:Account`, or `:Contract`
+at an end of a relationship, is refused, so read the kind on `USE topology`, or
+on `USE chain` with `is_contract` and `nonce`. One `Contract` node by its
+address is its own facts read: see
+[One contract by its address](graph-tools.md#one-contract-by-its-address).
 
 ## `topology` — ISO GQL
 
@@ -350,6 +352,14 @@ and the server admits exactly that shape:
 A refusal names the shape it wants. Read its `fix` and rewrite the query from
 its `example` once.
 
+### One contract by its address
+
+`USE facts MATCH (c:Contract {address: "0x…"}) RETURN c.capabilities AS capabilities`
+reads what one contract is and what its code lets its owner do. It has one node
+and no relationship, and the address is its only key. The properties, the words
+of each list and how to read the answer are in
+[One contract by its address](graph-tools.md#one-contract-by-its-address).
+
 ### `TRANSFER` rows and `kind`
 
 Every `TRANSFER` row has a `kind`: `token`, `native` or `internal`. An `internal`
@@ -394,7 +404,7 @@ StarRocks. Use the topology graph, or restructure:
 | Self-joins / node-to-node comparison `WHERE a <> b`                             | Compare key properties: `a.address <> b.address`                                                                        |
 | Untyped relationship `-[r]->`                                                   | Name the relationship type                                                                                              |
 | Metadata functions `keys(n)`, `labels(n)`, `type(r)`                            | Project known properties explicitly                                                                                     |
-| `:Account` and `:Contract` kind labels                                          | `USE topology` for the label, or `USE chain` for `is_contract` and `nonce`. Facts serves no kind                        |
+| `:Account`, and `:Contract` at an end of a relationship                         | `USE topology` for the label, or `USE chain` for `is_contract` and `nonce`. Facts serves no kind on a relationship      |
 
 There is no longer a local pinned conformance suite; verify supported and
 rejected shapes against a live Chain Insights Graph endpoint.
@@ -451,7 +461,7 @@ A kind is a second label on an `Address`, set from a chain fact: `:Account` for
 a key holder and `:Contract` for a contract (`:Contract:SmartAccount` for a
 contract wallet). `is_contract` stays beside `:Contract`. An address that only
 received has no kind, and no address carries both kinds. A role label stays
-beside the kind. Facts serves no kind, and a kind is never a `USE chain` lookup
+beside the kind. Facts serves no kind on a relationship, and a kind is never a `USE chain` lookup
 label: `USE chain MATCH (a:Address {address: "0x…"}) RETURN a.is_contract, a.nonce`
 reads it at one block.
 

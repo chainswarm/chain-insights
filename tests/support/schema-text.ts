@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect } from 'vitest'
 
+import { CONTRACT_READ_HINT } from '../../src/mcp/contract-read.js'
 import { routingHintLines } from '../../src/mcp/layer-routing.js'
 import { initWorkspace } from '../../src/workspace/init.js'
 
@@ -42,10 +43,14 @@ export function servedGraphHints(): string {
   expect(end).toBeGreaterThan(start)
   const literal = source.slice(source.indexOf('[', start), end + 1)
   // The routing hints are built from src/mcp/layer-routing.ts, the one source of
-  // the routing rule, so the literal is read with that function in scope.
-  return (new Function('routingHintLines', `return ${literal}`)(routingHintLines) as string[]).join(
-    '\n'
-  )
+  // the routing rule, and the Contract read hint from src/mcp/contract-read.ts,
+  // so the literal is read with both in scope.
+  return (
+    new Function('routingHintLines', 'CONTRACT_READ_HINT', `return ${literal}`)(
+      routingHintLines,
+      CONTRACT_READ_HINT
+    ) as string[]
+  ).join('\n')
 }
 
 // The runtime skill that workspace init writes into a new workspace.

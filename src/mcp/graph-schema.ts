@@ -19,6 +19,7 @@
 import { findNetworkCapability, mirrorGraphNetworkCapabilities } from './capabilities.js'
 import type { NetworkCapability } from './capabilities.js'
 import { PaymentRequiredError } from './client.js'
+import { CONTRACT_READ_PROPERTIES } from './contract-read.js'
 import { refusalText, type GraphQueryAnswer } from './flows.js'
 import { loadGraphSchemaCache, saveGraphSchemaCache } from './graph-schema-cache.js'
 
@@ -26,7 +27,7 @@ export const GRAPH_SCHEMA_ID = 'chain-insights.graph-schema.v1' as const
 export const GRAPH_SCHEMA_SOURCE = 'live catalog' as const
 export const META_SCHEMA_TITLE = 'Graph schema'
 export const META_SCHEMA_DESCRIPTION =
-  'Return the live graph schema of one network: the labels, the link types, the field names of an address and of each main link, the indexes, the USE facts relationships with the TRANSFER columns, and the USE chain lookups. ' +
+  'Return the live graph schema of one network: the labels, the link types, the field names of an address and of each main link, the indexes, the USE facts relationships with the TRANSFER columns and the properties of the Contract read, and the USE chain lookups. ' +
   'Call it first when you need field names. It is cached for 24 hours; pass refresh=true to rebuild it.'
 
 /** Fields of an address come from this many sampled nodes, and of a link from this many sampled links. */
@@ -125,7 +126,8 @@ export interface GraphSchemaDocument {
       indexes: GraphSchemaIndex[]
       samples: Record<string, string[]>
     }
-    facts: { relationships: string[]; transfer_columns: string[] }
+    /** `contract_properties` is what `MATCH (c:Contract {address})` returns; a schema cached before it has none. */
+    facts: { relationships: string[]; transfer_columns: string[]; contract_properties?: string[] }
     chain: { lookups: string[] }
   }
   notes: string[]
@@ -436,6 +438,7 @@ export async function buildGraphSchema(options: BuildOptions): Promise<BuildResu
       if (facts.relationships.includes('TRANSFER')) {
         facts.transfer_columns = [...FACTS_TRANSFER_COLUMNS]
       }
+      facts.contract_properties = [...CONTRACT_READ_PROPERTIES]
     }
     const admission = capability.chain_admission
     if (admission?.enabled === false) {
@@ -568,6 +571,9 @@ export function formatGraphSchemaText(document: GraphSchemaDocument): string {
     'USE facts',
     listLine('Relationships', facts.relationships),
     listLine('TRANSFER columns', facts.transfer_columns),
+    ...(facts.contract_properties?.length
+      ? [listLine('Contract properties, one contract by its address', facts.contract_properties)]
+      : []),
     '',
     'USE chain',
     listLine('Lookups', chain.lookups)

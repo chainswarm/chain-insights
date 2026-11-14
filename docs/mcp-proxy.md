@@ -97,8 +97,8 @@ The proxy:
 
 `meta_schema` reads the live graph schema of one network: the labels, the link
 types, every property key, the indexes, the fields of an address and of each
-main link, the `USE facts` relationships with the `TRANSFER` columns, and the
-`USE chain` lookups. It takes `network` (required) and `refresh` (optional).
+main link, the `USE facts` relationships with the `TRANSFER` columns and the
+properties of the `Contract` read, and the `USE chain` lookups. It takes `network` (required) and `refresh` (optional).
 The answer is cached on disk for 24 hours under `~/.chain-insights/cache/`, one
 file for each network and endpoint. A build reads through the one remote
 session of the proxy. A read that fails leaves its section empty and adds a

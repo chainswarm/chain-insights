@@ -1,0 +1,65 @@
+schema_version: '1.0'
+name: contract-what-can-owner-do
+expected_outcome: The agent reads the contract on USE facts as one Contract node by its address, with no WHERE and no search by capability, and answers what the code lets its owner do in plain words (the owner can create new tokens, can block an address, the code can be replaced), keeps what the code allows apart from what happened, and gives no verdict, no "scam", "rug pull" or "safe", and no capability word or column name.
+execution:
+  prompt: |
+    A user asks, in Claude Desktop: "what can the owner of 0x5fc5360d0400a0fd4f2af552add042d716f1d168 do with this token on robinhood? is it safe?"
+
+    The Chain Insights tools are not reachable right now, so do not try
+    to call them. First write the one graph query you would send, in full,
+    on a line that starts with QUERY:. Then, after a line that holds only
+    ANSWER, write what you would tell the user when the query returns one
+    row with capabilities ["blacklist","owner_mint","pause","upgradeable"],
+    observed [], standards ["erc20","eip1967_proxy"] and implementation
+    0x68184c449e1a8f34fa18d289737129fd27b66f8f.
+  max_turns: 10
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: regex
+    name: contract-read-on-facts
+    target: last_message
+    pattern: 'USE facts\s+MATCH \(\w+:Contract \{address: "0x5fc5360d0400a0fd4f2af552add042d716f1d168"\}\)\s+RETURN'
+    match: contains
+  - type: regex
+    name: no-where-and-no-search
+    target: last_message
+    pattern: 'QUERY:[^\n]*(WHERE|\bIN\s+\w+\.capabilities)'
+    match: not_contains
+  - type: regex
+    name: owner-can-create-tokens
+    target: last_message
+    flags: i
+    pattern: 'ANSWER[\s\S]*(create|mint|issue)[^.\n]{0,40}(new )?(tokens|supply)'
+    match: contains
+  - type: regex
+    name: owner-can-block-an-address
+    target: last_message
+    flags: i
+    pattern: 'ANSWER[\s\S]*(block|freeze|stop)[^.\n]{0,60}(address|wallet|holder)'
+    match: contains
+  - type: regex
+    name: code-can-be-replaced
+    target: last_message
+    flags: i
+    pattern: 'ANSWER[\s\S]*(code|logic|implementation)[^.\n]{0,60}(replaced|changed|swapped|upgraded)'
+    match: contains
+  - type: regex
+    name: no-verdict
+    target: last_message
+    flags: i
+    pattern: 'ANSWER[\s\S]*(\b(it|this|the token|the contract) is (a )?(safe|unsafe|a scam|risky|dangerous|a rug)|rug pull|risk score|red flag)'
+    match: not_contains
+  - type: regex
+    name: no-capability-words
+    target: last_message
+    pattern: 'ANSWER[\s\S]*(owner_mint|blacklist\b(?! an)|eip1967_proxy|implementation_address|capabilities\b)'
+    match: not_contains
+  - type: regex
+    name: full-addresses
+    target: last_message
+    pattern: '0x[0-9a-fA-F]{2,10}(…|\.\.\.)'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

@@ -255,20 +255,26 @@ function fencedTopologyQueries(markdown) {
 }
 
 // The graph hints the MCP proxy serves, as the running server joins them. The
-// routing hints are built from src/mcp/layer-routing.ts, so the literal is read
-// with that function in scope.
+// routing hints are built from src/mcp/layer-routing.ts and the Contract read
+// hint from src/mcp/contract-read.ts, so the literal is read with both in scope.
 const { routingHintLines } = await import(join(repoRoot, 'src/mcp/layer-routing.ts'))
+const { CONTRACT_READ_HINT } = await import(join(repoRoot, 'src/mcp/contract-read.ts'))
 const { proseQueries } = await import(join(repoRoot, 'tests/support/pool-walk-guard.ts'))
+const { isContractRead } = await import(join(repoRoot, 'tests/support/facts-contract.ts'))
 function servedGraphHints() {
   const source = readFileSync(join(repoRoot, 'src/mcp/proxy.ts'), 'utf8')
   const start = source.indexOf('const GRAPH_SCHEMA_HINTS = [')
   const end = source.indexOf("].join('\\n')", start)
   if (start < 0 || end < start) throw new Error('GRAPH_SCHEMA_HINTS is not in src/mcp/proxy.ts')
   const literal = source.slice(source.indexOf('[', start), end + 1)
-  return new Function('routingHintLines', `return ${literal}`)(routingHintLines).join('\n')
+  return new Function('routingHintLines', 'CONTRACT_READ_HINT', `return ${literal}`)(
+    routingHintLines,
+    CONTRACT_READ_HINT
+  ).join('\n')
 }
 // A relationship that only the facts layer serves. A hint query has no USE
-// prefix, and the relationship tells its layer.
+// prefix, and the relationship tells its layer. So does the Contract read, which
+// has one node and no relationship.
 const FACTS_RELATIONSHIP =
   /\[[^\]]*:\s*`?(?:TRANSFER|SWAP|LIQUIDITY_ADD|LIQUIDITY_REMOVE|BRIDGE_CROSSING)`?(?![\w])/
 const hintQueries = () =>
@@ -277,7 +283,7 @@ const hintQueries = () =>
     .map((query) =>
       /^USE\s/.test(query)
         ? query
-        : `USE ${FACTS_RELATIONSHIP.test(query) ? 'facts' : 'topology'} ${query}`
+        : `USE ${FACTS_RELATIONSHIP.test(query) || isContractRead(query) ? 'facts' : 'topology'} ${query}`
     )
 
 const admitCase = (id, query, source) => ({
@@ -603,14 +609,16 @@ console.log(`wrote ${casesOutPath} (${topologyCases.cases.length} cases)`)
 const layerOf = (query) => /^USE\s+(\w+)/.exec(query)?.[1]
 
 // What anchors the read on its layer. topology: an address, or none for a probe.
-// facts: a pair with a day, a transaction hash, or none for a read that has
-// neither. chain: the key of a lookup, or the head, which has none.
+// facts: a pair with a day, a transaction hash, one contract by its address, or
+// none for a read that has none of them. chain: the key of a lookup, or the head,
+// which has none.
 function anchorOf(layer, query) {
   if (layer === 'topology') {
     return /\{\s*address\s*:|\.address\s*=|\.address\s+IN\s*\[/.test(query) ? 'address' : 'probe'
   }
   if (layer === 'facts') {
     if (/\.tx_id\s*=/.test(query)) return 'transaction'
+    if (isContractRead(query) && /\{\s*address\s*:\s*"/.test(query)) return 'contract'
     return /\.block_date\s*=/.test(query) && (query.match(/\{\s*address\s*:/g) ?? []).length >= 2
       ? 'pair_day'
       : 'none'
