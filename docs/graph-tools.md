@@ -55,6 +55,8 @@ Route by what the question names: an address, a pair with a day, a transaction o
 2. I know both addresses of a pair and one day, and want the rows of that day: `USE facts`.
 3. I want the chain's own record of a transaction by its `tx_id`, a block by its `block_height` or `block_hash`, an address at one block (`Address`), or the head: `USE chain`.
 
+"What is this contract" and "what can its owner do", for one contract address, is a `USE facts` `Contract` read by that address, with no pair and no day.
+
 `USE chain` with `Address` reads the balance, the nonce or the kind of one address, now or at a past block with `at_block`. A past block must be at least `chain_admission.at_block_min_depth` blocks below the tip. To find the counterparties of an address, search `USE topology`, then read the pair and one day on `USE facts`.
 
 A transaction is a chain question: read it on `USE chain` by its `tx_id`. Chain gives its `block_date`; the transfers between a pair on that day are a `USE facts` read.
@@ -90,6 +92,7 @@ too far behind the head: the refusal names the family and its lag, and its
 | Is there a route between A and B?                          | `topology` | `SHORTEST 1` with both addresses.                                           |
 | How many, how much, first or last active, for one address? | `topology` | The address node: `degree_in`, `tx_total_count`, `last_activity_timestamp`. |
 | What moved between A and B on one day?                     | `facts`    | `TRANSFER` with both addresses and `block_date`.                            |
+| What is this contract? What can its owner do?              | `facts`    | `Contract` with its address: `capabilities` and `observed`.                 |
 | Which days did A and B trade?                              | `topology` | The link's `first_seen_timestamp` and `last_seen_timestamp`.                |
 | Did transaction `0x…` succeed? Which block, which day?     | `chain`    | `Transaction {tx_id}`.                                                      |
 | Which day is block N?                                      | `chain`    | `Block {block_height}`, and return `block_date`.                            |
@@ -121,7 +124,8 @@ the query's `network`. It is never stored, except on a `:Chain` node, where it
 names the remote chain. A filter on another value gives no rows. A kind is a
 second label that topology takes from chain facts: `:Account` for a key holder,
 `:Contract` for a contract. An address that only received has none. Facts
-serves no kind.
+serves no kind on a relationship. One `Contract` node by its address is its own
+facts read, see [One contract by its address](#one-contract-by-its-address).
 
 ## When a query is refused
 
@@ -195,6 +199,75 @@ An `Address` lookup reads the kind from `is_contract`, `nonce` and
 `chain_admission.at_block_min_depth` blocks below the tip. A chain lookup that
 comes back `chain_unavailable` means the chain layer is off or behind: read
 `chain_admission.status`. Topology and facts still work.
+
+## One contract by its address
+
+"What is this contract" and "what can its owner do" is one `USE facts` read of
+the `Contract` node, by its address. The answer states what the bytecode allows
+and what the chain shows. It is never a verdict.
+
+```bash
+cia mcp call graph_query \
+  network=robinhood \
+  'query=USE facts MATCH (c:Contract {address: "0x5fc5360d0400a0fd4f2af552add042d716f1d168"}) RETURN c.contract_address AS contract, c.capabilities AS capabilities, c.observed AS observed, c.standards AS standards, c.roles AS roles, c.listings AS listings, c.implementation_address AS implementation, c.beacon_address AS beacon, c.created_block AS created_block'
+```
+
+One row answers, here for a proxy whose code lets its owner create new tokens,
+block an address, pause the token and replace the code:
+
+```json
+{
+  "contract": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+  "capabilities": ["blacklist", "owner_mint", "pause", "upgradeable"],
+  "observed": [],
+  "standards": ["erc20", "eip1967_proxy"],
+  "roles": [],
+  "listings": [],
+  "implementation": "0x68184c449e1a8f34fa18d289737129fd27b66f8f",
+  "beacon": null,
+  "created_block": 57
+}
+```
+
+- The address is the only key: a 42-character literal, in either case. One
+  node, no relationship, no day, no `WHERE` and no `$parameter`. `LIMIT` is
+  optional and only 1.
+- Any other form is refused with `facts_no_anchor`, and its `example` is the
+  read above: a search by capability, by role or by implementation, another
+  key, or a property outside the nine.
+- Each word of a list is one billed element.
+
+| Property                 | What it holds                                                                                                                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `contract_address`       | The address read                                                                                                                                                                           |
+| `capabilities`           | What the code lets its owner do: `owner_mint`, `blacklist`, `pause`, `fee_set`, `max_tx_set`, `upgradeable`, `self_destruct`, `owner_withdraw`, `trading_switch`, `self_destruct_unproven` |
+| `observed`               | What the chain shows happened: `owner_minted`, `issuer_froze`, `taxed_transfer`, `traded_as_pool`                                                                                          |
+| `standards`              | The standards the code follows, such as `erc20`, `erc4626`, `eip1967_proxy`                                                                                                                |
+| `roles`                  | What the contract is used as, such as `pair_pool`, `vault`, `router`                                                                                                                       |
+| `listings`               | The lists it is on: `dex_venue`, `bridge`, `bridge_token`, `mixer`, `smart_account`                                                                                                        |
+| `implementation_address` | For a proxy, the contract that holds its code                                                                                                                                              |
+| `beacon_address`         | For a beacon proxy, its beacon                                                                                                                                                             |
+| `created_block`          | The block that created the contract                                                                                                                                                        |
+
+How to read the answer:
+
+- **Can is not did.** `capabilities` is what the code allows. `observed` is what
+  happened: `owner_minted` (the contract's creator minted new supply after its
+  creation day), `issuer_froze` (the issuer froze or wiped a holder),
+  `taxed_transfer` (the token is proven as taxed from its transfers) and
+  `traded_as_pool` (the contract is the pool of a trade).
+- **An empty list is an answer.** `[]` means the contract is classified and
+  holds none.
+- **Zero rows means not classified yet.** It never means "no capability" and
+  never "safe".
+- **A proxy answers for its code.** Its row already holds what its
+  implementation allows.
+- **Never a verdict.** The read states what the bytecode allows. It gives no
+  score, and no word of it means "scam", "rug pull" or "safe". `upgradeable` is
+  a capability like every other. In an answer, say it in plain words: the owner
+  can create new tokens (`owner_mint`), the owner can block an address from
+  moving the token (`blacklist`), the code behind the address can be replaced
+  (`upgradeable`).
 
 ## Swaps, liquidity pools and bridges
 
@@ -493,6 +566,9 @@ What each value means:
   `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and `BRIDGE_CROSSING` rows. Address
   labels, risk, lifetime metrics, and `FLOWED_TO`/`LINKED` relationships
   belong to `USE topology`.
+- Use `USE facts` with one `Contract` node for what a contract is and what its
+  code lets its owner do, by its address. See
+  [One contract by its address](#one-contract-by-its-address).
 - Use `USE chain` for the chain node's own record of one known transaction,
   block, address or the head. It looks up one key and never searches.
 - A facts read names an address pair with one day. A transaction is read on

@@ -269,7 +269,11 @@ The address-grain graph schema:
   \`:Poisoned\`, \`:OnMoneyTrail\`) with their claims lists.
   Labels and per-label risk live on the address node (\`labels\` array plus
   the three \`label_risk_*\` lists). \`USE facts\` serves bounded individual
-  transfer rows only. Facts address keys match topology \`address\` values
+  transfer rows, and one contract by its address:
+  \`USE facts MATCH (c:Contract {address: "0x..."}) RETURN c.capabilities AS capabilities, c.observed AS observed\`
+  reads what the code lets its owner do (\`capabilities\`) and what the chain
+  shows happened (\`observed\`). Zero rows means not classified yet, never
+  safe, and the read is never a verdict. Facts address keys match topology \`address\` values
   exactly. Do not read \`ml_*\`,
   \`confluence_score\`, or \`pattern_flags\` off topology nodes — those
   properties do not exist.

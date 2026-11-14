@@ -5,7 +5,9 @@ import { markdownFiles, read, runtimeSkill, servedGraphHints } from './schema-te
 
 // Test support for the limits of a `USE facts` read, as the graph server
 // states them: an address pair (from and to, in the arrow's direction) with
-// one day, or one transaction hash. One relationship, no ORDER BY.
+// one day, or one transaction hash. One relationship, no ORDER BY. Two reads
+// have one node and no relationship: one Contract by its address, and the
+// Asset read by symbol or name that `meta_token_lookup` sends.
 //
 // This is a reader's model of those limits, built to check the text and the
 // queries this package ships. The graph server is the authority: it refuses a
@@ -48,7 +50,74 @@ const DAY_FORMAT = /^\d{4}-\d{2}-\d{2}$/
 
 export function isFactsRead(query: string): boolean {
   if (/^\s*USE\s+topology\b/i.test(query)) return false
+  if (isContractRead(query)) return true
   return FACTS_RELATIONSHIP.test(query) && /\bRETURN\b/i.test(query)
+}
+
+// The nine properties a Contract read serves (src/mcp/contract-read.ts holds
+// the same list, and tests/contract-read.test.ts holds the two together).
+const CONTRACT_PROPERTIES = new Set([
+  'contract_address',
+  'capabilities',
+  'observed',
+  'standards',
+  'roles',
+  'listings',
+  'implementation_address',
+  'beacon_address',
+  'created_block',
+])
+
+// One node and no relationship, as `MATCH (c:Contract …)`, with what follows it.
+const NODE_READ =
+  /^\s*(?:USE\s+(\w+)\s+)?MATCH\s*\(\s*(\w+)\s*:\s*(\w+)\s*(\{[^}]*\})?\s*\)\s*([\s\S]*)$/i
+
+/**
+ * A read of one `Contract` node on the facts layer: the text names `USE facts`,
+ * or it names no layer and returns only properties of the Contract read (a
+ * query of the served hints has no USE line). `USE topology MATCH (c:Contract …)`
+ * is a topology read of the kind label and is not one.
+ */
+export function isContractRead(query: string): boolean {
+  const found = NODE_READ.exec(query)
+  if (!found || found[3] !== 'Contract' || !/^RETURN\b|^WHERE\b/i.test(found[5] ?? '')) return false
+  const layer = found[1]?.toLowerCase()
+  if (layer !== undefined) return layer === 'facts'
+  const items = /^RETURN\s+([\s\S]*?)(?:\s+LIMIT\b[\s\S]*)?$/i.exec((found[5] ?? '').trim())?.[1]
+  if (items === undefined) return false
+  return items.split(',').every((item) => {
+    const property = new RegExp(String.raw`^${found[2]}\.(\w+)(?:\s+AS\s+\w+)?$`, 'i').exec(
+      item.trim()
+    )?.[1]
+    return property !== undefined && CONTRACT_PROPERTIES.has(property)
+  })
+}
+
+// A read of one node. The server serves two: a Contract by its address, the only
+// key, as a 42-character literal, with a RETURN of `c.<property>` items and at
+// most `LIMIT 1`; and an Asset by its symbol or its name. Every other node read
+// has no anchor.
+function nodeReadViolations(text: string): FactsCode[] {
+  const found = NODE_READ.exec(text)
+  if (!found) return ['facts_no_anchor']
+  const [, , variable, label, map, tail] = found
+  const key = /^\{\s*(\w+)\s*:\s*("[^"]*"|'[^']*')\s*\}$/.exec(map ?? '')
+  const returned = /^RETURN\s+([\s\S]*?)(?:\s+LIMIT\s+(\S+))?\s*$/i.exec((tail ?? '').trim())
+  if (!key || !returned) return ['facts_no_anchor']
+  const items = (returned[1] ?? '').split(',').map((item) => item.trim())
+  const properties = items.map(
+    (item) => new RegExp(String.raw`^${variable}\.(\w+)(?:\s+AS\s+\w+)?$`, 'i').exec(item)?.[1]
+  )
+  if (properties.some((property) => property === undefined)) return ['facts_no_anchor']
+  if (label === 'Asset') return ['symbol', 'name'].includes(key[1] ?? '') ? [] : ['facts_no_anchor']
+  if (label !== 'Contract') return ['facts_no_anchor']
+  if (key[1] !== 'address' || !/^0x[0-9a-fA-F]{40}$/.test((key[2] ?? '').slice(1, -1))) {
+    return ['facts_no_anchor']
+  }
+  if (returned[2] !== undefined && returned[2] !== '1') return ['facts_no_anchor']
+  return properties.every((property) => CONTRACT_PROPERTIES.has(property ?? ''))
+    ? []
+    : ['facts_no_anchor']
 }
 
 // A boolean expression, split at its top-level OR and AND. BETWEEN is two bounds.
@@ -207,7 +276,7 @@ export function factsReadViolations(query: string): FactsCode[] {
 
   // Is there a relationship, and are there too many?
   const edges = [...pattern.matchAll(/(<)?-\s*\[([^\]]*)\]\s*-(>)?/g)]
-  if (edges.length === 0) return ['facts_no_anchor']
+  if (edges.length === 0) return nodeReadViolations(text)
   const edge = edges[0]
   if (edges.length > 1 || (edge?.[2] ?? '').includes('*')) return ['facts_hops_refused']
   const edgeVariable = /^\s*(\w+)?/.exec(edge?.[2] ?? '')?.[1] ?? ''

@@ -56,8 +56,11 @@ function constants(source) {
   return found
 }
 
+// The server exports some of its numbers (DefaultRowCap) and keeps others
+// private (defaultWindowDays), so the first letter is read in either case.
 function numberOf(source, name) {
-  const match = new RegExp(String.raw`^\s*${name}\s*=\s*(\d+)\s*$`, 'm').exec(source)
+  const either = `[${name[0].toLowerCase()}${name[0].toUpperCase()}]${name.slice(1)}`
+  const match = new RegExp(String.raw`^\s*${either}\s*=\s*(\d+)\s*$`, 'm').exec(source)
   if (!match) fail(`${name} is not set in the limits file`)
   return Number(match[1])
 }

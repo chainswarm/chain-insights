@@ -3,6 +3,41 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [Unreleased] — what a contract is, and what its owner can do
+
+### Added
+
+- The Contract read of the facts layer, one contract by its address:
+  `USE facts MATCH (c:Contract {address: "0x…"}) RETURN c.capabilities AS
+  capabilities, c.observed AS observed`. It answers what the code lets its
+  owner do (`capabilities`: `owner_mint`, `blacklist`, `upgradeable` and seven
+  more words), what the chain shows happened (`observed`), and the contract's
+  `standards`, `roles`, `listings`, `implementation_address`,
+  `beacon_address` and `created_block`. No new tool: `graph_query` and
+  `graph_query_batch` carry it.
+- Every host is told the rule of the read. The `graph_query` and
+  `graph_query_batch` descriptions, the server instructions and graph hints,
+  the `chain-insights-cypher` skill, `docs/graph-tools.md` and the workspace
+  notes say: the address is the only key; can (`capabilities`) is not did
+  (`observed`); zero rows means the contract is not classified yet, never that
+  it is safe; the answer states what the bytecode allows in plain words and is
+  never a verdict. A proxy's row already holds what its implementation allows.
+- `meta_schema` lists the properties of the Contract read under `USE facts`.
+- The plugin eval `contract-what-can-owner-do`.
+
+### Changed
+
+- The routing rule gains one line: "what is this contract" and "what can its
+  owner do", for one contract address, is a `USE facts` `Contract` read.
+- "Facts serves no kind" is now said of a relationship only: `:Account`, or
+  `:Contract` at an end of a relationship, is still refused.
+
+### Fixed
+
+- `scripts/pin-facts-contract.mjs` reads the row cap of the graph server
+  again. The server exports that number as `DefaultRowCap`, and the script
+  looked for `defaultRowCap` only, so a fresh pin failed.
+
 ## [0.80.1] - 2026-11-11 — a copied token name is not a scam
 
 ### Changed

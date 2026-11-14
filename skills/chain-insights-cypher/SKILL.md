@@ -1,6 +1,6 @@
 ---
 name: chain-insights-cypher
-description: Load this before the first graph_query or graph_query_batch call: without it, most queries are refused. Use when answering any question about addresses, money flows, transfers, transactions or blocks with Chain Insights, when tracing where money went or came from, when writing or reviewing graph_query or graph_query_batch ISO GQL, when choosing between USE topology, USE facts and USE chain, or when a graph query is refused. Address, unit, layer, graph search, refusal and answer rules (full addresses, no query text in replies, tokens are not dollars), with one query for each kind of search.
+description: Load this before the first graph_query or graph_query_batch call: without it, most queries are refused. Use when answering any question about addresses, money flows, transfers, transactions or blocks with Chain Insights, when asked what a contract is or what its owner can do (mint, block an address, replace the code), when tracing where money went or came from, when writing or reviewing graph_query or graph_query_batch ISO GQL, when choosing between USE topology, USE facts and USE chain, or when a graph query is refused. Address, unit, layer, graph search, refusal and answer rules (full addresses, no query text in replies, tokens are not dollars), with one query for each kind of search.
 ---
 
 # Chain Insights Cypher
@@ -122,6 +122,7 @@ Route by what the question names: an address, a pair with a day, a transaction o
 2. I know both addresses of a pair and one day, and want the rows of that day: `USE facts`.
 3. I want the chain's own record of a transaction by its `tx_id`, a block by its `block_height` or `block_hash`, an address at one block (`Address`), or the head: `USE chain`.
 
+"What is this contract" and "what can its owner do", for one contract address, is a `USE facts` `Contract` read by that address, with no pair and no day.
 `USE chain` with `Address` reads the balance, the nonce or the kind of one address, now or at a past block with `at_block`. A past block must be at least `chain_admission.at_block_min_depth` blocks below the tip. To find the counterparties of an address, search `USE topology`, then read the pair and one day on `USE facts`.
 A transaction is a chain question: read it on `USE chain` by its `tx_id`. Chain gives its `block_date`; the transfers between a pair on that day are a `USE facts` read. "Every token that moved inside this transaction": read the chain record for `from_address`, `to_address` and `block_date`, then the facts `TRANSFER` rows of that pair on that day and keep the rows whose `tx_id` matches; a `kind` of `internal` is ETH a contract moved while it ran. Tokens the transaction moved between other pairs are not reachable from the hash alone: say so, and name the pairs you did read.
 The layers hand each other keys, and each key keeps its name. Topology gives the pair and the first and last seen time. Facts gives the `tx_id` and the `block_height`. Chain takes an `address`, a `tx_id`, a `block_height` or a `block_hash`, and gives the `block_date` of a transaction or a block.
@@ -154,6 +155,7 @@ Find the question in this table. Send its first query, once, with the addresses 
 | Biggest senders or receivers of one address                  | `topology` | Newest links of one address, `ORDER BY f.amount_usd_sum DESC LIMIT 10` |
 | How many, how much, first or last active, for one address    | `topology` | Profile of one address                                                 |
 | The transfers of a pair on one day                           | `facts`    | `TRANSFER` of the pair and the day, see Facts                          |
+| What is this contract? What can its owner do?                | `facts`    | `Contract` by its address, see Facts: one contract by its address      |
 | What one address did in a month, since a date, in the last N days | topology, then facts | Links bounded by first and last seen, day reads only for the links that straddle an edge, see A window of days for one address |
 | What happened in this transaction hash?                      | `chain`    | `Transaction {tx_id}`, see Chain                                       |
 | The latest block, block N, how far behind the graph is       | `chain`    | `Head`, or `Block {block_height}`                                      |
@@ -201,7 +203,7 @@ A thing has one name on topology, facts and chain. Copy a value from one layer i
 
 `network` is a property of every node and every relationship, and its value is the query's `network`. It is never stored, except on a `:Chain` node, where it names the remote chain. A filter `x.network = "robinhood"` keeps every row, and a filter on another value gives no rows. It never narrows a scan: anchor on an address instead.
 
-A kind is a second label that topology takes from a chain fact: `:Account` for a key holder, `:Contract` for a contract (`:Contract:SmartAccount` for a contract wallet). Never both on one address. An address that only received has none, and so does a Nitro precompile on topology (chain reads it as a contract). A role label such as `:Pool` or `:Token` stays beside the kind. `is_contract` stays beside `:Contract`. Facts serves no kind: a facts read that names `:Account` or `:Contract` is refused, so ask `USE topology`, or `USE chain` for `is_contract` and `nonce`.
+A kind is a second label that topology takes from a chain fact: `:Account` for a key holder, `:Contract` for a contract (`:Contract:SmartAccount` for a contract wallet). Never both on one address. An address that only received has none, and so does a Nitro precompile on topology (chain reads it as a contract). A role label such as `:Pool` or `:Token` stays beside the kind. `is_contract` stays beside `:Contract`. Facts serves no kind: a facts read that names `:Account`, or `:Contract` at an end of a relationship, is refused, so ask `USE topology`, or `USE chain` for `is_contract` and `nonce`. What a contract is and what its code allows is another read: one `Contract` node by its address on `USE facts`, see [Facts: one contract by its address](#facts-one-contract-by-its-address).
 
 Marks say what an address is. They sit beside the kind and are never an anchor:
 
@@ -654,7 +656,7 @@ The server serves five read-only catalog calls: `CALL db.labels()`, `CALL db.rel
 
 ## Facts: an address pair with one day
 
-`USE facts` looks up rows you already know. A facts read names an address pair with one day. A transaction is read on `USE chain`, not here. A pair is both addresses, from then to, each as `{address: "<address>"}`, and the day is `t.block_date = "YYYY-MM-DD"`. One address, a day alone, a window of days, a block range and a bare `LIMIT` are not enough. It serves `TRANSFER`, `SWAP`, `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and `BRIDGE_CROSSING` rows.
+`USE facts` looks up rows you already know. A facts read names an address pair with one day. A transaction is read on `USE chain`, not here. A pair is both addresses, from then to, each as `{address: "<address>"}`, and the day is `t.block_date = "YYYY-MM-DD"`. One address, a day alone, a window of days, a block range and a bare `LIMIT` are not enough. It serves `TRANSFER`, `SWAP`, `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and `BRIDGE_CROSSING` rows. The one facts read with no pair and no day is one contract by its address, in the next section.
 
 - A reply holds at most 200 rows, whatever the `LIMIT`. When `count()` says the day holds more, give the count and one page, and say that the rest takes one read per 200 rows (a `t.block_timestamp >=` bound after the last row of the page). Read on only when the user asks for every row, and never beyond 5 pages in one turn: a loop of 61 reads once cost a user 131 seconds for one answer.
 - A facts read has one relationship and no hop. For a walk, go to topology.
@@ -662,7 +664,7 @@ The server serves five read-only catalog calls: `CALL db.labels()`, `CALL db.rel
 - "The largest transfer" of an address or a pair has no read: facts serves no `max()` and no sort, and the lifetime link totals hold no single transfer. Ask for the day, then read that day's rows and pick the largest yourself; or give the biggest counterparty link instead and say that is a lifetime total, not one transfer. Never read every day of a pair to find it: one answer took 190 seconds that way.
 - A facts read aggregates with `count()` and `sum()` only, over the whole page: no grouping key, no `min()`, `max()` or `avg()` (`unsupported facts query shape`). Read the rows and compute the rest yourself.
 - Every row and both endpoints carry `network`, the query's `network`. A filter on it is no anchor: it never replaces the pair and the day.
-- Facts serves no kind. A read that names `:Account` or `:Contract` is refused with `facts_no_anchor`: ask `USE topology` for the kind, or `USE chain` for `is_contract` and `nonce`.
+- Facts serves no kind. A read that names `:Account`, or `:Contract` at an end of a relationship, is refused with `facts_no_anchor`: ask `USE topology` for the kind, or `USE chain` for `is_contract` and `nonce`. One `Contract` node alone, by its address, is the read of the next section.
 - A facts read covers one day. For more days, send one read for each day, and for a window of days around one address pick the pairs first (A window of days for one address, below): never every pair on every day.
 - Amounts and USD values come back as text, such as `"5.23661492"`. Convert them before you add them.
 - `TRANSFER` columns: `tx_id`, `block_date`, `block_height`, `block_timestamp`, `event_index`, `edge_index`, `kind`, `asset_contract`, `asset_symbol`, `amount`, `amount_usd`, `price_usd`, `price_missing`, `token_id`, `token_standard`, `operator_address`, `raw_amount` and `decimals`. `kind` is `token`, `native` or `internal`: an `internal` row is ETH a contract sends while it runs a call.
@@ -716,6 +718,52 @@ USE topology
 MATCH (a:Address {address: "0x9f73873740c799d74741ad2d15cee7fb33572e4a"})-[f:FLOWED_TO]->(b:Address) WHERE NOT a:Pool AND f.first_seen_timestamp <= 1790812799000 AND f.last_seen_timestamp >= 1788220800000
 RETURN a.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, a.labels AS from_labels, b.labels AS to_labels, a.is_exchange AS from_is_exchange, b.is_exchange AS to_is_exchange ORDER BY f.last_seen_timestamp DESC LIMIT 50
 ```
+
+## Facts: one contract by its address
+
+"What is this contract", "what can its owner do", "can the owner mint", "can it block my address", "is it upgradeable": one `USE facts` read of the `Contract` node, by its address. The answer states what the bytecode allows and what the chain shows. It is never a verdict.
+
+```cypher
+USE facts
+MATCH (c:Contract {address: "0x5fc5360d0400a0fd4f2af552add042d716f1d168"})
+RETURN c.contract_address AS contract, c.capabilities AS capabilities, c.observed AS observed, c.standards AS standards, c.roles AS roles, c.listings AS listings, c.implementation_address AS implementation, c.beacon_address AS beacon, c.created_block AS created_block
+```
+
+- The address is the only key: a 42-character literal in braces, in either case. One node, no relationship, no day, no `WHERE` and no `$parameter`. `LIMIT` is optional and only 1. The answer is one row or none.
+- Any other form is refused with `facts_no_anchor`, and its `example` is the read above: a search by capability, by role or by implementation, another key, a property outside the nine, or `:Contract` at an end of a relationship. Start from an address, never from "which contracts can mint".
+- For several contracts, send one `graph_query_batch` with one read for each address.
+- Each word of a list is one billed element, so return the properties you will use.
+
+The nine properties:
+
+- `contract_address`: the address read.
+- `capabilities`: what the code lets its owner do. Its words are `owner_mint`, `blacklist`, `pause`, `fee_set`, `max_tx_set`, `upgradeable`, `self_destruct`, `owner_withdraw`, `trading_switch` and `self_destruct_unproven`.
+- `observed`: what the chain shows happened. Its words are `owner_minted`, `issuer_froze`, `taxed_transfer` and `traded_as_pool`.
+- `standards`: the standards the code follows, such as `erc20`, `erc4626` and `eip1967_proxy`.
+- `roles`: what the contract is used as, such as `pair_pool`, `vault` and `router`.
+- `listings`: the lists it is on. Its words are `dex_venue`, `bridge`, `bridge_token`, `mixer` and `smart_account`.
+- `implementation_address`: for a proxy, the contract that holds its code; empty otherwise.
+- `beacon_address`: for a beacon proxy, its beacon; empty otherwise.
+- `created_block`: the block that created the contract.
+
+The five lists arrive as lists of words. An empty list is `[]`, and it is an answer: the contract is classified and holds none.
+
+**Can is not did.** `capabilities` says what the code allows. `observed` says what happened on the chain: `owner_minted` means the contract's creator minted new supply after its creation day, `issuer_froze` that the issuer froze or wiped a holder, `taxed_transfer` that the token is proven as taxed from its transfers, `traded_as_pool` that the contract is the pool of a trade. A contract with `owner_mint` and no `owner_minted` can mint and has not been seen to.
+
+**Zero rows means not classified yet.** It never means "no capability" and never "safe". Say the contract is not classified yet, and nothing more about what it can do.
+
+**A proxy answers for its code.** The row of a proxy already holds what its implementation allows, so read the proxy's own address. `implementation_address` names the contract behind it.
+
+How to answer:
+
+- State what the bytecode allows, in plain words. Never print a capability word or a column name.
+  - `owner_mint`: the owner can create new tokens.
+  - `blacklist`: the owner can block an address from moving the token.
+  - `upgradeable`: the code behind the address can be replaced.
+  - Every other word the same way: say what the owner, or the code, can do.
+- Never a verdict. No "scam", "rug pull", "safe", "risky" or score from these words, and no advice to buy or sell. `upgradeable` is a capability like every other: say it the same way, with no alarm.
+- Keep can and did apart in the answer: "the owner can create new tokens, and the chain shows the creator did after launch" needs both lists.
+- A risk question still goes to the judgement marks on `USE topology`. This read adds what the code allows; it does not replace them.
 
 ## Chain: one key, one node
 

@@ -36,6 +36,13 @@ export const ROUTING_LINES = [
   "I want the chain's own record of a transaction by its `tx_id`, a block by its `block_height` or `block_hash`, an address at one block (`Address`), or the head: `USE chain`.",
 ] as const
 
+/**
+ * One contract by its address is a facts lookup too, with one node and no day
+ * (src/mcp/contract-read.ts holds the read and what its answer means).
+ */
+export const ROUTING_CONTRACT =
+  '"What is this contract" and "what can its owner do", for one contract address, is a `USE facts` `Contract` read by that address, with no pair and no day.'
+
 /** The chain layer reads one address at one block. A search for counterparties stays on topology. */
 export const ROUTING_ADDRESS_ON_CHAIN =
   '`USE chain` with `Address` reads the balance, the nonce or the kind of one address, now or at a past block with `at_block`. A past block must be at least `chain_admission.at_block_min_depth` blocks below the tip. To find the counterparties of an address, search `USE topology`, then read the pair and one day on `USE facts`.'
@@ -92,6 +99,7 @@ export function routingLines(): string[] {
   return [
     ROUTING_RULE,
     ...ROUTING_LINES,
+    ROUTING_CONTRACT,
     ROUTING_ADDRESS_ON_CHAIN,
     ROUTING_TWO_FIT,
     ROUTING_HANDOFF,
@@ -122,7 +130,7 @@ export function moveLines(): string[] {
  * shows the agent where each kind of question goes, and which kind goes nowhere.
  */
 export function routingHead(): string {
-  return `Pick the layer first. ${ROUTING_RULE} 1. ${ROUTING_LINES[0]} 2. ${ROUTING_LINES[1]} 3. ${ROUTING_LINES[2]} ${ROUTING_NOT_SERVED}`
+  return `Pick the layer first. ${ROUTING_RULE} 1. ${ROUTING_LINES[0]} 2. ${ROUTING_LINES[1]} 3. ${ROUTING_LINES[2]} ${ROUTING_CONTRACT} ${ROUTING_NOT_SERVED}`
 }
 
 /**
@@ -131,7 +139,7 @@ export function routingHead(): string {
  */
 export function routingHintLines(): string[] {
   return [
-    `- Pick the layer first. ${ROUTING_RULE} 1. ${ROUTING_LINES[0]} 2. ${ROUTING_LINES[1]} 3. ${ROUTING_LINES[2]} ${ROUTING_NOT_SERVED} ${ROUTING_ADDRESS_ON_CHAIN} ${ROUTING_TWO_FIT} ${ROUTING_HANDOFF} ${ROUTING_SWEPT} The lookups that USE chain serves are listed in chain_admission.lookups of meta_network_capabilities. Read every limit that the server publishes from meta_network_capabilities (chain_admission and, when the server sends them, topology_admission and facts_admission). Never write a limit down.`,
+    `- Pick the layer first. ${ROUTING_RULE} 1. ${ROUTING_LINES[0]} 2. ${ROUTING_LINES[1]} 3. ${ROUTING_LINES[2]} ${ROUTING_CONTRACT} ${ROUTING_NOT_SERVED} ${ROUTING_ADDRESS_ON_CHAIN} ${ROUTING_TWO_FIT} ${ROUTING_HANDOFF} ${ROUTING_SWEPT} The lookups that USE chain serves are listed in chain_admission.lookups of meta_network_capabilities. Read every limit that the server publishes from meta_network_capabilities (chain_admission and, when the server sends them, topology_admission and facts_admission). Never write a limit down.`,
     `- Act on a refusal by its class. ${moveLines().join(' ')}`,
   ]
 }

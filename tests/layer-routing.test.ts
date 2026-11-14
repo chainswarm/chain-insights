@@ -16,8 +16,9 @@ import { flat, read, servedGraphHints } from './support/schema-text.js'
 // (npm run corpus:generate). Each entry meets the rule of its layer:
 //
 //   topology  an admit case of tests/fixtures/topology-shape-cases.json
-//   facts     a pair with one day, or a transaction hash, unless it is a refused
-//             recipe that names the code it must get
+//   facts     a pair with one day, a transaction hash, or one contract by its
+//             address, unless it is a refused recipe that names the code it
+//             must get
 //   chain     one node of a label of tests/fixtures/chain-catalogue.json, with a
 //             key and properties that label serves, and at most LIMIT 1
 //
@@ -70,7 +71,7 @@ describe('the committed routing table', () => {
     expect(new Set(routing.entries.map((entry) => entry.id)).size).toBe(routing.entries.length)
     const anchors: Record<Layer, string[]> = {
       topology: ['address', 'probe'],
-      facts: ['pair_day', 'transaction', 'none'],
+      facts: ['pair_day', 'transaction', 'contract', 'none'],
       chain: ['key', 'head'],
     }
     for (const entry of routing.entries) {
@@ -122,7 +123,7 @@ describe('every entry meets the rule of its layer', () => {
     }
   })
 
-  it('every facts entry names a pair with one day or a hash, unless it is a refused recipe', () => {
+  it('every facts entry names a pair with one day, a hash or one contract, unless it is a refused recipe', () => {
     for (const entry of routing.entries.filter((candidate) => candidate.layer === 'facts')) {
       const codes = factsReadViolations(entry.query)
       if (entry.expects_code === undefined) {
