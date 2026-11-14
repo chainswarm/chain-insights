@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "qmd-shared": {
+      "type": "http",
+      "url": "http://100.64.6.90:8181/mcp"
+    }
+  }
+}
