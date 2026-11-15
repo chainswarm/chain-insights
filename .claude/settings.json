@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PROJECT_DIR}/../AP1000/scripts/agent-hook.py\" repo-session",
+            "command": "h=\"${CLAUDE_PROJECT_DIR}/../AP1000/scripts/agent-hook.py\"; [ -f \"$h\" ] || exit 0; python3 \"$h\" repo-session",
             "timeout": 20,
             "statusMessage": "Checking the clone against origin/main"
           }
@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PROJECT_DIR}/../AP1000/scripts/agent-hook.py\" guard",
+            "command": "h=\"${CLAUDE_PROJECT_DIR}/../AP1000/scripts/agent-hook.py\"; [ -f \"$h\" ] || exit 0; python3 \"$h\" guard",
             "timeout": 5,
             "statusMessage": "Checking permanent-data safety"
           }
