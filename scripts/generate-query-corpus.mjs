@@ -113,6 +113,14 @@ add(
   'topology',
   queryBuilderContract.connectionRouteQueries(ADDR_QUOTED, COMPARE)
 )
+// The same route on a lane with the levels: FLOWED_TO|ROUTED_TO, the two
+// level 2 links, in place of FLOWED_TO|SWAPPED. Nothing else changes.
+add(
+  'connectionRouteQueries',
+  { address: ADDR, compare: COMPARE, shape: 'levels' },
+  'topology',
+  queryBuilderContract.connectionRouteQueries(ADDR, COMPARE, 'levels')
+)
 
 // Exchange ends: the SWEPT read of a deposit an exchange walk ended at.
 add(
@@ -346,6 +354,44 @@ hintQueries()
     admittedQueries.add(query)
     admitCases.push(admitCase(`hint-${i + 1}`, query, 'src/mcp/proxy.ts graph hints'))
   })
+
+// Then every topology read meta_dex_lookup builds for a trail, on both graph
+// shapes a lane can serve (src/mcp/dex-recipes.ts): `route`, the graph of
+// before, where SWAPPED holds the route, and `levels`, where money is read on
+// three levels: ROUTED_TO is the route (level 2) and SWAPPED runs from a trader
+// to one pool (level 1). The rows are fixed here, not read from the registry,
+// so a registry row change does not move the table.
+const { recipeFor } = await import(join(repoRoot, 'src/mcp/dex-recipes.ts'))
+const dexRow = (trail, factory, router, pool) => ({
+  dex: `corpus-${trail}`,
+  display: `corpus ${trail}`,
+  aliases: [],
+  trail_type: trail,
+  factories: [factory],
+  routers: router ? [router] : [],
+  roles: { [factory]: trail === 'vault' ? 'manager' : 'factory', ...(router ? { [router]: 'router' } : {}) },
+  example_pool: pool,
+})
+const DEX_ROWS = [
+  dexRow('plain', '0x00000000000000000000000000000000000000f1', null, '0x00000000000000000000000000000000000000a1'),
+  dexRow('gauge', '0x00000000000000000000000000000000000000f2', '0x00000000000000000000000000000000000000b2', '0x00000000000000000000000000000000000000a2'),
+  dexRow('vault', '0x00000000000000000000000000000000000000f3', null, null),
+  dexRow('launchpad', '0x00000000000000000000000000000000000000f4', null, null),
+]
+for (const shape of ['route', 'levels']) {
+  for (const row of DEX_ROWS) {
+    recipeFor(row, row.example_pool, shape)
+      .map((step) => step.query)
+      .filter((query) => query.startsWith('USE topology '))
+      .forEach((query, i) => {
+        if (admittedQueries.has(query)) return
+        admittedQueries.add(query)
+        admitCases.push(
+          admitCase(`dex-${row.trail_type}-${shape}-${i + 1}`, query, `src/mcp/dex-recipes.ts ${shape}`)
+        )
+      })
+  }
+}
 
 // Refuse: a fixed table, at least one query for each code the shape rules can
 // give. The code and the rule word are the ones of the topology safety spec.

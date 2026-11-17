@@ -25,6 +25,26 @@ So the `SWAPPED` recipient of a seller is often the router. **The router is
 not the buyer.** Name it "the Aero router", in full, and read the buyer from
 the router's own transfer in the seller's transaction.
 
+## On a lane with the levels
+
+Money is read on three levels: level 2 (`FLOWED_TO`, `ROUTED_TO`) traces money, one link per pair of addresses in USD, level 1 (`TRANSFERRED`, `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`) holds the assets and the pools, and a single transaction is a `USE facts` row.
+
+`meta_dex_lookup` says `swap_links: levels` where the lane serves
+`ROUTED_TO`. There the router is on no swap link:
+
+```
+ trader ──SWAPPED──▶ pool          trader ──ROUTED_TO──▶ buyer
+```
+
+- Step 2 reads the pool's `SWAPPED` links (R4L of `chain-insights-dex`):
+  each is a trader, never the router.
+- Step 3 reads the trader's `ROUTED_TO` links (R5L): the receiver is the
+  buyer, a link to itself means it bought for itself. Steps 4 to 7 are
+  needed only to name one transaction.
+
+With no `swap_links`, the lane has the graph of before: follow the steps
+as written.
+
 ## Sellers and the buyer, in order
 
 1. **The pool.** Take it from `meta_dex_lookup` (its pools, by lifetime

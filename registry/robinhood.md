@@ -108,6 +108,13 @@ linked from the rows. A `factory` row shows the pools it created
 (`DEPLOYED_CONTRACT`), a `manager` row the pools it holds, a `router` row the
 swaps it forwarded.
 
+The router evidence was read on the graph of before, where `SWAPPED` runs from
+a payer to a recipient and a router is often that recipient. Money is read on three levels: level 2 (`FLOWED_TO`, `ROUTED_TO`) traces money, one link per pair of addresses in USD, level 1 (`TRANSFERRED`, `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`) holds the assets and the pools, and a single transaction is a `USE facts` row.
+On a lane with the levels a router is on no swap link: `SWAPPED` runs from a
+trader to a pool, and a router shows only in its `TRANSFERRED` links and the
+facts `TRANSFER` rows of the transactions it forwarded. A `router` row is then
+proven from those rows.
+
 | address | role | what the lane shows |
 |---|---|---|
 | `0xc63d7338c178e805c544b8f897066bd3bbcbe136` | factory | 70 `cl-gauge-v1` pools on lane A, 311,955,782 USD lifetime volume; deployed at block 93,973,839; the busiest pool `0x7615926023bb149f36095645c2a81dc367d39750` |

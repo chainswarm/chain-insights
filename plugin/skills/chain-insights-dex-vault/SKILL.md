@@ -42,6 +42,18 @@ token themselves. The holder takes the sold token and pays the bought one,
 so the holder is the manager of every swap, and each pair of tokens is one
 of its pools.
 
+## On a lane with the levels
+
+Money is read on three levels: level 2 (`FLOWED_TO`, `ROUTED_TO`) traces money, one link per pair of addresses in USD, level 1 (`TRANSFERRED`, `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`) holds the assets and the pools, and a single transaction is a `USE facts` row.
+
+`meta_dex_lookup` says `swap_links: levels` where the lane serves
+`ROUTED_TO`. There the manager is a pool: each `SWAPPED` link into it is one
+trader and one asset pair, the pair that names its pool, and the trader's
+`ROUTED_TO` links (R5L of `chain-insights-dex`) name the buyer. A
+`ROUTED_TO` link to the trader itself means it swapped for itself. V4 then
+reads the traders, not the pools: a `SWAPPED` link carries no `pools`. With
+no `swap_links`, the lane has the graph of before: read on as written.
+
 ## The buyer past the manager
 
 1. **The seller's swaps** (V1): its `SWAPPED` links. A row whose recipient is

@@ -13,6 +13,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 
 import { KNOWN_PUBLIC_TOOL_DESCRIPTIONS, LOCAL_TOOL_NAMES } from '../src/mcp/proxy.js'
 import { EXCHANGE_OPENING_RULE } from '../src/mcp/exchange-tool.js'
+import { LEVEL_RULE } from '../src/mcp/layer-routing.js'
 import { readRegistry, repoRoot } from './dex-registry.js'
 
 // Host parity: a rule a host never loads does not exist for that host. Claude
@@ -31,6 +32,11 @@ import { readRegistry, repoRoot } from './dex-registry.js'
 //
 // The core skill chain-insights-cypher is exempt: its door is meta_rules plus
 // the graph_query description. The host matrix is in docs/mcp-proxy.md.
+//
+// The level rule (money is read on three levels) lives in the descriptions of
+// graph_query and meta_dex_lookup, and every skill that teaches the levels
+// repeats it word for word. A skill that holds the rule while a description
+// misses it is red: a rule in a skill only does not exist for Desktop chat.
 
 const CORE_SKILL = 'chain-insights-cypher'
 
@@ -123,6 +129,75 @@ export function hostParityProblems(root: string = repoRoot): string[] {
       }
       if (!body.includes(`\`${door}\``))
         problems.push(`${path}: the skill never names its door ${door}`)
+    }
+  }
+  return problems
+}
+
+/** The tools whose description carries the level rule. */
+export const LEVEL_RULE_DOORS = ['graph_query', 'meta_dex_lookup'] as const
+
+/** The skills that teach the levels, core skill included. */
+export const LEVEL_SKILLS = [
+  'chain-insights-cypher',
+  'chain-insights-dex',
+  'chain-insights-dex-gauge',
+  'chain-insights-dex-launchpad',
+  'chain-insights-dex-vault',
+  'chain-insights-virtuals',
+] as const
+
+const flatText = (text: string) => text.replace(/\s+/g, ' ')
+
+/**
+ * The sentences of a Markdown text that name a level ("level 0", "level 1",
+ * "level 2"), with headings, bullets and bold marks dropped.
+ */
+export function levelSentences(markdown: string): string[] {
+  const text = flatText(
+    markdown
+      .replace(/^---\n[\s\S]*?\n---\n/, '')
+      .replace(/```[\s\S]*?```/g, ' ')
+      .split('\n')
+      .filter((line) => !/^#{1,6} /.test(line))
+      .map((line) => line.replace(/^\s*(?:[-*]|\d+\.)\s+/, ''))
+      .join('\n')
+      .replace(/\*\*/g, '')
+  )
+  return text
+    .split(/(?<=\.)\s+/)
+    .map((sentence) => sentence.trim())
+    .filter((sentence) => /\blevel [012]\b/.test(sentence))
+}
+
+/** What breaks the level rule's host parity, one line per problem. */
+export function levelRuleProblems(
+  root: string = repoRoot,
+  descriptions: Record<string, string> = KNOWN_PUBLIC_TOOL_DESCRIPTIONS
+): string[] {
+  const problems: string[] = []
+  const doors = LEVEL_RULE_DOORS.map((door) => flatText(descriptions[door] ?? ''))
+  for (const door of LEVEL_RULE_DOORS) {
+    if (!(descriptions[door] ?? '').includes(LEVEL_RULE))
+      problems.push(`the description of ${door} misses the level rule`)
+  }
+  for (const entry of readdirSync(join(root, 'skills'), { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue
+    const dir = join(root, 'skills', entry.name)
+    const skillPath = `skills/${entry.name}/SKILL.md`
+    if (
+      (LEVEL_SKILLS as readonly string[]).includes(entry.name) &&
+      !(existsSync(join(root, skillPath)) &&
+        flatText(readFileSync(join(root, skillPath), 'utf8')).includes(LEVEL_RULE))
+    )
+      problems.push(`${skillPath}: teaches the levels without the level rule`)
+    for (const file of readdirSync(dir).filter((name) => name.endsWith('.md')).sort()) {
+      for (const sentence of levelSentences(readFileSync(join(dir, file), 'utf8'))) {
+        if (!doors.some((door) => door.includes(sentence)))
+          problems.push(
+            `skills/${entry.name}/${file}: "${sentence}" is in a skill only, in neither ${LEVEL_RULE_DOORS.join(' nor ')}`
+          )
+      }
     }
   }
   return problems
@@ -239,6 +314,43 @@ describe('host parity', () => {
     expect(hostParityProblems(copy)).toContain(
       'skills/chain-insights-kyber/SKILL.md: no door: line in the frontmatter'
     )
+  })
+
+  it('the level rule is in the descriptions of graph_query and meta_dex_lookup, and in the six skills', () => {
+    for (const door of LEVEL_RULE_DOORS)
+      expect(KNOWN_PUBLIC_TOOL_DESCRIPTIONS[door], door).toContain(LEVEL_RULE)
+    expect(LOCAL_TOOL_NAMES.has('meta_dex_lookup')).toBe(true)
+    expect(levelRuleProblems()).toEqual([])
+  })
+
+  it('the level rule in chain-insights-cypher with no graph_query description is red: a rule in a skill only', () => {
+    const descriptions = { ...KNOWN_PUBLIC_TOOL_DESCRIPTIONS, graph_query: 'Run a read.' }
+    const problems = levelRuleProblems(repoRoot, descriptions)
+    expect(problems).toContain('the description of graph_query misses the level rule')
+    // The pool sentence is served by graph_query only: without it, it is in a skill only.
+    expect(problems).toContain(
+      'skills/chain-insights-cypher/SKILL.md: "A pool has no level 2 link." is in a skill only, in neither graph_query nor meta_dex_lookup'
+    )
+  })
+
+  it('a level sentence a skill adds and no door serves is red, naming the file', () => {
+    const dir = join(copy, 'new-level-sentence')
+    cpSync(join(repoRoot, 'skills'), join(dir, 'skills'), { recursive: true })
+    const path = join(dir, 'skills/chain-insights-dex/reference.md')
+    writeFileSync(path, `${readFileSync(path, 'utf8')}\nA vault is a level 1 hub.\n`)
+    expect(levelRuleProblems(dir)).toEqual([
+      'skills/chain-insights-dex/reference.md: "A vault is a level 1 hub." is in a skill only, in neither graph_query nor meta_dex_lookup',
+    ])
+  })
+
+  it('a level skill that drops the rule is red, naming its path', () => {
+    const dir = join(copy, 'levels')
+    cpSync(join(repoRoot, 'skills'), join(dir, 'skills'), { recursive: true })
+    const path = join(dir, 'skills/chain-insights-dex-vault/SKILL.md')
+    writeFileSync(path, flatText(readFileSync(path, 'utf8')).replace(LEVEL_RULE, ''))
+    expect(levelRuleProblems(dir)).toEqual([
+      'skills/chain-insights-dex-vault/SKILL.md: teaches the levels without the level rule',
+    ])
   })
 
   it('a door that is not a local tool is red', () => {

@@ -1,6 +1,12 @@
+import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 
-import { familyOfLinkType, LAYER_FAMILIES } from '../src/mcp/families.js'
+import {
+  familyOfLinkType,
+  LAYER_FAMILIES,
+  levelOfLinkType,
+  linkTypesOfLevel,
+} from '../src/mcp/families.js'
 import { ROUTING_NOT_SERVED } from '../src/mcp/layer-routing.js'
 import { flat, read } from './support/schema-text.js'
 
@@ -29,16 +35,31 @@ import { flat, read } from './support/schema-text.js'
 // recording, so the table must equal the recorded reply plus exactly those
 // layers, in that order. The exchange sweeps (2026-11-09) add the layer
 // `cex_sweeps` and its link `SWEPT` to annotations after every recording, so each
-// recording also gets that layer.
+// recording also gets that layer. The levels of money (change
+// data-pipeline-graph-routed-to-swaps-from-money) add the layer `routed` and its
+// link `ROUTED_TO` to money after every recording. A layer added later may sit
+// in the middle of a family (`routed` between `flows` and `operated_by`), so
+// the table minus the added layers must equal the recorded reply.
+//
+// The copy is byte for byte the one of data-pipeline-graph
+// internal/graphrag/families/families.json. A test run here cannot read that
+// repository, so the bytes are pinned by their SHA-256: a change to the table
+// changes the pin in the same pull request, and AP1000
+// scripts/check-family-table.py diffs the three copies across the clones.
 
 type ReplyFamily = { name: string; layers: string[] }
 type Reply = { graph_progress: { families: ReplyFamily[] } }
 type Recording = { file: string; count: number; added: Record<string, string[]> }
 const ADDED_BY_GRAPH_MIGRATIONS_AND_MARKS: Record<string, string[]> = {
+  money: ['routed'],
   dex: ['dex_pools'],
   annotations: ['assets', 'cex_sweeps'],
 }
-const ADDED_BY_CEX_SWEEPS: Record<string, string[]> = { annotations: ['cex_sweeps'] }
+const ADDED_BY_CEX_SWEEPS: Record<string, string[]> = {
+  money: ['routed'],
+  annotations: ['cex_sweeps'],
+}
+const FAMILIES_JSON_SHA256 = '2f0c1be3ca4b0f7c9dbf45a98af627ebfaf5f84c4dcb8d7e2cfa0be30f48691a'
 const recordings: Recording[] = [
   {
     file: 'tests/fixtures/network-capabilities-robinhood-families.json',
@@ -89,17 +110,60 @@ describe('the family table', () => {
       name: 'transfers',
       layers: ['transfers_by_asset'],
       link_types: ['TRANSFERRED'],
+      levels: { TRANSFERRED: 1 },
     })
+  })
+
+  it('is the bytes of the graph server table, pinned by their SHA-256', () => {
+    const bytes = read('src/mcp/families.json')
+    expect(createHash('sha256').update(bytes).digest('hex')).toBe(FAMILIES_JSON_SHA256)
+  })
+
+  it('gives money, dex and transfers their levels, and no level 0', () => {
+    expect(LAYER_FAMILIES.find((family) => family.name === 'money')).toEqual({
+      name: 'money',
+      layers: ['flows', 'routed', 'operated_by'],
+      link_types: ['FLOWED_TO', 'ROUTED_TO', 'OPERATED_BY'],
+      levels: { FLOWED_TO: 2, ROUTED_TO: 2 },
+    })
+    expect(LAYER_FAMILIES.find((family) => family.name === 'dex')?.levels).toEqual({
+      SWAPPED: 1,
+      ADDED_LIQUIDITY: 1,
+      REMOVED_LIQUIDITY: 1,
+    })
+    expect(linkTypesOfLevel(2)).toEqual(['FLOWED_TO', 'ROUTED_TO'])
+    expect(linkTypesOfLevel(1)).toEqual([
+      'SWAPPED',
+      'ADDED_LIQUIDITY',
+      'REMOVED_LIQUIDITY',
+      'TRANSFERRED',
+    ])
+    expect(levelOfLinkType('OPERATED_BY')).toBeUndefined()
+    expect(levelOfLinkType('APPROVED')).toBeUndefined()
+    for (const family of LAYER_FAMILIES) {
+      for (const [type, level] of Object.entries(family.levels ?? {})) {
+        expect(family.link_types, `${family.name} levels ${type}`).toContain(type)
+        expect([1, 2], `${type} level`).toContain(level)
+      }
+      if (family.levels) expect(Object.keys(family.levels).length).toBeGreaterThan(0)
+    }
+    for (const name of ['interactions', 'smart_accounts', 'annotations']) {
+      expect(LAYER_FAMILIES.find((family) => family.name === name)?.levels, name).toBeUndefined()
+    }
   })
 
   for (const [file, served, count, added] of replies) {
     it(`is the server reply ${file}: the same names, in the same order, with the same layers`, () => {
-      expect(LAYER_FAMILIES.slice(0, count).map(({ name, layers }) => ({ name, layers }))).toEqual(
-        served.graph_progress.families.map(({ name, layers }) => ({
+      expect(
+        LAYER_FAMILIES.slice(0, count).map(({ name, layers }) => ({
           name,
-          layers: [...layers, ...(added[name] ?? [])],
+          layers: layers.filter((layer) => !(added[name] ?? []).includes(layer)),
         }))
-      )
+      ).toEqual(served.graph_progress.families.map(({ name, layers }) => ({ name, layers })))
+      for (const family of LAYER_FAMILIES.slice(0, count)) {
+        for (const layer of added[family.name] ?? [])
+          expect(family.layers, `${family.name} gains ${layer}`).toContain(layer)
+      }
     })
   }
 
@@ -114,6 +178,7 @@ describe('the family table', () => {
     ])
     expect(familyOfLinkType('SWEPT')?.name).toBe('annotations')
     expect(familyOfLinkType('FLOWED_TO')?.name).toBe('money')
+    expect(familyOfLinkType('ROUTED_TO')?.name).toBe('money')
     expect(familyOfLinkType('SWAPPED')?.name).toBe('dex')
     expect(familyOfLinkType('TRANSFERRED')?.name).toBe('transfers')
     expect(familyOfLinkType('NOT_A_LINK')).toBeUndefined()
@@ -132,7 +197,7 @@ describe('the whole-chain rule and the family table', () => {
   }
 
   it('pairs each link type it names with the Head property of that link type family', () => {
-    // "a `FLOWED_TO` search is sent when `behind_money` ...; a `SWAPPED`,
+    // "a `FLOWED_TO` or `ROUTED_TO` search is sent when `behind_money` ...; a `SWAPPED`,
     // `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY` search when `behind_dex` ...; a
     // `TRANSFERRED` search when `behind_transfers` ..."
     const pairs = [
@@ -144,7 +209,7 @@ describe('the whole-chain rule and the family table', () => {
       family: match[2]!,
     }))
     expect(pairs).toEqual([
-      { types: ['FLOWED_TO'], family: 'money' },
+      { types: ['FLOWED_TO', 'ROUTED_TO'], family: 'money' },
       { types: ['SWAPPED', 'ADDED_LIQUIDITY', 'REMOVED_LIQUIDITY'], family: 'dex' },
       { types: ['TRANSFERRED'], family: 'transfers' },
     ])

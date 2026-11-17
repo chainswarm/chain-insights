@@ -6,6 +6,8 @@ import { normalizeGraphPayload } from './graph-normalizer.js'
 import { isUnscoredRiskLevel, normalizeRiskLevel, riskSeverityRank } from './risk-level.js'
 import { workspaceOutputPaths } from '../workspace/output-root.js'
 import { GRAPH_TOOL_REQUEST_TIMEOUT_MS } from '../mcp/request-timeout.js'
+import { readSwapLinkShape } from '../mcp/capabilities.js'
+import type { SwapLinkShape } from '../mcp/layer-routing.js'
 import {
   createUsageAccumulator,
   usageBlock,
@@ -41,6 +43,8 @@ export interface AddressRiskOptions {
   network: string
   compareAddress?: string
   writeArtifacts?: boolean
+  /** The lane's swap-link shape; read from network_capabilities when a route is sent and this is absent. */
+  linkShape?: SwapLinkShape
 }
 
 const AML_ADDRESS_RISK_SUPPORTED_VERSIONS = ['v1'] as const
@@ -656,7 +660,10 @@ function crossSpaceLinkedQuery(address: string): { id: string; query: string } {
 //
 // Pool trace rule (cypher skill, "Pool trace rule"): a route never starts at
 // a :Pool and never passes through one, and it may end at one. It follows
-// FLOWED_TO and SWAPPED, so it crosses a swap from payer to recipient. The
+// FLOWED_TO and SWAPPED, so it crosses a swap from payer to recipient; on a
+// lane with the levels it follows FLOWED_TO and ROUTED_TO, the two level 2
+// links, and the rest of the text stays the same (graphrag-mcp accepts both
+// link lists). The
 // guard sits inside the path pattern, so the search finds the shortest route
 // that avoids pools instead of dropping a shortest route that crosses one.
 //
@@ -679,13 +686,15 @@ export function shouldIncludeRouteQueries(compareAddress: string | undefined): b
 
 export function connectionRouteQueries(
   address: string,
-  compareAddress: string
+  compareAddress: string,
+  shape: SwapLinkShape = 'route'
 ): Array<{ id: string; query: string }> {
+  const links = shape === 'levels' ? 'FLOWED_TO|ROUTED_TO' : 'FLOWED_TO|SWAPPED'
   const routeQuery = (fromAddress: string, toAddress: string): string =>
     [
       `MATCH p = SHORTEST 1 (a:Address {address: "${escapeCypherString(fromAddress)}"} WHERE ${walkGuardTerms(['a'], 2)})`,
-      ` (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE ${walkGuardTerms(['via'], 2)}){0,${CONNECTION_ROUTE_DEPTH_BOUND}}`,
-      ` ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: "${escapeCypherString(toAddress)}"}) RETURN p LIMIT 1`,
+      ` (()-[:${links}]-(via:Address) WHERE ${walkGuardTerms(['via'], 2)}){0,${CONNECTION_ROUTE_DEPTH_BOUND}}`,
+      ` ()-[:${links}]-(b:Address {address: "${escapeCypherString(toAddress)}"}) RETURN p LIMIT 1`,
     ].join('')
   return [
     { id: 'connection_route_outbound', query: routeQuery(address, compareAddress) },
@@ -1319,7 +1328,11 @@ export async function addressRisk(
     // fires for a compare address whose existence probe succeeded (the
     // 1-hop probe above always runs).
     ...(shouldIncludeRouteQueries(compareAddress)
-      ? connectionRouteQueries(address, compareAddress)
+      ? connectionRouteQueries(
+          address,
+          compareAddress,
+          options.linkShape ?? (await readSwapLinkShape(remoteClient, network)) ?? 'route'
+        )
       : []),
   ]
   const batch = await callGraphBatch(trackedClient, network, queries)

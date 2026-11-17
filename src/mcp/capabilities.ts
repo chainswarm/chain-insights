@@ -1,5 +1,6 @@
 import type { InvestigatorConfig } from '../config/schema.js'
 import { applyMcpAuthHeaders, resolveGraphMcpEndpoint } from './client.js'
+import { swapLinkShape, type SwapLinkShape } from './layer-routing.js'
 
 export interface NetworkTopologyLayer {
   enabled: boolean
@@ -135,6 +136,10 @@ export interface NetworkGraphFamily {
   blocks_behind_head: number | null
   fresh?: boolean
   layers: string[]
+  /** The link types the family serves, when the server lists them. */
+  link_types?: string[]
+  /** The level of each levelled link type of the family, when the server reports it. */
+  link_levels?: Record<string, number>
 }
 
 export interface NetworkCapabilitiesDocument {
@@ -181,12 +186,25 @@ function advertisedGraphFamily(entry: unknown): NetworkGraphFamily | null {
   if (entry.fresh !== undefined && typeof entry.fresh !== 'boolean') return null
   if (!Array.isArray(entry.layers) || !entry.layers.every((layer) => typeof layer === 'string'))
     return null
+  const linkTypes =
+    Array.isArray(entry.link_types) && entry.link_types.every((type) => typeof type === 'string')
+      ? [...(entry.link_types as string[])]
+      : undefined
+  const linkLevels = isRecord(entry.link_levels)
+    ? Object.fromEntries(
+        Object.entries(entry.link_levels).filter(
+          (pair): pair is [string, number] => typeof pair[1] === 'number'
+        )
+      )
+    : undefined
   return {
     name: entry.name,
     complete_through_block: entry.complete_through_block,
     blocks_behind_head: behind,
     ...(typeof entry.fresh === 'boolean' ? { fresh: entry.fresh } : {}),
     layers: [...(entry.layers as string[])],
+    ...(linkTypes ? { link_types: linkTypes } : {}),
+    ...(linkLevels ? { link_levels: linkLevels } : {}),
   }
 }
 
@@ -601,4 +619,49 @@ export function formatNetworkCapability(network: NetworkCapability): string {
     '',
     ...formatProgressTables(tables, head !== undefined),
   ].join('\n')
+}
+
+/**
+ * The shape of a lane's swap links, read from its `network_capabilities` reply:
+ * `levels` when its money family lists ROUTED_TO, else `route`. A call that
+ * fails, or a reply that lists no such network, gives no shape (undefined): the
+ * caller uses `route` for that one call and asks again on the next.
+ */
+export async function readSwapLinkShape(
+  client: { callTool: (request: { name: string; arguments: Record<string, unknown> }) => Promise<unknown> },
+  network: string
+): Promise<SwapLinkShape | undefined> {
+  try {
+    const answer = await client.callTool({ name: 'network_capabilities', arguments: {} })
+    const structured = isRecord(answer) ? answer.structuredContent : undefined
+    const facts = isRecord(structured) ? structured.facts : undefined
+    const capabilities = isRecord(facts) ? facts.capabilities : undefined
+    const networks =
+      isRecord(capabilities) && Array.isArray(capabilities.networks) ? capabilities.networks : []
+    const capability = findNetworkCapability(mirrorGraphNetworkCapabilities({ networks }), network)
+    if (!capability) return undefined
+    return swapLinkShape(capability.graph_progress?.families)
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * A lane's shape, kept `ttlMs` per network once a read gives one. A read that
+ * gives none is never kept: that call answers `route`, the next reads again.
+ */
+export function keptSwapLinkShape(
+  read: (network: string) => Promise<SwapLinkShape | undefined>,
+  ttlMs: number,
+  now: () => number = Date.now
+): (network: string) => Promise<SwapLinkShape> {
+  const kept = new Map<string, { shape: SwapLinkShape; at: number }>()
+  return async (network) => {
+    const entry = kept.get(network)
+    if (entry && now() - entry.at < ttlMs) return entry.shape
+    const shape = await read(network)
+    if (shape === undefined) return 'route'
+    kept.set(network, { shape, at: now() })
+    return shape
+  }
 }

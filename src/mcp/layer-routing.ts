@@ -67,7 +67,72 @@ export const ROUTING_SWEPT =
  * family of its link type is close to the head; a refusal names the family.
  */
 export const ROUTING_NOT_SERVED =
-  "A question about the whole chain (recent activity, the biggest senders, a top list) is a `USE topology` search: bound it by time with `f.last_seen_timestamp >= <epoch ms>` on the `FLOWED_TO` link, then sort and `LIMIT`. A search has 10 s. Read `Head` first (`USE chain MATCH (h:Head) RETURN h.behind_money, h.behind_dex, h.behind_transfers`, under a second): a `FLOWED_TO` search is sent when `behind_money` is at most 100000; a `SWAPPED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY` search when `behind_dex` is at most 100000; a `TRANSFERRED` search when `behind_transfers` is at most 100000 (100000 blocks is a few hours: a robinhood block is about a tenth of a second apart from the next). When the family is further behind, the search cannot finish, so do not send it: say which family, how many blocks, and ask for an address. On a server whose Head has no `behind_money`, read `h.graph_blocks_behind` and hold it to the same limit. On a server whose Head has no `behind_transfers`, it serves no `TRANSFERRED` link: send no `TRANSFERRED` search. Never turn the block count into days or hours by head. To say how fresh the data is, give the newest `_utc` time you read on the layer you used: a family's lag counts its slowest layer, and the links of an address and the facts rows are often newer than it. If the server refuses the search with `anchor_missing` or `family_behind`, or stops it with `query_timeout`, it cannot search the whole chain now: say so in one line, name the family the refusal names, and ask for an address or drop the link type that is behind. A narrower window times out the same way, so do not send it again."
+  "A question about the whole chain (recent activity, the biggest senders, a top list) is a `USE topology` search: bound it by time with `f.last_seen_timestamp >= <epoch ms>` on the `FLOWED_TO` link, then sort and `LIMIT`. A search has 10 s. Read `Head` first (`USE chain MATCH (h:Head) RETURN h.behind_money, h.behind_dex, h.behind_transfers`, under a second): a `FLOWED_TO` or `ROUTED_TO` search is sent when `behind_money` is at most 100000; a `SWAPPED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY` search when `behind_dex` is at most 100000; a `TRANSFERRED` search when `behind_transfers` is at most 100000 (100000 blocks is a few hours: a robinhood block is about a tenth of a second apart from the next). When the family is further behind, the search cannot finish, so do not send it: say which family, how many blocks, and ask for an address. On a server whose Head has no `behind_money`, read `h.graph_blocks_behind` and hold it to the same limit. On a server whose Head has no `behind_transfers`, it serves no `TRANSFERRED` link: send no `TRANSFERRED` search. Never turn the block count into days or hours by head. To say how fresh the data is, give the newest `_utc` time you read on the layer you used: a family's lag counts its slowest layer, and the links of an address and the facts rows are often newer than it. If the server refuses the search with `anchor_missing` or `family_behind`, or stops it with `query_timeout`, it cannot search the whole chain now: say so in one line, name the family the refusal names, and ask for an address or drop the link type that is behind. A narrower window times out the same way, so do not send it again."
+
+/**
+ * The level rule, in one sentence. The descriptions of graph_query and
+ * meta_dex_lookup carry it word for word, so a host that loads no skill reads
+ * it, and every skill that teaches the levels repeats it
+ * (tests/host-parity.test.ts).
+ */
+export const LEVEL_RULE =
+  'Money is read on three levels: level 2 (`FLOWED_TO`, `ROUTED_TO`) traces money, one link per pair of addresses in USD, level 1 (`TRANSFERRED`, `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`) holds the assets and the pools, and a single transaction is a `USE facts` row.'
+
+/** Which links a trace walks, and which links answer a pool question. */
+export const LEVEL_TRACE =
+  "Where money went or came from is a walk on `FLOWED_TO` and `ROUTED_TO`: a `ROUTED_TO` step is a swap that changes the asset, a self link when the payer got the bought asset itself, and the payer's `SWAPPED` links name what it sold, what it got and at which pool. A router or a pool never holds the money. Who traded at a pool is its `SWAPPED` links, each from a trader to the pool, and who provides its liquidity is `ADDED_LIQUIDITY` and `REMOVED_LIQUIDITY`."
+
+/** How a reader tells the two graph shapes apart, lane by lane. */
+export const LEVEL_LANE =
+  'A lane whose `money` family in `meta_network_capabilities` lists no `ROUTED_TO` has the graph of before: there `SWAPPED` runs from a payer to a recipient and holds the whole route, with its `pools`.'
+
+/** What a pool is on the levels: no trace, its level 1 links. */
+export const LEVEL_POOL =
+  'A pool has no level 2 link. Asked about a pool, say it is a pool and offer its traders and its liquidity providers from level 1, never an empty trace.'
+
+/** The actor exposure read (AC11 hint) on a lane with the levels. */
+export const LEVEL_EXPOSURE =
+  'On a lane whose `money` family lists `ROUTED_TO`, the actor exposure read over one `LINKED` hop walks `FLOWED_TO|ROUTED_TO` and returns `r.amount_usd_sum` and `r.tx_count`, which both links carry, in place of `FLOWED_TO|SWAPPED` and `coalesce(r.amount_usd_sum, r.bought_usd)`.'
+
+/** Which link list a guarded walk or route sends, lane by lane. */
+export const LEVEL_WALK =
+  'A guarded walk or route writes `FLOWED_TO|ROUTED_TO` on a lane whose `money` family lists `ROUTED_TO`, and `FLOWED_TO|SWAPPED` on the graph of before; nothing else in it changes.'
+
+/** The level sentences, in the order a reader meets them. */
+export function levelLines(): string[] {
+  return [LEVEL_RULE, LEVEL_TRACE, LEVEL_POOL, LEVEL_LANE, LEVEL_WALK, LEVEL_EXPOSURE]
+}
+
+/**
+ * The shape of the swap links a lane serves. `levels`: `ROUTED_TO` is the whole
+ * route of a payer and a receiver (level 2) and `SWAPPED` runs from a trader to
+ * one pool (level 1). `route`: the graph of before, where `SWAPPED` runs from a
+ * payer to a recipient and holds the route.
+ */
+export type SwapLinkShape = 'levels' | 'route'
+
+/** One family as `meta_network_capabilities` reports it in `graph_progress.families`. */
+export interface ServedFamily {
+  name: string
+  layers: string[]
+  link_types?: string[]
+  link_levels?: Record<string, number>
+}
+
+/**
+ * The shape of a lane, from its `money` family: `levels` when the family lists
+ * `ROUTED_TO` (in `link_types` or `link_levels`) or its layer `routed`, else
+ * `route`. A lane that reports no families has the graph of before.
+ */
+export function swapLinkShape(families: readonly ServedFamily[] | undefined): SwapLinkShape {
+  const money = families?.find((family) => family.name === 'money')
+  if (!money) return 'route'
+  const lists =
+    money.link_types?.includes('ROUTED_TO') === true ||
+    (money.link_levels !== undefined && 'ROUTED_TO' in money.link_levels) ||
+    money.layers.includes('routed')
+  return lists ? 'levels' : 'route'
+}
 
 /** What a refusal carries, and which part of it decides the move. */
 export const MOVE_INTRO =
@@ -134,12 +199,13 @@ export function routingHead(): string {
 }
 
 /**
- * The two hints that the MCP proxy serves for routing and for refusals. Each is
- * one line of the served instructions.
+ * The three hints that the MCP proxy serves for routing, for refusals and for
+ * the levels of money. Each is one line of the served instructions.
  */
 export function routingHintLines(): string[] {
   return [
     `- Pick the layer first. ${ROUTING_RULE} 1. ${ROUTING_LINES[0]} 2. ${ROUTING_LINES[1]} 3. ${ROUTING_LINES[2]} ${ROUTING_CONTRACT} ${ROUTING_NOT_SERVED} ${ROUTING_ADDRESS_ON_CHAIN} ${ROUTING_TWO_FIT} ${ROUTING_HANDOFF} ${ROUTING_SWEPT} The lookups that USE chain serves are listed in chain_admission.lookups of meta_network_capabilities. Read every limit that the server publishes from meta_network_capabilities (chain_admission and, when the server sends them, topology_admission and facts_admission). Never write a limit down.`,
     `- Act on a refusal by its class. ${moveLines().join(' ')}`,
+    `- ${levelLines().join(' ')}`,
   ]
 }

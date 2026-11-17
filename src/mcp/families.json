@@ -1,10 +1,10 @@
 {
   "families": [
-    {"name": "money", "layers": ["flows", "operated_by"], "link_types": ["FLOWED_TO", "OPERATED_BY"]},
-    {"name": "dex", "layers": ["dex_swaps", "dex_liquidity", "dex_pools"], "link_types": ["SWAPPED", "ADDED_LIQUIDITY", "REMOVED_LIQUIDITY"]},
+    {"name": "money", "layers": ["flows", "routed", "operated_by"], "link_types": ["FLOWED_TO", "ROUTED_TO", "OPERATED_BY"], "levels": {"FLOWED_TO": 2, "ROUTED_TO": 2}},
+    {"name": "dex", "layers": ["dex_swaps", "dex_liquidity", "dex_pools"], "link_types": ["SWAPPED", "ADDED_LIQUIDITY", "REMOVED_LIQUIDITY"], "levels": {"SWAPPED": 1, "ADDED_LIQUIDITY": 1, "REMOVED_LIQUIDITY": 1}},
     {"name": "interactions", "layers": ["approvals", "bridged", "contracts", "authorization"], "link_types": ["APPROVED", "BRIDGED", "DEPLOYED_CONTRACT", "SIGNED_AUTHORIZATION"]},
     {"name": "smart_accounts", "layers": ["sponsored", "bundled", "signers", "owners"], "link_types": ["SPONSORED", "BUNDLED", "SIGNED_FOR", "LINKED"]},
     {"name": "annotations", "layers": ["labels", "ml", "inferred", "kinds", "assets", "cex_sweeps"], "link_types": ["SWEPT"]},
-    {"name": "transfers", "layers": ["transfers_by_asset"], "link_types": ["TRANSFERRED"]}
+    {"name": "transfers", "layers": ["transfers_by_asset"], "link_types": ["TRANSFERRED"], "levels": {"TRANSFERRED": 1}}
   ]
 }
