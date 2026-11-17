@@ -69,6 +69,12 @@ read: a token launched there, such as Mob, is never the launchpad's name.
 4. A fresh token has no price: its `amount_usd` can be empty. Value a buy by
    what was paid for it, and say when no price exists.
 
+Money is read on three levels: level 2 (`FLOWED_TO`, `ROUTED_TO`) traces money, one link per pair of addresses in USD, level 1 (`TRANSFERRED`, `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`) holds the assets and the pools, and a single transaction is a `USE facts` row.
+Where `meta_dex_lookup` says `swap_links: levels`, every curve is a pool:
+its traders are its `SWAPPED` links, Penguin's included, and a curve has no
+`FLOWED_TO` link. Who got what a trader bought is the trader's `ROUTED_TO`
+links. With no `swap_links`, read L2 as written.
+
 ## Graduation and the first pool
 
 5. **The first pool** (L3): the launched contract's `ADDED_LIQUIDITY` links
@@ -115,6 +121,8 @@ indexer finds them by their shape, with one rule for every operator:
    pool manager by a 32-byte pool id. It is not a contract of its own: say
    "a pool of the Uniswap v4 pool manager". Read the id from `pools` on a
    `SWAPPED` link that sold or bought the token, anchored on the creator.
+   Where the lane serves the levels, `SWAPPED` has no `pools`: the creator's
+   `SWAPPED` link into the manager with the token as one asset is the pool.
    When no such link shows, leave the pool out. The creator and the launch
    transaction still answer who launched it.
 4. **The trades** are ordinary Uniswap v4 swaps on the pool manager. Load

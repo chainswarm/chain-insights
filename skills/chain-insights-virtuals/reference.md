@@ -65,6 +65,20 @@ RETURN c.total_in_usd AS in_usd, c.total_out_usd AS out_usd, c.net_flow_usd AS k
 Then its biggest receivers: the newest-links read of `chain-insights-cypher`,
 sorted by `f.amount_usd_sum DESC`.
 
+Where `meta_dex_lookup` says `swap_links: levels`, these totals count funds
+between addresses (`FLOWED_TO`) only, not swaps. Add the wallet's swaps from
+A5L: `amount_usd_sum` is what it gave, `bought_usd_sum` what it got. A link to
+the wallet itself kept the bought asset. The assets are on its `SWAPPED` links
+(B2). On the graph of before, A5 alone holds both.
+
+### A5L. What a wallet's swaps gave and got (lane with the levels)
+
+```cypher
+USE topology
+MATCH (c:Address {address: "<wallet>"})-[r:ROUTED_TO]->(b:Address)
+RETURN c.address AS from_address, b.address AS to_address, r.tx_count AS tx_count, r.amount_usd_sum AS amount_usd_sum, r.bought_usd_sum AS bought_usd_sum ORDER BY r.amount_usd_sum DESC LIMIT 25
+```
+
 ### A6. The three contracts of one agent
 
 The token, the starting pool and the Uniswap pair share the creation `tx_id`.

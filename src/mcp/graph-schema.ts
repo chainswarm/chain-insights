@@ -22,6 +22,7 @@ import { PaymentRequiredError } from './client.js'
 import { CONTRACT_READ_PROPERTIES } from './contract-read.js'
 import { refusalText, type GraphQueryAnswer } from './flows.js'
 import { loadGraphSchemaCache, saveGraphSchemaCache } from './graph-schema-cache.js'
+import { levelLines, swapLinkShape } from './layer-routing.js'
 
 export const GRAPH_SCHEMA_ID = 'chain-insights.graph-schema.v1' as const
 export const GRAPH_SCHEMA_SOURCE = 'live catalog' as const
@@ -37,6 +38,7 @@ export const LINK_SAMPLE_LIMIT = 5
 /** The link types an agent queries. Each is sampled only when the graph lists it. */
 export const SAMPLED_LINK_TYPES = [
   'FLOWED_TO',
+  'ROUTED_TO',
   'OPERATED_BY',
   'LINKED',
   'SWAPPED',
@@ -130,6 +132,8 @@ export interface GraphSchemaDocument {
     facts: { relationships: string[]; transfer_columns: string[]; contract_properties?: string[] }
     chain: { lookups: string[] }
   }
+  /** `levels` when the lane serves ROUTED_TO; absent on the graph of before. */
+  swap_links?: 'levels'
   notes: string[]
 }
 
@@ -457,6 +461,12 @@ export async function buildGraphSchema(options: BuildOptions): Promise<BuildResu
   if (topology.link_types.includes('SWEPT') || topology.property_keys.includes('cex_role')) {
     remarks.push(EXCHANGE_SCHEMA_NOTE)
   }
+  // The lane's graph shape: its money family lists ROUTED_TO, or the catalog
+  // does. The graph of before gets no remark, so its schema reads as in 0.81.0.
+  const levels =
+    swapLinkShape(capability?.graph_progress?.families) === 'levels' ||
+    topology.link_types.includes('ROUTED_TO')
+  if (levels) remarks.push(levelLines().join(' '))
   remarks.push('Fields come from a sample of the live graph. A rare field may be missing.')
 
   return {
@@ -469,6 +479,7 @@ export async function buildGraphSchema(options: BuildOptions): Promise<BuildResu
       cached: false,
       billed_units: billed,
       layers: { topology, facts, chain },
+      ...(levels ? { swap_links: 'levels' as const } : {}),
       notes: [...problems, ...remarks],
     },
   }

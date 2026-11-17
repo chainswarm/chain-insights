@@ -64,3 +64,32 @@ A `SWAPPED` link carries heights, not times. Read the block of
 USE chain
 MATCH (b:Block {block_height: 95254047}) RETURN b.block_date, b.block_timestamp
 ```
+
+## On a lane with the levels
+
+`meta_dex_lookup` answers with `swap_links: levels` on a lane whose `money`
+family lists `ROUTED_TO`. There R4 and R5 are these two reads: a pool has
+no `FLOWED_TO` senders to rank.
+
+### R4L. Traders at one pool
+
+Each `SWAPPED` link is one trader, the pool and one asset pair. Sold is what
+the pool got, bought what it gave. No router is a trader.
+
+```cypher
+USE topology
+MATCH (s:Address)-[sw:SWAPPED]->(p:Address {address: "0x7615926023bb149f36095645c2a81dc367d39750"}) WHERE NOT s:Pool
+RETURN s.address AS from_address, p.address AS to_address, labels(s) AS from_node_labels, sw.sold_asset AS sold_asset, sw.bought_asset AS bought_asset, sw.sold_usd AS sold_usd, sw.bought_usd AS bought_usd, sw.swap_count AS swap_count, sw.first_seen_height AS first_seen_height, sw.last_seen_height AS last_seen_height ORDER BY sw.sold_usd DESC LIMIT 25
+```
+
+### R5L. Who got what a trader bought
+
+Each `ROUTED_TO` link is the swaps of one payer and one receiver, in USD:
+`amount_usd_sum` given, `bought_usd_sum` got. A link to the trader itself
+means it bought for itself.
+
+```cypher
+USE topology
+MATCH (s:Address {address: "0x4b9364c8553c519a419b259f022865071fd7bfdf"})-[r:ROUTED_TO]->(b:Address)
+RETURN s.address AS from_address, b.address AS to_address, labels(b) AS to_node_labels, r.tx_count AS tx_count, r.swap_count AS swap_count, r.amount_usd_sum AS amount_usd_sum, r.bought_usd_sum AS bought_usd_sum, r.unpriced_count AS unpriced_count, r.first_seen_timestamp AS first_seen_timestamp, r.last_seen_timestamp AS last_seen_timestamp ORDER BY r.amount_usd_sum DESC LIMIT 25
+```

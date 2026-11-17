@@ -127,13 +127,13 @@ Route by what the question names: an address, a pair with a day, a transaction o
 A transaction is a chain question: read it on `USE chain` by its `tx_id`. Chain gives its `block_date`; the transfers between a pair on that day are a `USE facts` read. "Every token that moved inside this transaction": read the chain record for `from_address`, `to_address` and `block_date`, then the facts `TRANSFER` rows of that pair on that day and keep the rows whose `tx_id` matches; a `kind` of `internal` is ETH a contract moved while it ran. Tokens the transaction moved between other pairs are not reachable from the hash alone: say so, and name the pairs you did read.
 The layers hand each other keys, and each key keeps its name. Topology gives the pair and the first and last seen time. Facts gives the `tx_id` and the `block_height`. Chain takes an `address`, a `tx_id`, a `block_height` or a `block_hash`, and gives the `block_date` of a transaction or a block.
 `SWEPT` runs from an exchange deposit to the hot wallet it swept into (layer `cex_sweeps`, family annotations), and `cex_role` on an `:Exchange` address says which wallet of its exchange it is: `deposit`, `hot_wallet`, `cold_wallet` or `withdrawal`. A trail that reaches a `SWEPT` link ends there: say the money entered the exchange at that deposit, swept n times into that hot wallet, name the exchange from `labels`, and never walk on past a hot wallet. Read `SWEPT` anchored on an address; call `aml_exchange_deposit_check` for one address and `meta_exchange_lookup` for an exchange by name.
-A question about the whole chain (recent activity, the biggest senders, a top list) is a `USE topology` search: bound it by time with `f.last_seen_timestamp >= <epoch ms>` on the `FLOWED_TO` link, then sort and `LIMIT`. A search has 10 s. Read `Head` first (`USE chain MATCH (h:Head) RETURN h.behind_money, h.behind_dex, h.behind_transfers`, under a second): a `FLOWED_TO` search is sent when `behind_money` is at most 100000; a `SWAPPED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY` search when `behind_dex` is at most 100000; a `TRANSFERRED` search when `behind_transfers` is at most 100000 (100000 blocks is a few hours: a robinhood block is about a tenth of a second apart from the next). When the family is further behind, the search cannot finish, so do not send it: say which family, how many blocks, and ask for an address. On a server whose Head has no `behind_money`, read `h.graph_blocks_behind` and hold it to the same limit. On a server whose Head has no `behind_transfers`, it serves no `TRANSFERRED` link: send no `TRANSFERRED` search. Never turn the block count into days or hours by head. To say how fresh the data is, give the newest `_utc` time you read on the layer you used: a family's lag counts its slowest layer, and the links of an address and the facts rows are often newer than it. If the server refuses the search with `anchor_missing` or `family_behind`, or stops it with `query_timeout`, it cannot search the whole chain now: say so in one line, name the family the refusal names, and ask for an address or drop the link type that is behind. A narrower window times out the same way, so do not send it again.
+A question about the whole chain (recent activity, the biggest senders, a top list) is a `USE topology` search: bound it by time with `f.last_seen_timestamp >= <epoch ms>` on the `FLOWED_TO` link, then sort and `LIMIT`. A search has 10 s. Read `Head` first (`USE chain MATCH (h:Head) RETURN h.behind_money, h.behind_dex, h.behind_transfers`, under a second): a `FLOWED_TO` or `ROUTED_TO` search is sent when `behind_money` is at most 100000; a `SWAPPED`, `ADDED_LIQUIDITY` or `REMOVED_LIQUIDITY` search when `behind_dex` is at most 100000; a `TRANSFERRED` search when `behind_transfers` is at most 100000 (100000 blocks is a few hours: a robinhood block is about a tenth of a second apart from the next). When the family is further behind, the search cannot finish, so do not send it: say which family, how many blocks, and ask for an address. On a server whose Head has no `behind_money`, read `h.graph_blocks_behind` and hold it to the same limit. On a server whose Head has no `behind_transfers`, it serves no `TRANSFERRED` link: send no `TRANSFERRED` search. Never turn the block count into days or hours by head. To say how fresh the data is, give the newest `_utc` time you read on the layer you used: a family's lag counts its slowest layer, and the links of an address and the facts rows are often newer than it. If the server refuses the search with `anchor_missing` or `family_behind`, or stops it with `query_timeout`, it cannot search the whole chain now: say so in one line, name the family the refusal names, and ask for an address or drop the link type that is behind. A narrower window times out the same way, so do not send it again.
 
 The graph's layers are grouped into six families, and a family is as fresh as its slowest layer. The family of a link type decides which `Head` lag a whole-chain search on it waits for.
 
 | Family           | Layers                                         | Link types                                                    | `Head` property         |
 | ---------------- | ---------------------------------------------- | ------------------------------------------------------------- | ----------------------- |
-| money            | `flows`, `operated_by`                         | `FLOWED_TO`, `OPERATED_BY`                                     | `behind_money`          |
+| money            | `flows`, `routed`, `operated_by`               | `FLOWED_TO`, `ROUTED_TO`, `OPERATED_BY`                        | `behind_money`          |
 | dex              | `dex_swaps`, `dex_liquidity`, `dex_pools`      | `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`             | `behind_dex`            |
 | interactions     | `approvals`, `bridged`, `contracts`, `authorization` | `APPROVED`, `BRIDGED`, `DEPLOYED_CONTRACT`, `SIGNED_AUTHORIZATION` | `behind_interactions`   |
 | smart_accounts   | `sponsored`, `bundled`, `signers`, `owners`    | `SPONSORED`, `BUNDLED`, `SIGNED_FOR`, `LINKED`                | `behind_smart_accounts` |
@@ -141,6 +141,11 @@ The graph's layers are grouped into six families, and a family is as fresh as it
 | transfers        | `transfers_by_asset`                           | `TRANSFERRED`                                                 | `behind_transfers`      |
 
 `transfers` is its own family: a `FLOWED_TO` search never waits for it, and a `TRANSFERRED` search never waits for `money`.
+
+**The levels of money.** Money is read on three levels: level 2 (`FLOWED_TO`, `ROUTED_TO`) traces money, one link per pair of addresses in USD, level 1 (`TRANSFERRED`, `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`) holds the assets and the pools, and a single transaction is a `USE facts` row.
+Where money went or came from is a walk on `FLOWED_TO` and `ROUTED_TO`: a `ROUTED_TO` step is a swap that changes the asset, a self link when the payer got the bought asset itself, and the payer's `SWAPPED` links name what it sold, what it got and at which pool. A router or a pool never holds the money. Who traded at a pool is its `SWAPPED` links, each from a trader to the pool, and who provides its liquidity is `ADDED_LIQUIDITY` and `REMOVED_LIQUIDITY`.
+A lane whose `money` family in `meta_network_capabilities` lists no `ROUTED_TO` has the graph of before: there `SWAPPED` runs from a payer to a recipient and holds the whole route, with its `pools`.
+A pool has no level 2 link. Asked about a pool, say it is a pool and offer its traders and its liquidity providers from level 1, never an empty trace.
 
 Find the question in this table. Send its first query, once, with the addresses the user gave.
 
@@ -216,7 +221,13 @@ Marks say what an address is. They sit beside the kind and are never an anchor:
 - `:IssuerFrozen` means an issuer froze this wallet; the token in `labels` says which. A token issuer (USDG or PAXG on robinhood) called its freeze on the address, and the freeze still holds: an unfreeze removes the mark. Its `labels` carry the word `IssuerFrozen` and the token's symbol, such as `USDG`, its flag is `is_issuer_frozen`, and `label_risk_levels` carries `high`. It stands beside `:Sanctioned`, the sanctions-list mark with the flag `is_sanctioned`. A frozen wallet is never `:Scam` for the freeze alone: say the issuer froze it, never that it is a scam.
 - `:Protocol` is a protocol's own contract: a pool, a router, a position manager, a stock token's proxy. It is never given for a token name alone.
 - `:SmartAccount` is a contract wallet, beside `:Account` or `:Contract`.
-- `:SelfTrader` is a contract that swaps with itself: it pays the pool and gets the bought side back, such as an arbitrage bot, a vault or a treasury. In the answer call it a **self-trading contract**, never a trader, a wallet or a user. A smart account is never `:SelfTrader`. Its `labels` carry the word `SelfTrader`. Its callers are its operator keys: trace its ETH payouts to them. Find these contracts by mark, `MATCH (a:SelfTrader)`. Its own swaps sit on its self link, `MATCH (a:Address {address: "<full address>"})-[w:SWAPPED]->(a)`, anchored on the full 42-character address:
+- `:SelfTrader` is a contract that swaps with itself: it pays the pool and gets the bought side back, such as an arbitrage bot, a vault or a treasury. In the answer call it a **self-trading contract**, never a trader, a wallet or a user. A smart account is never `:SelfTrader`. Its `labels` carry the word `SelfTrader`. Its callers are its operator keys: trace its ETH payouts to them. Find these contracts by mark, `MATCH (a:SelfTrader)`. Its own swaps sit on its self link, anchored on the full 42-character address: `ROUTED_TO` on a lane with the levels, `SWAPPED` on the graph of before:
+
+  ```cypher
+  USE topology
+  MATCH (a:Address {address: "0xc33acc93942105c57602e59e8e448c20ba718a85"})-[w:ROUTED_TO]->(a)
+  RETURN w.tx_count AS tx_count, w.swap_count AS swap_count, w.amount_usd_sum AS amount_usd_sum, w.bought_usd_sum AS bought_usd_sum LIMIT 1
+  ```
 
   ```cypher
   USE topology
@@ -357,7 +368,7 @@ bridges and the `LINKED` overlay. The server checks these before it runs:
 
 ## Graph searches
 
-Each query below is admitted by the live server. Change only the addresses and the `RETURN`. Keep the guards inside the pattern: they apply the [pool trace rule](#pool-trace-rule), the [exchange stop](#exchange-stop) and the system guard below it, and a `WHERE` after a `SHORTEST` pattern runs too late. A walk of two or more hops carries the long guard on its start and on every address in its middle. A walk follows links, not coins: confirm a hop with a pair and a day on `USE facts`.
+Each query below is admitted by the live server. Change only the addresses and the `RETURN`. A guarded walk or route writes `FLOWED_TO|ROUTED_TO` on a lane whose `money` family lists `ROUTED_TO`, and `FLOWED_TO|SWAPPED` on the graph of before; nothing else in it changes. Keep the guards inside the pattern: they apply the [pool trace rule](#pool-trace-rule), the [exchange stop](#exchange-stop) and the system guard below it, and a `WHERE` after a `SHORTEST` pattern runs too late. A walk of two or more hops carries the long guard on its start and on every address in its middle. A walk follows links, not coins: confirm a hop with a pair and a day on `USE facts`.
 
 Newest links of one address, its receivers. Its newest senders are the same read with the arrow flipped:
 
@@ -463,7 +474,7 @@ MATCH (owner:Address)-[o:OPERATED_BY]->(operator:Address {address: "0xdd509c9f91
 RETURN owner.address AS owner_address, o.tx_count AS tx_count, o.amount_usd_sum AS amount_usd_sum ORDER BY o.tx_count DESC LIMIT 10
 ```
 
-Swaps an address paid for. A facts `SWAP` row has no route: the pools are `SWAPPED.pools`. A side with no price adds 0 to `sold_usd` and `bought_usd`: 0 can mean no price.
+Swaps an address paid for. A facts `SWAP` row has no route: the pools are `SWAPPED.pools`. A side with no price adds 0 to `sold_usd` and `bought_usd`: 0 can mean no price. On a lane with the levels, its routes are its `ROUTED_TO` links (who got what it bought) and its pools are the ends of its `SWAPPED` links.
 
 ```cypher
 USE topology
@@ -473,7 +484,9 @@ RETURN b.address AS recipient, s.sold_usd AS sold_usd, s.bought_usd AS bought_us
 
 What a pool is, and who trades through it. A pool is the `:Pool` node label,
 read with `labels(p)`; the `labels` property is a different thing (named
-labels such as a vault), and a pool usually has none. The traders are the
+labels such as a vault), and a pool usually has none. On a lane with the
+levels the traders are the pool's `SWAPPED` links (reference R4L of
+`chain-insights-dex`). On the graph of before they are the
 senders into the pool on `FLOWED_TO`, ranked by `tx_count`: one read, and that
 is the answer. Add no swap check: `SWAPPED` filtered on `s.pools`, on a list
 of traders or on the pool times out, and a busy trader's swap links time out
@@ -572,7 +585,7 @@ trader who used it. Every trace follows this rule:
 4. Across a swap, follow `SWAPPED` from payer to recipient, between two
    different addresses. Do not walk through the pool.
 
-So a walk never starts at a pool and never passes through one. It may end at one. Guard the start with `WHERE NOT a:Pool` and each address in the middle with `WHERE NOT via:Pool`, and follow `FLOWED_TO|SWAPPED`, as above.
+So a walk never starts at a pool and never passes through one. It may end at one. Guard the start with `WHERE NOT a:Pool` and each address in the middle with `WHERE NOT via:Pool`, and follow `FLOWED_TO|SWAPPED`, as above. On a lane with the levels, step 4 follows `ROUTED_TO` from payer to receiver.
 
 ### Exchange stop
 

@@ -10,11 +10,18 @@
  *
  * The description below is the contract with every host, Claude Desktop chat
  * included, which reads no skill: it carries the rule the exchange skills open
- * with. tests/host-parity.test.ts holds it to the skills' trigger words.
+ * with, and the level rule. tests/host-parity.test.ts holds it to the skills'
+ * trigger words and to the level rule.
+ *
+ * The first reads follow the lane's graph shape (`linkShape`, read from
+ * meta_network_capabilities): on a lane whose money family lists ROUTED_TO the
+ * reads name SWAPPED from a trader to the pool and ROUTED_TO for the route; on
+ * any other lane they are the reads of chain-insights 0.81.0, byte for byte.
  */
 
 import { ANSWER_HINT } from './answer-hint.js'
 import { recipeFor, TRAIL_SKILLS, type RecipeStep, poolsByFactoryQuery } from './dex-recipes.js'
+import { LEVEL_RULE, type SwapLinkShape } from './layer-routing.js'
 import {
   DexRegistryError,
   matchDex,
@@ -42,7 +49,8 @@ export const META_DEX_LOOKUP_DESCRIPTION =
   'When the user gives a contract address instead of a name, send it as address (0x plus 40 hex, ' +
   'any case, with no name): the answer is the exchange whose factory, router or manager it is, ' +
   'and took_for names the role it holds. When matched is null no exchange row holds the address: ' +
-  'send no read for it. A centralized exchange (Binance, OKX, Bitget) goes to meta_exchange_lookup instead. Give a name or an address, not both.'
+  'send no read for it. A centralized exchange (Binance, OKX, Bitget) goes to meta_exchange_lookup instead. Give a name or an address, not both. ' +
+  `${LEVEL_RULE} The first reads follow the lane: where it serves ROUTED_TO, the traders of a pool are its SWAPPED links and the route of a trader is ROUTED_TO.`
 export const META_DEX_LOOKUP_ANNOTATIONS = {
   readOnlyHint: true,
   idempotentHint: true,
@@ -109,6 +117,8 @@ export interface MetaDexLookupResult {
   /** With no name: every covered exchange, with its key, trail type and contracts. */
   exchanges?: CoveredExchange[]
   families: FamilyLag | null
+  /** `levels` on a lane whose money family lists ROUTED_TO; absent on the graph of before. */
+  swap_links?: 'levels'
   /** What a read could not do: a lane that is not reachable, a member that was refused. */
   notes?: string[]
   hint: string
@@ -132,6 +142,11 @@ export interface DexToolDependencies {
   unavailable?: () => Promise<string | undefined> | string | undefined
   /** The text of a call that threw: payment required, transport. */
   describeFailure: (err: unknown) => string
+  /**
+   * The shape of the lane's swap links, read from meta_network_capabilities.
+   * Absent, or a read that fails, means the graph of before (`route`).
+   */
+  linkShape?: (network: string) => Promise<SwapLinkShape> | SwapLinkShape
 }
 
 export type MetaDexLookupToolResult = {
@@ -285,11 +300,18 @@ function readMatch(
 
 const ADDRESS_FORM = /^0x[0-9a-fA-F]{40}$/
 
+/** The hint's last rule on a lane with the levels; the graph of before keeps its 0.81.0 text. */
+const LEVELS_HINT =
+  `${LEVEL_RULE} Read families before a whole-chain SWAPPED search: it is sent when behind_dex is at most 100000, and a ROUTED_TO search when behind_money is. Never ask the user for an address.`
+const ROUTE_HINT =
+  'Read families before a SWAPPED search: it is sent when behind_dex is at most 100000. Never ask the user for an address.'
+
 function hintFor(
   result: Omit<MetaDexLookupResult, 'hint'>,
   name: string | null,
   address: string | null = null
 ): string {
+  const closing = result.swap_links === 'levels' ? LEVELS_HINT : ROUTE_HINT
   if (address !== null && !result.matched) {
     return `${ANSWER_HINT} No exchange row holds ${address}: it is not a registered exchange contract. Send no exchange read for it; read the graph for what the address did.`
   }
@@ -299,7 +321,7 @@ function hintFor(
       `${ANSWER_HINT} Say in one line: "${address} is a ${result.took_for} row of ${matched.display}." Ask nothing. ` +
       `Exchange ${matched.display}, trail ${matched.trail_type}: send the first reads of recipe, ` +
       `anchored on the addresses above, and load ${matched.skill} when this host has skills. ` +
-      'Read families before a SWAPPED search: it is sent when behind_dex is at most 100000. Never ask the user for an address.'
+      closing
     )
   }
   if (name === null) {
@@ -313,7 +335,7 @@ function hintFor(
     return (
       `${ANSWER_HINT} ${took}Exchange ${matched.display}, trail ${matched.trail_type}: send the first reads of recipe, ` +
       `anchored on the addresses above, and load ${matched.skill} when this host has skills. ` +
-      'Read families before a SWAPPED search: it is sent when behind_dex is at most 100000. Never ask the user for an address.'
+      closing
     )
   }
   if (result.candidates.length > 0) {
@@ -452,6 +474,14 @@ export async function handleMetaDexLookup(
       notes.push(`The graph reads failed: ${deps.describeFailure(err)}`)
     }
   }
+  let shape: SwapLinkShape = 'route'
+  if (!unavailable && deps.linkShape) {
+    try {
+      shape = await deps.linkShape(network)
+    } catch {
+      shape = 'route'
+    }
+  }
   const read = readMatch(entry, members, members.size > 0)
   notes.push(...read.notes)
   const contractsOf = (role: Role): ContractRow[] =>
@@ -466,7 +496,7 @@ export async function handleMetaDexLookup(
     routers: contractsOf('router'),
     manager: contractsOf('manager')[0] ?? null,
     pools: read.pools,
-    recipe: recipeFor(entry, topPool),
+    recipe: recipeFor(entry, topPool, shape),
   }
   const result = {
     ...base,
@@ -475,6 +505,7 @@ export async function handleMetaDexLookup(
     candidates: [],
     covered: match.covered,
     families: read.families,
+    ...(shape === 'levels' ? { swap_links: 'levels' as const } : {}),
     ...(notes.length > 0 ? { notes } : {}),
   }
   return textResult({ ...result, hint: hintFor(result, name, address) })

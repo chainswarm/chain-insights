@@ -88,9 +88,12 @@ function refusal(code: string, text: string) {
   }
 }
 
-// The recording of 2026-10-06 predates SWEPT (layer cex_sweeps): a build
+// The recording of 2026-10-06 predates SWEPT (layer cex_sweeps) and ROUTED_TO
+// (layer routed): a build
 // against it samples every main link type but that one.
-const RECORDED_LINK_TYPES = SAMPLED_LINK_TYPES.filter((type) => type !== 'SWEPT')
+const RECORDED_LINK_TYPES = SAMPLED_LINK_TYPES.filter(
+  (type) => type !== 'SWEPT' && type !== 'ROUTED_TO'
+)
 
 const readsOfOneBuild = [
   CAPABILITIES,

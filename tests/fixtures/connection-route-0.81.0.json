@@ -1,0 +1,33 @@
+{
+  "recorded_from": "chain-insights 0.81.0, connectionRouteQueries in src/investigation/public-tools.ts at f88ba38",
+  "cases": [
+    {
+      "address": "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c",
+      "compare": "0x7e3702e9dfaa847f9829a258f1e26fa431160662",
+      "queries": [
+        {
+          "id": "connection_route_outbound",
+          "query": "MATCH p = SHORTEST 1 (a:Address {address: \"0x31a817802ee183eb8b13167ffe24bd28dcc6f30c\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: \"0x7e3702e9dfaa847f9829a258f1e26fa431160662\"}) RETURN p LIMIT 1"
+        },
+        {
+          "id": "connection_route_inbound",
+          "query": "MATCH p = SHORTEST 1 (a:Address {address: \"0x7e3702e9dfaa847f9829a258f1e26fa431160662\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: \"0x31a817802ee183eb8b13167ffe24bd28dcc6f30c\"}) RETURN p LIMIT 1"
+        }
+      ]
+    },
+    {
+      "address": "a\"b",
+      "compare": "c",
+      "queries": [
+        {
+          "id": "connection_route_outbound",
+          "query": "MATCH p = SHORTEST 1 (a:Address {address: \"a\\\"b\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: \"c\"}) RETURN p LIMIT 1"
+        },
+        {
+          "id": "connection_route_inbound",
+          "query": "MATCH p = SHORTEST 1 (a:Address {address: \"c\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: \"a\\\"b\"}) RETURN p LIMIT 1"
+        }
+      ]
+    }
+  ]
+}

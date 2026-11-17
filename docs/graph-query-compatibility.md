@@ -268,7 +268,18 @@ on the deposit, never on a hot wallet. A trail that reaches it ends there.
 
 Swap attribution is read from `SWAPPED`, the aggregate (`strength`, pools,
 families), or from the facts `SWAP` row, one route. `FLOWED_TO` carries value
-only.
+only. That is the graph of before.
+
+Money is read on three levels: level 2 (`FLOWED_TO`, `ROUTED_TO`) traces money, one link per pair of addresses in USD, level 1 (`TRANSFERRED`, `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`) holds the assets and the pools, and a single transaction is a `USE facts` row.
+
+On a lane whose `money` family lists `ROUTED_TO`, a route is `ROUTED_TO`: one
+link per payer and receiver, a self link when they are one address, with
+`tx_count`, `swap_count`, `amount_usd_sum` (given), `bought_usd_sum` (got),
+`unpriced_count`, `first_seen_timestamp` and `last_seen_timestamp`, and no
+asset and no pool. `SWAPPED` runs from the trader to one pool, one link per
+asset pair, with the pool's own `sold_amount_raw`, `bought_amount_raw`,
+`sold_usd` and `bought_usd`, and no `pools`, `families` or `strength`. A trace
+walks `FLOWED_TO|ROUTED_TO`.
 
 ### `LINKED` and `BRIDGED` properties
 
@@ -291,7 +302,7 @@ asset, with `asset` and `amount_raw_sum` (and `fees_raw_sum` on a removal).
 | Open target       | `MATCH SHORTEST 1 (a:Address {address: $addr} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"]) (()-[:FLOWED_TO\|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dead"] AND NOT via:Exchange){0,4} ()-[:FLOWED_TO\|SWAPPED]-(b:Address)`                      | ✅ upper bound ≤ 5 |
 
 Every form above carries the pool guard and walks `SWAPPED` beside
-`FLOWED_TO`. `WHERE NOT a:Pool` keeps the walk from starting at a `:Pool`, the
+`FLOWED_TO` (`ROUTED_TO` on a lane with the levels). `WHERE NOT a:Pool` keeps the walk from starting at a `:Pool`, the
 inner `WHERE NOT via:Pool` keeps each address in the middle of the walk off
 one, and `SWAPPED` crosses a swap from payer to recipient, per the
 [pool trace rule](../skills/chain-insights-cypher/SKILL.md#pool-trace-rule).
@@ -380,6 +391,8 @@ by it, is refused. The route of a swap stays a topology question.
   `SWAPPED.families` on `USE topology`, anchored on the payer or the recipient.
   `SWAPPED` has one link per payer, recipient, sold asset and bought asset, so
   its `pools` cover every route on the link, not one route.
+  On a lane with the levels, `SWAPPED` has no `pools`: the pools are the pool
+  ends of the address's `SWAPPED` links.
 - Read `SWAP` rows by `tx_id`, or by the payer, the recipient and one day.
   `route_id` stays on the row. It ties every leg of one route together and names
   no pool.

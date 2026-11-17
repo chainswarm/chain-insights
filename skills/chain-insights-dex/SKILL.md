@@ -156,32 +156,39 @@ hop (`DEPLOYED_CONTRACT` into the pool) and find that factory in the list
 
 ## The plain trail
 
-For a `plain` row (Metric, Curve, Trader Joe, Uniswap v3), a swap pays the
-pool and the pool pays the buyer:
+For a `plain` row (Metric, Curve, Trader Joe, Uniswap v3), a swap pays the pool and the
+pool pays the buyer.
+
+Money is read on three levels: level 2 (`FLOWED_TO`, `ROUTED_TO`) traces money, one link per pair of addresses in USD, level 1 (`TRANSFERRED`, `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`) holds the assets and the pools, and a single transaction is a `USE facts` row.
+
+Which reads apply follows the lane. `meta_dex_lookup` says `swap_links:
+levels` where the lane serves `ROUTED_TO`; with no `swap_links` the lane has
+the graph of before.
 
 ```
- seller ──FLOWED_TO──▶ pool        seller ──SWAPPED──▶ buyer
+ levels:  trader ──SWAPPED──▶ pool        trader ──ROUTED_TO──▶ buyer
+ before:  seller ──FLOWED_TO──▶ pool      seller ──SWAPPED────▶ buyer
 ```
 
-1. **Sellers into the pool** (reference R4): the senders of the pool on
-   `FLOWED_TO`, ranked by lifetime volume. A seller that is a contract is
-   often an aggregator or a router: say "a contract", never "a trader". A
-   seller that carries `SelfTrader` is a self-trading contract, such as an
-   arbitrage or market-making bot: say so, never "a trader". It trades for
-   itself: its swaps are on its self link, and there is no buyer to name. A
-   sender that also adds liquidity to the pool pays its deposits on this
-   link: it is a liquidity provider, not a seller.
-2. **Who bought** (reference R5): the seller's `SWAPPED` links. Keep the
-   links whose `pools` hold the pool. The recipient is the buyer: an account
-   that is not the seller is someone the seller paid through the swap. When
-   it is an account, send no second read.
-3. **When the recipient is a contract**, look it up in the
-   `meta_dex_lookup` result or the memo. A router of
-   a gauge row loads `chain-insights-dex-gauge`. A pool manager of a vault
-   row loads `chain-insights-dex-vault`. Never call that contract the buyer.
-4. **The events** behind a link (reference R6): the facts `SWAP` rows of the
-   seller and the recipient on one day. The day comes from the link's
-   `last_seen_height`, read as a block on `USE chain` (reference R7).
+1. **Traders at the pool.** Levels: its `SWAPPED` links (reference R4L),
+   ranked by sold USD. Before: its senders on `FLOWED_TO` (R4), ranked by
+   lifetime volume; a sender that also adds liquidity is a liquidity
+   provider, not a seller. A trader that is a contract is often an
+   aggregator or a router: say "a contract". One that carries `SelfTrader`
+   is a self-trading contract, such as an arbitrage bot: it trades for
+   itself, on its self link, and there is no buyer to name.
+2. **Who bought.** Levels: the trader's `ROUTED_TO` links (R5L); the
+   receiver is the buyer, and a link to the trader itself means it bought
+   for itself. Before: the trader's `SWAPPED` links (R5), kept where `pools`
+   hold the pool; the recipient is the buyer. An account as buyer needs no
+   second read.
+3. **When the buyer is a contract**, look it up in the `meta_dex_lookup`
+   result or the memo. A router of a gauge row loads
+   `chain-insights-dex-gauge`, a pool manager of a vault row
+   `chain-insights-dex-vault`. Never call that contract the buyer.
+4. **The events** behind a link (R6): the facts `SWAP` rows of the trader
+   and the buyer on one day. The day comes from the link's `last_seen_height`
+   (R7), or from the `_utc` twin of a `ROUTED_TO` link's `last_seen_timestamp`.
 
 ## How to answer
 

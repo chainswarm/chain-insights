@@ -1,6 +1,6 @@
 {
  "generated_by": "scripts/generate-query-corpus.mjs",
- "entry_count": 62,
+ "entry_count": 64,
  "entries": [
   {
    "builder": "addressFeatureQuery",
@@ -42,6 +42,26 @@
    },
    "scope": "topology",
    "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[r:FLOWED_TO]-(b:Address {address: \"corpus-address-b\"}) RETURN [a.address, b.address] AS addresses, 1 AS hops LIMIT 5"
+  },
+  {
+   "builder": "connectionRouteQueries",
+   "params": {
+    "address": "corpus-address-a",
+    "compare": "corpus-address-b",
+    "shape": "levels"
+   },
+   "scope": "topology",
+   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"corpus-address-a\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|ROUTED_TO]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]){0,4} ()-[:FLOWED_TO|ROUTED_TO]-(b:Address {address: \"corpus-address-b\"}) RETURN p LIMIT 1"
+  },
+  {
+   "builder": "connectionRouteQueries",
+   "params": {
+    "address": "corpus-address-a",
+    "compare": "corpus-address-b",
+    "shape": "levels"
+   },
+   "scope": "topology",
+   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"corpus-address-b\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|ROUTED_TO]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]){0,4} ()-[:FLOWED_TO|ROUTED_TO]-(b:Address {address: \"corpus-address-a\"}) RETURN p LIMIT 1"
   },
   {
    "builder": "connectionRouteQueries",

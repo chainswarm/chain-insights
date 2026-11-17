@@ -241,7 +241,10 @@ The address-grain graph schema:
   addresses), \`tx_in_count\`/\`tx_out_count\`/\`tx_total_count\`,
   \`total_in_usd\`/\`total_out_usd\`/\`total_volume_usd\`, \`net_flow_usd\`
   (in minus out; positive = net receiver) — all computed from external
-  flows only — and \`first_activity_timestamp\`/
+  flows only; on a lane whose money family lists \`ROUTED_TO\` they count
+  funds between addresses (\`FLOWED_TO\`) only, not swaps, so what an
+  address got from a swap is on its \`ROUTED_TO\` links
+  (\`bought_usd_sum\`) — and \`first_activity_timestamp\`/
   \`last_activity_timestamp\`/\`activity_span_days\`, which include all
   flows (self-loops included). FLOWED_TO edges serve four fields:
   \`tx_count\`, \`amount_usd_sum\` (total money flow, token and native value

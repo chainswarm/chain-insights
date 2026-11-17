@@ -122,8 +122,9 @@ Run them in this order. Each step names its query in reference.md.
 1. Rank creators (A1). Pick the creator wallet.
 2. List its agents, or sample them by `tx_id` order (A2).
 3. Its first funding (A3) and chain of origin (A4).
-4. Money in, out and kept (A5). A wallet that forwards everything it
-   receives is a launch service, not a profiteer.
+4. Money in, out and kept (A5), plus its swaps (A5L) on a lane with the
+   levels. A wallet that forwards everything it receives is a launch
+   service, not a profiteer.
 5. Two hops back: repeat A3 on the funders. Stop at a hub, a bridge or
    an exchange.
 
@@ -145,6 +146,11 @@ Run them in this order. Each step names its query in reference.md.
 6. Ownership links the graph already holds (C5).
 
 ## Traps
+
+- Money is read on three levels: level 2 (`FLOWED_TO`, `ROUTED_TO`) traces money, one link per pair of addresses in USD, level 1 (`TRANSFERRED`, `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`) holds the assets and the pools, and a single transaction is a `USE facts` row. Where `meta_dex_lookup` says `swap_links: levels`,
+  a `SWAPPED` link runs from a trader to one pool, so B2 names the pool, not
+  a recipient, and the wallet's `ROUTED_TO` links name who got what it
+  bought.
 
 - A creation transfer of 0 VIRTUAL is normal. Most creations by a mass
   creator carry no fee.
