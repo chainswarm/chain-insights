@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: dex-orvex
+tags: [dex, by-name, plan-only]
 expected_outcome: The agent resolves Orvex with meta_dex_lookup first, the memo only when the tool is absent, with no address from the user, loads the vault trail, names the pool manager as the manager, and reads the buyer from the recipient of the facts SWAP row of the seller and the manager on one day, never with a topology hop out of the manager.
 execution:
   prompt: |

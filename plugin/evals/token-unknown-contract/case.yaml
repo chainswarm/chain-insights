@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: token-unknown-contract
+tags: [cypher, marks, pasted-answer]
 expected_outcome: After an anchor_missing refusal whose fix names a token contract, the answer says the graph holds no token at that contract, names the contract in full, asks the user to check it, and never asks for an address or blames a family being behind.
 execution:
   prompt: |

@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: plain-words-not-columns
+tags: [cypher, answer-rules, pasted-answer]
 expected_outcome: The answer says what the values mean in plain words and never prints a graph column name such as is_contract, delegated_to, code_size or nonce.
 execution:
   prompt: |

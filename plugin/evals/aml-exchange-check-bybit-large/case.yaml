@@ -1,0 +1,62 @@
+# Written by scripts/render-deposit-evals.mjs from
+# plugin/evals/datasets/aml-exchange-check.json. Edit the dataset, not this file.
+schema_version: "1.0"
+name: aml-exchange-check-bybit-large
+description: 'A Bybit deposit with three large sweeps.'
+tags: [aml-exchange, deposit-check, tool-call, expect-deposit, ask-trail]
+expected_outcome: 'The agent calls aml_exchange_deposit_check with the address, says it is a deposit address of Bybit, names the hot wallet it was swept into in full (0xc0e17ad342afabd36b3971f8305ff147006962ae), and ends on "VERDICT: deposit".'
+execution:
+  prompt: |
+    Where did the money that reached 0x640ffbe7c3e7556e0581e59c6010b51b5bb0887f
+    go, on Robinhood Chain? Is that address an exchange deposit address? Use
+    Chain Insights.
+
+    End your answer with one line, exactly one of these four:
+    VERDICT: deposit
+    VERDICT: exchange-wallet
+    VERDICT: not-deposit
+    VERDICT: not-found
+    "deposit" is a customer's deposit address of an exchange. "exchange-wallet"
+    is an exchange's own wallet, such as a hot wallet. "not-found" is an address
+    with no activity on this network.
+  max_turns: 12
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: tool_used
+    name: 'check-called'
+    tool: 'mcp__plugin_chain-insights_chain-insights__aml_exchange_deposit_check'
+    input_match: '0[xX]640[fF][fF][bB][eE]7[cC]3[eE]7556[eE]0581[eE]59[cC]6010[bB]51[bB]5[bB][bB]0887[fF]'
+  - type: regex
+    name: 'verdict'
+    weight: 3
+    target: 'last_message'
+    pattern: 'VERDICT:[\s`*]*deposit\b'
+    match: 'contains'
+  - type: regex
+    name: 'one-verdict'
+    target: 'last_message'
+    pattern: 'VERDICT:'
+    match: 'count:1'
+  - type: regex
+    name: 'names-the-exchange'
+    target: 'last_message'
+    pattern: '\bBybit\b'
+    match: 'contains'
+  - type: regex
+    name: 'names-the-hot-wallet'
+    target: 'last_message'
+    pattern: '0xc0e17ad342afabd36b3971f8305ff147006962ae'
+    flags: 'i'
+    match: 'contains'
+  - type: llm
+    name: 'reason-holds'
+    criteria: 'PASS when the reason the answer gives for its verdict is something the tool reported about this address: its deposit mark or its role, its exchange label, its sweep into a hot wallet, the counts of its behaviour, or that it has no mark, no sweep or no activity. These are reported facts too, and PASS: that the address swapped on a DEX, or that it paid addresses that are no exchange wallets, and that a deposit address does not do that. Stating the general profile of a deposit address (one customer, few outside payers, everything sent goes to one exchange, no DEX swaps) is PASS as well. FAIL only when the answer rules this address in or out by a number it made up: that it has too few or too many payers, senders, transactions or sweeps, or too little or too much volume, to be a deposit address.'
+  - type: regex
+    name: 'full-addresses'
+    target: 'last_message'
+    pattern: '0x[0-9a-fA-F]{2,10}(…|\.\.\.)'
+    match: 'not_contains'
+  - type: tool_used
+    name: 'skill-fired'
+    tool: 'Skill'

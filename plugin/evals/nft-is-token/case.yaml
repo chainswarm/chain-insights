@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: nft-is-token
+tags: [cypher, marks, pasted-answer]
 expected_outcome: The answer calls the address an NFT collection, names ERC-721, says it is a token contract (not a wallet), does not call it unlabelled because its labels list is empty, and prints no column names.
 execution:
   prompt: |

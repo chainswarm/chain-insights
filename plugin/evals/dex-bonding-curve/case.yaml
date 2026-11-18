@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: dex-bonding-curve
+tags: [dex, by-name, plan-only]
 expected_outcome: The agent takes the bonding-curve launchpad's factory from meta_dex_lookup, or the memo when the tool is absent,, calls it an unnamed launchpad, reads its launches with the creator from tx_origin, and reads graduation from the first pool, with no invented name.
 execution:
   prompt: |

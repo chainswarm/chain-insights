@@ -1,6 +1,6 @@
 {
   "name": "chain-insights",
-  "version": "0.81.0",
+  "version": "0.81.1",
   "description": "AML investigation CLI and MCP proxy for blockchain risk screening and Chain Insights Graph access",
   "homepage": "https://chain-insights.ai",
   "repository": {
@@ -67,7 +67,9 @@
     "lint": "oxlint src tests",
     "lint:format": "prettier --check .",
     "format": "prettier --write .",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "eval": "node scripts/run-evals.mjs",
+    "eval:deposit": "node scripts/run-evals.mjs --case 'aml-exchange-check-*'"
   },
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "1.7.5",

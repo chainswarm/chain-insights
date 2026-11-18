@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: dex-eth-usdg-router-by-address
+tags: [dex, by-address, pasted-answer]
 expected_outcome: From the meta_dex_lookup answer for the address and one read of where the contract pays, the reply names 0x7a39b98d31f84152bc724bc5ddb41dbcb338f2a5 as the unnamed ETH/USDG swap router, says the wallets paying it are its callers trading ETH and USDG, names the Uniswap v3 WETH/USDG pool 0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca it swaps in, writes every address in full, and invents no exchange name.
 execution:
   prompt: |

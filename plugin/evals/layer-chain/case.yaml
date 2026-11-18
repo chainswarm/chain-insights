@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: layer-chain
+tags: [cypher, routing, plan-only]
 expected_outcome: A transaction by tx_id is a USE chain read of one Transaction node with literal keys, no WHERE.
 execution:
   prompt: |

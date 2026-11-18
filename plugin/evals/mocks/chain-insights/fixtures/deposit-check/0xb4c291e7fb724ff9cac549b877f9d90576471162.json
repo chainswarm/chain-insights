@@ -1,0 +1,57 @@
+{
+  "schema": "chain-insights.aml-exchange-deposit-check.v1",
+  "tool": "aml_exchange_deposit_check",
+  "network": "robinhood",
+  "address": "0xb4c291e7fb724ff9cac549b877f9d90576471162",
+  "found": true,
+  "is_deposit": true,
+  "cex_role": "deposit",
+  "exchange": "bybit",
+  "exchange_display": "Bybit",
+  "labels": [
+    "Exchange",
+    "bybit"
+  ],
+  "swept": [
+    {
+      "hot_wallet": "0xc0e17ad342afabd36b3971f8305ff147006962ae",
+      "hot_wallet_exchange": "bybit",
+      "hot_wallet_role": "hot_wallet",
+      "sweep_count": 2,
+      "amount_usd_sum": 22329.09616121,
+      "paths": [
+        "plain"
+      ],
+      "first_seen": 1790340325000,
+      "first_seen_utc": "2026-09-25 12:45:25 UTC",
+      "last_seen": 1791168631000,
+      "last_seen_utc": "2026-10-05 02:50:31 UTC"
+    },
+    {
+      "hot_wallet": "0x0051ef9259c7ec0644a80e866ab748a2f30841b3",
+      "hot_wallet_exchange": "bybit",
+      "hot_wallet_role": "hot_wallet",
+      "sweep_count": 1,
+      "amount_usd_sum": 1508.46865809,
+      "paths": [
+        "plain"
+      ],
+      "first_seen": 1791506910000,
+      "first_seen_utc": "2026-10-09 00:48:30 UTC",
+      "last_seen": 1791506910000,
+      "last_seen_utc": "2026-10-09 00:48:30 UTC"
+    }
+  ],
+  "behaviour": {
+    "payers": 3,
+    "payers_exchange": 0,
+    "receivers": 3,
+    "receivers_exchange": 2,
+    "dex_pools": 0,
+    "approvals": 0,
+    "count_cap": 5000
+  },
+  "does_not_fit_deposit": [],
+  "deposit_profile": "A deposit address is one customer's: everything it sends goes to the wallets of one exchange (a sweep into a hot wallet), few outside addresses ever pay it, it never swaps on a DEX, and it is no token, pool, router or smart account.",
+  "hint": "Answer: write every address in full (0x plus 40 characters), also when it repeats one named earlier and also when the user asks for shorter ones (name them instead); a transfer moves tokens, so write \"tokens worth about N USD\", never \"sent N USD\" or a $ figure; never draw the flows in text, ASCII or Mermaid, the host draws them. Say: \"0xb4c291e7fb724ff9cac549b877f9d90576471162 is a deposit address of Bybit on robinhood.\" It swept 2 times into the hot wallet 0xc0e17ad342afabd36b3971f8305ff147006962ae, and into 1 more hot wallets (swept lists them). This is where the money entered the exchange: the exchange can name the customer behind the deposit. Its behaviour, as the graph counts it: 3 addresses paid it (0 of them exchange wallets), it paid 3 addresses (2 of them exchange wallets), it swapped on 0 DEX pools, it approved 0 spenders. Money that reaches an exchange deposit with a SWEPT link entered that exchange there: the trail ends at the deposit, and never walks on past a hot wallet. Take an exchange's wallets from meta_exchange_lookup, never from a guess or a graph search by name. Asked how a deposit address behaves, what makes an address one or what rules one out, answer with deposit_profile."
+}

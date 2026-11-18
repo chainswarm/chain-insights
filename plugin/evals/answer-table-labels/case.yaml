@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: answer-table-labels
+tags: [cypher, answer-rules, pasted-answer]
 expected_outcome: A comparison table of two address pairs carries no shortened address anywhere; short labels name the thing and the full addresses are listed above the table.
 execution:
   prompt: |

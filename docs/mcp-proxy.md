@@ -236,9 +236,10 @@ the graph still marks them, and `aml_exchange_deposit_check` reads them there.
 same lookup in a terminal.
 
 `aml_exchange_deposit_check` checks one address. It takes `network` and
-`address` (both required). One `graph_query_batch` sends two reads on
-`USE topology`, both anchored on the address: the address with its
-`cex_role`, and its `SWEPT` links with each hot wallet it swept into.
+`address` (both required). One `graph_query_batch` sends six reads on
+`USE topology`, all anchored on the address: the address with its
+`cex_role`, its `SWEPT` links with each hot wallet it swept into, and four
+counts of its behaviour.
 
 ```mermaid
 flowchart LR
@@ -254,6 +255,23 @@ flowchart LR
 - `swept` lists each hot wallet with the sweep count, the USD sum, the paths
   (`plain`, `gas_topped`, `approval_pull`, `forwarder_flush`,
   `forwarder_batch`) and the first and last sweep, each with its `_utc` twin.
+- `behaviour` holds the counts: `payers` and `payers_exchange` (the addresses
+  that paid it, and how many of them are exchange wallets), `receivers` and
+  `receivers_exchange`, `dex_pools` (the pools it swapped on) and `approvals`
+  (the spenders it approved). A count stops at `count_cap`, 5000, which then
+  reads "5000 or more". A count read that fails leaves its counts `null`; the
+  check still answers.
+- `does_not_fit_deposit` lists what the counts show that a deposit address
+  does not do: a swap on a DEX, a payment to an address that is no exchange
+  wallet. It is empty for a deposit and for an exchange's own wallet. It sets
+  no threshold: how many payers are few is for the deposit rule of the graph
+  to judge.
+- `deposit_profile` says how a deposit address behaves, the same sentence in
+  every answer: it is one customer's, few outside addresses pay it,
+  everything it sends goes to the wallets of one exchange, and it never swaps
+  on a DEX. A host asked what makes an address a deposit answers with it. The
+  graph judges an address against it. The verdict is `is_deposit`, `cex_role`
+  and `swept`; the counts are the facts behind it.
 - A trail that reaches a deposit ends there: the exchange can name the
   customer behind it. A failed read is an error that says it is not "no
   deposit". The batch is billed as any read.

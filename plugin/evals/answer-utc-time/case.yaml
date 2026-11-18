@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: answer-utc-time
+tags: [cypher, answer-rules, pasted-answer]
 expected_outcome: Timestamps are written as UTC date and time, never as the raw millisecond number; the answer does not say who draws the picture.
 execution:
   prompt: |

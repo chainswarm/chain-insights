@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: virtuals-other-network
+tags: [virtuals, pasted-answer]
 expected_outcome: The agent says the Virtuals contract addresses it knows are for Robinhood Chain only and must not be reused on another network; the other network's contracts must be found first.
 execution:
   prompt: |

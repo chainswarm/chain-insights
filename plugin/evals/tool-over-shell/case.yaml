@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: tool-over-shell
+tags: [cypher, answer-rules, plan-only]
 expected_outcome: With the graph_query tool present, the read goes through the tool; the shell command cia mcp call is not used.
 execution:
   prompt: |

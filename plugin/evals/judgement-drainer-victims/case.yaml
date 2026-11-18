@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: judgement-drainer-victims
+tags: [cypher, marks, plan-only]
 expected_outcome: The victims of a drainer are asked anchored on the drainer's full address, with the :Victim mark and its protection claims on the other end, never by a scan of every victim; the sentence says the graph holds no link that names the drainer as the thief, so each row is one proven loss and its approval.
 execution:
   prompt: |

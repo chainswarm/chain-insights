@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: launchpad-by-mark
+tags: [cypher, marks, plan-only]
 expected_outcome: Launchpad pools are asked for by the :Launchpad mark (with :Pool), never by a text match over the labels property and never by walking FLOWED_TO.
 execution:
   prompt: |

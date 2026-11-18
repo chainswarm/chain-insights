@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: bridged-per-asset
+tags: [cypher, reads, pasted-answer]
 expected_outcome: The agent reads the address's BRIDGED links to Chain nodes and returns kind, asset and amount_raw_sum per link, because there is one link per event kind and asset, and never reads a kinds list or a totals_raw map.
 execution:
   prompt: |

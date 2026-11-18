@@ -1,0 +1,28 @@
+{
+  "schema": "chain-insights.aml-exchange-deposit-check.v1",
+  "tool": "aml_exchange_deposit_check",
+  "network": "robinhood",
+  "address": "0xc0e17ad342afabd36b3971f8305ff147006962ae",
+  "found": true,
+  "is_deposit": false,
+  "cex_role": "hot_wallet",
+  "exchange": "bybit",
+  "exchange_display": "Bybit",
+  "labels": [
+    "Exchange",
+    "bybit"
+  ],
+  "swept": [],
+  "behaviour": {
+    "payers": 285,
+    "payers_exchange": 208,
+    "receivers": 362,
+    "receivers_exchange": 26,
+    "dex_pools": 0,
+    "approvals": 0,
+    "count_cap": 5000
+  },
+  "does_not_fit_deposit": [],
+  "deposit_profile": "A deposit address is one customer's: everything it sends goes to the wallets of one exchange (a sweep into a hot wallet), few outside addresses ever pay it, it never swaps on a DEX, and it is no token, pool, router or smart account.",
+  "hint": "Answer: write every address in full (0x plus 40 characters), also when it repeats one named earlier and also when the user asks for shorter ones (name them instead); a transfer moves tokens, so write \"tokens worth about N USD\", never \"sent N USD\" or a $ figure; never draw the flows in text, ASCII or Mermaid, the host draws them. Say: \"0xc0e17ad342afabd36b3971f8305ff147006962ae is a hot wallet of Bybit on robinhood, not a deposit address.\" A trail that reaches it has entered the exchange: end the trail there. Asked how a deposit address behaves, what makes an address one or what rules one out, answer with deposit_profile."
+}

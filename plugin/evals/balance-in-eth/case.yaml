@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: balance-in-eth
+tags: [cypher, routing, plan-only]
 expected_outcome: A native balance is told in ETH from the balance_eth twin, never as the raw wei count the chain serves.
 execution:
   prompt: |

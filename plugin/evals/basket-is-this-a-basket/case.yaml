@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: basket-is-this-a-basket
+tags: [cypher, reads, plan-only]
 expected_outcome: Whether an address is a stock basket is asked of that one address, by its own labels or by the basket factory having created it, never by a text scan over labels.
 execution:
   prompt: |

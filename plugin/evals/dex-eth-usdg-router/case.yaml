@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: dex-eth-usdg-router
+tags: [dex, by-name, plan-only]
 expected_outcome: The agent takes the unnamed ETH/USDG swap router from meta_dex_lookup, or the memo when the tool is absent, with no address from the user, calls it an unnamed router, reads the pools it pays on FLOWS_TO anchored on the router, reads the callers' swaps as SWAPPED links, never calls the router the trader, and invents no exchange name.
 execution:
   prompt: |

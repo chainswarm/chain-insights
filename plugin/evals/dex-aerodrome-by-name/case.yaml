@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: dex-aerodrome-by-name
+tags: [dex, by-name, plan-only]
 expected_outcome: The agent turns "Aerodrome" into Aero with a meta_dex_lookup call before any graph query, scans no :Protocol, :Pool or labels by name, asks the user for no address, and plans the router trail of the gauge skill from the addresses the tool returns.
 execution:
   prompt: |

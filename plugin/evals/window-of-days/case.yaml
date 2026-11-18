@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: window-of-days
+tags: [cypher, routing, pasted-answer]
 expected_outcome: The plan starts with one topology read bounded by first_seen and last_seen against the window, uses lifetime totals for links inside the window, and reads per-day totals only for links that straddle an edge.
 execution:
   prompt: |

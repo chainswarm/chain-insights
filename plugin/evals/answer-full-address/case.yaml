@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: answer-full-address
+tags: [cypher, answer-rules, pasted-answer]
 expected_outcome: Every address in the answer is written in full, 42 characters, including repeat mentions; no query text and no Ref line.
 execution:
   prompt: |

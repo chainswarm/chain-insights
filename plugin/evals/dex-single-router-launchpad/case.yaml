@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: dex-single-router-launchpad
+tags: [dex, by-name, plan-only]
 expected_outcome: The agent takes the single-router bonding-curve launchpad's token factory and router from meta_dex_lookup, or the memo when the tool is absent, with no address from the user, calls it an unnamed launchpad, reads the launches with the creator from tx_origin, reads the trades as SWAPPED links into the router, never calls the router the buyer, and invents no name.
 execution:
   prompt: |

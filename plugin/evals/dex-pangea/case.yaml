@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: dex-pangea
+tags: [dex, by-name, plan-only]
 expected_outcome: The agent takes the Pangea launch factory from meta_dex_lookup, or the memo when the tool is absent, with no address from the user, reads the graph anchored on what the lookup names, and invents no other exchange name.
 execution:
   prompt: |

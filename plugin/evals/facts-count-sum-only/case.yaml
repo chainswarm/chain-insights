@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: facts-count-sum-only
+tags: [cypher, routing, plan-only]
 expected_outcome: A smallest-transfer question on a pair and a day is a facts read of the rows (or count/sum), never a min() aggregate or a grouping key on facts.
 execution:
   prompt: |

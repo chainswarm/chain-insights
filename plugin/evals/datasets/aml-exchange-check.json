@@ -1,0 +1,245 @@
+{
+  "schema": "chain-insights.eval-dataset.v1",
+  "name": "aml-exchange-check",
+  "network": "robinhood",
+  "about": "Twenty-five addresses for aml_exchange_deposit_check: marked deposits, exchange hot wallets, look-alikes that carry no deposit mark, and third-party claims with no proof. The expected class is what the recorded tool answer says; scripts/render-deposit-evals.mjs writes one eval case per row.",
+  "recorded_on": "2026-11-18",
+  "also_record": [
+    "0x64ba5fafa7a6e1991f7f60c9b594a7131a784540"
+  ],
+  "rows": [
+    {
+      "id": "bitget-one-sweep",
+      "expect": "deposit",
+      "ask": "plain",
+      "address": "0xc5c9ffb10bdf2b201066d41766f9c6ffc09f4f34",
+      "exchange": "Bitget",
+      "hot_wallets": [
+        "0xed9ab5bc05a0152b9dc2f7902e8369af7bc18771"
+      ],
+      "note": "A Bitget deposit, swept once."
+    },
+    {
+      "id": "bitget-four-sweeps",
+      "expect": "deposit",
+      "ask": "mention",
+      "address": "0xfc67c6de24538107a141d7f23e70c504c92aae87",
+      "exchange": "Bitget",
+      "hot_wallets": [
+        "0xed9ab5bc05a0152b9dc2f7902e8369af7bc18771"
+      ],
+      "note": "A Bitget deposit, swept four times."
+    },
+    {
+      "id": "bybit-four-sweeps",
+      "expect": "deposit",
+      "ask": "behaviour",
+      "address": "0x917876ff0b10f394f8ef61e2694f495be66fd9cd",
+      "exchange": "Bybit",
+      "hot_wallets": [
+        "0xc0e17ad342afabd36b3971f8305ff147006962ae"
+      ],
+      "note": "A Bybit deposit, swept four times."
+    },
+    {
+      "id": "bybit-large",
+      "expect": "deposit",
+      "ask": "trail",
+      "address": "0x640ffbe7c3e7556e0581e59c6010b51b5bb0887f",
+      "exchange": "Bybit",
+      "hot_wallets": [
+        "0xc0e17ad342afabd36b3971f8305ff147006962ae"
+      ],
+      "note": "A Bybit deposit with three large sweeps."
+    },
+    {
+      "id": "bybit-two-hot-wallets",
+      "expect": "deposit",
+      "ask": "plain",
+      "address": "0xf4016144ceef9c1733039916a408d0279c106d21",
+      "exchange": "Bybit",
+      "hot_wallets": [
+        "0xc0e17ad342afabd36b3971f8305ff147006962ae",
+        "0x0051ef9259c7ec0644a80e866ab748a2f30841b3"
+      ],
+      "note": "A Bybit deposit swept into two Bybit hot wallets."
+    },
+    {
+      "id": "bybit-claimed-as-binance",
+      "expect": "deposit",
+      "ask": "claim",
+      "address": "0xb4c291e7fb724ff9cac549b877f9d90576471162",
+      "exchange": "Bybit",
+      "hot_wallets": [
+        "0xc0e17ad342afabd36b3971f8305ff147006962ae",
+        "0x0051ef9259c7ec0644a80e866ab748a2f30841b3"
+      ],
+      "claimed": "Binance",
+      "note": "A deposit, but of Bybit: the claim names the wrong exchange."
+    },
+    {
+      "id": "gate-plain",
+      "expect": "deposit",
+      "ask": "claim",
+      "address": "0x8083a5b2ce5f745d982c712cea67de7af503f434",
+      "exchange": "Gate",
+      "hot_wallets": [
+        "0x0d0707963952f2fba59dd06f2b425ace40b492fe"
+      ],
+      "claimed": "Gate",
+      "note": "A Gate deposit that paid its own fee; the claim is right."
+    },
+    {
+      "id": "gate-gas-topped",
+      "expect": "deposit",
+      "ask": "plain",
+      "address": "0xf4fe806e450c980d6fcd7e2c3760b925bd187dcf",
+      "exchange": "Gate",
+      "hot_wallets": [
+        "0x0d0707963952f2fba59dd06f2b425ace40b492fe"
+      ],
+      "note": "A Gate deposit the exchange sent the fee to first."
+    },
+    {
+      "id": "bitunix-plain",
+      "expect": "deposit",
+      "ask": "mention",
+      "address": "0x4741be4f260d39f27c6b5ba53d43bdb8c3a93f7b",
+      "exchange": "Bitunix",
+      "hot_wallets": [
+        "0x6fe39f2831caf58529779efdb73341aa64df50ab"
+      ],
+      "note": "A Bitunix deposit, swept once."
+    },
+    {
+      "id": "bitunix-gas-topped",
+      "expect": "deposit",
+      "ask": "behaviour",
+      "address": "0xc0288c867bfa0fbe9a222f066f3d749bea6f7f05",
+      "exchange": "Bitunix",
+      "hot_wallets": [
+        "0x6fe39f2831caf58529779efdb73341aa64df50ab"
+      ],
+      "note": "A Bitunix deposit the exchange sent the fee to first."
+    },
+    {
+      "id": "blofin-four-sweeps",
+      "expect": "deposit",
+      "ask": "trail",
+      "address": "0x71c364165f081d6cf4b9d42470efd891bc54d785",
+      "exchange": "BloFin",
+      "hot_wallets": [
+        "0x7ff8bbf9c8ab106db589e7863fb100525f61cce5"
+      ],
+      "note": "A BloFin deposit, swept four times."
+    },
+    {
+      "id": "hot-wallet-bitget",
+      "expect": "exchange-wallet",
+      "ask": "plain",
+      "address": "0xed9ab5bc05a0152b9dc2f7902e8369af7bc18771",
+      "exchange": "Bitget",
+      "note": "The Bitget hot wallet: an exchange wallet, never a deposit."
+    },
+    {
+      "id": "hot-wallet-bybit-claimed-deposit",
+      "expect": "exchange-wallet",
+      "ask": "claim",
+      "address": "0xc0e17ad342afabd36b3971f8305ff147006962ae",
+      "exchange": "Bybit",
+      "claimed": "Bybit",
+      "note": "The Bybit hot wallet, claimed to be a deposit."
+    },
+    {
+      "id": "hot-wallet-gate",
+      "expect": "exchange-wallet",
+      "ask": "behaviour",
+      "address": "0x0d0707963952f2fba59dd06f2b425ace40b492fe",
+      "exchange": "Gate",
+      "note": "The Gate hot wallet."
+    },
+    {
+      "id": "pays-only-a-hot-wallet",
+      "expect": "not-deposit",
+      "ask": "behaviour",
+      "address": "0x95ec0051bd1f6ce5184970669c10116e47949dd3",
+      "note": "Pays an exchange hot wallet and nothing else, yet carries no deposit mark."
+    },
+    {
+      "id": "pays-a-hot-wallet-claimed-deposit",
+      "expect": "not-deposit",
+      "ask": "claim",
+      "address": "0x43e21e2282f86b0480a075d04baaf31416c4d485",
+      "claimed": "Bybit",
+      "note": "Pays an exchange hot wallet directly, claimed to be a deposit, no deposit mark."
+    },
+    {
+      "id": "dex-trader-with-withdrawals",
+      "expect": "not-deposit",
+      "ask": "plain",
+      "address": "0x2f6c24fcace697f8f52d14c94a57e9eb1e2666a1",
+      "note": "A trader on many pools that also received exchange withdrawals."
+    },
+    {
+      "id": "customer-of-a-deposit",
+      "expect": "not-deposit",
+      "ask": "plain",
+      "address": "0x98a3c6c89f58dc7029bc5d304abda44fcd373987",
+      "note": "A wallet that paid into a Bybit deposit: the customer side, not the deposit."
+    },
+    {
+      "id": "ordinary-wallet",
+      "expect": "not-deposit",
+      "ask": "mention",
+      "address": "0xfca4deb4a4a0f9182a2ae91502451005a818f66f",
+      "note": "An ordinary wallet with a few payers and no deposit mark."
+    },
+    {
+      "id": "mass-payer",
+      "expect": "not-deposit",
+      "ask": "plain",
+      "address": "0x1887fa9edadeab7562b01cc3f4fa246ace2c3cdd",
+      "note": "A wallet that pays many thousands of addresses."
+    },
+    {
+      "id": "pool-claimed-deposit",
+      "expect": "not-deposit",
+      "ask": "claim",
+      "address": "0x4a6a85252a6f6b383a5f747259ee157e65ff1307",
+      "claimed": "Gate",
+      "note": "A Uniswap v2 pool, claimed to be a deposit."
+    },
+    {
+      "id": "unproven-claim-bybit",
+      "expect": "not-found",
+      "ask": "claim",
+      "address": "0x9866F491A33ffB6A9301863d5DB9743F794784fa",
+      "claimed": "Bybit",
+      "note": "A third-party claim with no proof: the address has no activity on this network."
+    },
+    {
+      "id": "unproven-claim-binance-mention",
+      "expect": "not-found",
+      "ask": "mention",
+      "address": "0x10f8cce1132d0Ea14cC58ceDB229B0230759dF20",
+      "claimed": "Binance",
+      "note": "A third-party claim with no proof: the address has no activity on this network."
+    },
+    {
+      "id": "unproven-claim-binance",
+      "expect": "not-found",
+      "ask": "claim",
+      "address": "0x08D7b5385EccF4d9d16efB6cE64c5fc939Fd93e1",
+      "claimed": "Binance",
+      "note": "A third-party claim with no proof: the address has no activity on this network."
+    },
+    {
+      "id": "unproven-claim-binance-behaviour",
+      "expect": "not-found",
+      "ask": "behaviour",
+      "address": "0xAAf402dE45f63a7800361d285b82be96dDAc1296",
+      "claimed": "Binance",
+      "note": "A third-party claim with no proof: the address has no activity on this network."
+    }
+  ]
+}

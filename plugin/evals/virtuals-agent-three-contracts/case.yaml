@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: virtuals-agent-three-contracts
+tags: [virtuals, pasted-answer]
 expected_outcome: The agent explains that one Virtuals creation transaction makes three contracts (agent token, starting pool, Uniswap v2 pair) that share the creation tx_id, and finds them with one query over the three factories filtered on that tx_id.
 execution:
   prompt: |

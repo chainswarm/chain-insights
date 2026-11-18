@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: dex-helper-by-address
+tags: [dex, by-address, pasted-answer]
 expected_outcome: From the meta_dex_lookup answer for the address, the reply names 0x220d17d3260f130a4f91a1ba2d21f8f75f624942 as a helper contract of Aero, writes every address in full, and does not call it an unknown contract or a pool.
 execution:
   prompt: |

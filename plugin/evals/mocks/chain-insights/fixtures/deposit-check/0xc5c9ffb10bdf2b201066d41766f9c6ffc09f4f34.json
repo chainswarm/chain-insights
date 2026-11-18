@@ -1,0 +1,43 @@
+{
+  "schema": "chain-insights.aml-exchange-deposit-check.v1",
+  "tool": "aml_exchange_deposit_check",
+  "network": "robinhood",
+  "address": "0xc5c9ffb10bdf2b201066d41766f9c6ffc09f4f34",
+  "found": true,
+  "is_deposit": true,
+  "cex_role": "deposit",
+  "exchange": "bitget",
+  "exchange_display": "Bitget",
+  "labels": [
+    "Exchange",
+    "bitget"
+  ],
+  "swept": [
+    {
+      "hot_wallet": "0xed9ab5bc05a0152b9dc2f7902e8369af7bc18771",
+      "hot_wallet_exchange": "bitget",
+      "hot_wallet_role": "hot_wallet",
+      "sweep_count": 1,
+      "amount_usd_sum": 939.40543608,
+      "paths": [
+        "plain"
+      ],
+      "first_seen": 1790879820000,
+      "first_seen_utc": "2026-10-01 18:37:00 UTC",
+      "last_seen": 1790879820000,
+      "last_seen_utc": "2026-10-01 18:37:00 UTC"
+    }
+  ],
+  "behaviour": {
+    "payers": 1,
+    "payers_exchange": 0,
+    "receivers": 1,
+    "receivers_exchange": 1,
+    "dex_pools": 0,
+    "approvals": 0,
+    "count_cap": 5000
+  },
+  "does_not_fit_deposit": [],
+  "deposit_profile": "A deposit address is one customer's: everything it sends goes to the wallets of one exchange (a sweep into a hot wallet), few outside addresses ever pay it, it never swaps on a DEX, and it is no token, pool, router or smart account.",
+  "hint": "Answer: write every address in full (0x plus 40 characters), also when it repeats one named earlier and also when the user asks for shorter ones (name them instead); a transfer moves tokens, so write \"tokens worth about N USD\", never \"sent N USD\" or a $ figure; never draw the flows in text, ASCII or Mermaid, the host draws them. Say: \"0xc5c9ffb10bdf2b201066d41766f9c6ffc09f4f34 is a deposit address of Bitget on robinhood.\" It swept once into the hot wallet 0xed9ab5bc05a0152b9dc2f7902e8369af7bc18771. This is where the money entered the exchange: the exchange can name the customer behind the deposit. Its behaviour, as the graph counts it: 1 address paid it (0 of them exchange wallets), it paid 1 address (1 of them exchange wallets), it swapped on 0 DEX pools, it approved 0 spenders. Money that reaches an exchange deposit with a SWEPT link entered that exchange there: the trail ends at the deposit, and never walks on past a hot wallet. Take an exchange's wallets from meta_exchange_lookup, never from a guess or a graph search by name. Asked how a deposit address behaves, what makes an address one or what rules one out, answer with deposit_profile."
+}
