@@ -393,9 +393,11 @@ Graph endpoint serves data only:
   the bought asset, never a router or a pool. Its edge carries `link_kind`
   `ROUTED_TO`, `bought_usd` and `swap_count`; a funds edge carries
   `FLOWED_TO`, and a pair with both is one edge, `FLOWED_TO, ROUTED_TO`, with
-  the sums added. The link panel shows the link kind. A swap the address made
-  for itself is a self edge, named in the text answer; the drawing leaves it
-  out. On that lane the answer only says whether more remain (at least one),
+  the sums added. The drawing shows a route as a dashed line with a swap mark,
+  and a pair with both as the funds line with the mark; the legend names the
+  two. A swap the address made for itself is a self edge, named in the text
+  answer and drawn as a note under the address ("Swapped for itself, 3
+  swaps"). On that lane the answer only says whether more remain (at least one),
   because the address counts name funds only. Any other lane gets the reads
   of 0.82.0, byte for byte. Or it takes
   `{network, from, to, day}` to list the transfers between two addresses on one

@@ -23,6 +23,17 @@ All notable changes to Chain Insights are recorded here.
   host to report an `inferred: true` answer as inferred, never as a confirmed
   exchange address. The graph schema note and the routing text name
   `inferred_exchange_role` and `inferred_sources`.
+## [0.83.1] - 2026-11-18 — the picture draws a swap route apart from funds sent
+
+### Changed
+
+- The picture (Chain Insights UI `f13e1e38`): a `ROUTED_TO` link is a dashed
+  line with a swap mark, and a pair with funds and a route is the funds line
+  with the mark. The legend names "Funds sent" and "Swap route: the asset
+  changed on the way" when a route is drawn. The link panel of a route says
+  what the sender gave and what the receiver got, in USD. A swap an address
+  made for itself is a note under the address. A lane with the graph of
+  before draws as it did.
 
 ## [0.83.0] - 2026-11-18 — the picture and the deployer screen follow swap routes
 
