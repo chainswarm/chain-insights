@@ -10,3 +10,4 @@ means.
 | 2026-11-18 | 0.81.1 | haiku-5.5 | 27 | 81 | 100.0 % | 1.00 | +0.59 | 100.0 % | 100.0 % | 0 | 1.78 | exchange cases, with the deposit profile |
 | 2026-11-18 | 0.81.1 | opus-5.5 | 27 | 81 | 100.0 % | 1.00 | +0.51 | 100.0 % | 100.0 % | 0 | 17.47 | exchange cases, with the deposit profile |
 | 2026-11-18 | 0.81.1 | haiku-5.5 | 122 | 366 | 66.7 % | 0.86 | +0.40 | 100.0 % | 100.0 % | 0 | 4.74 | every case |
+| 2026-11-18 | 0.84.0 | haiku | 25 | 75 | 97.3 % | 1.00 | +0.59 | 100.0 % | 100.0 % | 0 | 1.50 | exchange cases, after the deposit check learned inferred answers (description gains one sentence). Two single-run misses of 75: `reason-holds` on mass-payer (judge votes FAIL PASS FAIL) and `never-says-unsupported` on unproven-claim-binance. No inferred case yet: the lane holds no inferred row to record |

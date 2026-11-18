@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import {
   AML_EXCHANGE_DEPOSIT_CHECK_DESCRIPTION,
   EXCHANGE_DEPOSIT_BEHAVIOUR,
+  EXCHANGE_INFERRED_RULE,
   depositCheckQueries,
   handleAmlExchangeDepositCheck,
   type AmlExchangeDepositCheckResult,
@@ -445,5 +446,153 @@ describe('aml_exchange_deposit_check', () => {
     expect(result.isError).toBe(true)
     expect(result.content[0]!.text).toContain('call meta_exchange_lookup')
     expect(sent).toEqual([])
+  })
+})
+
+// The exchange model's guess (graph sync layer `inferred`) rides on the node
+// beside the sourced marks. A sourced mark always wins; a guess alone is
+// answered as inferred, with the model version, and never as the verdict.
+const MODEL = 'gnn_robinhood_2026-11-14-r3_exchange'
+const WRITTEN = 1794000000000
+const INFERRED_FIELDS = ['inferred', 'inferred_role', 'inferred_model', 'inferred_basis', 'inferred_at']
+
+describe('aml_exchange_deposit_check: the exchange model inferred a role', () => {
+  const cases: Array<{
+    name: string
+    node: Record<string, unknown>
+    swept?: Record<string, unknown>[]
+    inferred: null | {
+      inferred_role: string
+      inferred_basis: string
+      inferred_model: string
+      inferred_at: string | null
+      says: string
+    }
+    sourced?: { is_deposit: boolean; cex_role: string | null; says: string }
+  }> = [
+    {
+      name: 'sourced only',
+      node: { address: DEPOSIT, labels: ['Exchange', 'gate'], cex_role: 'hot_wallet' },
+      inferred: null,
+      sourced: { is_deposit: false, cex_role: 'hot_wallet', says: 'is a hot wallet of Gate on robinhood' },
+    },
+    {
+      name: 'a deposit behind a listed hot wallet (rule)',
+      node: {
+        address: DEPOSIT,
+        labels: [],
+        cex_role: null,
+        inferred_exchange_role: 'deposit',
+        inferred_sources: ['ml:infrastructure:v7:hub', `ml:exchange-roles:${MODEL}:rule`],
+        inferred_exchange_role_updated_timestamp: WRITTEN,
+      },
+      inferred: {
+        inferred_role: 'deposit',
+        inferred_basis: 'listed_hot_wallet',
+        inferred_model: MODEL,
+        inferred_at: new Date(WRITTEN).toISOString(),
+        says: `is an exchange deposit, inferred by model ${MODEL}, on robinhood.`,
+      },
+    },
+    {
+      name: 'a deposit behind a hot wallet the model inferred (rule-p)',
+      node: {
+        address: DEPOSIT,
+        inferred_exchange_role: 'deposit',
+        inferred_sources: [`ml:exchange-roles:${MODEL}:rule-p`],
+      },
+      inferred: {
+        inferred_role: 'deposit',
+        inferred_basis: 'predicted_hot_wallet',
+        inferred_model: MODEL,
+        inferred_at: null,
+        says: `is an exchange deposit, inferred by model ${MODEL}, on robinhood.`,
+      },
+    },
+    {
+      name: 'a hot wallet the model inferred (p-hub)',
+      node: {
+        address: DEPOSIT,
+        inferred_exchange_role: 'hot_wallet',
+        inferred_sources: [`ml:exchange-roles:${MODEL}:p-hub`],
+        inferred_exchange_role_updated_timestamp: WRITTEN,
+      },
+      inferred: {
+        inferred_role: 'hot_wallet',
+        inferred_basis: 'predicted',
+        inferred_model: MODEL,
+        inferred_at: new Date(WRITTEN).toISOString(),
+        says: `is an exchange hot wallet, inferred by model ${MODEL}, on robinhood.`,
+      },
+    },
+    {
+      name: 'a sourced deposit with a guess too: the sourced mark wins',
+      node: {
+        address: DEPOSIT,
+        labels: ['Exchange', 'bitget'],
+        cex_role: 'deposit',
+        inferred_exchange_role: 'hot_wallet',
+        inferred_sources: [`ml:exchange-roles:${MODEL}:p-hub`],
+      },
+      swept: [{ hot_wallet: BITGET_HOT, hot_wallet_labels: ['Exchange', 'bitget'], sweep_count: 2 }],
+      inferred: null,
+      sourced: { is_deposit: true, cex_role: 'deposit', says: 'is a deposit address of Bitget on robinhood.' },
+    },
+    {
+      name: 'a role with no entry of the exchange model is no inferred mark',
+      node: {
+        address: DEPOSIT,
+        labels: [],
+        inferred_exchange_role: 'deposit',
+        inferred_sources: ['ml:infrastructure:v7:hub'],
+      },
+      inferred: null,
+      sourced: { is_deposit: false, cex_role: null, says: 'carries no deposit mark' },
+    },
+  ]
+
+  it.each(cases)('$name', async ({ node, swept, inferred, sourced }) => {
+    const { result, structured } = await check([nodeMember(node), sweptMember(swept ?? [])])
+    const text = result.content[0]!.text
+    expect(result.isError).toBe(false)
+    expect(structured.found).toBe(true)
+    expect(text).not.toMatch(/unknown|not supported|unsupported|PREDICTED/)
+    if (inferred) {
+      const { says, ...fields } = inferred
+      expect(structured).toMatchObject({ ...fields, inferred: true, is_deposit: false, cex_role: null })
+      expect(structured.hint).toContain(`Say: "${DEPOSIT} ${says}`)
+      expect(structured.hint).toContain('No listed source names it as an exchange address.')
+      expect(structured.hint).toContain('never as a confirmed exchange address')
+      expect(text).toContain('inferred')
+      expect(text).toContain(MODEL)
+    } else {
+      for (const field of INFERRED_FIELDS) expect(structured).not.toHaveProperty(field)
+      expect(structured).toMatchObject({ is_deposit: sourced!.is_deposit, cex_role: sourced!.cex_role })
+      expect(structured.hint).toContain(sourced!.says)
+      expect(text).not.toMatch(/inferred/i)
+      expect(text).not.toContain(MODEL)
+    }
+  })
+
+  it('reads the model version whole, hyphens, underscores and colons kept, and takes the entry that fits the role', async () => {
+    const model = 'gnn_base_2026-12-01-r10_exchange:cpu'
+    const { structured } = await check([
+      nodeMember({
+        address: DEPOSIT,
+        inferred_exchange_role: 'hot_wallet',
+        inferred_sources: [`ml:exchange-roles:${MODEL}:rule`, `ml:exchange-roles:${model}:p-hub`],
+      }),
+      sweptMember([]),
+    ])
+    expect(structured).toMatchObject({ inferred_model: model, inferred_basis: 'predicted' })
+  })
+
+  it('the description and the skill tell every host to report a guess as inferred', () => {
+    expect(AML_EXCHANGE_DEPOSIT_CHECK_DESCRIPTION).toContain(EXCHANGE_INFERRED_RULE)
+    const skill = readFileSync(
+      join(repoRoot, 'skills', 'chain-insights-aml-exchange', 'SKILL.md'),
+      'utf8'
+    )
+    expect(skill.replace(/\s+/g, ' ')).toContain(EXCHANGE_INFERRED_RULE)
   })
 })

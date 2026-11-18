@@ -21,7 +21,14 @@
  *
  * `SWEPT` (layer `cex_sweeps`) is drawn only from an address the deposit rule
  * judged a deposit, and `cex_role` comes from the exchange label's subtype. The
- * graph judges, this tool only reads. The exchange is named from the lookup
+ * graph judges, this tool only reads.
+ *
+ * The exchange model's own guess rides beside them on the node (graph sync
+ * layer `inferred`): `inferred_exchange_role`, an `ml:exchange-roles:<model>:
+ * <basis>` entry in `inferred_sources`, and the time it was written. It is
+ * never a label and never a SWEPT link. A sourced mark always wins; an
+ * address with only the guess is answered as inferred, with the model, and
+ * `is_deposit` stays false. The exchange is named from the lookup
  * file (src/mcp/exchange-registry.ts): the hot wallet it swept into, else a
  * label word.
  */
@@ -57,6 +64,10 @@ export const EXCHANGE_DEPOSIT_PROFILE =
   'The graph judges that, never you: the verdict is is_deposit, cex_role and swept. Give behaviour and does_not_fit_deposit as the facts behind it, and never set a threshold of your own for payers, volume or sweeps. ' +
   'With no deposit mark an address is not shown to be a deposit, whoever says it is one; with found false it has no activity on the network, and the claim is unproven there.'
 
+/** The one rule for an inferred answer, in the description every host reads and in the skill. */
+export const EXCHANGE_INFERRED_RULE =
+  "An answer with inferred: true is the exchange model's prediction, not a listed source: report the address as inferred by the model, with its version (inferred_model), never as a confirmed exchange address."
+
 export const AML_EXCHANGE_DEPOSIT_CHECK_DESCRIPTION =
   'Checks one address: is it a deposit address of a centralized exchange (Binance, Bitget, Bybit, Coinbase, Gate, KuCoin, MEXC, OKX, ...), ' +
   'of which exchange, and into which hot wallet was it swept, how many times, by which path and when. ' +
@@ -64,7 +75,7 @@ export const AML_EXCHANGE_DEPOSIT_CHECK_DESCRIPTION =
   '(how many addresses paid it, how many it paid, how many of each are exchange wallets, the DEX pools it swapped on, the spenders it approved), anchored on the address: ' +
   'six reads in one batch, billed as any read. Use it when a trail reaches an address that may be an exchange wallet, when the user asks where money entered an exchange, ' +
   'or when someone says an address is an exchange deposit: a claim is never proof, the answer of this tool is. ' +
-  `${EXCHANGE_DEPOSIT_PROFILE} ${EXCHANGE_OPENING_RULE}`
+  `${EXCHANGE_DEPOSIT_PROFILE} ${EXCHANGE_INFERRED_RULE} ${EXCHANGE_OPENING_RULE}`
 export const AML_EXCHANGE_DEPOSIT_CHECK_ANNOTATIONS = {
   readOnlyHint: true,
   idempotentHint: true,
@@ -76,6 +87,33 @@ export const AML_EXCHANGE_DEPOSIT_CHECK_ARGS = ['network', 'address'] as const
 export const SWEPT_LIMIT = 20
 
 export type CexRole = (typeof CEX_ROLES)[number]
+
+/** The roles the exchange model infers. */
+export const INFERRED_EXCHANGE_ROLES = ['deposit', 'hot_wallet'] as const
+export type InferredExchangeRole = (typeof INFERRED_EXCHANGE_ROLES)[number]
+
+/**
+ * Why the model inferred the role, from the suffix of its source entry:
+ * `rule` a deposit behind a listed hot wallet, `rule-p` a deposit behind a hot
+ * wallet the model inferred, `p-hub` a hot wallet the model inferred.
+ */
+export const INFERRED_BASIS = {
+  rule: 'listed_hot_wallet',
+  'rule-p': 'predicted_hot_wallet',
+  'p-hub': 'predicted',
+} as const
+export type InferredBasis = (typeof INFERRED_BASIS)[keyof typeof INFERRED_BASIS]
+
+/** The prefix of the exchange model's entries in `inferred_sources`. */
+export const EXCHANGE_MODEL_SOURCE_PREFIX = 'ml:exchange-roles:'
+
+export interface InferredExchangeMark {
+  role: InferredExchangeRole
+  model: string
+  basis: InferredBasis
+  /** ISO time the graph wrote the guess, or null when it carries none. */
+  at: string | null
+}
 
 export interface Sweep {
   hot_wallet: string
@@ -137,6 +175,13 @@ export interface AmlExchangeDepositCheckResult {
   does_not_fit_deposit: string[]
   /** How any deposit address behaves: the same text in every answer, for a host asked what makes one. */
   deposit_profile: string
+  /** Set only when no sourced mark exists and the exchange model inferred a role. */
+  inferred?: true
+  inferred_role?: InferredExchangeRole
+  /** The model version, from its `ml:exchange-roles:` source entry. */
+  inferred_model?: string
+  inferred_basis?: InferredBasis
+  inferred_at?: string | null
   hint: string
 }
 
@@ -167,12 +212,14 @@ function assertReadAddress(address: string): void {
   }
 }
 
-/** The node read: the address, its marks and its cex_role. */
+/** The node read: the address, its marks, its cex_role and the exchange model's inferred role. */
 export function depositNodeQuery(address: string): string {
   assertReadAddress(address)
   return (
     `USE topology MATCH (a:Address {address: "${address}"}) ` +
-    'RETURN a.address AS address, labels(a) AS node_labels, a.labels AS labels, a.cex_role AS cex_role LIMIT 1'
+    'RETURN a.address AS address, labels(a) AS node_labels, a.labels AS labels, a.cex_role AS cex_role, ' +
+    'a.inferred_exchange_role AS inferred_exchange_role, a.inferred_sources AS inferred_sources, ' +
+    'a.inferred_exchange_role_updated_timestamp AS inferred_exchange_role_updated_timestamp LIMIT 1'
   )
 }
 
@@ -256,6 +303,42 @@ const utcOrNull = (ms: number | null): string | null => (isEpochMs(ms) ? utcText
 function cexRoleOf(value: unknown): CexRole | null {
   const role = textOrNull(value)?.toLowerCase()
   return (CEX_ROLES as readonly string[]).includes(role ?? '') ? (role as CexRole) : null
+}
+
+/**
+ * The exchange model's mark of a node row, or null. It needs both the role and
+ * an `ml:exchange-roles:<model>:<basis>` source entry: a role with no entry of
+ * the exchange model is no inferred mark. The model version may hold hyphens,
+ * underscores and colons; the basis is the last part.
+ */
+export function inferredExchangeOf(
+  row: Record<string, unknown> | undefined
+): InferredExchangeMark | null {
+  const role = textOrNull(row?.inferred_exchange_role)?.toLowerCase()
+  if (!(INFERRED_EXCHANGE_ROLES as readonly string[]).includes(role ?? '')) return null
+  const marks: Array<{ model: string; basis: InferredBasis; suffix: string }> = []
+  for (const source of strings(row?.inferred_sources)) {
+    const entry = source.trim()
+    if (!entry.startsWith(EXCHANGE_MODEL_SOURCE_PREFIX)) continue
+    const rest = entry.slice(EXCHANGE_MODEL_SOURCE_PREFIX.length)
+    const cut = rest.lastIndexOf(':')
+    if (cut <= 0) continue
+    const model = rest.slice(0, cut)
+    const suffix = rest.slice(cut + 1)
+    if (!Object.prototype.hasOwnProperty.call(INFERRED_BASIS, suffix)) continue
+    marks.push({ model, basis: INFERRED_BASIS[suffix as keyof typeof INFERRED_BASIS], suffix })
+  }
+  // The entry that fits the role first: p-hub names a hot wallet, rule and rule-p a deposit.
+  const fits = (suffix: string) => (role === 'hot_wallet') === (suffix === 'p-hub')
+  const mark = marks.find((m) => fits(m.suffix)) ?? marks[0]
+  if (!mark) return null
+  const ms = numberOrNull(row?.inferred_exchange_role_updated_timestamp)
+  return {
+    role: role as InferredExchangeRole,
+    model: mark.model,
+    basis: mark.basis,
+    at: isEpochMs(ms) ? new Date(ms).toISOString() : null,
+  }
 }
 
 const answered = (member: Member | undefined): boolean =>
@@ -393,7 +476,9 @@ export function depositCheckFromMembers(
   const found = nodeRow !== undefined || sweeps.length > 0
   const isDeposit = role === 'deposit' || sweeps.length > 0
   const behaviour = behaviourFromMembers(members)
-  const result = {
+  // A sourced mark always wins: the guess is read only for an address with none.
+  const guess = role === null && sweeps.length === 0 ? inferredExchangeOf(nodeRow) : null
+  const result: Omit<AmlExchangeDepositCheckResult, 'hint'> = {
     schema: AML_EXCHANGE_DEPOSIT_CHECK_SCHEMA,
     tool: AML_EXCHANGE_DEPOSIT_CHECK_TOOL,
     network,
@@ -408,6 +493,15 @@ export function depositCheckFromMembers(
     behaviour: found ? behaviour : null,
     does_not_fit_deposit: found && !isDeposit && !role ? doesNotFitDeposit(behaviour) : [],
     deposit_profile: EXCHANGE_DEPOSIT_BEHAVIOUR,
+    ...(guess
+      ? {
+          inferred: true as const,
+          inferred_role: guess.role,
+          inferred_model: guess.model,
+          inferred_basis: guess.basis,
+          inferred_at: guess.at,
+        }
+      : {}),
   }
   return { result: { ...result, hint: `${hintFor(result)} ${PROFILE_HINT}` } }
 }
@@ -447,6 +541,9 @@ function hintFor(result: Omit<AmlExchangeDepositCheckResult, 'hint'>): string {
       `${behaviourHint(result)}${EXCHANGE_OPENING_RULE}`
     )
   }
+  if (result.inferred && result.inferred_role && result.inferred_model) {
+    return inferredHint(result, result.inferred_role, result.inferred_model)
+  }
   if (result.cex_role) {
     return (
       `${ANSWER_HINT} Say: "${address} is a ${result.cex_role.replace('_', ' ')} of ${name} on ${network}, not a deposit address." ` +
@@ -461,6 +558,36 @@ function hintFor(result: Omit<AmlExchangeDepositCheckResult, 'hint'>): string {
     `${ANSWER_HINT} ${address} carries no deposit mark: no SWEPT link and no cex_role. ` +
     'Say that the graph shows no sweep of it into a listed exchange hot wallet. That is not proof the address belongs to no exchange; ' +
     `its labels and its links say what else it is. ${behaviourHint(result)}${misfit}` +
+    'Give these facts as the reason and no other: set no threshold of your own for payers, volume or sweeps.'
+  )
+}
+
+/** Why the model holds its guess, in reader words. */
+const INFERRED_BASIS_TEXT: Record<InferredBasis, string> = {
+  listed_hot_wallet: 'The model placed it behind a listed exchange hot wallet.',
+  predicted_hot_wallet: 'The model placed it behind a hot wallet the model itself inferred, which no listed source names either.',
+  predicted: 'The model inferred it from how the address moves money.',
+}
+
+/** The hint of an address with no sourced mark and the exchange model's guess. */
+function inferredHint(
+  result: Omit<AmlExchangeDepositCheckResult, 'hint'>,
+  role: InferredExchangeRole,
+  model: string
+): string {
+  const { address, network } = result
+  const what = role === 'deposit' ? 'an exchange deposit' : 'an exchange hot wallet'
+  const basis = result.inferred_basis ? `${INFERRED_BASIS_TEXT[result.inferred_basis]} ` : ''
+  const trail =
+    role === 'deposit'
+      ? 'The graph draws no SWEPT link for it, so no hot wallet is named: name none yourself. '
+      : 'A trail that reaches it may have entered an exchange there: say so as inferred, and name no exchange the answer does not name. '
+  return (
+    `${ANSWER_HINT} Say: "${address} is ${what}, inferred by model ${model}, on ${network}. ` +
+    'No listed source names it as an exchange address." ' +
+    `${basis}${trail}` +
+    'Report it as inferred, never as a confirmed exchange address: is_deposit (false) and cex_role (null) are the sourced verdict, and the guess does not change them. ' +
+    `${behaviourHint(result)}` +
     'Give these facts as the reason and no other: set no threshold of your own for payers, volume or sweeps.'
   )
 }

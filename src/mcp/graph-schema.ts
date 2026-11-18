@@ -59,7 +59,8 @@ export const CEX_ROLES = ['deposit', 'hot_wallet', 'cold_wallet', 'withdrawal'] 
 /** The note a schema carries when the graph serves `SWEPT` or `cex_role`. */
 export const EXCHANGE_SCHEMA_NOTE =
   `cex_role on an :Exchange address says which wallet of its exchange it is: ${CEX_ROLES.join(', ')}. ` +
-  'SWEPT runs from an exchange deposit to the hot wallet it swept into; a trail that reaches it ends there.'
+  'SWEPT runs from an exchange deposit to the hot wallet it swept into; a trail that reaches it ends there. ' +
+  'inferred_exchange_role (deposit or hot_wallet) is the exchange model\'s guess, with its ml:exchange-roles:<model>:<basis> entry in inferred_sources: never a label, never a SWEPT link, and always said as inferred by that model.'
 
 // The TRANSFER columns the cypher skill lists, in its order. tests/graph-schema.test.ts
 // holds this list to the skill and to the columns the graph server maps on TRANSFER

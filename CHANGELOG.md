@@ -3,6 +3,26 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.84.0] - 2026-11-18 — exchange answers say what the model inferred
+
+### Added
+
+- `aml_exchange_deposit_check` also reads the exchange model's guess on the
+  address: `inferred_exchange_role`, its `ml:exchange-roles:<model>:<basis>`
+  entry in `inferred_sources` and the time it was written. An address with no
+  sourced mark and a guess is answered as "an exchange deposit, inferred by
+  model <version>" or "an exchange hot wallet, inferred by model <version>",
+  named by no listed source. The answer adds `inferred: true`,
+  `inferred_role`, `inferred_model`, `inferred_basis` (`listed_hot_wallet`,
+  `predicted_hot_wallet` or `predicted`) and `inferred_at`. `is_deposit`
+  stays false: a guess never becomes the sourced verdict.
+- A sourced mark (`cex_role`, a `SWEPT` link) always wins: that answer is the
+  answer of 0.83.0, with no `inferred` field. A role with no entry of the
+  exchange model is no guess.
+- The tool description and the skill `chain-insights-aml-exchange` tell every
+  host to report an `inferred: true` answer as inferred, never as a confirmed
+  exchange address. The graph schema note and the routing text name
+  `inferred_exchange_role` and `inferred_sources`.
 ## [0.83.1] - 2026-11-18 — the picture draws a swap route apart from funds sent
 
 ### Changed

@@ -445,6 +445,14 @@ An `:Exchange` address also carries `cex_role`, which wallet of its exchange it
 is: `deposit`, `hot_wallet`, `cold_wallet` or `withdrawal`. It is absent when
 no live exchange label names a role.
 
+Any `:Address` may also carry the exchange model's guess, from the graph sync
+layer `inferred`: `inferred_exchange_role` (`deposit` or `hot_wallet`),
+`inferred_sources` (a list; the exchange model's entry is
+`ml:exchange-roles:<model version>:<basis>`, with basis `rule`, `rule-p` or
+`p-hub`) and `inferred_exchange_role_updated_timestamp`. A guess is never a
+node label, never in `labels` and never a `SWEPT` link. `cex_role` wins over
+it; an address with only the guess is said to be inferred by that model.
+
 The labels layer adds three judgement marks with no flag: `:Poisoned` (a
 look-alike address that sent worthless dust), `:Targeted` (a poisoning target
 not yet proven to have lost money) and `:OnMoneyTrail` (on the trail the
