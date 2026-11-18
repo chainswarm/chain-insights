@@ -280,6 +280,13 @@
    "source": "tests/fixtures/documented-recipes.json"
   },
   {
+   "id": "recipe_topology_dex_traders_at_pool_levels_01",
+   "layer": "topology",
+   "anchor": "address",
+   "query": "USE topology MATCH (s:Address)-[sw:SWAPPED]->(p:Address {address: \"0x7615926023bb149f36095645c2a81dc367d39750\"}) WHERE NOT s:Pool RETURN s.address AS from_address, p.address AS to_address, labels(s) AS from_node_labels, sw.sold_asset AS sold_asset, sw.bought_asset AS bought_asset, sw.sold_usd AS sold_usd, sw.bought_usd AS bought_usd, sw.swap_count AS swap_count, sw.first_seen_height AS first_seen_height, sw.last_seen_height AS last_seen_height ORDER BY sw.sold_usd DESC LIMIT 25",
+   "source": "tests/fixtures/documented-recipes.json"
+  },
+  {
    "id": "recipe_facts_dex_swaps_seller_router_day_01",
    "layer": "facts",
    "anchor": "pair_day",
