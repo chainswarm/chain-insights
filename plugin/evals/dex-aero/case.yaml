@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: dex-aero
+tags: [dex, by-name, plan-only]
 expected_outcome: The agent resolves Aero with meta_dex_lookup first, the memo only when the tool is absent, with no address from the user, finds its pools by its factory, loads the gauge trail, and names the router as the router, reading the buyer from the router's transfer in the seller's transaction.
 execution:
   prompt: |

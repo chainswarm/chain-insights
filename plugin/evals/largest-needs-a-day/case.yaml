@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: largest-needs-a-day
+tags: [cypher, routing, pasted-answer]
 expected_outcome: The answer asks for a day or offers the biggest counterparty link, and does not plan to read every day of the pair.
 execution:
   prompt: |

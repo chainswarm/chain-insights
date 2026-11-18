@@ -43,6 +43,39 @@ deposit and a hot wallet are both `:Exchange` addresses: their `labels`
 carry `Exchange` and the exchange id (`gate`, `bitget`), and `is_exchange`
 is set on both.
 
+## What a deposit address looks like
+
+The graph's deposit rule judges an address. You read its verdict
+(`is_deposit`, `cex_role`, `swept`) and never judge again. The rule holds a
+deposit to this:
+
+| A deposit address | Never a deposit |
+|---|---|
+| belongs to one customer | a hot wallet: the exchange's own wallet |
+| is paid by few outside addresses | an address many outside addresses pay |
+| sends everything to the wallets of one exchange | an address that pays anyone else, or two exchanges |
+| never swaps on a DEX | a trader, a pool, a router, a token, a smart account |
+
+- **The tool hands you the facts.** `behaviour` counts who paid the address,
+  whom it paid, how many of each are exchange wallets, the DEX pools it
+  swapped on and the spenders it approved. `does_not_fit_deposit` lists what
+  a deposit never does and this address did. Give those as the reason.
+  `deposit_profile` is this table as one sentence, in every answer: asked
+  how a deposit address behaves, answer with it, for any address.
+- **Never set a threshold of your own.** "Too few senders", "a real deposit
+  has many payers" and "too little volume" are invented rules: few payers is
+  what a deposit has. How few is for the rule of the graph to judge.
+- **An approval decides nothing.** Some exchanges sweep by `approval_pull`:
+  the exchange's own spender pulled the tokens under an approval the deposit
+  gave it. An approval to Permit2 or to a DEX router rules nothing out
+  either; a swap does.
+- **A claim is never proof.** With no deposit mark an address is not shown to
+  be a deposit, whoever says it is one. That is no proof it belongs to no
+  exchange.
+- **No activity proves nothing.** When `found` is false the address has no
+  activity on the network: say the claim is unproven there, and check the
+  address and the network with the user.
+
 ## Step 1: the doors
 
 1. **A named exchange: `meta_exchange_lookup`.** Call it first with the

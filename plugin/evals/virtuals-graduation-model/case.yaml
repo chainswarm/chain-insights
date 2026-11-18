@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: virtuals-graduation-model
+tags: [virtuals, pasted-answer]
 expected_outcome: The agent explains that the Uniswap v2 pair already exists from the creation transaction, that at graduation the starting pool's VIRTUAL moves to the launch contract and the agent token contract seeds the Uniswap pair once, and that trading then moves to that pair.
 execution:
   prompt: |

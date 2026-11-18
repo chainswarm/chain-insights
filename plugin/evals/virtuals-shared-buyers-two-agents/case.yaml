@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: virtuals-shared-buyers-two-agents
+tags: [virtuals, pasted-answer]
 expected_outcome: The agent finds wallets that received tokens from both Virtuals starting pools with a two-pool FLOWED_TO pattern meeting at one wallet, and excludes the router hub by address.
 execution:
   prompt: |

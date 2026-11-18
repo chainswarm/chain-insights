@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: token-standard
+tags: [cypher, marks, pasted-answer]
 expected_outcome: The answer says the address is an ERC-20 token of the Virtuals launchpad, in plain words, and never prints the column name token_standard or node_labels.
 execution:
   prompt: |

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   AML_EXCHANGE_DEPOSIT_CHECK_DESCRIPTION,
+  EXCHANGE_DEPOSIT_BEHAVIOUR,
   depositCheckQueries,
   handleAmlExchangeDepositCheck,
   type AmlExchangeDepositCheckResult,
@@ -24,7 +25,7 @@ import { repoRoot } from './dex-registry.js'
 
 // The two doors of the skill chain-insights-aml-exchange. meta_exchange_lookup
 // answers from the served lookup file alone; aml_exchange_deposit_check sends one
-// batch of two reads anchored on the address and names the exchange from the
+// batch of six reads anchored on the address and names the exchange from the
 // lookup. No graph is reached: the batch answers are written here in the shape
 // the graph server returns.
 
@@ -217,12 +218,35 @@ const nodeMember = (row: Record<string, unknown> | null) => ({
 })
 const sweptMember = (rows: Record<string, unknown>[]) => ({ id: 'swept', ok: true, results: rows })
 
+/** The four behaviour members, as the graph server answers a count read: one row each. */
+const behaviourMembers = (counts: {
+  payers: number
+  payers_exchange: number
+  receivers: number
+  receivers_exchange: number
+  dex_pools: number
+  approvals: number
+}) => [
+  { id: 'paid_by', ok: true, results: [{ payers: counts.payers, payers_exchange: counts.payers_exchange }] },
+  { id: 'paid', ok: true, results: [{ receivers: counts.receivers, receivers_exchange: counts.receivers_exchange }] },
+  { id: 'swapped', ok: true, results: [{ dex_pools: counts.dex_pools }] },
+  { id: 'approved', ok: true, results: [{ approvals: counts.approvals }] },
+]
+
 describe('aml_exchange_deposit_check', () => {
-  it('sends one batch of two reads, both anchored on the lowercase address, the SWEPT read bounded', async () => {
+  it('sends one batch of six reads, all anchored on the lowercase address, every read bounded', async () => {
     const sent: Batch[] = []
     await check([nodeMember(null), sweptMember([])], sent)
     expect(sent).toHaveLength(1)
     expect(sent[0]!.queries).toEqual(depositCheckQueries(DEPOSIT))
+    expect(sent[0]!.queries.map((query) => query.id)).toEqual([
+      'node',
+      'swept',
+      'paid_by',
+      'paid',
+      'swapped',
+      'approved',
+    ])
     for (const { query } of sent[0]!.queries) {
       expect(query.startsWith(`USE topology MATCH (a:Address {address: "${DEPOSIT}"})`)).toBe(true)
       expect(query).toMatch(/ LIMIT \d+$/)
@@ -319,13 +343,87 @@ describe('aml_exchange_deposit_check', () => {
       exchange: null,
     })
     expect(structured.hint).toContain('carries no deposit mark: no SWEPT link and no cex_role')
+    // A host that re-judges the address from its payers invents a rule.
+    expect(structured.hint).toContain('set no threshold of your own')
     expect(structured.hint).not.toMatch(/not (covered|served|supported)|unsupported/i)
+  })
+
+  it('an unmarked address that trades and pays outsiders gets those two facts, and no threshold', async () => {
+    const { structured } = await check([
+      nodeMember({ address: DEPOSIT, labels: [], cex_role: null }),
+      sweptMember([]),
+      ...behaviourMembers({ payers: 214, payers_exchange: 1, receivers: 57, receivers_exchange: 1, dex_pools: 291, approvals: 11 }),
+    ])
+    expect(structured.behaviour).toEqual({
+      payers: 214,
+      payers_exchange: 1,
+      receivers: 57,
+      receivers_exchange: 1,
+      dex_pools: 291,
+      approvals: 11,
+      count_cap: 5000,
+    })
+    expect(structured.does_not_fit_deposit).toEqual([
+      'it swapped on 291 DEX pools',
+      'it paid 56 addresses that are no exchange wallet',
+    ])
+    expect(structured.hint).toContain(
+      '214 addresses paid it (1 of them exchange wallets), it paid 57 addresses (1 of them exchange wallets), it swapped on 291 DEX pools, it approved 11 spenders'
+    )
+    expect(structured.hint).toContain('What a deposit address does not do, and this one did')
+  })
+
+  it('an unmarked address that pays only an exchange wallet has no misfit: the payer count is for the rule to judge', async () => {
+    const { structured } = await check([
+      nodeMember({ address: DEPOSIT, labels: [], cex_role: null }),
+      sweptMember([]),
+      ...behaviourMembers({ payers: 24, payers_exchange: 0, receivers: 1, receivers_exchange: 1, dex_pools: 0, approvals: 0 }),
+    ])
+    expect(structured.is_deposit).toBe(false)
+    expect(structured.does_not_fit_deposit).toEqual([])
+    expect(structured.hint).toContain('Its counts alone rule nothing out; the missing mark does')
+    expect(structured.hint).toContain('24 addresses paid it (0 of them exchange wallets)')
+  })
+
+  it('a deposit carries its counts and no misfit, whatever the counts are', async () => {
+    const { structured } = await check([
+      nodeMember({ address: DEPOSIT, labels: ['Exchange', 'gate'], cex_role: 'deposit' }),
+      sweptMember([]),
+      ...behaviourMembers({ payers: 2, payers_exchange: 1, receivers: 2, receivers_exchange: 1, dex_pools: 0, approvals: 1 }),
+    ])
+    expect(structured.is_deposit).toBe(true)
+    expect(structured.behaviour?.receivers).toBe(2)
+    expect(structured.does_not_fit_deposit).toEqual([])
+    expect(structured.hint).toContain('2 addresses paid it (1 of them exchange wallets)')
+  })
+
+  it('a behaviour read that fails leaves its counts null and the check still answers', async () => {
+    const { result, structured } = await check([
+      nodeMember({ address: DEPOSIT, labels: [], cex_role: null }),
+      sweptMember([]),
+      { id: 'paid_by', ok: false, error: 'query_timeout' },
+      { id: 'paid', ok: true, results: [{ receivers: 5000, receivers_exchange: 6 }] },
+      { id: 'swapped', ok: true, results: [{ dex_pools: 5000 }] },
+    ])
+    expect(result.isError).toBe(false)
+    expect(structured.behaviour).toMatchObject({ payers: null, approvals: null, dex_pools: 5000 })
+    // A count at the cap is a floor, said as one.
+    expect(structured.does_not_fit_deposit).toEqual([
+      'it swapped on 5000 or more DEX pools',
+      'it paid 4994 or more addresses that are no exchange wallet',
+    ])
   })
 
   it('an address the graph does not hold is not found', async () => {
     const { structured } = await check([nodeMember(null), sweptMember([])])
     expect(structured.found).toBe(false)
+    expect(structured.behaviour).toBeNull()
     expect(structured.hint).toContain('is not in the Chain Insights Graph of robinhood')
+    expect(structured.hint).toContain('unproven on this network')
+    // Every answer hands the host the profile, this one too: "how does a deposit behave" needs no activity.
+    expect(structured.deposit_profile).toBe(EXCHANGE_DEPOSIT_BEHAVIOUR)
+    expect(structured.hint).toContain('answer with deposit_profile')
+    expect(AML_EXCHANGE_DEPOSIT_CHECK_DESCRIPTION).toContain(EXCHANGE_DEPOSIT_BEHAVIOUR)
   })
 
   it('a failed read is an error, never "no deposit"', async () => {

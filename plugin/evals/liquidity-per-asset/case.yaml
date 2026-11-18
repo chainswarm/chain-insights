@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: liquidity-per-asset
+tags: [cypher, reads, pasted-answer]
 expected_outcome: The agent reads REMOVED_LIQUIDITY from the pool to its receivers, sums usd over a receiver's links because there is one link per asset, takes receiver_added_usd once with max() instead of summing it, and never reads a totals_raw map.
 execution:
   prompt: |

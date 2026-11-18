@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: no-picture-promise
+tags: [cypher, answer-rules, pasted-answer]
 expected_outcome: In Claude Code, which draws nothing, the answer carries the flows in text and does not promise or mention a picture.
 execution:
   prompt: |

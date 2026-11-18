@@ -1,0 +1,28 @@
+{
+  "schema": "chain-insights.aml-exchange-deposit-check.v1",
+  "tool": "aml_exchange_deposit_check",
+  "network": "robinhood",
+  "address": "0x2f6c24fcace697f8f52d14c94a57e9eb1e2666a1",
+  "found": true,
+  "is_deposit": false,
+  "cex_role": null,
+  "exchange": null,
+  "exchange_display": null,
+  "labels": [],
+  "swept": [],
+  "behaviour": {
+    "payers": 214,
+    "payers_exchange": 1,
+    "receivers": 57,
+    "receivers_exchange": 1,
+    "dex_pools": 291,
+    "approvals": 11,
+    "count_cap": 5000
+  },
+  "does_not_fit_deposit": [
+    "it swapped on 291 DEX pools",
+    "it paid 56 addresses that are no exchange wallet"
+  ],
+  "deposit_profile": "A deposit address is one customer's: everything it sends goes to the wallets of one exchange (a sweep into a hot wallet), few outside addresses ever pay it, it never swaps on a DEX, and it is no token, pool, router or smart account.",
+  "hint": "Answer: write every address in full (0x plus 40 characters), also when it repeats one named earlier and also when the user asks for shorter ones (name them instead); a transfer moves tokens, so write \"tokens worth about N USD\", never \"sent N USD\" or a $ figure; never draw the flows in text, ASCII or Mermaid, the host draws them. 0x2f6c24fcace697f8f52d14c94a57e9eb1e2666a1 carries no deposit mark: no SWEPT link and no cex_role. Say that the graph shows no sweep of it into a listed exchange hot wallet. That is not proof the address belongs to no exchange; its labels and its links say what else it is. Its behaviour, as the graph counts it: 214 addresses paid it (1 of them exchange wallets), it paid 57 addresses (1 of them exchange wallets), it swapped on 291 DEX pools, it approved 11 spenders. What a deposit address does not do, and this one did: it swapped on 291 DEX pools; it paid 56 addresses that are no exchange wallet. Give these facts as the reason and no other: set no threshold of your own for payers, volume or sweeps. Asked how a deposit address behaves, what makes an address one or what rules one out, answer with deposit_profile."
+}

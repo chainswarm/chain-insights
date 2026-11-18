@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: virtuals-sniper-twins
+tags: [virtuals, pasted-answer]
 expected_outcome: The agent finds the real buyers of a Virtuals starting pool by reading the pool-to-router transfers on the creation day on USE facts, then each buy transaction's sender on USE chain, and then the funders shared by those buyers, excluding the router hub by address.
 execution:
   prompt: |

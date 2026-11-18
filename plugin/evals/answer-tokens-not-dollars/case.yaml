@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: answer-tokens-not-dollars
+tags: [cypher, answer-rules, pasted-answer]
 expected_outcome: The answer says tokens worth about N USD, never that an address sent N dollars.
 execution:
   prompt: |

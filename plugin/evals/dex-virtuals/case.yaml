@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: dex-virtuals
+tags: [dex, by-name, plan-only]
 expected_outcome: The agent loads chain-insights-virtuals and counts agents from the starting-pool factory by tx_origin, never from the Uniswap v2 pair factory.
 execution:
   prompt: |

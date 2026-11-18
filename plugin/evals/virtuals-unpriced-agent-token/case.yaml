@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: virtuals-unpriced-agent-token
+tags: [virtuals, pasted-answer]
 expected_outcome: The agent explains that a fresh Virtuals agent token has no price so its amount_usd is empty, and that the buy is valued by the VIRTUAL paid into the starting pool.
 execution:
   prompt: |

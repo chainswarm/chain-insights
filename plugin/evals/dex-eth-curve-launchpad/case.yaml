@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: dex-eth-curve-launchpad
+tags: [dex, by-name, plan-only]
 expected_outcome: The agent takes the native-ETH bonding-curve launchpad's factory from meta_dex_lookup, or the memo when the tool is absent, with no address from the user, calls it an unnamed launchpad, loads the launchpad trail, reads the launches with the creator from tx_origin, and reads graduation from the first pool, with no invented name.
 execution:
   prompt: |

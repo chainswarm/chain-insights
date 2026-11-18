@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: mixer-by-mark
+tags: [cypher, marks, plan-only]
 expected_outcome: A whole-chain question about mixers is asked by the :Mixer mark, a label match the server answers from its index, never by a text match over the labels property.
 execution:
   prompt: |

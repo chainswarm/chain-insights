@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: dex-sectorone
+tags: [dex, by-name, plan-only]
 expected_outcome: The agent resolves SectorOne with meta_dex_lookup first, the memo only when the tool is absent, with no address from the user, finds its pools anchored on each factory in one batch, and reads the sellers into the busiest pool.
 execution:
   prompt: |

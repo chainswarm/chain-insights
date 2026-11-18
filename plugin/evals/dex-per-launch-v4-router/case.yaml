@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: dex-per-launch-v4-router
+tags: [dex, by-name, plan-only]
 expected_outcome: The agent takes the unnamed per-launch Uniswap v4 routers from meta_dex_lookup, or the memo when the tool is absent, with no address from the user, reads the graph anchored on what the lookup names, and invents no other exchange name.
 execution:
   prompt: |

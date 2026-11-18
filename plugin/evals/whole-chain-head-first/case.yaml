@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: whole-chain-head-first
+tags: [cypher, routing, plan-only]
 expected_outcome: A whole-chain question starts with a Head read of behind_money (or graph_blocks_behind on an older server), not with the 10-second topology search.
 execution:
   prompt: |

@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: layer-facts
+tags: [cypher, routing, plan-only]
 expected_outcome: A pair with one day is a USE facts read with both addresses as anchors and t.block_date set to the day, no ORDER BY.
 execution:
   prompt: |

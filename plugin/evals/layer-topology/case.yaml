@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: layer-topology
+tags: [cypher, routing, plan-only]
 expected_outcome: The query anchors on the given address on USE topology with a FLOWED_TO link, a LIMIT, and the address written in full lowercase.
 execution:
   prompt: |

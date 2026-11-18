@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: judgement-is-victim-and-how
+tags: [cypher, marks, pasted-answer]
 expected_outcome: The answer says in plain words that the address lost money to a scam the evidence walk traced, names the accused address it paid in full, and prints no claim code, list name or column name.
 execution:
   prompt: |

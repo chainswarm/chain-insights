@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: virtuals-mass-creator-not-owner
+tags: [virtuals, pasted-answer]
 expected_outcome: The agent says the creator wallet signed and paid gas for the creations, that this alone does not prove it paid fees or profited, and checks the money it received, forwarded and kept with the address totals before calling it a scammer.
 execution:
   prompt: |

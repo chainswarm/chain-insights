@@ -39,7 +39,9 @@ deposit. It returns facts only, never a score; see
 [MCP proxy](mcp-proxy.md#local-tools). `meta_exchange_lookup` turns a
 centralized exchange name into its proven hot wallets, and
 `aml_exchange_deposit_check` says whether one address is an exchange deposit,
-of which exchange, and into which hot wallet it was swept (`SWEPT`). On hosted
+of which exchange, and into which hot wallet it was swept (`SWEPT`), with the
+counts of its behaviour: who paid it, whom it paid, its DEX swaps and its
+approvals. On hosted
 backends, `meta_usage_status` can reflect remote quota telemetry. On
 backends without a quota tool, Chain Insights returns a local unmetered
 primitive-backend status instead.

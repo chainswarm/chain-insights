@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: virtuals-funding-two-hops-back
+tags: [virtuals, pasted-answer]
 expected_outcome: The agent traces a Virtuals creator wallet's funders oldest first, repeats the step on the funders for a second hop, and stops at a hub, a bridge or an exchange; it checks the wallet's own BRIDGED link for a bridge origin.
 execution:
   prompt: |

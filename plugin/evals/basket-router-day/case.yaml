@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: basket-router-day
+tags: [cypher, reads, plan-only]
 expected_outcome: Which baskets went through the basket router on one day is found by listing the basket factory's children and reading each router and basket pair on facts for that day, never a facts read anchored on the router alone.
 execution:
   prompt: |
