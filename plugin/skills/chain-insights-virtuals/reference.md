@@ -30,6 +30,26 @@ RETURN t.address AS pool, t.labels AS labels, r.tx_id AS tx_id, r.block_timestam
 ORDER BY r.block_timestamp DESC LIMIT 25
 ```
 
+Where `meta_dex_lookup` says `swap_links: levels`, a starting pool has no
+address totals: its `senders`, `tx_count` and `volume_usd` are empty. A2
+still lists the agents. Read the trade of their pools with A2L.
+
+### A2L. The trade of one creator's starting pools (lane with the levels)
+
+`swapped_usd` is the USD sold into the pool on its `SWAPPED` links,
+`swap_count` its swaps, `traders` the wallets that swapped there. A pool
+nobody swapped in is left out: nobody bought that agent.
+
+```cypher
+USE topology
+MATCH (f:Address {address: "0xfc2e4da3edb2e18100473339c763705d263d20a9"})-[r:DEPLOYED_CONTRACT]->(p:Pool)
+WHERE r.tx_origin = "<creator>"
+MATCH (t:Address)-[s:SWAPPED]->(p)
+RETURN p.address AS pool, p.labels AS labels, r.block_timestamp AS created_timestamp,
+       count(t) AS traders, sum(s.swap_count) AS swap_count, sum(s.sold_usd) AS swapped_usd
+ORDER BY swapped_usd DESC LIMIT 25
+```
+
 ### A3. First funding of a wallet
 
 ```cypher
@@ -135,6 +155,24 @@ MATCH (p:Address) WHERE p.address IN ["<pool 1>", "<pool 2>"]
 RETURN p.address AS pool, p.labels AS labels, p.degree_in AS senders, p.degree_out AS receivers,
        p.tx_total_count AS tx_count, p.total_volume_usd AS volume_usd,
        p.first_activity_timestamp AS first_active, p.last_activity_timestamp AS last_active LIMIT 25
+```
+
+Where `meta_dex_lookup` says `swap_links: levels`, a pool has no address
+totals, so B3 returns its address and labels only. Read B3L there.
+
+### B3L. A pool's life (lane with the levels)
+
+The sums of the pool's `SWAPPED` links: `traders` the wallets that swapped
+there, `swap_count` their swaps, `swapped_usd` the USD sold into the pool.
+`first_seen_timestamp` and `last_seen_timestamp` are its first and its last
+swap. A pool nobody swapped in returns no row.
+
+```cypher
+USE topology
+MATCH (p:Address) WHERE p.address IN ["<pool 1>", "<pool 2>"]
+MATCH (t:Address)-[s:SWAPPED]->(p)
+RETURN p.address AS pool, p.labels AS labels, count(t) AS traders, sum(s.swap_count) AS swap_count, sum(s.sold_usd) AS swapped_usd,
+       min(s.first_seen_timestamp) AS first_seen_timestamp, max(s.last_seen_timestamp) AS last_seen_timestamp LIMIT 25
 ```
 
 ### B4. Holders at birth and the real buyers

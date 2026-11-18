@@ -244,7 +244,9 @@ The address-grain graph schema:
   flows only; on a lane whose money family lists \`ROUTED_TO\` they count
   funds between addresses (\`FLOWED_TO\`) only, not swaps, so what an
   address got from a swap is on its \`ROUTED_TO\` links
-  (\`bought_usd_sum\`) — and \`first_activity_timestamp\`/
+  (\`bought_usd_sum\`), and a pool, a pool manager or a bonding curve
+  has none of these totals there: its trade is the sum of its
+  \`SWAPPED\` links (\`sold_usd\`, \`swap_count\`) — and \`first_activity_timestamp\`/
   \`last_activity_timestamp\`/\`activity_span_days\`, which include all
   flows (self-loops included). FLOWED_TO edges serve four fields:
   \`tx_count\`, \`amount_usd_sum\` (total money flow, token and native value

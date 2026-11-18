@@ -25,6 +25,19 @@ up. has two factories: two members of one batch.
 ]}
 ```
 
+### R3L. Pools of an exchange, by one factory (lane with the levels)
+
+Where `meta_dex_lookup` says `swap_links: levels`, a pool has no
+`total_volume_usd`, so R3 returns no rows. Sum the pool's `SWAPPED` links:
+`swapped_usd` is the USD sold into the pool, `swap_count` its swaps. Merge the
+members into one ranking by `swapped_usd`.
+
+```cypher
+USE topology
+MATCH (f:Address {address: "0xc63d7338c178e805c544b8f897066bd3bbcbe136"})-[:DEPLOYED_CONTRACT]->(p:Pool) MATCH (t:Address)-[s:SWAPPED]->(p)
+RETURN f.address AS from_address, p.address AS to_address, p.labels AS to_labels, sum(s.sold_usd) AS swapped_usd, sum(s.swap_count) AS swap_count ORDER BY swapped_usd DESC LIMIT 10
+```
+
 ## R4. Sellers into one pool
 
 The senders of the pool, ranked by lifetime volume. A pool never sends on
@@ -68,8 +81,8 @@ MATCH (b:Block {block_height: 95254047}) RETURN b.block_date, b.block_timestamp
 ## On a lane with the levels
 
 `meta_dex_lookup` answers with `swap_links: levels` on a lane whose `money`
-family lists `ROUTED_TO`. There R4 and R5 are these two reads: a pool has
-no `FLOWED_TO` senders to rank.
+family lists `ROUTED_TO`. There R3 is R3L, and R4 and R5 are these two
+reads: a pool has no `FLOWED_TO` senders to rank.
 
 ### R4L. Traders at one pool
 

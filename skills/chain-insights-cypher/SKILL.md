@@ -407,6 +407,8 @@ MATCH (a:Address {address: "0x04911a118f11c75667e4d0dfb8e640af5a353550"})
 RETURN a.degree_in AS senders, a.degree_out AS receivers, a.tx_total_count AS tx_count, a.total_volume_usd AS volume_usd, a.first_activity_timestamp AS first_active, a.last_activity_timestamp AS last_active LIMIT 1
 ```
 
+Where the lane's `money` family lists `ROUTED_TO`, a pool, a pool manager or a bonding curve has none of these totals: its transactions are not on `FLOWED_TO`. Its trade is the sum of its `SWAPPED` links, `sum(s.sold_usd)` and `sum(s.swap_count)`, as in reference R3L of `chain-insights-dex`.
+
 Which exchange an address cashed out to: its receivers that carry the exchange flag, one hop. Ask this first; it answers in under a second. A receiver whose `cex_role` is `deposit` is a deposit address of the exchange its `labels` name: check it with `aml_exchange_deposit_check` for the hot wallet it was swept into.
 
 ```cypher

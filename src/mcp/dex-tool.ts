@@ -17,6 +17,8 @@
  * meta_network_capabilities): on a lane whose money family lists ROUTED_TO the
  * reads name SWAPPED from a trader to the pool and ROUTED_TO for the route; on
  * any other lane they are the reads of chain-insights 0.81.0, byte for byte.
+ * The pool read follows the shape too: on a lane with the levels a pool has no
+ * address totals, so its pools are ranked by the USD sold into each on SWAPPED.
  */
 
 import { ANSWER_HINT } from './answer-hint.js'
@@ -50,7 +52,8 @@ export const META_DEX_LOOKUP_DESCRIPTION =
   'any case, with no name): the answer is the exchange whose factory, router or manager it is, ' +
   'and took_for names the role it holds. When matched is null no exchange row holds the address: ' +
   'send no read for it. A centralized exchange (Binance, OKX, Bitget) goes to meta_exchange_lookup instead. Give a name or an address, not both. ' +
-  `${LEVEL_RULE} The first reads follow the lane: where it serves ROUTED_TO, the traders of a pool are its SWAPPED links and the route of a trader is ROUTED_TO.`
+  `${LEVEL_RULE} The first reads follow the lane: where it serves ROUTED_TO, the traders of a pool are its SWAPPED links and the route of a trader is ROUTED_TO. ` +
+  'There each pool carries swapped_usd (the USD sold into it on its SWAPPED links) and swap_count, in place of total_volume_usd and tx_total_count.'
 export const META_DEX_LOOKUP_ANNOTATIONS = {
   readOnlyHint: true,
   idempotentHint: true,
@@ -70,12 +73,27 @@ export interface ContractRow {
   confirmed_by?: string
 }
 
-export interface PoolRow {
+/** A pool on the graph of before: its address totals, as in 0.81.0. */
+export interface RoutePoolRow {
   address: string
   labels: string[]
   total_volume_usd: number
   tx_total_count: number
 }
+
+/**
+ * A pool on a lane with the levels. A pool has no address totals there: its
+ * transactions are not on FLOWED_TO. Its numbers are the sums of its SWAPPED
+ * links: `swapped_usd`, the USD sold into it, and `swap_count`, its swaps.
+ */
+export interface LevelsPoolRow {
+  address: string
+  labels: string[]
+  swapped_usd: number
+  swap_count: number
+}
+
+export type PoolRow = RoutePoolRow | LevelsPoolRow
 
 export interface FamilyLag {
   behind_money: number | null
@@ -214,7 +232,8 @@ export function contractListQuery(addresses: string[]): string {
 /** The anchored reads of one exchange: Head, each contract, and the pools of each factory. */
 export function lookupQueries(
   entry: DexEntry,
-  pools: boolean
+  pools: boolean,
+  shape: SwapLinkShape = 'route'
 ): Array<{ id: string; query: string }> {
   const contracts = Object.keys(entry.roles)
   const queries: Array<{ id: string; query: string }> = [{ id: 'head', query: HEAD_QUERY }]
@@ -226,7 +245,7 @@ export function lookupQueries(
   }
   if (pools) {
     for (const factory of entry.factories.filter((address) => entry.roles[address] === 'factory')) {
-      queries.push({ id: `pools:${factory}`, query: poolsByFactoryQuery(factory, POOLS_LIMIT) })
+      queries.push({ id: `pools:${factory}`, query: poolsByFactoryQuery(factory, POOLS_LIMIT, shape) })
     }
   }
   return queries
@@ -242,10 +261,41 @@ function confirmation(
   return { confirmed: false }
 }
 
+/** The pools of the batch, merged over the factories and ranked by the shape's number. */
+function readPools(members: Map<string, Member>, shape: SwapLinkShape): PoolRow[] {
+  const byAddress = new Map<string, { row: PoolRow; rank: number }>()
+  for (const [id, member] of members) {
+    if (!id.startsWith('pools:')) continue
+    for (const row of rowsOf(member)) {
+      const address = typeof row.to_address === 'string' ? row.to_address : null
+      const rank = numberOrNull(shape === 'levels' ? row.swapped_usd : row.total_volume_usd)
+      if (!address || rank === null || byAddress.has(address)) continue
+      const labels = stringList(row.to_labels)
+      byAddress.set(address, {
+        rank,
+        row:
+          shape === 'levels'
+            ? { address, labels, swapped_usd: rank, swap_count: numberOrNull(row.swap_count) ?? 0 }
+            : {
+                address,
+                labels,
+                total_volume_usd: rank,
+                tx_total_count: numberOrNull(row.tx_total_count) ?? 0,
+              },
+      })
+    }
+  }
+  return [...byAddress.values()]
+    .sort((a, b) => b.rank - a.rank)
+    .slice(0, POOLS_LIMIT)
+    .map(({ row }) => row)
+}
+
 function readMatch(
   entry: DexEntry,
   members: Map<string, Member>,
-  read: boolean
+  read: boolean,
+  shape: SwapLinkShape
 ): {
   contracts: Map<string, ContractRow>
   pools: PoolRow[]
@@ -261,24 +311,7 @@ function readMatch(
       : listed.get(address)
     contracts.set(address, { address, role, ...confirmation(row) })
   }
-  const byAddress = new Map<string, PoolRow>()
-  for (const [id, member] of members) {
-    if (!id.startsWith('pools:')) continue
-    for (const row of rowsOf(member)) {
-      const address = typeof row.to_address === 'string' ? row.to_address : null
-      const volume = numberOrNull(row.total_volume_usd)
-      if (!address || volume === null || byAddress.has(address)) continue
-      byAddress.set(address, {
-        address,
-        labels: stringList(row.to_labels),
-        total_volume_usd: volume,
-        tx_total_count: numberOrNull(row.tx_total_count) ?? 0,
-      })
-    }
-  }
-  const pools = [...byAddress.values()]
-    .sort((a, b) => b.total_volume_usd - a.total_volume_usd)
-    .slice(0, POOLS_LIMIT)
+  const pools = readPools(members, shape)
   const head = rowsOf(members.get('head'))[0]
   const families: FamilyLag | null = head
     ? {
@@ -302,7 +335,8 @@ const ADDRESS_FORM = /^0x[0-9a-fA-F]{40}$/
 
 /** The hint's last rule on a lane with the levels; the graph of before keeps its 0.81.0 text. */
 const LEVELS_HINT =
-  `${LEVEL_RULE} Read families before a whole-chain SWAPPED search: it is sent when behind_dex is at most 100000, and a ROUTED_TO search when behind_money is. Never ask the user for an address.`
+  `${LEVEL_RULE} Each pool carries swapped_usd, the USD sold into it on its SWAPPED links, and swap_count, its swaps: say "tokens worth about N USD sold into the pool", never its lifetime volume. ` +
+  'Read families before a whole-chain SWAPPED search: it is sent when behind_dex is at most 100000, and a ROUTED_TO search when behind_money is. Never ask the user for an address.'
 const ROUTE_HINT =
   'Read families before a SWAPPED search: it is sent when behind_dex is at most 100000. Never ask the user for an address.'
 
@@ -452,10 +486,19 @@ export async function handleMetaDexLookup(
   }
 
   const entry = match.matched
-  const queries = lookupQueries(entry, pools)
+  const unavailable = await deps.unavailable?.()
+  // The shape is read first: the pool read of the batch follows it.
+  let shape: SwapLinkShape = 'route'
+  if (!unavailable && deps.linkShape) {
+    try {
+      shape = await deps.linkShape(network)
+    } catch {
+      shape = 'route'
+    }
+  }
+  const queries = lookupQueries(entry, pools, shape)
   let members = new Map<string, Member>()
   const notes: string[] = []
-  const unavailable = await deps.unavailable?.()
   if (unavailable) {
     notes.push(
       `No graph read was sent: ${unavailable} The contracts are the reviewed registry rows, not yet confirmed on the graph.`
@@ -474,15 +517,7 @@ export async function handleMetaDexLookup(
       notes.push(`The graph reads failed: ${deps.describeFailure(err)}`)
     }
   }
-  let shape: SwapLinkShape = 'route'
-  if (!unavailable && deps.linkShape) {
-    try {
-      shape = await deps.linkShape(network)
-    } catch {
-      shape = 'route'
-    }
-  }
-  const read = readMatch(entry, members, members.size > 0)
+  const read = readMatch(entry, members, members.size > 0, shape)
   notes.push(...read.notes)
   const contractsOf = (role: Role): ContractRow[] =>
     [...read.contracts.values()].filter((contract) => contract.role === role)

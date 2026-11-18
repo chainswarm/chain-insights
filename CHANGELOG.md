@@ -3,6 +3,38 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.82.0] - 2026-11-18 — money on three link levels
+
+### Added
+
+- The proxy reads a lane whose graph holds money on three levels. Level 2 is
+  the trace: `FLOWED_TO` (funds between two addresses, no pool in the
+  transaction) and `ROUTED_TO` (who paid and who got in an exchange
+  transaction, in USD). Level 1 is the detail: `TRANSFERRED`, `SWAPPED` from
+  the trader to the pool, and the liquidity links. Level 0 is the facts rows.
+- The shape per lane. The proxy asks the lane which link types its `money`
+  family holds and keeps a real answer for 10 minutes. A lane with no
+  `ROUTED_TO`, or a failed read, gets the reads of 0.81.0, byte for byte.
+- `meta_dex_lookup` builds its recipes for both shapes: on a lane with the
+  levels, the traders of a pool are on `SWAPPED` and a trader's routes on
+  `ROUTED_TO`.
+- The connection route of `aml_address_risk` walks `FLOWED_TO|ROUTED_TO` on a
+  lane with the levels.
+- The family table carries `levels` per link type, and the layer `routed` in
+  the `money` family.
+
+### Changed
+
+- The `graph_query` and `meta_dex_lookup` descriptions carry the level
+  sentences, for hosts that load no skill. `tests/host-parity.test.ts` refuses
+  a level sentence that lives in a skill only.
+- Six skills (`chain-insights-cypher`, `chain-insights-dex`, the three trail
+  skills and `chain-insights-virtuals`), `docs/graph-tools.md`,
+  `docs/graph-query-compatibility.md` and `registry/robinhood.md` teach the
+  levels. The address totals count funds between addresses (`FLOWED_TO`);
+  swap proceeds are on `ROUTED_TO`.
+- On a lane with the levels a pool has no address totals, so `meta_dex_lookup` ranks an exchange's pools by the USD sold into each on its `SWAPPED` links (`swapped_usd`, `swap_count`); the graph of before keeps the 0.81.0 read.
+
 ## [0.81.1] - 2026-11-18 — what a deposit address looks like, and a scorecard for the evals
 
 ### Added

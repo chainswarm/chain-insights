@@ -40,8 +40,25 @@ const DAY = '<YYYY-MM-DD>'
 const TX = '<tx_id>'
 const TOKEN = '<launched token address>'
 
-/** The pools one factory deployed, by lifetime volume (R3). */
-export function poolsByFactoryQuery(factory: string, limit = 10): string {
+/**
+ * The pools one factory deployed, ranked (R3). On the graph of before, by the
+ * pool's lifetime volume. On a lane with the levels a pool has no address
+ * totals (its transactions are not on FLOWED_TO), so the pools are ranked by
+ * the USD sold into each on its SWAPPED links (R3L).
+ */
+export function poolsByFactoryQuery(
+  factory: string,
+  limit = 10,
+  shape: SwapLinkShape = 'route'
+): string {
+  if (shape === 'levels') {
+    return (
+      `USE topology MATCH (f:Address {address: "${factory}"})-[:DEPLOYED_CONTRACT]->(p:Pool) ` +
+      'MATCH (t:Address)-[s:SWAPPED]->(p) ' +
+      'RETURN f.address AS from_address, p.address AS to_address, p.labels AS to_labels, sum(s.sold_usd) AS swapped_usd, sum(s.swap_count) AS swap_count ' +
+      `ORDER BY swapped_usd DESC LIMIT ${limit}`
+    )
+  }
   return (
     `USE topology MATCH (f:Address {address: "${factory}"})-[:DEPLOYED_CONTRACT]->(p:Pool) WHERE p.total_volume_usd IS NOT NULL ` +
     'RETURN f.address AS from_address, p.address AS to_address, p.labels AS to_labels, p.total_volume_usd AS total_volume_usd, p.tx_total_count AS tx_total_count ' +
@@ -134,12 +151,20 @@ function startPool(entry: DexEntry, topPool: string | null): string | null {
   return topPool ?? entry.example_pool ?? null
 }
 
-function poolsStep(entry: DexEntry): RecipeStep | null {
+function poolsStep(entry: DexEntry, shape: SwapLinkShape = 'route'): RecipeStep | null {
   const factory = entry.factories.find((address) => entry.roles[address] === 'factory')
   if (!factory) return null
+  const members = entry.factories.filter((a) => entry.roles[a] === 'factory').join(', ')
+  if (shape === 'levels') {
+    return {
+      step: 'Pools of the exchange, by factory',
+      why: `The pools ${entry.display} deployed, by the USD sold into each on its SWAPPED links, with its swap count. A pool has no address totals on this lane. A pool nobody swapped in is left out. One batch member per factory: ${members}.`,
+      query: poolsByFactoryQuery(factory, 10, 'levels'),
+    }
+  }
   return {
     step: 'Pools of the exchange, by factory',
-    why: `The pools ${entry.display} deployed, by lifetime volume. One batch member per factory: ${entry.factories.filter((a) => entry.roles[a] === 'factory').join(', ')}.`,
+    why: `The pools ${entry.display} deployed, by lifetime volume. One batch member per factory: ${members}.`,
     query: poolsByFactoryQuery(factory),
   }
 }
@@ -179,7 +204,7 @@ function levelsRecipeFor(entry: DexEntry, topPool: string | null): RecipeStep[] 
       const router = entry.routers[0]
       if (pool) steps.push(poolTraders(pool))
       else {
-        const pools = poolsStep(entry)
+        const pools = poolsStep(entry, 'levels')
         if (pools) steps.push(pools)
       }
       steps.push(routesStep)
@@ -240,7 +265,7 @@ function levelsRecipeFor(entry: DexEntry, topPool: string | null): RecipeStep[] 
     case 'plain': {
       if (pool) steps.push(poolTraders(pool))
       else {
-        const pools = poolsStep(entry)
+        const pools = poolsStep(entry, 'levels')
         if (pools) steps.push(pools)
       }
       steps.push(routesStep)

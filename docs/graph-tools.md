@@ -80,6 +80,13 @@ The proxy reads the shape per lane: `meta_dex_lookup` answers with
 `ROUTED_TO`, and `meta_schema` adds the level sentences above to its notes. On
 the graph of before both answer as before.
 
+On a lane with the levels a pool, a pool manager or a bonding curve has no
+address totals (`tx_total_count`, `total_volume_usd` and the rest): its
+transactions are not on `FLOWED_TO`. Its trade is the sum of its `SWAPPED`
+links. `meta_dex_lookup` ranks the pools of an exchange that way, and each
+pool row carries `swapped_usd` (the USD sold into the pool) and `swap_count`
+in place of `total_volume_usd` and `tx_total_count`.
+
 The graph layers are grouped into six families, and each family is as fresh
 as its slowest layer: `money` (`FLOWED_TO`, `ROUTED_TO`, `OPERATED_BY`), `dex` (`SWAPPED`,
 `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`), `interactions` (`APPROVED`,

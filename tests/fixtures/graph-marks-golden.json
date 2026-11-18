@@ -647,8 +647,7 @@
       "never": [
         "Token",
         "NFT",
-        "Mixer",
-        "Launchpad"
+        "Mixer"
       ],
       "since_block": 58071125,
       "source": "https://github.com/chainswarm/AP1000/blob/main/openspec/changes/archive/2026-10-21-cia-graph-marks-regression/proposal.md"
