@@ -33,6 +33,8 @@ All notable changes to Chain Insights are recorded here.
   `docs/graph-query-compatibility.md` and `registry/robinhood.md` teach the
   levels. The address totals count funds between addresses (`FLOWED_TO`);
   swap proceeds are on `ROUTED_TO`.
+- On a lane with the levels a pool has no address totals, so `meta_dex_lookup` ranks an exchange's pools by the USD sold into each on its `SWAPPED` links (`swapped_usd`, `swap_count`); the graph of before keeps the 0.81.0 read.
+
 ## [0.81.1] - 2026-11-18 — what a deposit address looks like, and a scorecard for the evals
 
 ### Added

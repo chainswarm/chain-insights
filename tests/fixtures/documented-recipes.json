@@ -466,12 +466,29 @@
       "query": "USE topology MATCH (f:Address {address: \"0xc63d7338c178e805c544b8f897066bd3bbcbe136\"})-[:DEPLOYED_CONTRACT]->(p:Pool) WHERE p.total_volume_usd IS NOT NULL RETURN f.address AS from_address, p.address AS to_address, p.labels AS to_labels, p.total_volume_usd AS total_volume_usd, p.tx_total_count AS tx_total_count ORDER BY p.total_volume_usd DESC LIMIT 10",
       "layer": "topology",
       "expect_rows": true,
+      "shape": "route",
       "description": "The pools of an exchange by one factory (skill chain-insights-dex, reference R3, and the pool read of meta_dex_lookup): the :Pool contracts the Aero concentrated-liquidity factory deployed, ranked by lifetime volume. Anchored on the factory, so it is admitted on any lane and answers in under 100 ms, however far behind the exchange family is; the factory comes from registry/robinhood.json.",
       "features": [
         "address-predicate",
         "inline-property-map",
         "deployed-contract-edge",
         "pool-label",
+        "order-by"
+      ]
+    },
+    {
+      "id": "recipe_topology_dex_pools_by_factory_levels_01",
+      "query": "USE topology MATCH (f:Address {address: \"0xc63d7338c178e805c544b8f897066bd3bbcbe136\"})-[:DEPLOYED_CONTRACT]->(p:Pool) MATCH (t:Address)-[s:SWAPPED]->(p) RETURN f.address AS from_address, p.address AS to_address, p.labels AS to_labels, sum(s.sold_usd) AS swapped_usd, sum(s.swap_count) AS swap_count ORDER BY swapped_usd DESC LIMIT 10",
+      "layer": "topology",
+      "expect_rows": true,
+      "shape": "levels",
+      "description": "The pools of an exchange by one factory on a lane with the levels (skill chain-insights-dex, reference R3L, and the pool read of meta_dex_lookup there): a pool has no address totals on that lane, so the :Pool contracts the Aero concentrated-liquidity factory deployed are ranked by the USD sold into each on its SWAPPED links, with the swap count. A pool nobody swapped in is left out. Anchored on the factory.",
+      "features": [
+        "address-predicate",
+        "inline-property-map",
+        "deployed-contract-edge",
+        "pool-label",
+        "swapped-edge",
         "order-by"
       ]
     },

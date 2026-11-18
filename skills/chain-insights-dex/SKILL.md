@@ -150,6 +150,14 @@ ranking. Name each pool in full with its lifetime volume: "tokens worth about
 228,559,848 USD over its life". A pool's `labels` carry the adapter mark; say
 "an Aero pool", never the mark.
 
+Where `meta_dex_lookup` says `swap_links: levels`, a pool has no address
+totals: its transactions are not on `FLOWED_TO`. Rank the pools by their
+`SWAPPED` links instead (reference R3L). Each pool row then carries
+`swapped_usd`, the USD sold into the pool, and `swap_count`, its swaps, in
+place of `total_volume_usd` and `tx_total_count`. Say "tokens worth about
+1,667,147,965 USD sold into the pool in 1,279,600 swaps", never its lifetime
+volume. A pool nobody swapped in is left out.
+
 To say which exchange a pool belongs to, read its creator with one anchored
 hop (`DEPLOYED_CONTRACT` into the pool) and find that factory in the list
 `meta_dex_lookup` returns with no name, or in the memo.

@@ -10,6 +10,7 @@ import { fetchNetworkCapabilities, type NetworkCapability } from '../src/mcp/cap
 import { withBusyMemberRetry } from '../src/mcp/batch-busy-retry.js'
 import { applyMcpAuthHeaders } from '../src/mcp/client.js'
 import { callGraphQueryBatch, type ToolCaller } from '../src/mcp/graph-client.js'
+import { swapLinkShape, type SwapLinkShape } from '../src/mcp/layer-routing.js'
 import { PACKAGE_VERSION } from '../src/version.js'
 
 // Live recipe run: every documented recipe in tests/fixtures/documented-recipes.json
@@ -29,6 +30,11 @@ import { PACKAGE_VERSION } from '../src/version.js'
 //                    the recipe names in expects_code;
 //   expect_rows    — the recipe is anchored on fixture data the backend
 //                    serves, so it must return at least one row.
+//   shape          — `levels` or `route`: the recipe holds a read of one graph
+//                    shape only. Every recipe is still sent and must be
+//                    admitted; its rows are checked only on a lane of that
+//                    shape. The lane's shape is its `money` family in
+//                    network_capabilities (src/mcp/layer-routing.ts swapLinkShape).
 
 const endpoint = process.env['CHAIN_INSIGHTS_LIVE_GRAPH_MCP_ENDPOINT']?.trim()
 const token = process.env['CHAIN_INSIGHTS_LIVE_GRAPH_MCP_TOKEN']?.trim()
@@ -43,6 +49,7 @@ type Recipe = {
   admits?: boolean
   expects_code?: string
   expect_rows?: boolean
+  shape?: SwapLinkShape
   features: string[]
 }
 
@@ -204,9 +211,17 @@ describe.skipIf(!endpoint)('documented recipes against a live Chain Insights Gra
   })
 
   it('returns rows for every fixture-anchored recipe, under its RETURN aliases only', () => {
-    const anchored = recipes.filter((entry) => entry.expect_rows)
+    const laneShape = swapLinkShape(advertised?.graph_progress?.families)
+    const anchored = recipes.filter(
+      (entry) => entry.expect_rows && (entry.shape === undefined || entry.shape === laneShape)
+    )
     expect(anchored.map((entry) => entry.id)).toEqual(
-      expect.arrayContaining(['recipe_facts_transfer_06'])
+      expect.arrayContaining([
+        'recipe_facts_transfer_06',
+        laneShape === 'levels'
+          ? 'recipe_topology_dex_pools_by_factory_levels_01'
+          : 'recipe_topology_dex_pools_by_factory_01',
+      ])
     )
     for (const recipe of anchored) {
       const entry = answers.get(recipe.id)!

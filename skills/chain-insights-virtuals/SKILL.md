@@ -120,7 +120,8 @@ Run them in this order. Each step names its query in reference.md.
 
 **Who is behind**
 1. Rank creators (A1). Pick the creator wallet.
-2. List its agents, or sample them by `tx_id` order (A2).
+2. List its agents, or sample them by `tx_id` order (A2). On a lane with
+   the levels, the trade of their pools is A2L.
 3. Its first funding (A3) and chain of origin (A4).
 4. Money in, out and kept (A5), plus its swaps (A5L) on a lane with the
    levels. A wallet that forwards everything it receives is a launch
@@ -130,8 +131,8 @@ Run them in this order. Each step names its query in reference.md.
 
 **Who rugs**
 1. The agent's three contracts from its creation `tx_id` (A6).
-2. The starting pool's life: traders, volume, last activity (B3). An
-   agent nobody bought cannot be rugged.
+2. The starting pool's life: traders, volume, last activity (B3, or B3L on
+   a lane with the levels). An agent nobody bought cannot be rugged.
 3. On a graduated agent: liquidity seeded and removed (B1).
 4. Did the creator or an early buyer sell the agent token (B2)? Sold
    asset = agent token is a dump. Bought asset = agent token is a pump.
