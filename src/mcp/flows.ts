@@ -12,7 +12,12 @@
  *   chain-insights.flows.v1 in structuredContent. Composed from at most five
  *   anchored graph_query reads on the topology graph: the node, then its
  *   outgoing and its incoming FLOWED_TO, newest first, two reads a side because
- *   a reply holds at most 200 rows.
+ *   a reply holds at most 200 rows. On a lane whose money family lists
+ *   ROUTED_TO (the three link levels) each side reads FLOWED_TO and ROUTED_TO
+ *   together, newest first, so the 250 a side count both: a route is one step
+ *   that changes the asset, from a payer to the final receiver of a swap, and
+ *   its edge carries link_kind ROUTED_TO. A router or a pool is never an end of
+ *   a route. Any other lane gets the reads of 0.82.0, byte for byte.
  * - link, {network, from, to, day}: the transfers between two known addresses
  *   on one UTC day, newest first, at most 50, a short text summary and
  *   chain-insights.transfers.v1 in structuredContent. One anchored USE facts
@@ -33,6 +38,8 @@
  * argument is checked before the first read, so a refused call reaches no graph
  * endpoint and costs nothing.
  */
+
+import type { SwapLinkShape } from './layer-routing.js'
 
 export const FLOWS_SCHEMA = 'chain-insights.flows.v1'
 export const GRAPH_EXPAND_TOOL = 'graph_expand'
@@ -85,13 +92,28 @@ export type FlowNode = {
   degree_out: number
 }
 
+/** The two level 2 links an edge of a lane with the levels can be. */
+export type FlowLinkKind = 'FLOWED_TO' | 'ROUTED_TO'
+
 export type FlowEdge = {
   from: string
   to: string
+  /** What was sent: on a route, what the payer gave. */
   usd: number
   tx_count: number
   first_seen_ms: number
   last_seen_ms: number
+  /**
+   * Set on a lane with the levels only: FLOWED_TO (funds between addresses),
+   * ROUTED_TO (a swap route, one step that changes the asset), or both joined
+   * with ", " when the pair holds both, as the view joins the link kinds of
+   * graph_query rows. The view shows it as the link kind.
+   */
+  link_kind?: string
+  /** A route only: what the receiver got, in USD (bought_usd_sum). */
+  bought_usd?: number
+  /** A route only: how many swaps the route holds. */
+  swap_count?: number
 }
 
 export type FlowCursor = { in_offset: number; out_offset: number }
@@ -109,6 +131,8 @@ export type FlowView = {
   truncated: boolean
   /** Set on every node page. A view that does not know it ignores it. */
   remaining?: FlowRemaining
+  /** Set on a lane with the levels only: the links the page read, both level 2 links. */
+  link_kinds?: FlowLinkKind[]
 }
 
 type Row = Record<string, unknown>
@@ -119,6 +143,8 @@ export type FlowsPage = {
   receivers: Row[]
   inOffset: number
   outOffset: number
+  /** `levels` on a lane whose money family lists ROUTED_TO; absent or `route` on the graph of before. */
+  shape?: SwapLinkShape
 }
 
 /** One graph_query answer as the remote client returns it. */
@@ -148,6 +174,12 @@ export type FlowsDependencies = {
   describeFailure: (err: unknown) => string
   /** Why no read can run (the graph endpoint is not connected), checked after the arguments. */
   unavailable?: () => string | undefined
+  /**
+   * The lane's graph shape (`meta_network_capabilities`, kept by the proxy). A
+   * node page reads ROUTED_TO beside FLOWED_TO only when it answers `levels`;
+   * absent, `route` or a read that throws keeps the reads of 0.82.0.
+   */
+  linkShape?: (network: string) => Promise<SwapLinkShape> | SwapLinkShape
   now?: () => Date
 }
 
@@ -279,6 +311,13 @@ const PARTY_FIELDS =
 // Newest link first, the address breaking a tie, so a page and the next one
 // never share or skip a link.
 const PAGE_ORDER = ' ORDER BY f.last_seen_timestamp DESC, b.address'
+// On a lane with the levels a side reads both level 2 links: the link type
+// comes back as link_kind and breaks the last tie (a pair can hold both), and
+// a route carries what the receiver got and its swap count.
+const LEVELS_PARTY_FIELDS =
+  PARTY_FIELDS +
+  ', type(f) AS link_kind, f.bought_usd_sum AS bought_usd, f.swap_count AS swap_count'
+const LEVELS_PAGE_ORDER = PAGE_ORDER + ', link_kind'
 
 /** One anchored read of a page, with the SKIP and LIMIT it carries. */
 export type FlowsRead = { id: 'node' | 'out' | 'in'; query: string; skip: number; limit: number }
@@ -289,7 +328,15 @@ export type FlowsRead = { id: 'node' | 'out' | 'in'; query: string; skip: number
  * another page exists. A reply holds at most FLOWS_READ_ROWS rows, so a side
  * is read in chunks on the same order, each starting where the last one ends.
  */
-export function flowsReadsFor(address: string, inOffset: number, outOffset: number): FlowsRead[] {
+export function flowsReadsFor(
+  address: string,
+  inOffset: number,
+  outOffset: number,
+  shape: SwapLinkShape = 'route'
+): FlowsRead[] {
+  const levels = shape === 'levels'
+  const fields = levels ? LEVELS_PARTY_FIELDS : PARTY_FIELDS
+  const order = levels ? LEVELS_PAGE_ORDER : PAGE_ORDER
   const side = (id: 'out' | 'in', offset: number, match: string): FlowsRead[] => {
     const reads: FlowsRead[] = []
     for (let done = 0; done < FLOWS_PER_SIDE + 1; done += FLOWS_READ_ROWS) {
@@ -297,7 +344,7 @@ export function flowsReadsFor(address: string, inOffset: number, outOffset: numb
       const limit = Math.min(FLOWS_READ_ROWS, FLOWS_PER_SIDE + 1 - done)
       reads.push({
         id,
-        query: `USE topology MATCH ${match} RETURN ${PARTY_FIELDS}${PAGE_ORDER}${skip > 0 ? ` SKIP ${skip}` : ''} LIMIT ${limit}`,
+        query: `USE topology MATCH ${match} RETURN ${fields}${order}${skip > 0 ? ` SKIP ${skip}` : ''} LIMIT ${limit}`,
         skip,
         limit,
       })
@@ -311,8 +358,21 @@ export function flowsReadsFor(address: string, inOffset: number, outOffset: numb
       skip: 0,
       limit: 1,
     },
-    ...side('out', outOffset, `(a:Address {address: '${address}'})-[f:FLOWED_TO]->(b:Address)`),
-    ...side('in', inOffset, `(b:Address)-[f:FLOWED_TO]->(a:Address {address: '${address}'})`),
+    ...(levels
+      ? [
+          // The self link (a route of the address to itself, a swap for
+          // itself) is read once, on the receivers' side.
+          ...side('out', outOffset, `(a:Address {address: '${address}'})-[f:FLOWED_TO|ROUTED_TO]->(b:Address)`),
+          ...side(
+            'in',
+            inOffset,
+            `(b:Address)-[f:FLOWED_TO|ROUTED_TO]->(a:Address {address: '${address}'}) WHERE b.address <> '${address}'`
+          ),
+        ]
+      : [
+          ...side('out', outOffset, `(a:Address {address: '${address}'})-[f:FLOWED_TO]->(b:Address)`),
+          ...side('in', inOffset, `(b:Address)-[f:FLOWED_TO]->(a:Address {address: '${address}'})`),
+        ]),
   ]
 }
 
@@ -363,10 +423,16 @@ function assembleFlowView(
   truncated: boolean
 ): FlowView {
   const center = flowsNodeOf(page.center)
+  const levels = page.shape === 'levels'
   const cursor = {
     in_offset: page.inOffset + senders.length,
     out_offset: page.outOffset + receivers.length,
   }
+  // The degrees count FLOWED_TO counterparties only. On a lane with the levels
+  // a page also holds routes, so what remains is known only as "more" (the
+  // extra row of the read): at least one, never a count the degrees cannot give.
+  const remainingOf = (degree: number, next: number, more: boolean) =>
+    levels ? (more ? Math.max(1, degree - next) : 0) : Math.max(0, degree - next)
   const view: FlowView = {
     schema: FLOWS_SCHEMA,
     network,
@@ -375,26 +441,58 @@ function assembleFlowView(
     edges: [],
     cursor,
     truncated,
+    ...(levels ? { link_kinds: ['FLOWED_TO', 'ROUTED_TO'] as FlowLinkKind[] } : {}),
     remaining: {
-      senders: Math.max(0, center.degree_in - cursor.in_offset),
-      receivers: Math.max(0, center.degree_out - cursor.out_offset),
+      senders: remainingOf(center.degree_in, cursor.in_offset, page.senders.length > senders.length),
+      receivers: remainingOf(
+        center.degree_out,
+        cursor.out_offset,
+        page.receivers.length > receivers.length
+      ),
     },
   }
   const seen = new Set([center.address])
+  const edgeAt = new Map<string, FlowEdge>()
   const add = (row: Row, incoming: boolean) => {
     const node = flowsNodeOf(row)
     if (!seen.has(node.address)) {
       seen.add(node.address)
       view.nodes.push(node)
     }
-    view.edges.push({
+    const edge: FlowEdge = {
       from: incoming ? node.address : center.address,
       to: incoming ? center.address : node.address,
       usd: flowsFloat(row.usd),
       tx_count: flowsInt(row.tx_count),
       first_seen_ms: flowsInt(row.first_seen),
       last_seen_ms: flowsInt(row.last_seen),
-    })
+    }
+    if (!levels) {
+      view.edges.push(edge)
+      return
+    }
+    const kind: FlowLinkKind = row.link_kind === 'ROUTED_TO' ? 'ROUTED_TO' : 'FLOWED_TO'
+    edge.link_kind = kind
+    if (kind === 'ROUTED_TO') {
+      edge.bought_usd = flowsFloat(row.bought_usd)
+      edge.swap_count = flowsInt(row.swap_count)
+    }
+    // A pair that holds both links is one edge, as the view draws one link a
+    // direction: the sums added, the kinds joined.
+    const key = `${edge.from}->${edge.to}`
+    const kept = edgeAt.get(key)
+    if (!kept) {
+      edgeAt.set(key, edge)
+      view.edges.push(edge)
+      return
+    }
+    kept.usd += edge.usd
+    kept.tx_count += edge.tx_count
+    kept.first_seen_ms = Math.min(kept.first_seen_ms, edge.first_seen_ms)
+    kept.last_seen_ms = Math.max(kept.last_seen_ms, edge.last_seen_ms)
+    kept.link_kind = [kept.link_kind, kind].filter(Boolean).sort().join(', ')
+    if (edge.bought_usd !== undefined) kept.bought_usd = edge.bought_usd
+    if (edge.swap_count !== undefined) kept.swap_count = edge.swap_count
   }
   for (const row of senders) add(row, true)
   for (const row of receivers) add(row, false)
@@ -501,6 +599,7 @@ function sideLines(title: string, parties: string[]): string[] {
  * date and age. At most FLOWS_SUMMARY_MAX_LINES lines.
  */
 export function flowsSummary(view: FlowView, now: Date): string {
+  if (view.link_kinds) return levelsSummary(view, now)
   const nodes = new Map(view.nodes.map((node) => [node.address, node]))
   const center = nodes.get(view.center)
   const party = (address: string, edge: FlowEdge) =>
@@ -518,6 +617,53 @@ export function flowsSummary(view: FlowView, now: Date): string {
   ]
   const body = lines.slice(0, FLOWS_SUMMARY_MAX_LINES - 2)
   const footer = pagingLines(view, senders.length, receivers.length, center)
+  return [...body, ...footer].join('\n')
+}
+
+/** What one edge of a lane with the levels moved: funds, a swap route, or both. */
+function levelsAmount(edge: FlowEdge): string {
+  if (edge.link_kind === 'ROUTED_TO') {
+    return `swap route, ${formatFlowsUsd(edge.usd)} paid and ${formatFlowsUsd(edge.bought_usd ?? 0)} got in ${edge.swap_count ?? 0} swaps`
+  }
+  if (edge.link_kind === 'FLOWED_TO') return `${formatFlowsUsd(edge.usd)} in ${edge.tx_count} tx`
+  return `funds and a swap route, ${formatFlowsUsd(edge.usd)} in ${edge.tx_count} tx`
+}
+
+/**
+ * The text of a node answer on a lane with the levels: the same lines, each
+ * counterparty saying whether it is funds or a swap route, and the address's
+ * swap for itself (its self link) on a line of its own.
+ */
+function levelsSummary(view: FlowView, now: Date): string {
+  const nodes = new Map(view.nodes.map((node) => [node.address, node]))
+  const center = nodes.get(view.center)
+  const party = (address: string, edge: FlowEdge) =>
+    `${address} ${roleText(nodes.get(address))}, ${levelsAmount(edge)}, last seen ${formatFlowsAge(edge.last_seen_ms, now)}`
+  const senders: string[] = []
+  const receivers: string[] = []
+  const self: string[] = []
+  for (const edge of view.edges) {
+    if (edge.from === view.center && edge.to === view.center) {
+      self.push(
+        `Swapped for itself: ${levelsAmount(edge)}, last seen ${formatFlowsAge(edge.last_seen_ms, now)}.`
+      )
+    } else if (edge.to === view.center) senders.push(party(edge.from, edge))
+    else receivers.push(party(edge.to, edge))
+  }
+  const lines = [
+    `Money flows of ${view.center} on ${view.network}: ${roleText(center)}; lifetime ${formatFlowsUsd(center?.total_in_usd ?? 0)} in, ${formatFlowsUsd(center?.total_out_usd ?? 0)} out in funds between addresses; ${center?.degree_in ?? 0} senders and ${center?.degree_out ?? 0} receivers of funds, swap routes not counted.`,
+    ...self,
+    ...sideLines('Recent senders and payers through a swap', senders),
+    ...sideLines('Recent receivers and receivers through a swap', receivers),
+  ]
+  const body = lines.slice(0, FLOWS_SUMMARY_MAX_LINES - 2)
+  // A pair that holds both links is one line, so the page names its counts,
+  // not a range of links.
+  const where = `Showing ${senders.length} senders and ${receivers.length} receivers on this page, funds and swap routes together, newest first.`
+  const more = view.truncated || (view.remaining?.senders ?? 0) + (view.remaining?.receivers ?? 0) > 0
+  const footer = more
+    ? [where, 'More senders and receivers load when an address in the picture is double-clicked.']
+    : [where]
   return [...body, ...footer].join('\n')
 }
 
@@ -789,9 +935,18 @@ async function runNode(
 ): Promise<FlowsToolResult> {
   const unavailable = deps.unavailable?.()
   if (unavailable) return errorResult(unavailable)
+  // The lane's shape first: a read that fails keeps the reads of 0.82.0.
+  let shape: SwapLinkShape = 'route'
+  if (deps.linkShape) {
+    try {
+      shape = await deps.linkShape(network)
+    } catch {
+      shape = 'route'
+    }
+  }
   const rows: Record<FlowsRead['id'], Row[]> = { node: [], out: [], in: [] }
   const ended = new Set<FlowsRead['id']>()
-  for (const read of flowsReadsFor(address, inOffset, outOffset)) {
+  for (const read of flowsReadsFor(address, inOffset, outOffset, shape)) {
     if (ended.has(read.id)) continue
     let answer: GraphQueryAnswer
     try {
@@ -818,6 +973,7 @@ async function runNode(
     receivers: rows.out,
     inOffset,
     outOffset,
+    ...(shape === 'levels' ? { shape } : {}),
   })
   const now = deps.now ? deps.now() : new Date()
   return {
@@ -1047,7 +1203,9 @@ export const GRAPH_EXPAND_TITLE = 'Expand a node or a link in the picture'
 export const GRAPH_EXPAND_DESCRIPTION =
   'Expand an open Chain Insights picture. Called by the view when the investigator clicks, never by the model. ' +
   'A node, {network, address, in_offset?, out_offset?}, loads the newest senders and receivers of one address ' +
-  '(up to 250 a side, from the offsets); billed as at most five graph_query topology reads. A link, {network, from, to, day}, ' +
+  '(up to 250 a side, from the offsets); on a lane whose money family lists ROUTED_TO a side holds its swap routes too, ' +
+  'each one step that changes the asset with link_kind ROUTED_TO, never a router or a pool as a holder; ' +
+  'billed as at most five graph_query topology reads. A link, {network, from, to, day}, ' +
   'lists the transfers between two addresses on one UTC day (YYYY-MM-DD), newest first, at most 50; billed as ' +
   'one graph_query facts read. A link page, {network, from, to, day, limit, skip?, first_day?}, lists `limit` (1-50) ' +
   'transfers from `day` back across days, newest first, and answers a `next` cursor ({day, skip}) while older ones ' +

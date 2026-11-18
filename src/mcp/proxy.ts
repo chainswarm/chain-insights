@@ -242,7 +242,8 @@ const KNOWN_PUBLIC_TOOL_TITLES: Record<string, string> = {
   graph_query_batch: 'Graph Query Batch',
 }
 const FALLBACK_GRAPH_PRIMITIVE_TOOL_NAMES = ['graph_query', 'graph_query_batch'] as const
-// How long the proxy keeps a lane's graph shape (meta_dex_lookup's first reads).
+// How long the proxy keeps a lane's graph shape (meta_dex_lookup's first reads,
+// the deployer screen's funder read and a graph_expand node click).
 const LINK_SHAPE_TTL_MS = 10 * 60 * 1000
 
 type ToolInputShape = Record<string, z.ZodTypeAny>
@@ -1421,7 +1422,7 @@ export async function createProxy(): Promise<void> {
       },
       annotations: AML_DEPLOYER_SCREEN_ANNOTATIONS,
     },
-    async (args) => handleAmlDeployerScreen(args, tokenDependencies)
+    async (args) => handleAmlDeployerScreen(args, { ...tokenDependencies, linkShape })
   )
 
   // meta_exchange_lookup: a centralized exchange's name, or one of its wallets,
@@ -1671,6 +1672,8 @@ export async function createProxy(): Promise<void> {
     },
     describeFailure: (err) => remoteCallFailureText('graph_query', err),
     refusal: (err) => clickRefusal('graph_query', err),
+    // A node click reads ROUTED_TO beside FLOWED_TO on a lane with the levels.
+    linkShape,
     unavailable: () =>
       remoteConnected
         ? undefined
