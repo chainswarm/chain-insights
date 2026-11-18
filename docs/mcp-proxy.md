@@ -258,6 +258,14 @@ flowchart LR
 - `is_deposit` is true when the address carries `cex_role` `deposit` or has a
   `SWEPT` link. `SWEPT` is drawn only from an address the deposit rule judged a
   deposit.
+- With neither, the node read also takes the exchange model's guess:
+  `inferred_exchange_role` and its `ml:exchange-roles:<model>:<basis>` entry in
+  `inferred_sources`. The answer then adds `inferred: true`, `inferred_role`
+  (`deposit` or `hot_wallet`), `inferred_model`, `inferred_basis`
+  (`listed_hot_wallet`, `predicted_hot_wallet` or `predicted`) and
+  `inferred_at`, and says the address is inferred by that model and named by
+  no listed source. `is_deposit` stays false. A sourced mark always wins, and
+  that answer carries no `inferred` field.
 - `exchange` is named from the hot wallet it swept into, through the exchange
   lookup, else from the address's label words.
 - `swept` lists each hot wallet with the sweep count, the USD sum, the paths

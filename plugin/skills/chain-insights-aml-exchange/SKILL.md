@@ -75,6 +75,18 @@ deposit to this:
 - **No activity proves nothing.** When `found` is false the address has no
   activity on the network: say the claim is unproven there, and check the
   address and the network with the user.
+- **A guess of the exchange model is said as one.** An answer with
+  inferred: true is the exchange model's prediction, not a listed source:
+  report the address as inferred by the model, with its version
+  (inferred_model), never as a confirmed exchange address. Say "an exchange
+  deposit, inferred by model <version>" or "an exchange hot wallet, inferred
+  by model <version>", and that no listed source names it. `inferred_role`
+  is the role, `inferred_basis` why: `listed_hot_wallet` (behind a listed
+  hot wallet), `predicted_hot_wallet` (behind a hot wallet the model itself
+  inferred) or `predicted` (a hot wallet the model inferred), and
+  `inferred_at` when the graph wrote it. `is_deposit` stays false and
+  `cex_role` null: they are the sourced verdict. A sourced mark always wins,
+  and then the answer carries no `inferred` field.
 
 ## Step 1: the doors
 
@@ -97,7 +109,9 @@ deposit to this:
    It reads the address's `cex_role` and its `SWEPT` links
    and answers `is_deposit`, the exchange, and each hot wallet it swept
    into with the sweep count, the USD sum, the paths and the first and
-   last sweep.
+   last sweep. With no sourced mark, it reads the exchange model's guess
+   (`inferred_exchange_role`, `inferred_sources`) and answers it as
+   inferred, with the model version.
 3. **No match.** When `meta_exchange_lookup` returns `matched` null, say
    which exchanges it lists for the network, and ask the user for one
    address of the exchange they mean: a deposit address of theirs, or a
