@@ -192,6 +192,14 @@ flowchart LR
    pool or a protocol), `contract` (a contract with no other role) that its
    roles name, or `wallet`. It also carries
    when and how often it paid the launcher, and the value in USD.
+   On a lane whose `money` family lists `ROUTED_TO` (money on three link
+   levels), the first funder is the earliest money from another address, on
+   `FLOWED_TO` (funds) or on `ROUTED_TO` (a swap: the funder paid one asset,
+   the launcher got another). `funded_via` says which: `transfer` or `swap`.
+   On a swap the value is what the launcher got. A swap the launcher made for
+   itself is never its funder: it spent money the launcher already held, so
+   the funder is whoever paid that money in. A router or a pool is never a
+   funder. Any other lane gets the reads of 0.82.0 and no `funded_via`.
 4. `launcher_resolved` is false when the launcher is a bundler: a bundler sends
    transactions for others, so the person behind the launch is not known.
 5. `bridged_in` names the first inbound bridge deposit: the remote chain, the
@@ -370,7 +378,18 @@ Graph endpoint serves data only:
   topology `graph_query` reads: the node, then two reads a side, because one
   reply holds at most 200 rows. A side that ends early skips its second read.
   A busy address shows fewer, so the answer stays under 140,000 characters.
-  The answer says how many senders and receivers are not loaded yet. Or it takes
+  The answer says how many senders and receivers are not loaded yet. On a lane
+  whose `money` family lists `ROUTED_TO`, each side reads `FLOWED_TO` and
+  `ROUTED_TO` together, newest first, so the 250 a side count both. A route is
+  one step that changes the asset: who paid through an exchange and who got
+  the bought asset, never a router or a pool. Its edge carries `link_kind`
+  `ROUTED_TO`, `bought_usd` and `swap_count`; a funds edge carries
+  `FLOWED_TO`, and a pair with both is one edge, `FLOWED_TO, ROUTED_TO`, with
+  the sums added. The link panel shows the link kind. A swap the address made
+  for itself is a self edge, named in the text answer; the drawing leaves it
+  out. On that lane the answer only says whether more remain (at least one),
+  because the address counts name funds only. Any other lane gets the reads
+  of 0.82.0, byte for byte. Or it takes
   `{network, from, to, day}` to list the transfers between two addresses on one
   UTC day, newest first, at most 50 (one `USE facts` `graph_query` read). With
   `limit` (1 to 50), and `skip` and `first_day` as the answer's `next` cursor

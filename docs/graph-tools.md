@@ -35,7 +35,9 @@ The Chain Insights MCP proxy adds the local tools `meta_network_capabilities`,
 `subscription_topup`. `aml_deployer_screen` screens who is behind a token or a
 wallet from two anchored topology reads: the launcher, its first funder and
 what kind of wallet that is, their labels and the first inbound bridge
-deposit. It returns facts only, never a score; see
+deposit. On a lane with the three link levels the first funder may have paid
+through a swap (`ROUTED_TO`, `funded_via` `swap`); a swap the launcher made for
+itself is never its funder. It returns facts only, never a score; see
 [MCP proxy](mcp-proxy.md#local-tools). `meta_exchange_lookup` turns a
 centralized exchange name into its proven hot wallets, and
 `aml_exchange_deposit_check` says whether one address is an exchange deposit,

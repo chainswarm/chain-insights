@@ -9,6 +9,14 @@
  *           of all time and its first inbound bridge deposit;
  *   wallet  the address as the launcher itself: the same funder and bridge reads.
  *
+ * The funder is the launcher's earliest inbound FLOWED_TO. On a lane whose
+ * money family lists ROUTED_TO (the three link levels) it is the earliest of
+ * its inbound FLOWED_TO and ROUTED_TO from another address: a launcher funded
+ * by the proceeds of a swap names the payer of that swap. A self route (the
+ * launcher swapped for itself) is never the funder: it spent money the
+ * launcher already held, so the search goes on to what paid it in. Any other
+ * lane gets the reads of 0.82.0, byte for byte.
+ *
  * The token read answers first when it holds a row; the wallet read answers
  * otherwise. The tool returns facts and never a score, a level or a verdict:
  * the description below is the contract with every host, Claude Desktop chat
@@ -17,6 +25,7 @@
 
 import { ANSWER_HINT } from './answer-hint.js'
 import { DexRegistryError, normalizeDexNetwork } from './dex-registry.js'
+import type { SwapLinkShape } from './layer-routing.js'
 import { isEpochMs, utcText } from './timestamp-text.js'
 import {
   membersOf,
@@ -37,7 +46,9 @@ export const AML_DEPLOYER_SCREEN_DESCRIPTION =
   'funder ever paid, the sanctions, scam, victim and risk labels on each, and the first inbound bridge deposit. ' +
   'The caller decides. A fresh launcher funded by a wallet that paid few addresses is the pattern to look at; ' +
   'a funder that paid thousands is shared infrastructure. A launcher that is a bundler hides the real sender: ' +
-  'launcher_resolved is then false. not_covered lists what the graph cannot see yet.'
+  'launcher_resolved is then false. On a lane whose money family lists ROUTED_TO the first funder may have paid ' +
+  'through a swap (funded_via swap): it paid, a router and a pool swapped, the launcher got another asset; a swap ' +
+  'the launcher made for itself is never its funder. not_covered lists what the graph cannot see yet.'
 export const AML_DEPLOYER_SCREEN_ANNOTATIONS = {
   readOnlyHint: true,
   idempotentHint: true,
@@ -79,6 +90,12 @@ export interface Funder {
   funded_at_utc: string | null
   funding_tx_count: number | null
   funding_usd: number | null
+  /**
+   * On a lane with the levels only: `transfer` when the first money came on
+   * FLOWED_TO, `swap` when on ROUTED_TO (the funder paid, the launcher got the
+   * bought asset; funding_usd is then what the launcher got).
+   */
+  funded_via?: 'transfer' | 'swap'
 }
 
 export interface Creation {
@@ -120,7 +137,14 @@ export interface AmlDeployerScreenResult {
 export type DeployerScreenDependencies = Pick<
   TokenToolDependencies,
   'graphQueryBatch' | 'unavailable' | 'describeFailure'
->
+> & {
+  /**
+   * The lane's graph shape (`meta_network_capabilities`, kept by the proxy).
+   * The funder read walks ROUTED_TO only when it answers `levels`; absent,
+   * `route` or a read that throws keeps the reads of 0.82.0.
+   */
+  linkShape?: (network: string) => Promise<SwapLinkShape> | SwapLinkShape
+}
 
 export type AmlDeployerScreenToolResult = {
   content: Array<{ type: 'text'; text: string }>
@@ -135,6 +159,14 @@ const ADDRESS_READ = /^0x[0-9a-f]{40}$/
 // The funder's first inbound flow and the first inbound bridge deposit of the
 // launcher `l`, and the columns both reads return about them.
 const FUNDER_READ = 'OPTIONAL MATCH (f:Address)-[e:FLOWED_TO]->(l)'
+// On a lane with the levels: the first money from another address, funds or a
+// swap route; the self route is left out (it spent what the launcher held).
+const LEVELS_FUNDER_READ =
+  'OPTIONAL MATCH (f:Address)-[e:FLOWED_TO|ROUTED_TO]->(l) WHERE f.address <> l.address'
+// What the launcher got: a route carries it in bought_usd_sum, a FLOWED_TO in
+// amount_usd_sum; and which link it came on.
+const LEVELS_FUNDING_COLUMNS =
+  'coalesce(e.bought_usd_sum, e.amount_usd_sum) AS funding_usd, type(e) AS funding_link'
 const BRIDGE_READ =
   "OPTIONAL MATCH (ch:Chain)-[b:BRIDGED]->(l) WHERE b.kind IN ['TOKEN_DEPOSIT','NATIVE_DEPOSIT']"
 const PARTY_COLUMNS = [
@@ -186,38 +218,51 @@ function assertReadAddress(address: string): void {
 }
 
 /** The token read: the address as a contract, its first creation and who sent it. */
-export function tokenScreenQuery(address: string): string {
+export function tokenScreenQuery(address: string, shape: SwapLinkShape = 'route'): string {
   assertReadAddress(address)
   return [
     `USE topology MATCH (t:Address {address:'${address}'})<-[c:DEPLOYED_CONTRACT]-(:Address)`,
     'WITH t, c ORDER BY c.block_height LIMIT 1',
     'MATCH (l:Address {address: c.tx_origin})',
-    FUNDER_READ,
+    funderRead(shape),
     'WITH t, c, l, f, e ORDER BY e.first_seen_timestamp LIMIT 1',
     BRIDGE_READ,
     'WITH t, c, l, f, e, ch, b ORDER BY b.first_height LIMIT 1',
-    `RETURN ${TOKEN_COLUMNS}, ${PARTY_COLUMNS} LIMIT 1`,
+    `RETURN ${TOKEN_COLUMNS}, ${partyColumns(shape)} LIMIT 1`,
   ].join(' ')
 }
 
+function funderRead(shape: SwapLinkShape): string {
+  return shape === 'levels' ? LEVELS_FUNDER_READ : FUNDER_READ
+}
+
+function partyColumns(shape: SwapLinkShape): string {
+  return shape === 'levels'
+    ? PARTY_COLUMNS.replace('e.amount_usd_sum AS funding_usd', LEVELS_FUNDING_COLUMNS)
+    : PARTY_COLUMNS
+}
+
 /** The wallet read: the address as the launcher itself. */
-export function walletScreenQuery(address: string): string {
+export function walletScreenQuery(address: string, shape: SwapLinkShape = 'route'): string {
   assertReadAddress(address)
   return [
     `USE topology MATCH (l:Address {address:'${address}'})`,
-    FUNDER_READ,
+    funderRead(shape),
     'WITH l, f, e ORDER BY e.first_seen_timestamp LIMIT 1',
     BRIDGE_READ,
     'WITH l, f, e, ch, b ORDER BY b.first_height LIMIT 1',
-    `RETURN l.address AS launcher, ${PARTY_COLUMNS} LIMIT 1`,
+    `RETURN l.address AS launcher, ${partyColumns(shape)} LIMIT 1`,
   ].join(' ')
 }
 
 /** The one batch the tool sends: members `token` and `wallet`. */
-export function deployerScreenQueries(address: string): Array<{ id: 'token' | 'wallet'; query: string }> {
+export function deployerScreenQueries(
+  address: string,
+  shape: SwapLinkShape = 'route'
+): Array<{ id: 'token' | 'wallet'; query: string }> {
   return [
-    { id: 'token', query: tokenScreenQuery(address) },
-    { id: 'wallet', query: walletScreenQuery(address) },
+    { id: 'token', query: tokenScreenQuery(address, shape) },
+    { id: 'wallet', query: walletScreenQuery(address, shape) },
   ]
 }
 
@@ -330,6 +375,12 @@ function funderOf(row: Record<string, unknown>): Funder | null {
     funded_at_utc: utcOrNull(fundedAt),
     funding_tx_count: numberOrNull(row.funding_tx_count),
     funding_usd: numberOrNull(row.funding_usd),
+    // Only a levels read returns funding_link; a read of before adds no key.
+    ...(row.funding_link === 'ROUTED_TO'
+      ? { funded_via: 'swap' as const }
+      : row.funding_link === 'FLOWED_TO'
+        ? { funded_via: 'transfer' as const }
+        : {}),
   }
 }
 
@@ -473,6 +524,11 @@ function hintFor(result: Omit<AmlDeployerScreenResult, 'hint'>): string {
     )
   }
   if (!result.first_funder) parts.push('The launcher has no inbound flow in the graph: no first funder.')
+  if (result.first_funder?.funded_via === 'swap') {
+    parts.push(
+      'The first funder paid the launcher through a swap: say it paid one asset and the launcher got another, and never name a router or a pool as the funder.'
+    )
+  }
   parts.push(`not_covered names what the graph cannot see yet (${NOT_COVERED.join(', ')}); say so when it matters.`)
   return parts.join(' ')
 }
@@ -519,9 +575,19 @@ export async function handleAmlDeployerScreen(
     )
   }
 
+  // The lane's shape first: a read that fails keeps the reads of 0.82.0.
+  let shape: SwapLinkShape = 'route'
+  if (deps.linkShape) {
+    try {
+      shape = await deps.linkShape(network)
+    } catch {
+      shape = 'route'
+    }
+  }
+
   let answer: GraphAnswer
   try {
-    answer = await deps.graphQueryBatch({ network, queries: deployerScreenQueries(address) })
+    answer = await deps.graphQueryBatch({ network, queries: deployerScreenQueries(address, shape) })
   } catch (err) {
     return errorResult(
       `The deployer screen read failed: ${deps.describeFailure(err)} This is not "not found": send the same screen again once.`

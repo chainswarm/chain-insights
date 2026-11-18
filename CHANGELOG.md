@@ -3,6 +3,24 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.83.0] - 2026-11-18 — the picture and the deployer screen follow swap routes
+
+### Changed
+
+- `graph_expand`, the click on an address in the picture: on a lane whose
+  `money` family lists `ROUTED_TO`, each side reads `FLOWED_TO` and
+  `ROUTED_TO` together, newest first, still 250 a side and at most five
+  reads. A route is one edge with `link_kind` `ROUTED_TO`, what the payer gave
+  (`usd`), what the receiver got (`bought_usd`) and `swap_count`; a pair with
+  both links is one edge. A swap for itself is named in the text. An address
+  that only swapped now shows its routes. Any other lane gets the reads of
+  0.82.0, byte for byte.
+- `aml_deployer_screen`: on a lane with the levels the first funder is the
+  earliest money from another address on `FLOWED_TO` or `ROUTED_TO`, so a
+  launcher funded by the proceeds of a swap shows its funder, with
+  `funded_via` `swap`. A swap the launcher made for itself is never its funder.
+  Any other lane gets the reads of 0.82.0.
+
 ## [0.82.0] - 2026-11-18 — money on three link levels
 
 ### Added
