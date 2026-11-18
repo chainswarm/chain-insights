@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: virtuals-hub-label-trap
+tags: [virtuals, pasted-answer]
 expected_outcome: The agent recognises 0x65050a9b7e5075a2ba5ced7b1b64ee66262c40dc as the trading router hub whose scam and victim labels come from traffic, and does not call the agent's buyer a scammer on that label.
 execution:
   prompt: |

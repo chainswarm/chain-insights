@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: virtuals-api-lookup
+tags: [virtuals, pasted-answer]
 expected_outcome: The agent looks the agent up in the Virtuals public API by filters[preTokenPair] with the starting pool address, fetches it with curl, and warns that filters[status] is ignored and filters[walletAddress] covers every chain.
 execution:
   prompt: |

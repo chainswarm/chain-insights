@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: basket-what-is-in-it
+tags: [cypher, reads, plan-only]
 expected_outcome: What a stock basket holds is read from the stock-token transfers between the basket and the basket router for one day on facts, or from the pair's token links, with both addresses named in full.
 execution:
   prompt: |

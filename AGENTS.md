@@ -104,8 +104,12 @@ served file per network and two tools.
   packaged copy offline. It sends no graph read.
 - `aml_exchange_deposit_check` (`src/mcp/exchange-deposit-check.ts`) reads one
   address's `cex_role` and its `SWEPT` links on the graph, anchored on the
-  address. Whether an address is a deposit is always read from the graph,
-  never from the file.
+  address, and its behaviour as counts (`behaviour`: payers, receivers, DEX
+  pools, approvals). Whether an address is a deposit is always read from the
+  graph, never from the file, and never judged again from the counts: the
+  tool sets no threshold, and `does_not_fit_deposit` names only what needs
+  none (a swap, a payment to an address that is no exchange wallet). Every
+  answer carries `deposit_profile`, how a deposit address behaves.
 - Every walk of the cypher skill stops at an `:Exchange` address: each
   address in its middle carries `NOT via:Exchange`, and the served route
   shapes in `tests/skills-contract.test.ts` hold it.
@@ -134,6 +138,30 @@ call `meta_rules`. They read only tool descriptions and result hints.
 - A new door is proven in Claude Desktop normal chat with a name-only
   question before its release is called done.
 - The host matrix is in `docs/mcp-proxy.md`, section "Host parity".
+
+## Plugin evals
+
+The eval suite is how a skill, a tool description or a result hint is proven.
+`docs/evals.md` is the guide.
+
+- `plugin/evals/<case>/case.yaml` is one case. Its first tag is its skill
+  (`cypher`, `dex`, `virtuals`, `aml-exchange`) and it carries one style tag:
+  `plan-only`, `pasted-answer` or `tool-call`. `tests/eval-suite.test.ts`
+  holds every case to that.
+- A `tool-call` case calls the proxy's tool for real. A stand-in under
+  `plugin/evals/mocks/chain-insights/` answers with a recorded answer.
+  `_tools.json` there is the proxy's own `tools/list` entry of each mocked
+  tool: after a change to a title, a description or an input schema, run
+  `npm run build && node scripts/pin-eval-tools.mjs`.
+- The recorded answers come from a Chain Insights Graph endpoint, through
+  `node scripts/record-eval-fixtures.mjs`. Never write one by hand. Record
+  them again after a change to a result or its hint.
+- The exchange deposit cases (`plugin/evals/aml-exchange-check-*`) are written
+  from `plugin/evals/datasets/aml-exchange-check.json` by
+  `node scripts/render-deposit-evals.mjs`. Edit the dataset, never a case.
+- `npm run eval` runs the suite and prints the scorecard
+  (`scripts/eval-kpis.mjs`). A change to a skill or to a door's description
+  adds a row to `plugin/evals/SCORECARD.md`, with the model named.
 
 ## Release Metadata
 

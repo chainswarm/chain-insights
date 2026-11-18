@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: token-by-ticker
+tags: [cypher, marks, plan-only]
 expected_outcome: The agent turns the ticker TCITY into its contracts with a meta_token_lookup call before any graph query, says that several contracts on robinhood carry TCITY and that it will name them and ask (or pick by the evidence), never takes the first row as the token, never guesses a contract, and plans no web search.
 execution:
   prompt: |

@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: no-route-through-system
+tags: [cypher, routing, pasted-answer]
 expected_outcome: The shortest-path query carries the pool, protocol and system-address guard on its start and inside the quantified path pattern, so the route can never pass through the zero address, the dead address, a protocol contract such as the PoolManager, or an exchange address (`NOT via:Exchange`). The answer never offers either address as a hop.
 execution:
   prompt: |

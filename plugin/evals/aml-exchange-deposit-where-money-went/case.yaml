@@ -1,65 +1,30 @@
 schema_version: "1.0"
 name: aml-exchange-deposit-where-money-went
-expected_outcome: The agent checks the address with aml_exchange_deposit_check first, names Gate as the exchange, names the hot wallet the deposit was swept into in full through its SWEPT link, and ends the trail there with no walk past the hot wallet.
+description: A trail question about a Gate deposit, answered from a real tool call.
+tags: [aml-exchange, tool-call]
+expected_outcome: The agent checks the address with aml_exchange_deposit_check, names Gate as the exchange, names the hot wallet the deposit was swept into in full through its SWEPT link, and ends the trail there with no walk past the hot wallet.
 execution:
   prompt: |
-    Where did the money from 0x64ba5fafa7a6e1991f7f60c9b594a7131a784540 go,
-    on Robinhood Chain? Use Chain Insights.
-
-    Load the Chain Insights skill for this question first, and call no
-    Chain Insights tool. Say which tool you would call first, with its exact
-    arguments.
-    That call answered this (the lane A answer of 2026-11-09):
-
-    {
-      "schema": "chain-insights.aml-exchange-deposit-check.v1",
-      "tool": "aml_exchange_deposit_check",
-      "network": "robinhood",
-      "address": "0x64ba5fafa7a6e1991f7f60c9b594a7131a784540",
-      "found": true,
-      "is_deposit": true,
-      "cex_role": "deposit",
-      "exchange": "gate",
-      "exchange_display": "Gate",
-      "labels": [
-        "Exchange",
-        "gate"
-      ],
-      "swept": [
-        {
-          "hot_wallet": "0x0d0707963952f2fba59dd06f2b425ace40b492fe",
-          "hot_wallet_exchange": "gate",
-          "hot_wallet_role": "hot_wallet",
-          "sweep_count": 1,
-          "amount_usd_sum": 629.45068023,
-          "paths": [
-            "plain"
-          ],
-          "first_seen": 1785991883000,
-          "first_seen_utc": "2026-08-06 04:51:23 UTC",
-          "last_seen": 1785991883000,
-          "last_seen_utc": "2026-08-06 04:51:23 UTC"
-        }
-      ]
-    }
+    A trail I follow on Robinhood Chain reached
+    0x64ba5fafa7a6e1991f7f60c9b594a7131a784540, which may be an exchange
+    wallet. Where did the money go from there? Use Chain Insights.
 
     Write the answer to the question, and say whether you trace any further.
-  max_turns: 10
+  max_turns: 12
   allowed_tools: [Read, Glob, Grep, Skill]
 runs: 3
 graders:
+  - type: tool_used
+    name: check-called
+    tool: mcp__plugin_chain-insights_chain-insights__aml_exchange_deposit_check
+    input_match: '0x64ba5fafa7a6e1991f7f60c9b594a7131a784540'
   - type: regex
-    name: deposit-check-first
-    target: last_message
-    pattern: 'aml_exchange_deposit_check'
-    match: contains
-  - type: regex
-    name: names-gate
+    name: names-the-exchange
     target: last_message
     pattern: '\bGate\b'
     match: contains
   - type: regex
-    name: names-the-swept-hot-wallet
+    name: names-the-hot-wallet
     target: last_message
     pattern: '0x0d0707963952f2fba59dd06f2b425ace40b492fe'
     flags: i
@@ -67,15 +32,12 @@ graders:
   - type: regex
     name: says-swept-into-a-hot-wallet
     target: last_message
-    pattern: 'swept[^.]*hot wallet|hot wallet[^.]*swept'
+    pattern: '(swept|sweep)[\s\S]{0,300}hot wallet|hot wallet[\s\S]{0,300}(swept|sweep)'
     flags: i
     match: contains
-  - type: regex
-    name: no-walk-past-the-hot-wallet
-    target: last_message
-    pattern: 'MATCH[^`]*0x0d0707963952f2fba59dd06f2b425ace40b492fe[^`]*-\[[^\]]*FLOWED_TO'
-    flags: i
-    match: not_contains
+  - type: llm
+    name: trail-ends-at-the-deposit
+    criteria: The answer says the trail ends at the exchange, at the Gate deposit address or its hot wallet, and that it does not trace the money any further past the hot wallet. FAIL if it proposes or reports following the money onward from the hot wallet 0x0d0707963952f2fba59dd06f2b425ace40b492fe.
   - type: regex
     name: full-addresses
     target: last_message

@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: dex-not-covered
+tags: [dex, by-name, plan-only]
 expected_outcome: The agent says Kyber is not covered, names the covered exchanges, and sends no graph query for the name; it asks the user for no address.
 execution:
   prompt: |

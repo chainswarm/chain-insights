@@ -1,5 +1,6 @@
 schema_version: '1.0'
 name: contract-what-can-owner-do
+tags: [cypher, reads, plan-only]
 expected_outcome: The agent reads the contract on USE facts as one Contract node by its address, with no WHERE and no search by capability, and answers what the code lets its owner do in plain words (the owner can create new tokens, can block an address, the code can be replaced), keeps what the code allows apart from what happened, and gives no verdict, no "scam", "rug pull" or "safe", and no capability word or column name.
 execution:
   prompt: |

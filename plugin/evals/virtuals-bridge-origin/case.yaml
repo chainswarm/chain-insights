@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: virtuals-bridge-origin
+tags: [virtuals, pasted-answer]
 expected_outcome: The agent reads the BRIDGED link to a Chain node on the creator wallet's own address, not on the bridge contract, to find which chain funded it.
 execution:
   prompt: |

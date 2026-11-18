@@ -3,7 +3,7 @@
 
 All notable changes to Chain Insights are recorded here.
 
-## [0.82.0] - 2026-11-17 — money on three link levels
+## [0.82.0] - 2026-11-18 — money on three link levels
 
 ### Added
 
@@ -33,6 +33,61 @@ All notable changes to Chain Insights are recorded here.
   `docs/graph-query-compatibility.md` and `registry/robinhood.md` teach the
   levels. The address totals count funds between addresses (`FLOWED_TO`);
   swap proceeds are on `ROUTED_TO`.
+## [0.81.1] - 2026-11-18 — what a deposit address looks like, and a scorecard for the evals
+
+### Added
+
+- `aml_exchange_deposit_check` answers how the address behaves, as counts.
+  `behaviour` holds the addresses that paid it and that it paid, how many of
+  each are exchange wallets, the DEX pools it swapped on and the spenders it
+  approved; a count stops at 5000 ("5000 or more"). `does_not_fit_deposit`
+  lists what the counts show that a deposit address does not do: a swap on a
+  DEX, a payment to an address that is no exchange wallet. The tool sets no
+  threshold of its own. The check now sends six reads in one batch; a count
+  read that fails leaves its counts `null` and the check still answers.
+- Every answer of `aml_exchange_deposit_check` carries `deposit_profile`, how
+  a deposit address behaves in one sentence, and its hint ends on "answer
+  with deposit_profile". A host asked what makes an address a deposit, or
+  what rules one out, answers from the tool for any address: a deposit, a hot
+  wallet, an address with no mark, an address with no activity.
+- Twenty-five eval cases for `aml_exchange_deposit_check`
+  (`plugin/evals/aml-exchange-check-*`), written from one dataset
+  (`plugin/evals/datasets/aml-exchange-check.json`): eleven marked deposits
+  of five exchanges, three hot wallets, seven look-alikes with no deposit
+  mark, and four addresses a third party called exchange deposits that have
+  no activity on the network. Each case ends on one `VERDICT:` line, so a run
+  is a classification.
+- Eval cases that call `aml_exchange_deposit_check` for real. A stand-in
+  under `plugin/evals/mocks/chain-insights/` answers with the answer a Chain
+  Insights Graph endpoint gave, recorded by
+  `scripts/record-eval-fixtures.mjs`, and the model reads the proxy's own
+  tool description, pinned by `scripts/pin-eval-tools.mjs`.
+- The eval scorecard: `npm run eval` runs the suite and
+  `scripts/eval-kpis.mjs` prints pass rate, score and lift over the run
+  without the plugin, per tag and per grader, and for the deposit cases the
+  precision, the recall and the count of false deposits.
+  `plugin/evals/SCORECARD.md` keeps one row per recorded run, with the plugin
+  version and the model.
+- `docs/evals.md`, the guide to the suite.
+
+### Changed
+
+- The description of `aml_exchange_deposit_check` now says what a deposit
+  address looks like: one customer's address, paid by few outside addresses,
+  sending everything to the wallets of one exchange, never swapping on a
+  DEX. It says the graph judges that, that the host gives the counts as the
+  facts and sets no threshold of its own, and that a claim is never proof.
+- The tool's hint names the counts. For an address with no deposit mark it
+  says what does not fit a deposit, or that the counts alone rule nothing
+  out, and says "set no threshold of your own". For an address with no
+  activity it says the claim is unproven on the network, and to name no other
+  network.
+- The skill `chain-insights-aml-exchange` gains the section "What a deposit
+  address looks like", with the same profile, the counts the tool hands
+  over, the note that an approval decides nothing, and the two rules above.
+- Every eval case carries a skill tag and a style tag (`plan-only`,
+  `pasted-answer`, `tool-call`). The two older exchange cases call the tools
+  for real.
 
 ## [0.81.0] - 2026-11-14 — what a contract is, and what its owner can do
 

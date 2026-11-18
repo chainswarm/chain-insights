@@ -131,7 +131,10 @@ git diff --check
   invisible to agents — keep the skills in step with any change.
 - Eval cases for the plugin skills live in `plugin/evals/<case>/case.yaml`.
   A protocol skill's cases start with its protocol name, such as
-  `virtuals-creator-ranking`.
+  `virtuals-creator-ranking`. Each case is tagged with its skill and its
+  style. `npm run eval` runs the suite and prints the scorecard;
+  [Plugin evals](evals.md) explains the cases, the recorded tool answers and
+  the numbers.
 
 ## Release Discipline
 

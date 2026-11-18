@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: basket-who-created
+tags: [cypher, reads, plan-only]
 expected_outcome: Who created the stock-basket tokens is a read of what the basket factory deployed, anchored on the factory address with a literal LIMIT, never a scan of labels without an anchor.
 execution:
   prompt: |

@@ -1,0 +1,70 @@
+# Written by scripts/render-deposit-evals.mjs from
+# plugin/evals/datasets/aml-exchange-check.json. Edit the dataset, not this file.
+schema_version: "1.0"
+name: aml-exchange-check-bybit-claimed-as-binance
+description: 'A deposit, but of Bybit: the claim names the wrong exchange.'
+tags: [aml-exchange, deposit-check, tool-call, expect-deposit, ask-claim]
+expected_outcome: 'The agent calls aml_exchange_deposit_check with the address, says it is a deposit address of Bybit, not of Binance, names the hot wallet it was swept into in full (0xc0e17ad342afabd36b3971f8305ff147006962ae and 0x0051ef9259c7ec0644a80e866ab748a2f30841b3), and ends on "VERDICT: deposit".'
+execution:
+  prompt: |
+    I was told 0xb4c291e7fb724ff9cac549b877f9d90576471162 is a Binance
+    deposit wallet. Is that true, on Robinhood Chain? Use Chain Insights.
+
+    End your answer with one line, exactly one of these four:
+    VERDICT: deposit
+    VERDICT: exchange-wallet
+    VERDICT: not-deposit
+    VERDICT: not-found
+    "deposit" is a customer's deposit address of an exchange. "exchange-wallet"
+    is an exchange's own wallet, such as a hot wallet. "not-found" is an address
+    with no activity on this network.
+  max_turns: 12
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: tool_used
+    name: 'check-called'
+    tool: 'mcp__plugin_chain-insights_chain-insights__aml_exchange_deposit_check'
+    input_match: '0[xX][bB]4[cC]291[eE]7[fF][bB]724[fF][fF]9[cC][aA][cC]549[bB]877[fF]9[dD]90576471162'
+  - type: regex
+    name: 'verdict'
+    weight: 3
+    target: 'last_message'
+    pattern: 'VERDICT:[\s`*]*deposit\b'
+    match: 'contains'
+  - type: regex
+    name: 'one-verdict'
+    target: 'last_message'
+    pattern: 'VERDICT:'
+    match: 'count:1'
+  - type: regex
+    name: 'names-the-exchange'
+    target: 'last_message'
+    pattern: '\bBybit\b'
+    match: 'contains'
+  - type: regex
+    name: 'names-the-hot-wallet-1'
+    target: 'last_message'
+    pattern: '0xc0e17ad342afabd36b3971f8305ff147006962ae'
+    flags: 'i'
+    match: 'contains'
+  - type: regex
+    name: 'names-the-hot-wallet-2'
+    target: 'last_message'
+    pattern: '0x0051ef9259c7ec0644a80e866ab748a2f30841b3'
+    flags: 'i'
+    match: 'contains'
+  - type: llm
+    name: 'reason-holds'
+    criteria: 'PASS when the reason the answer gives for its verdict is something the tool reported about this address: its deposit mark or its role, its exchange label, its sweep into a hot wallet, the counts of its behaviour, or that it has no mark, no sweep or no activity. These are reported facts too, and PASS: that the address swapped on a DEX, or that it paid addresses that are no exchange wallets, and that a deposit address does not do that. Stating the general profile of a deposit address (one customer, few outside payers, everything sent goes to one exchange, no DEX swaps) is PASS as well. FAIL only when the answer rules this address in or out by a number it made up: that it has too few or too many payers, senders, transactions or sweeps, or too little or too much volume, to be a deposit address.'
+  - type: llm
+    name: 'claim-corrected'
+    criteria: 'PASS when the answer says the address belongs to Bybit and not to Binance, correcting the user. FAIL when it leaves the user''s claim that it is a Binance wallet standing.'
+  - type: regex
+    name: 'full-addresses'
+    target: 'last_message'
+    pattern: '0x[0-9a-fA-F]{2,10}(…|\.\.\.)'
+    match: 'not_contains'
+  - type: tool_used
+    name: 'skill-fired'
+    tool: 'Skill'

@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: dex-stock-token-market
+tags: [dex, by-name, plan-only]
 expected_outcome: The agent resolves the stock-token market with meta_dex_lookup first, the memo only when the tool is absent, with no address from the user, loads the vault trail, names the reserve holder as the manager, calls the market unnamed, and reads the buyer from the recipient of the facts SWAP row of the seller and the holder on one day, never with a topology hop out of the holder.
 execution:
   prompt: |

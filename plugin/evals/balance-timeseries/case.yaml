@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: balance-timeseries
+tags: [cypher, routing, pasted-answer]
 expected_outcome: The plan reads the chain head and one block to fix the blocks per day, then sends one graph_query_batch of at most 5 USE chain Address reads at the end of each day, each query id the day, returning only the balance. No topology or facts read, no pair columns, no per-day graph_query loop.
 execution:
   prompt: |

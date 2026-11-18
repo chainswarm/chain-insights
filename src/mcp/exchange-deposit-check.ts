@@ -2,12 +2,22 @@
  * aml_exchange_deposit_check: is this address an exchange deposit, of which
  * exchange, and into which hot wallet was it swept?
  *
- * A local tool of the proxy. It sends one graph_query_batch with two reads on
- * USE topology, both anchored on the address:
+ * A local tool of the proxy. It sends one graph_query_batch with six reads on
+ * USE topology, all anchored on the address:
  *
- *   node    the address: its node labels, its label words and `cex_role`;
- *   swept   its `SWEPT` links: each hot wallet it swept into, with the sweep
- *           count, the USD sum, the paths and the first and last sweep.
+ *   node      the address: its node labels, its label words and `cex_role`;
+ *   swept     its `SWEPT` links: each hot wallet it swept into, with the sweep
+ *             count, the USD sum, the paths and the first and last sweep;
+ *   paid_by   how many addresses paid it, and how many of them are exchange
+ *             wallets;
+ *   paid      how many addresses it paid, and how many of them are exchange
+ *             wallets;
+ *   swapped   on how many DEX pools it swapped;
+ *   approved  how many spenders it approved.
+ *
+ * The last four are the behaviour of the address, as counts: what a host needs
+ * to say why an address does or does not look like a deposit, without a guess.
+ * A behaviour read that fails leaves its counts null; the check still answers.
  *
  * `SWEPT` (layer `cex_sweeps`) is drawn only from an address the deposit rule
  * judged a deposit, and `cex_role` comes from the exchange label's subtype. The
@@ -33,12 +43,28 @@ export const AML_EXCHANGE_DEPOSIT_CHECK_TOOL = 'aml_exchange_deposit_check' as c
 export const AML_EXCHANGE_DEPOSIT_CHECK_SCHEMA =
   'chain-insights.aml-exchange-deposit-check.v1' as const
 export const AML_EXCHANGE_DEPOSIT_CHECK_TITLE = 'Exchange deposit check'
+/**
+ * What the graph's deposit rule holds an address to, in the words every host
+ * reads. The rule judges; a host that re-judges from payer counts or volume
+ * invents a rule ("a real deposit has many payers") and gets the reason wrong.
+ */
+/** How a deposit address behaves: the answer to "what makes an address a deposit address". Every result carries it as deposit_profile. */
+export const EXCHANGE_DEPOSIT_BEHAVIOUR =
+  "A deposit address is one customer's: everything it sends goes to the wallets of one exchange (a sweep into a hot wallet), few outside addresses ever pay it, it never swaps on a DEX, and it is no token, pool, router or smart account."
+
+export const EXCHANGE_DEPOSIT_PROFILE =
+  `${EXCHANGE_DEPOSIT_BEHAVIOUR} ` +
+  'The graph judges that, never you: the verdict is is_deposit, cex_role and swept. Give behaviour and does_not_fit_deposit as the facts behind it, and never set a threshold of your own for payers, volume or sweeps. ' +
+  'With no deposit mark an address is not shown to be a deposit, whoever says it is one; with found false it has no activity on the network, and the claim is unproven there.'
+
 export const AML_EXCHANGE_DEPOSIT_CHECK_DESCRIPTION =
   'Checks one address: is it a deposit address of a centralized exchange (Binance, Bitget, Bybit, Coinbase, Gate, KuCoin, MEXC, OKX, ...), ' +
   'of which exchange, and into which hot wallet was it swept, how many times, by which path and when. ' +
-  'It reads the SWEPT links of the address and its cex_role (deposit, hot_wallet, cold_wallet or withdrawal) on the graph, anchored on the address: ' +
-  'two reads in one batch, billed as any read. Use it when a trail reaches an address that may be an exchange wallet, or when the user asks where money entered an exchange. ' +
-  `${EXCHANGE_OPENING_RULE}`
+  'It reads the SWEPT links of the address and its cex_role (deposit, hot_wallet, cold_wallet or withdrawal) on the graph, and its behaviour as counts ' +
+  '(how many addresses paid it, how many it paid, how many of each are exchange wallets, the DEX pools it swapped on, the spenders it approved), anchored on the address: ' +
+  'six reads in one batch, billed as any read. Use it when a trail reaches an address that may be an exchange wallet, when the user asks where money entered an exchange, ' +
+  'or when someone says an address is an exchange deposit: a claim is never proof, the answer of this tool is. ' +
+  `${EXCHANGE_DEPOSIT_PROFILE} ${EXCHANGE_OPENING_RULE}`
 export const AML_EXCHANGE_DEPOSIT_CHECK_ANNOTATIONS = {
   readOnlyHint: true,
   idempotentHint: true,
@@ -65,6 +91,31 @@ export interface Sweep {
   last_seen_utc: string | null
 }
 
+/** The most links one behaviour read counts: a count equal to it means "this many or more". */
+export const BEHAVIOUR_COUNT_CAP = 5000
+
+/**
+ * How the address behaves, as counts of its links. A null count is a read that
+ * did not answer. The counts take every link, also a dust one: the graph's
+ * deposit rule, which ignores dust, is the judge, and these are its evidence.
+ */
+export interface DepositBehaviour {
+  /** Addresses that ever paid it. */
+  payers: number | null
+  /** Of those, exchange wallets (a hot wallet, or another deposit). */
+  payers_exchange: number | null
+  /** Addresses it ever paid. */
+  receivers: number | null
+  /** Of those, exchange wallets. */
+  receivers_exchange: number | null
+  /** DEX pools it swapped on. */
+  dex_pools: number | null
+  /** Spenders it approved. */
+  approvals: number | null
+  /** A count equal to this means "this many or more". */
+  count_cap: typeof BEHAVIOUR_COUNT_CAP
+}
+
 export interface AmlExchangeDepositCheckResult {
   schema: typeof AML_EXCHANGE_DEPOSIT_CHECK_SCHEMA
   tool: typeof AML_EXCHANGE_DEPOSIT_CHECK_TOOL
@@ -80,6 +131,12 @@ export interface AmlExchangeDepositCheckResult {
   exchange_display: string | null
   labels: string[]
   swept: Sweep[]
+  /** The behaviour counts; null when the graph holds no node for the address. */
+  behaviour: DepositBehaviour | null
+  /** What the counts show that a deposit address does not do. Empty for a deposit, and when nothing shows. */
+  does_not_fit_deposit: string[]
+  /** How any deposit address behaves: the same text in every answer, for a host asked what makes one. */
+  deposit_profile: string
   hint: string
 }
 
@@ -130,13 +187,47 @@ export function depositSweptQuery(address: string): string {
   )
 }
 
-/** The one batch the tool sends: members `node` and `swept`. */
-export function depositCheckQueries(
+/** The behaviour reads: one count row each, over at most BEHAVIOUR_COUNT_CAP links. */
+export function depositBehaviourQueries(
   address: string
-): Array<{ id: 'node' | 'swept'; query: string }> {
+): Array<{ id: 'paid_by' | 'paid' | 'swapped' | 'approved'; query: string }> {
+  assertReadAddress(address)
+  const anchor = `(a:Address {address: "${address}"})`
+  const exchange = 'sum(CASE WHEN b.is_exchange THEN 1 ELSE 0 END)'
+  return [
+    {
+      id: 'paid_by',
+      query:
+        `USE topology MATCH ${anchor}<-[:FLOWED_TO]-(b:Address) WITH b LIMIT ${BEHAVIOUR_COUNT_CAP} ` +
+        `RETURN count(b) AS payers, ${exchange} AS payers_exchange LIMIT 1`,
+    },
+    {
+      id: 'paid',
+      query:
+        `USE topology MATCH ${anchor}-[:FLOWED_TO]->(b:Address) WITH b LIMIT ${BEHAVIOUR_COUNT_CAP} ` +
+        `RETURN count(b) AS receivers, ${exchange} AS receivers_exchange LIMIT 1`,
+    },
+    {
+      id: 'swapped',
+      query:
+        `USE topology MATCH ${anchor}-[:SWAPPED]->(b:Address) WITH b LIMIT ${BEHAVIOUR_COUNT_CAP} ` +
+        'RETURN count(b) AS dex_pools LIMIT 1',
+    },
+    {
+      id: 'approved',
+      query:
+        `USE topology MATCH ${anchor}-[:APPROVED]->(b:Address) WITH b LIMIT ${BEHAVIOUR_COUNT_CAP} ` +
+        'RETURN count(b) AS approvals LIMIT 1',
+    },
+  ]
+}
+
+/** The one batch the tool sends: members `node`, `swept` and the four behaviour reads. */
+export function depositCheckQueries(address: string): Array<{ id: string; query: string }> {
   return [
     { id: 'node', query: depositNodeQuery(address) },
     { id: 'swept', query: depositSweptQuery(address) },
+    ...depositBehaviourQueries(address),
   ]
 }
 
@@ -180,7 +271,86 @@ function memberFailure(id: string, member: Member | undefined): string {
     : `the ${id} read did not answer`
 }
 
-/** The check built from the two batch members and the lookup rows, or why it cannot be. */
+/** The behaviour counts of the batch members; a member that did not answer leaves its counts null. */
+export function behaviourFromMembers(members: Map<string, Member>): DepositBehaviour {
+  const count = (id: string, column: string): number | null =>
+    numberOrNull(rowsOf(members.get(id))[0]?.[column])
+  return {
+    payers: count('paid_by', 'payers'),
+    payers_exchange: count('paid_by', 'payers_exchange'),
+    receivers: count('paid', 'receivers'),
+    receivers_exchange: count('paid', 'receivers_exchange'),
+    dex_pools: count('swapped', 'dex_pools'),
+    approvals: count('approved', 'approvals'),
+    count_cap: BEHAVIOUR_COUNT_CAP,
+  }
+}
+
+/** "5000 or more" at the cap, else the number. */
+function countText(count: number): string {
+  return count >= BEHAVIOUR_COUNT_CAP ? `${BEHAVIOUR_COUNT_CAP} or more` : String(count)
+}
+
+const plural = (count: number, one: string, many: string): string => (count === 1 ? one : many)
+
+/**
+ * What the counts show that a deposit address does not do. Only what needs no
+ * threshold: a swap, and a payment to an address that is no exchange wallet.
+ * How many payers are "few" is the graph rule's to say, never this tool's.
+ */
+export function doesNotFitDeposit(behaviour: DepositBehaviour): string[] {
+  const facts: string[] = []
+  if (behaviour.dex_pools !== null && behaviour.dex_pools > 0) {
+    facts.push(
+      `it swapped on ${countText(behaviour.dex_pools)} DEX ${plural(behaviour.dex_pools, 'pool', 'pools')}`
+    )
+  }
+  if (behaviour.receivers !== null && behaviour.receivers_exchange !== null) {
+    const outside = behaviour.receivers - behaviour.receivers_exchange
+    if (outside > 0) {
+      // A capped receiver count makes the difference a floor too.
+      const atCap = behaviour.receivers >= BEHAVIOUR_COUNT_CAP ? ' or more' : ''
+      facts.push(
+        `it paid ${outside}${atCap} ${plural(outside, 'address that is', 'addresses that are')} no exchange wallet`
+      )
+    }
+  }
+  return facts
+}
+
+/** The counts as one sentence, the read counts only. */
+export function behaviourText(behaviour: DepositBehaviour): string {
+  const parts: string[] = []
+  if (behaviour.payers !== null) {
+    parts.push(
+      `${countText(behaviour.payers)} ${plural(behaviour.payers, 'address', 'addresses')} paid it` +
+        (behaviour.payers_exchange !== null
+          ? ` (${countText(behaviour.payers_exchange)} of them exchange wallets)`
+          : '')
+    )
+  }
+  if (behaviour.receivers !== null) {
+    parts.push(
+      `it paid ${countText(behaviour.receivers)} ${plural(behaviour.receivers, 'address', 'addresses')}` +
+        (behaviour.receivers_exchange !== null
+          ? ` (${countText(behaviour.receivers_exchange)} of them exchange wallets)`
+          : '')
+    )
+  }
+  if (behaviour.dex_pools !== null) {
+    parts.push(
+      `it swapped on ${countText(behaviour.dex_pools)} DEX ${plural(behaviour.dex_pools, 'pool', 'pools')}`
+    )
+  }
+  if (behaviour.approvals !== null) {
+    parts.push(
+      `it approved ${countText(behaviour.approvals)} ${plural(behaviour.approvals, 'spender', 'spenders')}`
+    )
+  }
+  return parts.join(', ')
+}
+
+/** The check built from the batch members and the lookup rows, or why it cannot be. */
 export function depositCheckFromMembers(
   network: string,
   address: string,
@@ -221,21 +391,30 @@ export function depositCheckFromMembers(
   exchange ??= exchangeOfLabels(labels, rows) ?? exchangeOfWallet(address, rows)?.entry ?? null
   const role = cexRoleOf(nodeRow?.cex_role)
   const found = nodeRow !== undefined || sweeps.length > 0
+  const isDeposit = role === 'deposit' || sweeps.length > 0
+  const behaviour = behaviourFromMembers(members)
   const result = {
     schema: AML_EXCHANGE_DEPOSIT_CHECK_SCHEMA,
     tool: AML_EXCHANGE_DEPOSIT_CHECK_TOOL,
     network,
     address,
     found,
-    is_deposit: role === 'deposit' || sweeps.length > 0,
+    is_deposit: isDeposit,
     cex_role: role ?? (sweeps.length > 0 ? ('deposit' as const) : null),
     exchange: exchange?.exchange ?? null,
     exchange_display: exchange?.display ?? null,
     labels,
     swept: sweeps,
+    behaviour: found ? behaviour : null,
+    does_not_fit_deposit: found && !isDeposit && !role ? doesNotFitDeposit(behaviour) : [],
+    deposit_profile: EXCHANGE_DEPOSIT_BEHAVIOUR,
   }
-  return { result: { ...result, hint: hintFor(result) } }
+  return { result: { ...result, hint: `${hintFor(result)} ${PROFILE_HINT}` } }
 }
+
+/** Closes every hint: a host asked how a deposit address behaves answers from deposit_profile, not from its own idea of one. */
+const PROFILE_HINT =
+  'Asked how a deposit address behaves, what makes an address one or what rules one out, answer with deposit_profile.'
 
 /** " once", " 3 times", or "" when the graph gave no count. */
 function timesText(count: number | null): string {
@@ -249,7 +428,8 @@ function hintFor(result: Omit<AmlExchangeDepositCheckResult, 'hint'>): string {
   if (!result.found) {
     return (
       `${ANSWER_HINT} ${address} is not in the Chain Insights Graph of ${network}: no flow touches it. ` +
-      'Say so in one line, and check the network and the address with the user.'
+      'Say so in one line, and check the network and the address with the user: name no other network yourself, and say nothing about what the check covers. ' +
+      'A claim that it is an exchange deposit address is unproven on this network: never repeat it as a fact.'
     )
   }
   if (result.is_deposit) {
@@ -264,7 +444,7 @@ function hintFor(result: Omit<AmlExchangeDepositCheckResult, 'hint'>): string {
     return (
       `${ANSWER_HINT} Say: "${address} is a deposit address of ${name} on ${network}."${into} ` +
       'This is where the money entered the exchange: the exchange can name the customer behind the deposit. ' +
-      EXCHANGE_OPENING_RULE
+      `${behaviourHint(result)}${EXCHANGE_OPENING_RULE}`
     )
   }
   if (result.cex_role) {
@@ -273,11 +453,22 @@ function hintFor(result: Omit<AmlExchangeDepositCheckResult, 'hint'>): string {
       'A trail that reaches it has entered the exchange: end the trail there.'
     )
   }
+  const misfit =
+    result.does_not_fit_deposit.length > 0
+      ? `What a deposit address does not do, and this one did: ${result.does_not_fit_deposit.join('; ')}. `
+      : 'Its counts alone rule nothing out; the missing mark does: the rule of the graph did not judge it a deposit. '
   return (
     `${ANSWER_HINT} ${address} carries no deposit mark: no SWEPT link and no cex_role. ` +
     'Say that the graph shows no sweep of it into a listed exchange hot wallet. That is not proof the address belongs to no exchange; ' +
-    'its labels and its links say what else it is.'
+    `its labels and its links say what else it is. ${behaviourHint(result)}${misfit}` +
+    'Give these facts as the reason and no other: set no threshold of your own for payers, volume or sweeps.'
   )
+}
+
+/** "Its behaviour: ... . " for a hint, or "" when no count was read. */
+function behaviourHint(result: Omit<AmlExchangeDepositCheckResult, 'hint'>): string {
+  const text = result.behaviour ? behaviourText(result.behaviour) : ''
+  return text === '' ? '' : `Its behaviour, as the graph counts it: ${text}. `
 }
 
 function errorResult(text: string): AmlExchangeDepositCheckToolResult {

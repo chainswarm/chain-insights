@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: virtuals-random-agent-sample
+tags: [virtuals, pasted-answer]
 expected_outcome: The agent lists agents of one creator from the starting-pool factory filtered on tx_origin and orders them by r.tx_id to get an unbiased random sample.
 execution:
   prompt: |

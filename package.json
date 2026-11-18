@@ -67,7 +67,9 @@
     "lint": "oxlint src tests",
     "lint:format": "prettier --check .",
     "format": "prettier --write .",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "eval": "node scripts/run-evals.mjs",
+    "eval:deposit": "node scripts/run-evals.mjs --case 'aml-exchange-check-*'"
   },
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "1.7.5",

@@ -1,5 +1,6 @@
 schema_version: "1.0"
 name: virtuals-rug-after-graduation
+tags: [virtuals, pasted-answer]
 expected_outcome: The agent checks liquidity removed from the graduated Uniswap pair with REMOVED_LIQUIDITY and checks whether the creator sold the agent token with SWAPPED, and says that on Virtuals a rug after graduation is an insider dump because the pool liquidity is seeded by the token contract and has not been removed on the agents checked.
 execution:
   prompt: |
