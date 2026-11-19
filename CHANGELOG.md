@@ -3,6 +3,16 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.85.1] - 2026-11-19 — A cut token list says the later contracts are missing
+
+### Changed
+
+- `meta_token_lookup`: when the lists do not reach every contract first seen
+  after the one verified contract, the hint says so, and says that a list
+  showing none does not mean none exist. On a graph server that does not
+  count, an agent had read the 25 oldest contracts as all of them and
+  answered that no contract was made after the verified one.
+
 ## [0.85.0] - 2026-11-19 — The token lookup counts every contract and shows the newest
 
 ### Added

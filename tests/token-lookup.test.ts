@@ -263,6 +263,41 @@ describe('meta_token_lookup for TCITY', () => {
     expect(structured.hint).toContain('never give its length as the count')
   })
 
+  // Production on 2026-11-19: the server does not count, the verified CIA is
+  // first by rank and the 25 others listed are all older. An agent answered
+  // "no CIA contract was first seen after it"; 16 were.
+  it('on a server that does not count, says the later contracts are missing, never that none exist', async () => {
+    const VERIFIED_AT = 1_792_000_000_000
+    const address = (n: number) => `0x${n.toString(16).padStart(40, '0')}`
+    const rows = [
+      assetRow(address(500), VERIFIED_AT, true),
+      ...Array.from({ length: 25 }, (_, i) =>
+        assetRow(address(i + 1), VERIFIED_AT - 1_000_000 + i)
+      ),
+    ]
+    const notCounted = refusal('facts_no_anchor: match_count is not served on an Asset node', {
+      code: 'facts_no_anchor',
+      class: 'refused',
+    })
+    const { structured } = await run(
+      { queries: [notCounted, queryAnswer(rows)] },
+      { network: 'robinhood', symbol: 'CIA' }
+    )
+    expect(structured.matches).toBeNull()
+    expect(structured.first_seen_after_verified).toEqual({
+      verified_contract: address(500),
+      count: 0,
+      at_least: true,
+    })
+    expect(structured.hint).toContain(
+      `This answer does not list every contract first seen after the verified contract ${address(500)}: it lists the oldest only.`
+    )
+    expect(structured.hint).toContain('a list that shows none does not mean none exist')
+    expect(structured.hint).toContain(
+      'Never answer that none, or no contract, was created after it'
+    )
+  })
+
   // The CIA case of 2026-11-19: 88 contracts carry the ticker, the verified
   // one is the 72nd by age, and 16 were made after it. The oldest 25 hide all 16.
   it('counts every match, lists the newest, and says how many came after the verified contract', async () => {
