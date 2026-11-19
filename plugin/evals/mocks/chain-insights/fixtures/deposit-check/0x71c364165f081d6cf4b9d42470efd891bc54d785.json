@@ -5,7 +5,7 @@
   "address": "0x71c364165f081d6cf4b9d42470efd891bc54d785",
   "found": true,
   "is_deposit": true,
-  "cex_role": "deposit",
+  "exchange_role": "deposit",
   "exchange": "blofin",
   "exchange_display": "BloFin",
   "labels": [

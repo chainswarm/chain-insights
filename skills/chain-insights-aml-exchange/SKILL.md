@@ -26,9 +26,11 @@ from `meta_exchange_lookup`, never from a guess or a graph search by name.
 A customer of a centralized exchange gets a deposit address of their own.
 The exchange later moves what arrives there into one of its hot wallets: a
 sweep. The graph draws that move as `SWEPT`, from the deposit to the hot
-wallet, and marks each exchange wallet with `cex_role`.
+wallet, and marks each exchange wallet with `exchange_role`. A lane not yet
+re-indexed still carries it as `cex_role`; read
+`coalesce(a.exchange_role, a.cex_role)`.
 
-| `cex_role` | The wallet |
+| `exchange_role` | The wallet |
 |---|---|
 | `deposit` | one customer's deposit address; the exchange knows who owns it |
 | `hot_wallet` | receives the sweeps of many deposits, and pays withdrawals |
@@ -46,7 +48,7 @@ is set on both.
 ## What a deposit address looks like
 
 The graph's deposit rule judges an address. You read its verdict
-(`is_deposit`, `cex_role`, `swept`) and never judge again. The rule holds a
+(`is_deposit`, `exchange_role`, `swept`) and never judge again. The rule holds a
 deposit to this:
 
 | A deposit address | Never a deposit |
@@ -85,7 +87,7 @@ deposit to this:
   hot wallet), `predicted_hot_wallet` (behind a hot wallet the model itself
   inferred) or `predicted` (a hot wallet the model inferred), and
   `inferred_at` when the graph wrote it. `is_deposit` stays false and
-  `cex_role` null: they are the sourced verdict. A sourced mark always wins,
+  `exchange_role` null: they are the sourced verdict. A sourced mark always wins,
   and then the answer carries no `inferred` field.
 
 ## Step 1: the doors
@@ -106,7 +108,7 @@ deposit to this:
 2. **One address: `aml_exchange_deposit_check`.** Call it with the network
    and the address in full:
    `{"network": "robinhood", "address": "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c"}`.
-   It reads the address's `cex_role` and its `SWEPT` links
+   It reads the address's `exchange_role` and its `SWEPT` links
    and answers `is_deposit`, the exchange, and each hot wallet it swept
    into with the sweep count, the USD sum, the paths and the first and
    last sweep. With no sourced mark, it reads the exchange model's guess
@@ -125,7 +127,7 @@ deposit to this:
   `meta_exchange_lookup` with the `address`. It answers "a hot wallet of
   Bitget on robinhood": say yes, a hot wallet of Bitget, with the address in
   full. When the file lists no wallet of that address, call
-  `aml_exchange_deposit_check`: its `cex_role` and the exchange it names
+  `aml_exchange_deposit_check`: its `exchange_role` and the exchange it names
   answer the question from the graph.
 - **"Where did the money from 0x64ba5fafa7a6e1991f7f60c9b594a7131a784540
   go?"** Call `aml_exchange_deposit_check` first. When the address is a
@@ -156,7 +158,7 @@ The sweeps of one deposit, the read `aml_exchange_deposit_check` sends:
 
 ```cypher
 USE topology
-MATCH (a:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c"})-[s:SWEPT]->(h:Address) RETURN h.address AS hot_wallet, h.labels AS hot_wallet_labels, h.cex_role AS hot_wallet_role, s.sweep_count AS sweep_count, s.amount_usd_sum AS amount_usd_sum, s.paths AS paths LIMIT 20
+MATCH (a:Address {address: "0x31a817802ee183eb8b13167ffe24bd28dcc6f30c"})-[s:SWEPT]->(h:Address) RETURN h.address AS hot_wallet, h.labels AS hot_wallet_labels, coalesce(h.exchange_role, h.cex_role) AS hot_wallet_role, s.sweep_count AS sweep_count, s.amount_usd_sum AS amount_usd_sum, s.paths AS paths LIMIT 20
 ```
 
 - **Never anchor on a hot wallet** to list its deposits: one hot wallet

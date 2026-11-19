@@ -5,7 +5,7 @@
   "address": "0xc0e17ad342afabd36b3971f8305ff147006962ae",
   "found": true,
   "is_deposit": false,
-  "cex_role": "hot_wallet",
+  "exchange_role": "hot_wallet",
   "exchange": "bybit",
   "exchange_display": "Bybit",
   "labels": [

@@ -5,7 +5,7 @@
   "address": "0x917876ff0b10f394f8ef61e2694f495be66fd9cd",
   "found": true,
   "is_deposit": true,
-  "cex_role": "deposit",
+  "exchange_role": "deposit",
   "exchange": "bybit",
   "exchange_display": "Bybit",
   "labels": [

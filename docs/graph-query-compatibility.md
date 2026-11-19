@@ -441,7 +441,7 @@ while it has a live label of that role. A flag is never `false`, so test it
 with `IS NOT NULL` or `IS NULL`, not `= false`. A withdrawn label removes its
 node label and its flag. Only `is_exchange` ends a walk.
 
-An `:Exchange` address also carries `cex_role`, which wallet of its exchange it
+An `:Exchange` address also carries `exchange_role`, which wallet of its exchange it
 is: `deposit`, `hot_wallet`, `cold_wallet` or `withdrawal`. It is absent when
 no live exchange label names a role.
 
@@ -450,7 +450,7 @@ layer `inferred`: `inferred_exchange_role` (`deposit` or `hot_wallet`),
 `inferred_sources` (a list; the exchange model's entry is
 `ml:exchange-roles:<model version>:<basis>`, with basis `rule`, `rule-p` or
 `p-hub`) and `inferred_exchange_role_updated_timestamp`. A guess is never a
-node label, never in `labels` and never a `SWEPT` link. `cex_role` wins over
+node label, never in `labels` and never a `SWEPT` link. `exchange_role` wins over
 it; an address with only the guess is said to be inferred by that model.
 
 A busy account may also carry `behaviour_kind`, how it behaves by a rule over

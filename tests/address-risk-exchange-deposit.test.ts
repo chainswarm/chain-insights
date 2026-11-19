@@ -8,6 +8,7 @@ import {
   queryBuilderContract,
   resolveExchangeEnd,
 } from '../src/investigation/public-tools.js'
+import { exchangeRoleRead } from '../src/mcp/graph-schema.js'
 
 // aml_address_risk now that the labels layer marks deposits :Exchange too.
 //
@@ -39,7 +40,7 @@ const TWO_HOP_TO_DEPOSIT = {
   exchange_address: DEPOSIT,
   exchange_display_labels: ['Exchange', 'gate'],
   exchange_system_labels: ['Exchange', 'gate'],
-  exchange_cex_role: 'deposit',
+  exchange_role: 'deposit',
   deposit_address: MIDDLE,
   hops: 2,
   amount_usd_sum: 629.45,
@@ -61,7 +62,7 @@ const ONE_HOP_TO_HOT_WALLET = {
   exchange_address: HOT_WALLET,
   exchange_display_labels: ['Exchange', 'gate'],
   exchange_system_labels: ['Exchange', 'gate'],
-  exchange_cex_role: 'hot_wallet',
+  exchange_role: 'hot_wallet',
   deposit_address: CUSTOMER,
   hops: 1,
   amount_usd_sum: 10,
@@ -69,13 +70,13 @@ const ONE_HOP_TO_HOT_WALLET = {
   addresses: [CUSTOMER, HOT_WALLET],
 }
 
-describe('the exchange walks read the end address cex_role', () => {
-  it('returns exchange_cex_role on every outflow and inflow depth', () => {
+describe('the exchange walks read the end address exchange_role', () => {
+  it('reads exchange_role on every outflow and inflow depth, on both lanes', () => {
     for (const { id, query } of [
       ...queryBuilderContract.exchangeOutflowQueries(CUSTOMER),
       ...queryBuilderContract.exchangeInflowQueries(CUSTOMER),
     ]) {
-      expect(query, id).toContain('exchange.cex_role AS exchange_cex_role')
+      expect(query, id).toContain(`${exchangeRoleRead('exchange')} AS exchange_role`)
     }
   })
 })
@@ -100,7 +101,7 @@ describe('resolveExchangeEnd', () => {
     expect(hot['exchange_role']).toBe('hot_wallet')
     expect(hot['deposit_address']).toBe(CUSTOMER)
     expect(hot['payer_address']).toBeUndefined()
-    const bare = resolveExchangeEnd({ ...ONE_HOP_TO_HOT_WALLET, exchange_cex_role: null })
+    const bare = resolveExchangeEnd({ ...ONE_HOP_TO_HOT_WALLET, exchange_role: null })
     expect(bare['exchange_role']).toBe('exchange')
   })
 })

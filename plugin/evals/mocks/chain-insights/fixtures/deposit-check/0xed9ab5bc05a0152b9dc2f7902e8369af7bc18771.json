@@ -5,7 +5,7 @@
   "address": "0xed9ab5bc05a0152b9dc2f7902e8369af7bc18771",
   "found": true,
   "is_deposit": false,
-  "cex_role": "hot_wallet",
+  "exchange_role": "hot_wallet",
   "exchange": "bitget",
   "exchange_display": "Bitget",
   "labels": [

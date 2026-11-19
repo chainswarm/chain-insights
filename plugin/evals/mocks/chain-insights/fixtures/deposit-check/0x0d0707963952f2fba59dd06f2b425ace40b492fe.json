@@ -5,7 +5,7 @@
   "address": "0x0d0707963952f2fba59dd06f2b425ace40b492fe",
   "found": true,
   "is_deposit": false,
-  "cex_role": "hot_wallet",
+  "exchange_role": "hot_wallet",
   "exchange": "gate",
   "exchange_display": "Gate",
   "labels": [

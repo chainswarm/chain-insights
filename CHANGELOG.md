@@ -3,6 +3,25 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.87.0] - 2026-11-19 — The exchange role is called `exchange_role`, on both lanes
+
+### Changed
+
+- The graph property that says which wallet of its exchange an `:Exchange`
+  address is, `cex_role`, is renamed `exchange_role`, to match
+  `is_exchange` (aphex5 ruling 2026-11-19). The values are unchanged:
+  `deposit`, `hot_wallet`, `cold_wallet` and `withdrawal`.
+- `aml_exchange_deposit_check` returns `exchange_role` in place of
+  `cex_role`. `aml_address_risk` exchange ends carry `exchange_role` only.
+  Every tool description, hint, `meta_schema` note, skill and document says
+  `exchange_role`.
+- Every query the proxy sends reads both names,
+  `coalesce(a.exchange_role, a.cex_role)`, until both lanes are re-indexed:
+  a lane re-indexed by the new graph sync carries `exchange_role`, a lane
+  not yet re-indexed still carries `cex_role`. The `meta_schema` note and
+  the `chain-insights-cypher` and `chain-insights-aml-exchange` skills tell
+  an agent writing its own Cypher to read the same.
+
 ## [0.86.0] - 2026-11-19 — Every host says what kind of busy account an address is, and never as an accusation
 
 ### Added

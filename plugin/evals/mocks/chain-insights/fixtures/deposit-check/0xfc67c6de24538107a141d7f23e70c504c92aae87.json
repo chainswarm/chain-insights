@@ -5,7 +5,7 @@
   "address": "0xfc67c6de24538107a141d7f23e70c504c92aae87",
   "found": true,
   "is_deposit": true,
-  "cex_role": "deposit",
+  "exchange_role": "deposit",
   "exchange": "bitget",
   "exchange_display": "Bitget",
   "labels": [

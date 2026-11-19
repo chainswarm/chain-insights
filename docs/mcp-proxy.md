@@ -256,16 +256,16 @@ same lookup in a terminal.
 `aml_exchange_deposit_check` checks one address. It takes `network` and
 `address` (both required). One `graph_query_batch` sends six reads on
 `USE topology`, all anchored on the address: the address with its
-`cex_role`, its `SWEPT` links with each hot wallet it swept into, and four
+`exchange_role`, its `SWEPT` links with each hot wallet it swept into, and four
 counts of its behaviour.
 
 ```mermaid
 flowchart LR
-    T["a trail"] -->|"FLOWED_TO"| D["deposit<br/>cex_role deposit"]
-    D -->|"SWEPT<br/>sweep_count, paths"| H["hot wallet<br/>cex_role hot_wallet"]
+    T["a trail"] -->|"FLOWED_TO"| D["deposit<br/>exchange_role deposit"]
+    D -->|"SWEPT<br/>sweep_count, paths"| H["hot wallet<br/>exchange_role hot_wallet"]
 ```
 
-- `is_deposit` is true when the address carries `cex_role` `deposit` or has a
+- `is_deposit` is true when the address carries `exchange_role` `deposit` or has a
   `SWEPT` link. `SWEPT` is drawn only from an address the deposit rule judged a
   deposit.
 - With neither, the node read also takes the exchange model's guess:
@@ -296,7 +296,7 @@ flowchart LR
   every answer: it is one customer's, few outside addresses pay it,
   everything it sends goes to the wallets of one exchange, and it never swaps
   on a DEX. A host asked what makes an address a deposit answers with it. The
-  graph judges an address against it. The verdict is `is_deposit`, `cex_role`
+  graph judges an address against it. The verdict is `is_deposit`, `exchange_role`
   and `swept`; the counts are the facts behind it.
 - A trail that reaches a deposit ends there: the exchange can name the
   customer behind it. A failed read is an error that says it is not "no

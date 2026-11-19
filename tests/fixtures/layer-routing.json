@@ -640,7 +640,7 @@
    "id": "skill-aml-exchange-2",
    "layer": "topology",
    "anchor": "address",
-   "query": "USE topology MATCH (a:Address {address: \"0x31a817802ee183eb8b13167ffe24bd28dcc6f30c\"})-[s:SWEPT]->(h:Address) RETURN h.address AS hot_wallet, h.labels AS hot_wallet_labels, h.cex_role AS hot_wallet_role, s.sweep_count AS sweep_count, s.amount_usd_sum AS amount_usd_sum, s.paths AS paths LIMIT 20",
+   "query": "USE topology MATCH (a:Address {address: \"0x31a817802ee183eb8b13167ffe24bd28dcc6f30c\"})-[s:SWEPT]->(h:Address) RETURN h.address AS hot_wallet, h.labels AS hot_wallet_labels, coalesce(h.exchange_role, h.cex_role) AS hot_wallet_role, s.sweep_count AS sweep_count, s.amount_usd_sum AS amount_usd_sum, s.paths AS paths LIMIT 20",
    "source": "skills/chain-insights-aml-exchange/SKILL.md"
   },
   {

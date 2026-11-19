@@ -149,7 +149,7 @@ function hintFor(
     return (
       `${ANSWER_HINT} ${address} is no wallet the exchange lookup lists for ${network}: the file lists only wallets proven on this chain. ` +
       `The graph marks deposits and hot wallets of every exchange: call aml_exchange_deposit_check {network: "${network}", address: "${address}"} ` +
-      'to read its cex_role, its exchange and its SWEPT links.'
+      'to read its exchange_role, its exchange and its SWEPT links.'
     )
   }
   if (address !== null && result.matched) {

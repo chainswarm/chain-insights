@@ -57,10 +57,10 @@ export const ROUTING_HANDOFF =
 
 /**
  * Where money entered an exchange: the link `SWEPT` (layer `cex_sweeps`, family
- * annotations) and the node property `cex_role`. A trail ends at it.
+ * annotations) and the node property `exchange_role`. A trail ends at it.
  */
 export const ROUTING_SWEPT =
-  "`SWEPT` runs from an exchange deposit to the hot wallet it swept into (layer `cex_sweeps`, family annotations), and `cex_role` on an `:Exchange` address says which wallet of its exchange it is: `deposit`, `hot_wallet`, `cold_wallet` or `withdrawal`. A trail that reaches a `SWEPT` link ends there: say the money entered the exchange at that deposit, swept n times into that hot wallet, name the exchange from `labels`, and never walk on past a hot wallet. Read `SWEPT` anchored on an address; call `aml_exchange_deposit_check` for one address and `meta_exchange_lookup` for an exchange by name. With no `cex_role`, `inferred_exchange_role` (`deposit` or `hot_wallet`, with its `ml:exchange-roles:` entry in `inferred_sources`) is the exchange model's guess, never a label: say it is inferred by that model, never a confirmed exchange address."
+  "`SWEPT` runs from an exchange deposit to the hot wallet it swept into (layer `cex_sweeps`, family annotations), and `exchange_role` on an `:Exchange` address says which wallet of its exchange it is: `deposit`, `hot_wallet`, `cold_wallet` or `withdrawal`. A trail that reaches a `SWEPT` link ends there: say the money entered the exchange at that deposit, swept n times into that hot wallet, name the exchange from `labels`, and never walk on past a hot wallet. Read `SWEPT` anchored on an address; call `aml_exchange_deposit_check` for one address and `meta_exchange_lookup` for an exchange by name. With no `exchange_role`, `inferred_exchange_role` (`deposit` or `hot_wallet`, with its `ml:exchange-roles:` entry in `inferred_sources`) is the exchange model's guess, never a label: say it is inferred by that model, never a confirmed exchange address."
 
 /**
  * A whole-chain question is a time-bounded topology search, sent only when the

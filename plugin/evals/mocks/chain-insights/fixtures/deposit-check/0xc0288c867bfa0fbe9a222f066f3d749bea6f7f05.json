@@ -5,7 +5,7 @@
   "address": "0xc0288c867bfa0fbe9a222f066f3d749bea6f7f05",
   "found": true,
   "is_deposit": true,
-  "cex_role": "deposit",
+  "exchange_role": "deposit",
   "exchange": "bitunix",
   "exchange_display": "Bitunix",
   "labels": [

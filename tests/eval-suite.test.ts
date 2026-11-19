@@ -51,7 +51,7 @@ type Row = {
 type CheckAnswer = {
   found: boolean
   is_deposit: boolean
-  cex_role: string | null
+  exchange_role: string | null
   exchange_display: string | null
   swept: { hot_wallet: string }[]
   inferred?: true
@@ -67,7 +67,7 @@ const dataset = JSON.parse(readFileSync(join(root, DATASET_FILE), 'utf8')) as {
 function classOf(answer: CheckAnswer): string {
   if (!answer.found) return 'not-found'
   if (answer.is_deposit) return 'deposit'
-  return answer.cex_role ? 'exchange-wallet' : 'not-deposit'
+  return answer.exchange_role ? 'exchange-wallet' : 'not-deposit'
 }
 
 describe('the plugin eval suite (plugin/evals)', () => {

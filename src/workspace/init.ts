@@ -340,7 +340,7 @@ Rules:
 - When using BFS, fixed-depth traversal fallbacks, or any manual \`FLOWED_TO\`
   traversal, treat exchange hot wallets as terminal endpoints only, and
   exchange deposits too: every \`:Exchange\` address ends a walk, and its
-  \`cex_role\` says whether it is a deposit, a hot wallet, a cold wallet or a
+  \`exchange_role\` says whether it is a deposit, a hot wallet, a cold wallet or a
   withdrawal wallet. Do not expand from or through exchange nodes, or count
   them as suspect or intermediate candidates. In Cypher, require every
   non-terminal traversal node to satisfy \`is_exchange IS NULL\` (in a
