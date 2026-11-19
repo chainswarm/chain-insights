@@ -77,23 +77,23 @@ The proxy:
 
 ## Local Tools
 
-| Tool                        | Purpose                                                                              |
-| --------------------------- | ------------------------------------------------------------------------------------ |
-| `meta_network_capabilities` | Show the current Chain Insights network/tool support matrix                          |
-| `meta_schema`               | Show the live graph schema of a network: labels, link types, fields, indexes         |
-| `meta_dex_lookup`           | Turn an exchange name into its factories, routers or manager, pools and first reads  |
-| `meta_token_lookup`         | Turn a ticker or a token name into every contract that carries it, with its creator  |
-| `aml_deployer_screen`       | Screen who is behind a token or a wallet: launcher, first funder, labels, facts only |
-| `meta_exchange_lookup`      | Turn a centralized exchange name, or one of its wallets, into its listed wallets     |
-| `aml_exchange_deposit_check`| Check one address: an exchange deposit, of which exchange, swept into which wallet   |
-| `meta_rules`                | Read the answer rules when the `chain-insights-cypher` skill is not loaded           |
-| `meta_help`                 | Show Chain Insights tool and workflow guidance                                       |
-| `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                             |
-| `meta_subscription_status`  | Check the proven wallet's subscription, today's allowance and pending payments       |
-| `wallet_balance`            | Show the local payment wallet address, payment network, token, and amount            |
-| `wallet_topup`              | Show the local payment wallet address and its QR code, with a Claude view            |
-| `subscription_topup`        | Show the same wallet and its QR code for $CIA and ETH on Robinhood Chain, read-only  |
-| `graph_expand`              | Expand a node or list a link's transfers in an open picture; called by the view only |
+| Tool                         | Purpose                                                                              |
+| ---------------------------- | ------------------------------------------------------------------------------------ |
+| `meta_network_capabilities`  | Show the current Chain Insights network/tool support matrix                          |
+| `meta_schema`                | Show the live graph schema of a network: labels, link types, fields, indexes         |
+| `meta_dex_lookup`            | Turn an exchange name into its factories, routers or manager, pools and first reads  |
+| `meta_token_lookup`          | Turn a ticker or a token name into every contract that carries it, with its creator  |
+| `aml_deployer_screen`        | Screen who is behind a token or a wallet: launcher, first funder, labels, facts only |
+| `meta_exchange_lookup`       | Turn a centralized exchange name, or one of its wallets, into its listed wallets     |
+| `aml_exchange_deposit_check` | Check one address: an exchange deposit, of which exchange, swept into which wallet   |
+| `meta_rules`                 | Read the answer rules when the `chain-insights-cypher` skill is not loaded           |
+| `meta_help`                  | Show Chain Insights tool and workflow guidance                                       |
+| `meta_usage_status`          | Check the caller's daily free-tier graph query allowance                             |
+| `meta_subscription_status`   | Check the proven wallet's subscription, today's allowance and pending payments       |
+| `wallet_balance`             | Show the local payment wallet address, payment network, token, and amount            |
+| `wallet_topup`               | Show the local payment wallet address and its QR code, with a Claude view            |
+| `subscription_topup`         | Show the same wallet and its QR code for $CIA and ETH on Robinhood Chain, read-only  |
+| `graph_expand`               | Expand a node or list a link's transfers in an open picture; called by the view only |
 
 `meta_schema` reads the live graph schema of one network: the labels, the link
 types, every property key, the indexes, the fields of an address and of each
@@ -144,7 +144,16 @@ never picks one.
 1. One `graph_query` reads the `Asset` lookup on `USE facts` by symbol. When
    no contract carries the symbol, the same read runs by name. The server
    matches exactly, in any case, and orders the rows verified first, then
-   oldest first. The proxy keeps that order.
+   oldest first. The proxy keeps that order. The read also asks for
+   `match_count`, the number of contracts that carry the key, and the answer
+   gives it as `matches`.
+   When more match than the 25 listed, one more `graph_query` reads the 25
+   newest (`ORDER BY t.first_seen_timestamp DESC`), and the answer lists the
+   ones not among the candidates as `newest`. With exactly one verified
+   candidate, `first_seen_after_verified` says how many contracts were first
+   seen after it: a copy of a verified token is made after it, so the oldest
+   25 alone hide the copies. A server that does not count yet is read the
+   old way; `matches` is then null and the hint calls the list a part.
 2. One `graph_query_batch` reads, for each candidate, the address that
    deployed it (`factory`) and the sender of that transaction (`creator`) on
    `USE topology`. A batch holds at most 20 reads, so 25 candidates take two.
@@ -300,16 +309,16 @@ the same check in a terminal.
 **A rule a host never loads does not exist for that host.** Each host loads a
 different part of what this package ships:
 
-| What a host loads | Claude Code | Desktop Code mode | Codex | Hermes | scout agent | Desktop chat / claude.ai |
-|---|---|---|---|---|---|---|
-| skill files (`cia setup`) | yes | yes | yes | yes | copied, 2 of 6 | no |
-| server instructions | yes | yes | yes | yes | yes | no (ignored) |
-| `meta_rules` | yes | yes | yes | yes | yes | no (never called) |
-| tool descriptions | yes | yes | yes | yes | yes | yes |
-| result `hint` | yes | yes | yes | yes | yes | yes |
-| protocol tool doors | yes | yes | yes | yes | yes | yes |
-| token door `meta_token_lookup` | yes | yes | yes | yes | yes | yes |
-| exchange doors `meta_exchange_lookup`, `aml_exchange_deposit_check` | yes | yes | yes | yes | yes | yes |
+| What a host loads                                                   | Claude Code | Desktop Code mode | Codex | Hermes | scout agent    | Desktop chat / claude.ai |
+| ------------------------------------------------------------------- | ----------- | ----------------- | ----- | ------ | -------------- | ------------------------ |
+| skill files (`cia setup`)                                           | yes         | yes               | yes   | yes    | copied, 2 of 6 | no                       |
+| server instructions                                                 | yes         | yes               | yes   | yes    | yes            | no (ignored)             |
+| `meta_rules`                                                        | yes         | yes               | yes   | yes    | yes            | no (never called)        |
+| tool descriptions                                                   | yes         | yes               | yes   | yes    | yes            | yes                      |
+| result `hint`                                                       | yes         | yes               | yes   | yes    | yes            | yes                      |
+| protocol tool doors                                                 | yes         | yes               | yes   | yes    | yes            | yes                      |
+| token door `meta_token_lookup`                                      | yes         | yes               | yes   | yes    | yes            | yes                      |
+| exchange doors `meta_exchange_lookup`, `aml_exchange_deposit_check` | yes         | yes               | yes   | yes    | yes            | yes                      |
 
 The scout agent pins the CLI by version in its image and copies only
 `chain-insights-cypher` and `chain-insights-virtuals` into its project, yet asks
