@@ -3,6 +3,27 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.84.1] - 2026-11-19 — Tessera, WOOFi and the quoted stock-token market in the lookup
+
+### Added
+
+- `meta_dex_lookup` answers for three desks that trade from their own
+  reserves, registry version 9. Tessera: its vault
+  `0x907d1d174569b11624bdcefd20dcef27600237f8` is the manager, its router
+  `0x55555522005bcae1c2424d474bfd5ed477749e3e` a helper. WOOFi: `WooPPV2`
+  `0x5520385bfcf07ec87c4c53a7d8d65595dff69fa4` is the manager, `WooRouterV2`
+  `0x4c4af8dbc524681930a27b2f1af5bcc8062e6fb7` a helper. The DEX indexer
+  reads both on lane A and lane B (adapters `tessera-custody` and
+  `woo-custody`).
+- The unnamed quoted stock-token market: its market contract
+  `0x9d9806fe54de0dca35eb6839374d2222aca3c967` is the manager (adapter
+  `quoted-custody`). No source names its operator, so it is served under a
+  plain description.
+- The vault trail skill names the three managers and says neither router is
+  ever the buyer. Three name-only eval cases ask for each by name.
+- `tests/fixtures/dex-adapters.json` pins the indexer registry version 34,
+  23 adapters.
+
 ## [0.84.0] - 2026-11-18 — exchange answers say what the model inferred
 
 ### Added

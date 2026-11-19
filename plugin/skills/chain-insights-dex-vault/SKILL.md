@@ -1,10 +1,10 @@
 ---
 name: chain-insights-dex-vault
 door: meta_dex_lookup
-description: Use for the dex-vault trail - exchanges where one pool manager contract holds every pool, such as Uniswap v4, Balancer v2, Balancer v3, PancakeSwap Infinity, Ekubo and the unnamed stock-token market with one reserve holder on robinhood - when a seller's swap names the pool manager or vault, when a question asks who bought past the manager, or which pools such an exchange has. Loaded by chain-insights-dex for a vault row of its memo.
+description: Use for the dex-vault trail - exchanges where one pool manager contract holds every pool, such as Uniswap v4, Balancer v2, Balancer v3, PancakeSwap Infinity, Ekubo, the market makers Tessera and WOOFi, the unnamed stock-token market with one reserve holder and the unnamed quoted stock-token market on robinhood - when a seller's swap names the pool manager or vault, when a question asks who bought past the manager, or which pools such an exchange has. Loaded by chain-insights-dex for a vault row of its memo.
 ---
 
-# Chain Insights: the vault trail (Uniswap v4, Balancer, PancakeSwap Infinity, Ekubo)
+# Chain Insights: the vault trail (Uniswap v4, Balancer, PancakeSwap Infinity, Ekubo, Tessera, WOOFi)
 
 Load `chain-insights-cypher` first, then `chain-insights-dex`: the
 exchange's manager comes from `meta_dex_lookup`, or from the memo there when
@@ -34,13 +34,29 @@ buyer.** Name it for what it is, in full: "the Uniswap v4 pool manager
 | PancakeSwap Infinity | `0xd01c774d4a66408326bc65728ac5ae5aaf004032` |
 | Ekubo | `0x00000000000014aa86c5d3c41765bb24e11bd701` |
 | unnamed stock-token market | `0x2f4579ca81717d3d61bf8b6f06571877bbe54a07`, the reserve holder |
+| Tessera | `0x907d1d174569b11624bdcefd20dcef27600237f8`, the vault |
+| WOOFi | `0x5520385bfcf07ec87c4c53a7d8d65595dff69fa4`, WooPP |
+| unnamed quoted stock-token market | `0x9d9806fe54de0dca35eb6839374d2222aca3c967`, the market contract |
 
-Call the last one "an unnamed stock-token market with one reserve holder".
+Call the stock-token market "an unnamed stock-token market with one reserve holder".
 No source names it: never give it a name you have not read. Its trades are
 logged by 105 small market contracts, one per stock token, that move no
 token themselves. The holder takes the sold token and pays the bought one,
 so the holder is the manager of every swap, and each pair of tokens is one
 of its pools.
+
+Tessera and WOOFi are market makers that trade from their own reserves, the
+same shape. Tessera's router logs each trade and moves no token; its vault
+takes the sold token and pays the bought one. WOOFi's WooPP logs and pays
+itself; its router only passes the seller's tokens on. `meta_dex_lookup`
+gives both routers as helpers. Neither router is ever the buyer, and each
+pair of tokens is one pool of the manager.
+
+Call the quoted market "an unnamed quoted stock-token market". No source
+names it either. A settlement contract checks a signed quote and logs each
+trade; the market contract holds the stock tokens and the USDG and pays both
+legs, so it is the manager. It is not the stock-token market with one
+reserve holder: another deployer, other events.
 
 ## On a lane with the levels
 

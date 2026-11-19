@@ -24,8 +24,8 @@ Centralized exchanges have their own folder, [exchanges/](#centralized-exchanges
 
 | File | Rows served | Why |
 |---|---|---|
-| [robinhood.md](robinhood.md) | 84 | registry version 8, recorded 2026-11-06 |
-| [robinhood.json](robinhood.json) | 40 exchanges | the served copy of `robinhood.md`, never edited by hand |
+| [robinhood.md](robinhood.md) | 89 | registry version 9, recorded 2026-11-19 |
+| [robinhood.json](robinhood.json) | 43 exchanges | the served copy of `robinhood.md`, never edited by hand |
 
 A change to the rows merged on `main` reaches every running proxy within one
 hour. No release is needed for a data change.

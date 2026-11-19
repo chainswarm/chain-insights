@@ -86,7 +86,7 @@ describe('meta_dex_lookup for Aero, against the recorded batch', () => {
     const { result, structured } = await lookup({ network: 'robinhood', name: 'Aerodrome' })
     expect(result.isError).toBe(false)
     expect(structured.schema).toBe('chain-insights.meta-dex-lookup.v1')
-    expect(structured.registry_version).toBe(8)
+    expect(structured.registry_version).toBe(9)
     expect(structured.registry_source).toBe('packaged')
     const matched = structured.matched!
     expect(matched.dex).toBe('aero')
@@ -204,7 +204,7 @@ describe('meta_dex_lookup without a graph read', () => {
     expect(calls).toHaveLength(0)
     expect(structured.matched).toBeNull()
     expect(structured.candidates).toEqual([])
-    expect(structured.covered).toHaveLength(40)
+    expect(structured.covered).toHaveLength(43)
     expect(structured.hint).toContain('Kyber is not covered. Send no query for the name')
   })
 
@@ -223,7 +223,7 @@ describe('meta_dex_lookup without a graph read', () => {
     const { calls, lookup } = harness()
     const { structured } = await lookup({ network: 'robinhood' })
     expect(calls).toHaveLength(0)
-    expect(structured.exchanges).toHaveLength(40)
+    expect(structured.exchanges).toHaveLength(43)
     expect(structured.exchanges![0]).toMatchObject({
       dex: 'aero',
       display: 'Aero (Aerodrome and Velodrome, merged)',
@@ -312,7 +312,7 @@ describe('meta_dex_lookup by address', () => {
     const { structured } = await lookup({ network: 'robinhood', address: unknown })
     expect(structured.matched).toBeNull()
     expect(structured.candidates).toEqual([])
-    expect(structured.covered).toHaveLength(40)
+    expect(structured.covered).toHaveLength(43)
     expect(structured.hint).toContain(
       `No exchange row holds ${unknown}: it is not a registered exchange contract.`
     )

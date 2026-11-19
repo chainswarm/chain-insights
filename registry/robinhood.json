@@ -1,8 +1,8 @@
 {
   "schema": "chain-insights.dex-registry.v1",
   "network": "robinhood",
-  "registry_version": 8,
-  "recorded_on": "2026-11-06",
+  "registry_version": 9,
+  "recorded_on": "2026-11-19",
   "rows": [
     {
       "dex": "aero",
@@ -613,6 +613,89 @@
       "pool_floor": null,
       "since_block": 461784,
       "source": "https://github.com/chainswarm/devops/blob/e270ee1a3c8a2afc52e9d5549be5dbb8b98f0914/charts/chainswarm-indexer-evm-dex/registry/robinhood-v29.json"
+    },
+    {
+      "dex": "tessera",
+      "display": "Tessera",
+      "aliases": [
+        "Tessera",
+        "Tessera market maker"
+      ],
+      "trail_type": "vault",
+      "adapters": [
+        "tessera-custody"
+      ],
+      "roles": {
+        "0x907d1d174569b11624bdcefd20dcef27600237f8": "manager"
+      },
+      "helpers": [
+        "0x55555522005bcae1c2424d474bfd5ed477749e3e"
+      ],
+      "factories": [
+        "0x907d1d174569b11624bdcefd20dcef27600237f8"
+      ],
+      "routers": [
+        "0x907d1d174569b11624bdcefd20dcef27600237f8"
+      ],
+      "example_pool": null,
+      "pool_floor": null,
+      "since_block": 0,
+      "source": "https://github.com/nexroute/van-helsing/blob/f228f9958f198fb55a67d6c3da50cf37c6a74fec/chains/robinhood/Chain.sol"
+    },
+    {
+      "dex": "woofi",
+      "display": "WOOFi",
+      "aliases": [
+        "WOOFi",
+        "WooFi",
+        "WOOFi Swap",
+        "WooPP"
+      ],
+      "trail_type": "vault",
+      "adapters": [
+        "woo-custody"
+      ],
+      "roles": {
+        "0x5520385bfcf07ec87c4c53a7d8d65595dff69fa4": "manager"
+      },
+      "helpers": [
+        "0x4c4af8dbc524681930a27b2f1af5bcc8062e6fb7"
+      ],
+      "factories": [
+        "0x5520385bfcf07ec87c4c53a7d8d65595dff69fa4"
+      ],
+      "routers": [
+        "0x5520385bfcf07ec87c4c53a7d8d65595dff69fa4"
+      ],
+      "example_pool": null,
+      "pool_floor": null,
+      "since_block": 0,
+      "source": "https://github.com/woonetwork/docs/blob/9bcc162d55d2f53e2e110cd552a2286ba03248a3/guides/integrate-woofi-as-liquidity-source.md"
+    },
+    {
+      "dex": "quoted-stock-market",
+      "display": "unnamed quoted stock-token market",
+      "aliases": [
+        "quoted stock-token market",
+        "quoted stock market"
+      ],
+      "trail_type": "vault",
+      "adapters": [
+        "quoted-custody"
+      ],
+      "roles": {
+        "0x9d9806fe54de0dca35eb6839374d2222aca3c967": "manager"
+      },
+      "factories": [
+        "0x9d9806fe54de0dca35eb6839374d2222aca3c967"
+      ],
+      "routers": [
+        "0x9d9806fe54de0dca35eb6839374d2222aca3c967"
+      ],
+      "example_pool": null,
+      "pool_floor": null,
+      "since_block": 100062876,
+      "source": "https://robin.etherscan.io/tx/0xa4062dc9a318af215fa385f2ea523a320724b00618076c195b8f451387367830"
     },
     {
       "dex": "ramses",

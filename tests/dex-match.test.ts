@@ -61,7 +61,7 @@ describe('matchDex over the served registry', () => {
     const result = matchDex('Kyber', rows)
     expect(result.matched).toBeNull()
     expect(result.candidates).toEqual([])
-    expect(result.covered).toHaveLength(40)
+    expect(result.covered).toHaveLength(43)
     expect(result.covered).toContain('Aero (Aerodrome and Velodrome, merged)')
   })
 
