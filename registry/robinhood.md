@@ -6,9 +6,9 @@ columns and the check are in the [README](README.md). The served copy is
 [robinhood.json](robinhood.json), written by
 `node scripts/pin-dex-registry.mjs registry/robinhood.md`.
 
-Registry version: 8.
+Registry version: 9.
 
-Recorded on: 2026-11-06.
+Recorded on: 2026-11-19.
 
 ## Rows
 
@@ -61,6 +61,11 @@ Recorded on: 2026-11-06.
 | balancer-v3 | unnamed Balancer v3 vault | Balancer, Balancer v3, Balancer v3 vault | vault | balancer-v3 | manager | `0x28082618ba2073e602230188e4f4c46e9b2169eb` | 0 | - | - | [Sourcify verified source](https://sourcify.dev/server/v2/contract/4663/0x28082618ba2073e602230188e4f4c46e9b2169eb) | served |
 | ekubo | Ekubo | Ekubo, Ekubo Protocol, ekubo.org | vault | ekubo-core | manager | `0x00000000000014aa86c5d3c41765bb24e11bd701` | 33534 | - | - | [Ekubo robinhood deployment](https://github.com/EkuboProtocol/evm-contracts/blob/933c813ca154475a3c7eab8234869f6db151c682/broadcast/DeployAll.s.sol/4663/run-latest.json) | served |
 | stock-token-market | unnamed stock-token market with one reserve holder | stock-token market, stock token market | vault | swapped-custody | manager | `0x2f4579ca81717d3d61bf8b6f06571877bbe54a07` | 461784 | - | - | [devops registry v29](https://github.com/chainswarm/devops/blob/e270ee1a3c8a2afc52e9d5549be5dbb8b98f0914/charts/chainswarm-indexer-evm-dex/registry/robinhood-v29.json) | served |
+| tessera | Tessera | Tessera, Tessera market maker | vault | tessera-custody | manager | `0x907d1d174569b11624bdcefd20dcef27600237f8` | 0 | - | - | [Van Helsing robinhood chain constants](https://github.com/nexroute/van-helsing/blob/f228f9958f198fb55a67d6c3da50cf37c6a74fec/chains/robinhood/Chain.sol) | served |
+| tessera | Tessera |  | vault | tessera-custody | helper | `0x55555522005bcae1c2424d474bfd5ed477749e3e` | 0 | - | - | [DefiLlama tessera adapter](https://github.com/DefiLlama/dimension-adapters/blob/974276ba6e9fa4fa00962aed41bf30e702a85560/dexs/tessera/index.ts) | served |
+| woofi | WOOFi | WOOFi, WooFi, WOOFi Swap, WooPP | vault | woo-custody | manager | `0x5520385bfcf07ec87c4c53a7d8d65595dff69fa4` | 0 | - | - | [WOOFi integration guide](https://github.com/woonetwork/docs/blob/9bcc162d55d2f53e2e110cd552a2286ba03248a3/guides/integrate-woofi-as-liquidity-source.md) | served |
+| woofi | WOOFi |  | vault | woo-custody | helper | `0x4c4af8dbc524681930a27b2f1af5bcc8062e6fb7` | 0 | - | - | [WOOFi integration guide](https://github.com/woonetwork/docs/blob/9bcc162d55d2f53e2e110cd552a2286ba03248a3/guides/integrate-woofi-as-liquidity-source.md) | served |
+| quoted-stock-market | unnamed quoted stock-token market | quoted stock-token market, quoted stock market | vault | quoted-custody | manager | `0x9d9806fe54de0dca35eb6839374d2222aca3c967` | 100062876 | - | - | [deployment transaction](https://robin.etherscan.io/tx/0xa4062dc9a318af215fa385f2ea523a320724b00618076c195b8f451387367830) | served |
 | ramses | Ramses | Ramses, Ramses Exchange, RAM, ramses.xyz, Ramses DLMM | plain | trader-joe-lb | factory | `0xdcd5f77697914e27f56fd263ef82923c8524abac` | 0 | 0x06ffaa507a9c3e7025294a642f1e1c75da3dfb4a | 150 | [Ramses contract addresses](https://www.ramses.xyz/docs/contract-addresses) | served |
 | ramses | Ramses |  | plain | uniswap-v2 | factory | `0x43b2bf9f33036a02fc7a00935571c2a6b0108e66` | 0 | - | - | [Ramses contract addresses](https://www.ramses.xyz/docs/contract-addresses) | served |
 | ramses | Ramses |  | plain | trader-joe-lb | router | `0xd0019e86edb35e1fedaab03aed5c3c60f115d28b` | 0 | - | - | [Ramses contract addresses](https://www.ramses.xyz/docs/contract-addresses) | served |
@@ -142,6 +147,11 @@ proven from those rows.
 | `0x4ed0f046d97d508df86d6b7b058e763dbfb0027f` | manager | one router holds every curve, each keyed by the launched token: 13 `mob-launch-curve` pools on lane B on 2026-11-02, from block 99,903,488 to 100,025,977, and 780 swap rows since 2026-10-28. The first, `0x331d64719b7a01f59ef03311e4f0c10f00b7271d1cef0dcdeb6321ae480efcd7` at block 99,903,517, is a buy the router refunded in part. Created at block 99,884,296 by `0x9cd48fc444f80e6c79d90c4bcb9d045603747390`; no source is verified and no project names it. The token Mob is a launch, never the launchpad's name |
 | `0x2f4579ca81717d3d61bf8b6f06571877bbe54a07` | manager | the one reserve holder of 105 market contracts that log `Swapped` and move no token themselves; the indexer names the first, `0x95e4a408590e5ace8aab498ab0f9f4236f5162e5` (the AMD market), and 104 more, all created by `0x8dbf0d37cad30b2510d5c74e0f87a210cb298086`. The holder takes the sold token and pays the bought one in every trade. Read on lane B's StarRocks on 2026-11-02: 52 `swapped-custody` pairs from block 461,784, each a pool of the holder keyed by its two tokens, and 225,885 swap rows from 2026-10-26 to 2026-11-02. On 2026-11-01 its trades were stock tokens (SNDK, SKHY, MU, MSTR, AMD, SPCX, USO, RDDT, DJT) against USDG, and some WETH and ETH; the first that day, `0x4e625db12c0affff1ab5634d587da84a0da4c474ab110d174b6c0cd6cd64887c` at block 102,958,054. Created at block 223,587 by `0xb97c121f7bf12bc21ed22b9739f3695bd2ab23a8`; no source is verified and no project names it. The market contracts have no row: each is one token's door, not a pool and not a router |
 | `0x7a39b98d31f84152bc724bc5ddb41dbcb338f2a5` | router | read on the production graph through the Chain Insights proxy on 2026-11-05 by scout-agent (finding 164): a contract with no label, created at block 105,000,018 (2026-11-03) by `0xf90e3e4f5b23b2ba5a53e7c72ccac139e0ff1c1b` in `0x3561086bf317b231da030bff5367f6213afdeb01724f990c1d4dc2bbed06d982`, below the DEX head 106,440,927. About 500 wallets call it directly with ETH and USDG `0x5fc5360d0400a0fd4f2af552add042d716f1d168`: 500 senders, 495 receivers, 19,962 transactions in and 21,858 out. It wraps and unwraps WETH `0x0bd7d308f8e1639fab988df18a8011f41eacad73` and swaps in the Uniswap v3 WETH/USDG pool `0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca` (7,041 transactions) and, for some trades, the Uniswap v4 PoolManager `0x8366a39cc670b4001a1121b8f6a443a643e40951`. Its `SWAPPED` links reach its callers through the pool, so the caller stays the trader. Sample call `0x4e675f9318bfced710a7c2072662701beb4662a6b61fcf57a608ac84fdbeae18` (block 106,301,475) from `0x7b6830c4f01d976d9a344febdf3588d99a23dfd0`, ETH value, 12 logs. No source is verified and no project names it |
+| `0x907d1d174569b11624bdcefd20dcef27600237f8` | manager | Tessera's vault. Read from the production node on 2026-11-06 for indexer-evm-dex (golden set `tessera-custody`): a sample of 2,000 of the 577,500 `TesseraTrade` logs below block 91,000,000, 2,000 of 2,000 take the sold token into this contract and pay the bought one out of it to the log's recipient. It logs nothing itself; the router below logs each trade. Van Helsing's robinhood constants name it `TESSERA_TREASURY`, the treasury Tessera pays out of. Sample buy `0x8a66a468afcad071da90fb8a25e60815fae87e6f20e28c23266b8f50c1d67e54` (block 106,015,302): wallet `0xaa0ea5019ecc8f1b1a4de7e15b0a36edec01ea18` pays it USDG and it pays the wallet SPCX. Indexer registry version 31 and later read it as adapter `tessera-custody` on lane A and lane B |
+| `0x55555522005bcae1c2424d474bfd5ed477749e3e` | helper | Tessera's router: it logs one `TesseraTrade` per trade and moves no token; the vault above is the contract past the swap. DefiLlama's Tessera adapter reads the same address and event on Robinhood Chain from 2026-09-10, as on Base and BNB Chain |
+| `0x5520385bfcf07ec87c4c53a7d8d65595dff69fa4` | manager | `WooPPV2`, WOOFi's market, at the address WOOFi's integration guide gives for Robinhood. Read from the production node on 2026-11-07 for indexer-evm-dex (golden set `woo-custody`): all 3,608 `WooSwap` logs to block 108,109,678 take the sold token into this contract and pay the bought one from it, so it holds its own reserves. Indexer registry version 33 and later read it as adapter `woo-custody` on lane A and lane B |
+| `0x4c4af8dbc524681930a27b2f1af5bcc8062e6fb7` | helper | `WooRouterV2`, WOOFi's router, at the address WOOFi's integration guide gives for Robinhood. In `0x65d9e6abfd598c197ec10755fc24f8be6ec106482c7437cee5d9582fd4546d0c` (block 49,013,651) wallet `0x5c5aa6b8db076757bad008c7aeccf87e5c66a7a3` pays it native ETH, it wraps the ETH and pays WooPP, and WooPP pays the wallet USDG: WooPP is the contract past the swap |
+| `0x9d9806fe54de0dca35eb6839374d2222aca3c967` | manager | read from the production node on 2026-11-06: created at block 100,062,876 by `0x2808ec057018d458ad4b34cc005da85ca06a7b66`. It holds the stock tokens and the USDG `0x5fc5360d0400a0fd4f2af552add042d716f1d168` and moves both legs of every trade. A settlement contract of the same deployer, `0xe94579b5e4a5342b2e677d0a34f1211c54628d09`, checks a signed quote and logs one `Fill` per trade; for indexer-evm-dex (golden set `quoted-custody`) the legs of every `Fill` over blocks 100,000,000 to 107,377,805 were proven, 2,147 of 2,147, the first at block 104,202,505. Sample trade `0x9571c237fb7cc13d3fffe9fabefe606f188dbf86e849c048b01be902a97be68b`: the trader sends NVDA to it and takes USDG back in one transaction. No source is verified and no project names it, so it is served under a plain description. It is a different design from `stock-token-market`: another deployer, other events. Indexer registry version 30 and later read it as adapter `quoted-custody` on lane A and lane B |
 
 `0x0d1ebb179cdbca88d74c923c4255cb2b17474afd` created 254,650 `uniswap-v2`
 pairs with 38 USD of volume in all: the Flap launchpad's pair factory per
@@ -231,3 +241,24 @@ Each new key that has no factory of its own names the factory or manager it
 swaps through, valid from its own first block, as `eth-usdg-router` does. A
 lookup of that factory or manager still answers Uniswap, the first exchange
 that names it.
+
+Registry version 9 (2026-11-19) serves three desks that trade from their own
+reserves. The DEX indexer reads the quoted market from its registry version
+30, Tessera from version 31 and WOOFi from version 33; version 34 runs on
+lane A and lane B:
+
+- Tessera (`tessera-custody`): its vault
+  `0x907d1d174569b11624bdcefd20dcef27600237f8` is the manager, its router
+  `0x55555522005bcae1c2424d474bfd5ed477749e3e` a helper.
+- WOOFi (`woo-custody`): `WooPPV2`
+  `0x5520385bfcf07ec87c4c53a7d8d65595dff69fa4` is the manager, `WooRouterV2`
+  `0x4c4af8dbc524681930a27b2f1af5bcc8062e6fb7` a helper.
+- the unnamed quoted stock-token market (`quoted-custody`): its market
+  contract `0x9d9806fe54de0dca35eb6839374d2222aca3c967` is the manager. No
+  source names its operator, so it is served under a plain description, as
+  `stock-token-market` is. Its settlement contract logs the trades and has
+  no row, as the market contracts of `stock-token-market` have none.
+
+None logs a pool creation: each pair of tokens is a pool of the manager,
+written at its first trade. So no row of the three carries an example pool or a pool
+floor, like every vault row.

@@ -85,7 +85,7 @@ hand. When the tool and the memo differ, follow the tool: it reads the
 newest file.
 
 <!-- dex-registry:start -->
-Memo of the exchange registry, version 8, robinhood, recorded 2026-11-06.
+Memo of the exchange registry, version 9, robinhood, recorded 2026-11-19.
 
 | Exchange | Key | Also written | Trail | Factories, or the manager | Router |
 |---|---|---|---|---|---|
@@ -111,6 +111,9 @@ Memo of the exchange registry, version 8, robinhood, recorded 2026-11-06.
 | unnamed Balancer v3 vault | `balancer-v3` | Balancer, Balancer v3, Balancer v3 vault | vault | manager `0x28082618ba2073e602230188e4f4c46e9b2169eb` | the manager |
 | Ekubo | `ekubo` | Ekubo, Ekubo Protocol, ekubo.org | vault | manager `0x00000000000014aa86c5d3c41765bb24e11bd701` | the manager |
 | unnamed stock-token market with one reserve holder | `stock-token-market` | stock-token market, stock token market | vault | manager `0x2f4579ca81717d3d61bf8b6f06571877bbe54a07` | the manager |
+| Tessera | `tessera` | Tessera, Tessera market maker | vault | manager `0x907d1d174569b11624bdcefd20dcef27600237f8` | the manager |
+| WOOFi | `woofi` | WOOFi, WooFi, WOOFi Swap, WooPP | vault | manager `0x5520385bfcf07ec87c4c53a7d8d65595dff69fa4` | the manager |
+| unnamed quoted stock-token market | `quoted-stock-market` | quoted stock-token market, quoted stock market | vault | manager `0x9d9806fe54de0dca35eb6839374d2222aca3c967` | the manager |
 | Ramses | `ramses` | Ramses, Ramses Exchange, RAM, ramses.xyz, Ramses DLMM | plain | `0xdcd5f77697914e27f56fd263ef82923c8524abac`, `0x43b2bf9f33036a02fc7a00935571c2a6b0108e66` | `0xd0019e86edb35e1fedaab03aed5c3c60f115d28b` |
 | SectorOne | `sectorone` | SectorOne, SectorOne DLMM | plain | `0x3d8dc63ddc9b992cfde89f7aea6f18717e84687d` | none |
 | Hoodit | `hoodit` | Hoodit, hoodit.xyz | plain | `0x22602d966defd638ee94e97a92e2eb0934c3fe1b` | none |

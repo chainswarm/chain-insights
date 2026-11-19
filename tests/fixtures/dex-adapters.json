@@ -1,5 +1,5 @@
 {
-  "registry_version": 29,
+  "registry_version": 34,
   "network": "robinhood",
   "adapters": [
     {
@@ -20,7 +20,49 @@
       "id": "bonding-curve",
       "discovery_kind": "factory",
       "anchors": [
-        "0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e"
+        "0x07444fdf6b8748927c49b842ce1c3654c31ace97",
+        "0x07b8ed67c5b3ee74fa5a801d6caa217163183244",
+        "0x182a7992cb8c18abe1f255388a665de5db39d26d",
+        "0x36b84a33bd88862bfc072801de316dd156b48c8e",
+        "0x373fe2aaa6a5a6ea07d0cf4a5cef7eaaddf47163",
+        "0x3ae20b5a8537c3fc097c35937a8e6dab54973aed",
+        "0x3f38cf311e9ce6df4c809145564a2ad600f0ec4b",
+        "0x530a9072de26818af08b35ef1018464bbaebdee1",
+        "0x537a43002af36f14982a00a1d8749933130ae128",
+        "0x661915b527a9dae4feb2027a9ca39ca8544f07cf",
+        "0x67cdc2e6369e0208fb3841b5bcec5ba93bdd43a2",
+        "0x6a13d9cef4f005d28405c015af8318b24e88087e",
+        "0x6ab5d680c90c42d3300a11e82689e5a5f8035f0c",
+        "0x798daaa0707c1e538bb5acf0867ac0e1a84cccf2",
+        "0x7dceeab0a53684b001a4900768a52eacdb27294e",
+        "0x7e1eabd52ae29598e6483f72dcf1a70b14284db8",
+        "0x7ed598bcef8bd9edd8c97a195c6d13f40801ec7e",
+        "0x7ef9deb820a7fd57a1c6feedacef7a78a760bfd2",
+        "0x828f57468f9cda173c8fa618114d80c5834e2add",
+        "0x8a183d1def1c9ce07105bc03203a2a6bce8c17af",
+        "0x8aca5bb487b5815cc30532cbd10655021a7ce41c",
+        "0x8d23af5c1dc7527f58e5ec2ae1377936e8c22e7c",
+        "0x99abe567f756fc33fff352501042e51772def04b",
+        "0xa3d37d96cf15e4d4b9c6a0230f73fef1f519cfd6",
+        "0xa4973775b9da95fe8f705d77ac04fb22ee1ddd82",
+        "0xa8788400ece2342f17faf659e2793a06bc4ad140",
+        "0xad45084cf5a542c2ff59b49c85b8a357355bf8cf",
+        "0xb2efb7078bc184a8a44ab881855ca3174396920a",
+        "0xb45beb38f21be1d29e6b9c6e9dc4222d1c12f1f1",
+        "0xbd07ff9b0dd6f8b4026d2024dec126223fb99cad",
+        "0xc7c3d87529bef032822ee3c6cafe08fa5140cbf9",
+        "0xcb77e8091a139dc5d2f8d7248897f1098c466442",
+        "0xcd3b7a9675998cab18dbefb44b2ce27a8a6236ff",
+        "0xd1db9a088b6ef118d6381436d3345635d4c073e3",
+        "0xd32f3c07698927aee6936b47896bad8912f96859",
+        "0xd72856433a6eeac932330299ee0b0f9a22cd9150",
+        "0xdf628f4ed975ceab4ec0dbe1f6ba92ba88434a36",
+        "0xe7e9a4c041a1356747b4369c55a9991784412f24",
+        "0xec7fce88f0263a335d6266df0a1dbb06c01de865",
+        "0xed355f423a5158347beb562c250f6095efcdb25b",
+        "0xf1b07761ef98c01a15a13bbe7beb431ffe20f740",
+        "0xf2ea33362327b8684840efa81b477757e49e4926",
+        "0xf839f09fda50c9c3fe4ef4869a5a7e312b5333ab"
       ]
     },
     {
@@ -79,6 +121,14 @@
       ]
     },
     {
+      "id": "quoted-custody",
+      "discovery_kind": "custody",
+      "anchors": [
+        "0xe94579b5e4a5342b2e677d0a34f1211c54628d09"
+      ],
+      "reserve_holder": "0x9d9806fe54de0dca35eb6839374d2222aca3c967"
+    },
+    {
       "id": "solidly-v2",
       "discovery_kind": "factory",
       "anchors": [
@@ -106,6 +156,14 @@
         "0x95e4a408590e5ace8aab498ab0f9f4236f5162e5"
       ],
       "reserve_holder": "0x2f4579ca81717d3d61bf8b6f06571877bbe54a07"
+    },
+    {
+      "id": "tessera-custody",
+      "discovery_kind": "custody",
+      "anchors": [
+        "0x55555522005bcae1c2424d474bfd5ed477749e3e"
+      ],
+      "reserve_holder": "0x907d1d174569b11624bdcefd20dcef27600237f8"
     },
     {
       "id": "trader-joe-lb",
@@ -144,6 +202,13 @@
       "discovery_kind": "launch",
       "anchors": [
         "0x8366a39cc670b4001a1121b8f6a443a643e40951"
+      ]
+    },
+    {
+      "id": "woo-custody",
+      "discovery_kind": "custody",
+      "anchors": [
+        "0x5520385bfcf07ec87c4c53a7d8d65595dff69fa4"
       ]
     }
   ]
