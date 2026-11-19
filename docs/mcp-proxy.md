@@ -159,8 +159,9 @@ never picks one.
    `USE topology`. A batch holds at most 20 reads, so 25 candidates take two.
    A failed or refused creator read keeps the candidate, with `creator` and
    `factory` empty, and the `hint` says the creators were not read.
-3. The answer carries at most 25 `candidates`, `total` (the rows the server
-   sent, at most 26) and `truncated` (true when there are more than 25).
+3. The answer carries at most 25 `candidates`, `matches` (the count of all
+   contracts that carry the key, null when the server does not count) and
+   `truncated` (true when there are more than 25).
    Each candidate has `first_seen_timestamp_utc` beside the milliseconds.
 
 Zero candidates is an answer: no contract on the network carries the symbol

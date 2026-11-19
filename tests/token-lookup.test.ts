@@ -190,7 +190,7 @@ describe('meta_token_lookup for TCITY', () => {
     expect(structured.network).toBe('robinhood')
     expect(structured.query).toBe('TCITY')
     expect(structured.matched_on).toBe('symbol')
-    expect(structured.total).toBe(3)
+    expect(structured.matches).toBe(3)
     expect(structured.truncated).toBe(false)
     expect(structured.candidates.map((c) => c.contract)).toEqual([TCITY, CLONE_A, CLONE_B])
     expect(structured.candidates[0]).toEqual({
@@ -251,7 +251,6 @@ describe('meta_token_lookup for TCITY', () => {
       assetQuery('symbol', 'PEPE', 'counted'),
       assetQuery('symbol', 'PEPE'),
     ])
-    expect(structured.total).toBe(26)
     expect(structured.truncated).toBe(true)
     expect(structured.matches).toBeNull()
     expect(structured.newest).toEqual([])
@@ -259,8 +258,10 @@ describe('meta_token_lookup for TCITY', () => {
       rows.slice(0, 25).map((r) => r.contract)
     )
     expect(batchCalls.map((call) => call.queries.length)).toEqual([20, 5])
-    expect(structured.hint).toContain('and more exist than the 25 listed')
-    expect(structured.hint).toContain('never give its length as the count')
+    expect(structured.hint).toContain(
+      'More than 25 contracts on robinhood carry "PEPE": how many is not in this answer.'
+    )
+    expect(structured.hint).toContain('never give 25 or 26 as the count, say "more than 25"')
   })
 
   // Production on 2026-11-19: the server does not count, the verified CIA is
@@ -391,7 +392,7 @@ describe('meta_token_lookup for TCITY', () => {
     expect(queryCalls).toHaveLength(2)
     expect(batchCalls).toHaveLength(0)
     expect(structured.candidates).toEqual([])
-    expect(structured.total).toBe(0)
+    expect(structured.matches).toBe(0)
     expect(structured.matched_on).toBeNull()
     expect(structured.hint).toContain(
       'No contract on robinhood carries the symbol or the name "NOPE".'
