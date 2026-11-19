@@ -8,6 +8,11 @@
  * symbol or the name, case-insensitively and exactly, and orders the rows
  * verified first, then oldest first. The proxy keeps that order.
  *
+ * The read also asks the server how many contracts match. When more match than
+ * the 25 listed, a second read brings the newest: a copy of a verified token is
+ * made after it, so the oldest 25 alone hide exactly the copies. A server that
+ * does not count yet is read the old way, and the answer says the list is a part.
+ *
  * Tickers collide on purpose: clones reuse a symbol to borrow its trust. The
  * tool never picks one. The description below is the contract with every
  * host, Claude Desktop chat included, which reads no skill.
@@ -22,8 +27,9 @@ export const META_TOKEN_LOOKUP_SCHEMA = 'chain-insights.meta-token-lookup.v1' as
 export const META_TOKEN_LOOKUP_TITLE = 'Token by ticker or name'
 export const META_TOKEN_LOOKUP_DESCRIPTION =
   'Call this first when a question names a token by its ticker or name and gives no contract ' +
-  '(TCITY, USDG, SPCX). It returns every contract on the network that carries that symbol, ' +
-  'verified first, then oldest first. Tickers collide: never treat the first row as the token. ' +
+  '(TCITY, USDG, SPCX). It returns the contracts on the network that carry that symbol, ' +
+  'verified first, then oldest first, with the count of all of them and, when more than 25 match, ' +
+  'the newest ones too. Tickers collide: never treat the first row as the token. ' +
   'When several match, name them and ask, or pick by the evidence the user gave. Zero candidates ' +
   'means no contract carries the symbol: say so, and do not search the web.'
 export const META_TOKEN_LOOKUP_ANNOTATIONS = {
@@ -65,6 +71,12 @@ export interface MetaTokenLookupResult {
   /** The rows the server sent, at most 26: 26 means there are more than the 25 returned. */
   total: number
   truncated: boolean
+  /** How many contracts carry the key, counted by the server; null when the server does not count. */
+  matches: number | null
+  /** When more match than the candidates listed: the newest that are not among them, newest first. */
+  newest: TokenCandidate[]
+  /** With exactly one verified candidate: how many contracts were first seen after it. */
+  first_seen_after_verified: { verified_contract: string; count: number; at_least: boolean } | null
   hint: string
 }
 
@@ -128,14 +140,26 @@ function textResult(structured: MetaTokenLookupResult): MetaTokenLookupToolResul
   }
 }
 
-/** The facts Asset read by symbol or by name, in the one shape the graph server admits. */
-export function assetQuery(key: 'symbol' | 'name', value: string): string {
+/**
+ * The facts Asset read by symbol or by name. `counted` asks the server for the
+ * number of contracts that match, on every row. `newest` reads the newest 25
+ * instead of verified first, then oldest first. With neither it is the read
+ * every server admits.
+ */
+export function assetQuery(
+  key: 'symbol' | 'name',
+  value: string,
+  form: 'plain' | 'counted' | 'newest' = 'plain'
+): string {
   return (
     `USE facts MATCH (t:Asset {${key}: "${value}"}) ` +
     'RETURN t.asset_contract AS contract, t.asset_symbol AS symbol, t.name AS name, ' +
     't.token_standard AS token_standard, t.decimals AS decimals, t.verified AS verified, ' +
-    't.verification_source AS verification_source, t.first_seen_timestamp AS first_seen_timestamp ' +
-    `LIMIT ${ROWS_READ}`
+    't.verification_source AS verification_source, t.first_seen_timestamp AS first_seen_timestamp' +
+    (form === 'counted' ? ', t.match_count AS match_count' : '') +
+    (form === 'newest'
+      ? ` ORDER BY t.first_seen_timestamp DESC LIMIT ${CANDIDATES_MAX}`
+      : ` LIMIT ${ROWS_READ}`)
   )
 }
 
@@ -243,11 +267,12 @@ async function readAssets(
   deps: TokenToolDependencies,
   network: string,
   key: 'symbol' | 'name',
-  value: string
+  value: string,
+  form: 'plain' | 'counted' | 'newest'
 ): Promise<Read> {
   let answer: GraphAnswer
   try {
-    answer = await deps.graphQuery({ network, query: assetQuery(key, value) })
+    answer = await deps.graphQuery({ network, query: assetQuery(key, value, form) })
   } catch (err) {
     return { kind: 'failed', text: deps.describeFailure(err) }
   }
@@ -323,7 +348,8 @@ function hintFor(
   result: Omit<MetaTokenLookupResult, 'hint'>,
   creatorsNotRead: string | null
 ): string {
-  const { network, query, candidates, matched_on, truncated } = result
+  const { network, query, candidates, matched_on, truncated, matches, newest } = result
+  const later = result.first_seen_after_verified
   const parts: string[] = [ANSWER_HINT]
   if (candidates.length === 0) {
     parts.push(
@@ -341,12 +367,30 @@ function hintFor(
         'Say it is the only one on this network, then read it by this full contract on USE topology.'
     )
   } else {
+    if (!truncated) {
+      parts.push(`${candidates.length} contracts on ${network} carry "${query}".`)
+    } else if (matches === null) {
+      parts.push(
+        `${candidates.length} contracts on ${network} carry "${query}", and more exist than the ${CANDIDATES_MAX} listed. ` +
+          'The list is a part: never give its length as the count, and never say that none exist beyond it.'
+      )
+    } else {
+      parts.push(
+        `${matches} contracts on ${network} carry "${query}". candidates lists ${candidates.length} of them, verified first, then oldest first` +
+          `${newest.length > 0 ? `, and newest lists the ${newest.length} newest that are not among them, newest first` : ''}. ` +
+          `The lists are a part: the count is ${matches}, never the number of rows.`
+      )
+    }
     parts.push(
-      `${candidates.length} contracts on ${network} carry "${query}"` +
-        `${truncated ? `, and more exist than the ${CANDIDATES_MAX} listed` : ''}. ` +
-        'Tickers collide: never treat the first row as the token. Name them, each contract in full, ' +
+      'Tickers collide: never treat the first row as the token. Name them, each contract in full, ' +
         'with its creator and first seen time, and ask which one the user means, or pick one by the evidence the user gave ' +
         '(a creator, a launch date, a price move) and say why.'
+    )
+  }
+  if (later && later.count > 0) {
+    parts.push(
+      `${later.at_least ? 'At least ' : ''}${later.count} of them ${later.count === 1 ? 'was' : 'were'} first seen after the verified contract ${later.verified_contract}: ` +
+        'each took a symbol that a verified token already carried. That is a copy of the name. A copied name alone is not proof of a scam.'
     )
   }
   if (creatorsNotRead) {
@@ -396,6 +440,9 @@ export async function handleMetaTokenLookup(
       candidates: [],
       total: 0,
       truncated: false,
+      matches: null,
+      newest: [],
+      first_seen_after_verified: null,
       hint: `${ANSWER_HINT} ${address} is a contract address, not a ticker: ${ADDRESS_INPUT_HINT}. Send no token lookup for it.`,
     })
   }
@@ -412,11 +459,18 @@ export async function handleMetaTokenLookup(
     )
   }
 
+  // A server that does not count refuses the counted read; the plain read is
+  // the one every server admits.
+  let form: 'counted' | 'plain' = 'counted'
   let matchedOn: 'symbol' | 'name' = 'symbol'
-  let read = await readAssets(deps, network, 'symbol', symbol)
+  let read = await readAssets(deps, network, 'symbol', symbol, form)
+  if (read.kind === 'not_served') {
+    form = 'plain'
+    read = await readAssets(deps, network, 'symbol', symbol, form)
+  }
   if (read.kind === 'rows' && read.rows.length === 0) {
     matchedOn = 'name'
-    read = await readAssets(deps, network, 'name', symbol)
+    read = await readAssets(deps, network, 'name', symbol, form)
   }
   if (read.kind === 'failed') {
     return errorResult(
@@ -430,6 +484,9 @@ export async function handleMetaTokenLookup(
       candidates: [],
       total: 0,
       truncated: false,
+      matches: null,
+      newest: [],
+      first_seen_after_verified: null,
       hint:
         `${ANSWER_HINT} This lookup gave no answer (${read.refusal.code}). ` +
         `That is not "no contract carries ${symbol}": ask the user for the token's contract, 0x plus 40 hex characters. ${NO_WEB}`,
@@ -437,18 +494,61 @@ export async function handleMetaTokenLookup(
   }
 
   const total = read.rows.length
+  const truncated = total > CANDIDATES_MAX
   const candidates = read.rows
     .slice(0, CANDIDATES_MAX)
     .map(candidateOf)
     .filter((candidate): candidate is TokenCandidate => candidate !== null)
+  const counted = form === 'counted' ? numberOrNull(read.rows[0]?.match_count) : null
+  const matches = counted !== null && counted >= total ? counted : truncated ? null : total
+
+  // More match than are listed: the newest page. A failed or refused page
+  // leaves the answer as the oldest list, which the hint calls a part.
+  let newestPage: TokenCandidate[] | null = null
+  if (truncated && form === 'counted') {
+    const page = await readAssets(deps, network, matchedOn, symbol, 'newest')
+    if (page.kind === 'rows') {
+      newestPage = page.rows
+        .map(candidateOf)
+        .filter((candidate): candidate is TokenCandidate => candidate !== null)
+    }
+  }
+  const listed = new Set(candidates.map((candidate) => candidate.contract))
+  const verified = candidates.filter((candidate) => candidate.verified)
+  const anchor =
+    verified.length === 1 && verified[0]!.first_seen_timestamp !== null ? verified[0]! : null
+  const after = (candidate: TokenCandidate): boolean =>
+    anchor !== null &&
+    candidate.first_seen_timestamp !== null &&
+    candidate.first_seen_timestamp > anchor.first_seen_timestamp!
+  let firstSeenAfterVerified: MetaTokenLookupResult['first_seen_after_verified'] = null
+  if (anchor) {
+    // Every later contract is known when the lists reach back to the verified
+    // one: nothing was cut, or the newest page holds a row that is not later.
+    const pool = !truncated ? candidates : (newestPage ?? candidates)
+    const reachesBack =
+      !truncated ||
+      (newestPage !== null &&
+        (newestPage.length < CANDIDATES_MAX || newestPage.some((row) => !after(row))))
+    firstSeenAfterVerified = {
+      verified_contract: anchor.contract,
+      count: pool.filter(after).length,
+      at_least: !reachesBack,
+    }
+  }
+  const newest = (newestPage ?? []).filter((candidate) => !listed.has(candidate.contract))
+
   const creatorsNotRead =
-    candidates.length > 0 ? await readCreators(deps, network, candidates) : null
+    candidates.length > 0 ? await readCreators(deps, network, [...candidates, ...newest]) : null
   const result = {
     ...base,
     matched_on: candidates.length > 0 ? matchedOn : null,
     candidates,
     total,
-    truncated: total > CANDIDATES_MAX,
+    truncated,
+    matches,
+    newest,
+    first_seen_after_verified: firstSeenAfterVerified,
   }
   return textResult({ ...result, hint: hintFor(result, creatorsNotRead) })
 }

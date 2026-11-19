@@ -30,11 +30,11 @@ const CLONE_B = '0x00000000000000000000000000000000000c1002'
 const CLONE_CREATOR = '0x00000000000000000000000000000000000dead1'
 
 const TCITY_SYMBOL_READ =
-  'USE facts MATCH (t:Asset {symbol: "TCITY"}) RETURN t.asset_contract AS contract, t.asset_symbol AS symbol, t.name AS name, t.token_standard AS token_standard, t.decimals AS decimals, t.verified AS verified, t.verification_source AS verification_source, t.first_seen_timestamp AS first_seen_timestamp LIMIT 26'
+  'USE facts MATCH (t:Asset {symbol: "TCITY"}) RETURN t.asset_contract AS contract, t.asset_symbol AS symbol, t.name AS name, t.token_standard AS token_standard, t.decimals AS decimals, t.verified AS verified, t.verification_source AS verification_source, t.first_seen_timestamp AS first_seen_timestamp, t.match_count AS match_count LIMIT 26'
 
 // The description as design.md lists it to hosts, character for character.
 const DESIGN_DESCRIPTION =
-  'Call this first when a question names a token by its ticker or name and gives no contract (TCITY, USDG, SPCX). It returns every contract on the network that carries that symbol, verified first, then oldest first. Tickers collide: never treat the first row as the token. When several match, name them and ask, or pick by the evidence the user gave. Zero candidates means no contract carries the symbol: say so, and do not search the web.'
+  'Call this first when a question names a token by its ticker or name and gives no contract (TCITY, USDG, SPCX). It returns the contracts on the network that carry that symbol, verified first, then oldest first, with the count of all of them and, when more than 25 match, the newest ones too. Tickers collide: never treat the first row as the token. When several match, name them and ask, or pick by the evidence the user gave. Zero candidates means no contract carries the symbol: say so, and do not search the web.'
 
 type Row = Record<string, unknown>
 
@@ -169,7 +169,7 @@ describe('meta_token_lookup for TCITY', () => {
     const { queryCalls, batchCalls, lookup } = harness({ creators: TCITY_CREATORS })
     await lookup({ network: 'robinhood', symbol: 'TCITY' })
     expect(queryCalls).toEqual([{ network: 'robinhood', query: TCITY_SYMBOL_READ }])
-    expect(assetQuery('symbol', 'TCITY')).toBe(TCITY_SYMBOL_READ)
+    expect(assetQuery('symbol', 'TCITY', 'counted')).toBe(TCITY_SYMBOL_READ)
     expect(batchCalls).toHaveLength(1)
     expect(batchCalls[0]!.queries).toEqual(
       [TCITY, CLONE_A, CLONE_B].map((contract) => ({
@@ -224,8 +224,8 @@ describe('meta_token_lookup for TCITY', () => {
       { network: 'robinhood', symbol: 'Tcity' }
     )
     expect(queryCalls.map((call) => call.query)).toEqual([
-      assetQuery('symbol', 'Tcity'),
-      assetQuery('name', 'Tcity'),
+      assetQuery('symbol', 'Tcity', 'counted'),
+      assetQuery('name', 'Tcity', 'counted'),
     ])
     expect(queryCalls[1]!.query).toContain('MATCH (t:Asset {name: "Tcity"})')
     expect(structured.matched_on).toBe('name')
@@ -235,22 +235,103 @@ describe('meta_token_lookup for TCITY', () => {
     )
   })
 
-  it('returns 25 of 26 rows, truncated, and reads the creators in batches of at most 20', async () => {
+  it('on a server that does not count: 25 of 26 rows, a list called a part, creators in batches of at most 20', async () => {
     const rows = Array.from({ length: 26 }, (_, i) =>
       assetRow(`0x${(i + 1).toString(16).padStart(40, '0')}`, 1_791_590_400_000 + i)
     )
-    const { batchCalls, structured } = await run(
-      { queries: [queryAnswer(rows)] },
+    const notCounted = refusal('facts_no_anchor: match_count is not served on an Asset node', {
+      code: 'facts_no_anchor',
+      class: 'refused',
+    })
+    const { queryCalls, batchCalls, structured } = await run(
+      { queries: [notCounted, queryAnswer(rows)] },
       { network: 'robinhood', symbol: 'PEPE' }
     )
+    expect(queryCalls.map((call) => call.query)).toEqual([
+      assetQuery('symbol', 'PEPE', 'counted'),
+      assetQuery('symbol', 'PEPE'),
+    ])
     expect(structured.total).toBe(26)
     expect(structured.truncated).toBe(true)
-    expect(structured.candidates).toHaveLength(25)
+    expect(structured.matches).toBeNull()
+    expect(structured.newest).toEqual([])
     expect(structured.candidates.map((c) => c.contract)).toEqual(
       rows.slice(0, 25).map((r) => r.contract)
     )
     expect(batchCalls.map((call) => call.queries.length)).toEqual([20, 5])
     expect(structured.hint).toContain('and more exist than the 25 listed')
+    expect(structured.hint).toContain('never give its length as the count')
+  })
+
+  // The CIA case of 2026-11-19: 88 contracts carry the ticker, the verified
+  // one is the 72nd by age, and 16 were made after it. The oldest 25 hide all 16.
+  it('counts every match, lists the newest, and says how many came after the verified contract', async () => {
+    const DAY = 86_400_000
+    const VERIFIED_AT = 1_792_000_000_000
+    const address = (n: number) => `0x${n.toString(16).padStart(40, '0')}`
+    const older = Array.from({ length: 71 }, (_, i) =>
+      assetRow(address(i + 1), VERIFIED_AT - (71 - i) * DAY)
+    )
+    const verified = assetRow(address(500), VERIFIED_AT, true)
+    const later = Array.from({ length: 16 }, (_, i) =>
+      assetRow(address(900 + i), VERIFIED_AT + (i + 1) * DAY)
+    )
+    const counted = (rows: Row[]) => rows.map((row) => ({ ...row, match_count: 88 }))
+    const oldestPage = counted([verified, ...older.slice(0, 25)])
+    const newestPage = [...later].reverse().concat(verified, older.slice(-8).reverse())
+    const { queryCalls, batchCalls, structured } = await run(
+      { queries: [queryAnswer(oldestPage), queryAnswer(newestPage)] },
+      { network: 'robinhood', symbol: 'CIA' }
+    )
+    expect(queryCalls.map((call) => call.query)).toEqual([
+      assetQuery('symbol', 'CIA', 'counted'),
+      assetQuery('symbol', 'CIA', 'newest'),
+    ])
+    expect(queryCalls[1]!.query).toMatch(/ ORDER BY t\.first_seen_timestamp DESC LIMIT 25$/)
+    expect(structured.matches).toBe(88)
+    expect(structured.candidates).toHaveLength(25)
+    expect(structured.first_seen_after_verified).toEqual({
+      verified_contract: address(500),
+      count: 16,
+      at_least: false,
+    })
+    // The verified contract is in candidates already; newest holds the other 24.
+    expect(structured.newest).toHaveLength(24)
+    expect(structured.newest.slice(0, 16).map((c) => c.contract)).toEqual(
+      [...later].reverse().map((r) => r.contract)
+    )
+    expect(batchCalls.map((call) => call.queries.length)).toEqual([20, 20, 9])
+    expect(structured.hint).toContain('88 contracts on robinhood carry "CIA"')
+    expect(structured.hint).toContain('the count is 88, never the number of rows')
+    expect(structured.hint).toContain(
+      `16 of them were first seen after the verified contract ${address(500)}`
+    )
+    expect(structured.hint).toContain('A copied name alone is not proof of a scam.')
+  })
+
+  it('says "at least" when the newest page does not reach back to the verified contract', async () => {
+    const VERIFIED_AT = 1_792_000_000_000
+    const address = (n: number) => `0x${n.toString(16).padStart(40, '0')}`
+    const verified = { ...assetRow(address(500), VERIFIED_AT, true), match_count: 60 }
+    const oldest = Array.from({ length: 25 }, (_, i) => ({
+      ...assetRow(address(i + 1), VERIFIED_AT + i + 1),
+      match_count: 60,
+    }))
+    const newestPage = Array.from({ length: 25 }, (_, i) =>
+      assetRow(address(900 + i), VERIFIED_AT + 1_000_000 - i)
+    )
+    const { structured } = await run(
+      { queries: [queryAnswer([verified, ...oldest]), queryAnswer(newestPage)] },
+      { network: 'robinhood', symbol: 'CIA' }
+    )
+    expect(structured.first_seen_after_verified).toEqual({
+      verified_contract: address(500),
+      count: 25,
+      at_least: true,
+    })
+    expect(structured.hint).toContain(
+      'At least 25 of them were first seen after the verified contract'
+    )
   })
 
   it('answers a contract address with no graph call', async () => {
@@ -349,9 +430,7 @@ describe('meta_token_lookup when a read fails', () => {
       expect(batchCalls).toHaveLength(0)
       expect(structured.candidates).toEqual([])
       expect(structured.matched_on).toBeNull()
-      expect(structured.hint).toContain(
-        'This lookup gave no answer'
-      )
+      expect(structured.hint).toContain('This lookup gave no answer')
       expect(structured.hint).toContain("ask the user for the token's contract")
       expect(structured.hint).toContain('Do not search the web')
     }

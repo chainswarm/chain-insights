@@ -3,6 +3,24 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.85.0] - 2026-11-19 — The token lookup counts every contract and shows the newest
+
+### Added
+
+- `meta_token_lookup` answers with `matches`, the number of contracts that
+  carry the ticker or the name, counted by the graph server.
+- When more match than the 25 listed, `newest` holds the newest contracts that
+  are not among the candidates, newest first, each with its creator.
+- With exactly one verified candidate, `first_seen_after_verified` says how
+  many contracts were first seen after it. Each of those took a symbol a
+  verified token already carried.
+
+### Changed
+
+- The hint gives the count and calls a cut list a part, so no host reports
+  the number of rows as the number of contracts.
+- The tool description and the `chain-insights-cypher` skill say the same.
+
 ## [0.84.1] - 2026-11-19 — Tessera, WOOFi and the quoted stock-token market in the lookup
 
 ### Added
