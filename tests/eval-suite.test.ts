@@ -6,7 +6,7 @@
  *   - a case that calls a tool for real names only tools that have a stand-in;
  *   - the stand-ins show the model the proxy's own tool descriptions;
  *   - the exchange deposit cases are the dataset's rows, and each row expects
- *     what its recorded tool answer says.
+ *     what its recorded tool answer says, the exchange model's guess included.
  */
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -45,6 +45,8 @@ type Row = {
   address: string
   exchange?: string
   hot_wallets?: string[]
+  inferred_role?: string
+  inferred_model?: string
 }
 type CheckAnswer = {
   found: boolean
@@ -52,6 +54,9 @@ type CheckAnswer = {
   cex_role: string | null
   exchange_display: string | null
   swept: { hot_wallet: string }[]
+  inferred?: true
+  inferred_role?: string
+  inferred_model?: string
 }
 
 const dataset = JSON.parse(readFileSync(join(root, DATASET_FILE), 'utf8')) as {
@@ -115,10 +120,11 @@ describe('the plugin eval suite (plugin/evals)', () => {
 
   it('every dataset row expects what its recorded tool answer says', () => {
     const problems: string[] = []
-    const addresses = new Set<string>()
+    // One address may be asked several ways, each way once.
+    const questions = new Set<string>()
     for (const row of dataset.rows) {
       if (!ASK_STYLES.includes(row.ask)) problems.push(`${row.id}: unknown ask ${row.ask}`)
-      addresses.add(row.address.toLowerCase())
+      questions.add(`${row.address.toLowerCase()} ${row.ask}`)
       const path = join(root, FIXTURES_DIR, 'deposit-check', `${row.address.toLowerCase()}.json`)
       if (!existsSync(path)) {
         problems.push(`${row.id}: no recorded answer`)
@@ -133,9 +139,19 @@ describe('the plugin eval suite (plugin/evals)', () => {
       if (JSON.stringify(swept) !== JSON.stringify(row.hot_wallets ?? [])) {
         problems.push(`${row.id}: recorded hot wallets ${swept.join(', ')}`)
       }
+      // A row of an inferred address names the model's role and version as recorded; any other row none.
+      if ((answer.inferred_role ?? undefined) !== row.inferred_role) {
+        problems.push(`${row.id}: recorded inferred_role ${answer.inferred_role}`)
+      }
+      if ((answer.inferred_model ?? undefined) !== row.inferred_model) {
+        problems.push(`${row.id}: recorded inferred_model ${answer.inferred_model}`)
+      }
+      if (row.inferred_model && answer.inferred !== true) problems.push(`${row.id}: recorded no inferred`)
     }
     expect(problems).toEqual([])
-    expect(addresses.size).toBe(dataset.rows.length)
+    expect(questions.size).toBe(dataset.rows.length)
+    // The inferred answers keep a column of the scorecard too.
+    expect(dataset.rows.some((row) => row.inferred_model)).toBe(true)
     // A class with no row would leave its column of the scorecard empty.
     expect(new Set(dataset.rows.map((row) => row.expect))).toEqual(new Set(EXPECT_CLASSES))
   })

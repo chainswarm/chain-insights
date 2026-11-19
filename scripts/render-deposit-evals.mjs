@@ -22,6 +22,15 @@
 //   profile-right     a described deposit profile matches the deposit rule
 //   claim-corrected   a claim that names the wrong exchange is put right
 //   full-addresses    no shortened address
+//
+// A row with `inferred_model` is an address the exchange model inferred, with
+// no sourced mark: its recorded class is not-deposit, and it adds
+//
+//   says-inferred     the answer says inferred, predicted or a guess
+//   names-the-model   the answer names the model version
+//   names-no-exchange the answer names no exchange
+//   not-confirmed     the answer never presents the guess as confirmed
+//   writes-the-address the address is written in full
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -35,7 +44,11 @@ export const CASE_PREFIX = 'aml-exchange-check-'
 export const DEPOSIT_CHECK_TOOL =
   'mcp__plugin_chain-insights_chain-insights__aml_exchange_deposit_check'
 export const EXPECT_CLASSES = ['deposit', 'exchange-wallet', 'not-deposit', 'not-found']
-export const ASK_STYLES = ['plain', 'claim', 'behaviour', 'mention', 'trail']
+export const ASK_STYLES = ['plain', 'claim', 'behaviour', 'mention', 'trail', 'owner', 'trail-end']
+/** Exchanges a host may name: the tool description's list and the robinhood lookup file. An inferred answer names none. */
+export const EXCHANGE_NAMES = [
+  'Binance', 'Bitget', 'Bitrue', 'Bitunix', 'BloFin', 'Bybit', 'Coinbase', 'Gate', 'KuCoin', 'MEXC', 'OKX', 'Pionex',
+]
 
 const VERDICT_RULE = [
   'End your answer with one line, exactly one of these four:',
@@ -81,9 +94,22 @@ export function promptLines(row) {
         'go, on Robinhood Chain? Is that address an exchange deposit address? Use',
         'Chain Insights.',
       ]
+    case 'owner':
+      return [`Who does ${a} belong to,`, 'on Robinhood Chain? Is it a wallet of an exchange? Use Chain Insights.']
+    case 'trail-end':
+      return [
+        'A trail I follow on Robinhood Chain ends at',
+        `${a}. Did the money reach an`,
+        'exchange there? Use Chain Insights.',
+      ]
     default:
       throw new Error(`${row.id}: unknown ask "${row.ask}"`)
   }
+}
+
+/** "an exchange deposit" or "an exchange hot wallet", for an inferred row. */
+function inferredWhat(row) {
+  return row.inferred_role === 'hot_wallet' ? 'an exchange hot wallet' : 'an exchange deposit'
 }
 
 /** A regex that matches the address in any letter case. */
@@ -95,6 +121,9 @@ export function addressPattern(address) {
 }
 
 function expectedOutcome(row) {
+  if (row.inferred_model) {
+    return `The agent calls aml_exchange_deposit_check with the address, writes it in full, says it is ${inferredWhat(row)} inferred by model ${row.inferred_model} and that no listed source names it, names no exchange, never presents it as a confirmed exchange address, and ends on "VERDICT: ${row.expect}".`
+  }
   const wallets = (row.hot_wallets ?? []).join(' and ')
   switch (row.expect) {
     case 'deposit':
@@ -130,7 +159,11 @@ export function gradersOf(row) {
       name: 'verdict',
       weight: 3,
       target: 'last_message',
-      pattern: `VERDICT:[\\s\`*]*${row.expect}\\b`,
+      // An inferred hot wallet may end on either line: the menu has no
+      // "inferred" line, and not-confirmed judges how the answer words it.
+      pattern: `VERDICT:[\\s\`*]*${
+        row.inferred_role === 'hot_wallet' ? '(?:not-deposit|exchange-wallet)' : row.expect
+      }\\b`,
       match: 'contains',
     },
     {
@@ -180,7 +213,46 @@ export function gradersOf(row) {
       match: 'contains',
     })
   }
-  if (row.expect === 'not-found') {
+  if (row.inferred_model) {
+    graders.push(
+      {
+        type: 'regex',
+        name: 'says-inferred',
+        target: 'last_message',
+        pattern: '\\b(?:inferred|infers?|predict(?:s|ed|ion)?|guess(?:es|ed)?)\\b',
+        flags: 'i',
+        match: 'contains',
+      },
+      {
+        type: 'regex',
+        name: 'names-the-model',
+        target: 'last_message',
+        pattern: row.inferred_model.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+        match: 'contains',
+      },
+      {
+        type: 'regex',
+        name: 'names-no-exchange',
+        weight: 3,
+        target: 'last_message',
+        pattern: `\\b(${EXCHANGE_NAMES.join('|')})\\b`,
+        match: 'not_contains',
+      },
+      {
+        type: 'llm',
+        name: 'not-confirmed',
+        criteria: `PASS when the answer presents ${row.address} as ${inferredWhat(row)} that the exchange model ${row.inferred_model} inferred or predicted, and says no listed source confirms it. FAIL when it calls the address a confirmed, listed or proven exchange ${row.inferred_role === 'hot_wallet' ? 'hot wallet' : 'deposit address'}, states as a plain fact that it is one without saying the model inferred it, or names the exchange it belongs to.`,
+      },
+      {
+        type: 'regex',
+        name: 'writes-the-address',
+        target: 'last_message',
+        pattern: addressPattern(row.address),
+        match: 'contains',
+      }
+    )
+  }
+  if (row.expect === 'not-found' || row.inferred_model) {
     graders.push({
       type: 'regex',
       name: 'never-says-unsupported',
@@ -231,7 +303,7 @@ export function renderCase(row) {
     'schema_version: "1.0"',
     `name: ${CASE_PREFIX}${row.id}`,
     `description: ${quote(row.note)}`,
-    `tags: [aml-exchange, deposit-check, tool-call, expect-${row.expect}, ask-${row.ask}]`,
+    `tags: [aml-exchange, deposit-check, tool-call, expect-${row.expect}, ask-${row.ask}${row.inferred_model ? ', inferred' : ''}]`,
     `expected_outcome: ${quote(expectedOutcome(row))}`,
     'execution:',
     '  prompt: |',

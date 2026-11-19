@@ -1,0 +1,32 @@
+{
+  "schema": "chain-insights.aml-exchange-deposit-check.v1",
+  "tool": "aml_exchange_deposit_check",
+  "network": "robinhood",
+  "address": "0x01377d0df218720ef72858162eb8459ca56236eb",
+  "found": true,
+  "is_deposit": false,
+  "cex_role": null,
+  "exchange": null,
+  "exchange_display": null,
+  "labels": [],
+  "swept": [],
+  "behaviour": {
+    "payers": 1,
+    "payers_exchange": 0,
+    "receivers": 1,
+    "receivers_exchange": 0,
+    "dex_pools": 0,
+    "approvals": 0,
+    "count_cap": 5000
+  },
+  "does_not_fit_deposit": [
+    "it paid 1 address that is no exchange wallet"
+  ],
+  "deposit_profile": "A deposit address is one customer's: everything it sends goes to the wallets of one exchange (a sweep into a hot wallet), few outside addresses ever pay it, it never swaps on a DEX, and it is no token, pool, router or smart account.",
+  "inferred": true,
+  "inferred_role": "deposit",
+  "inferred_model": "gnn_robinhood_2026-11-14-r4",
+  "inferred_basis": "predicted_hot_wallet",
+  "inferred_at": "2026-11-19T00:59:16.800Z",
+  "hint": "Answer: write every address in full (0x plus 40 characters), also when it repeats one named earlier and also when the user asks for shorter ones (name them instead); a transfer moves tokens, so write \"tokens worth about N USD\", never \"sent N USD\" or a $ figure; never draw the flows in text, ASCII or Mermaid, the host draws them. Say: \"0x01377d0df218720ef72858162eb8459ca56236eb is an exchange deposit, inferred by model gnn_robinhood_2026-11-14-r4, on robinhood. No listed source names it as an exchange address.\" The model placed it behind a hot wallet the model itself inferred, which no listed source names either. The graph draws no SWEPT link for it, so no hot wallet is named: name none yourself. Report it as inferred, never as a confirmed exchange address: is_deposit (false) and cex_role (null) are the sourced verdict, and the guess does not change them. Its behaviour, as the graph counts it: 1 address paid it (0 of them exchange wallets), it paid 1 address (0 of them exchange wallets), it swapped on 0 DEX pools, it approved 0 spenders. Give these facts as the reason and no other: set no threshold of your own for payers, volume or sweeps. Asked how a deposit address behaves, what makes an address one or what rules one out, answer with deposit_profile."
+}

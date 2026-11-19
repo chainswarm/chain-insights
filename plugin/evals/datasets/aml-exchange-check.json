@@ -2,7 +2,7 @@
   "schema": "chain-insights.eval-dataset.v1",
   "name": "aml-exchange-check",
   "network": "robinhood",
-  "about": "Twenty-five addresses for aml_exchange_deposit_check: marked deposits, exchange hot wallets, look-alikes that carry no deposit mark, and third-party claims with no proof. The expected class is what the recorded tool answer says; scripts/render-deposit-evals.mjs writes one eval case per row.",
+  "about": "Twenty-five addresses for aml_exchange_deposit_check: marked deposits, exchange hot wallets, look-alikes that carry no deposit mark, and third-party claims with no proof; and two addresses the exchange model inferred (gnn_robinhood_2026-11-14-r4, recorded from lane A on 2026-11-19), each asked three ways. The expected class is what the recorded tool answer says: an inferred address carries no sourced mark, so its class is not-deposit. scripts/render-deposit-evals.mjs writes one eval case per row.",
   "recorded_on": "2026-11-18",
   "also_record": [
     "0x64ba5fafa7a6e1991f7f60c9b594a7131a784540"
@@ -240,6 +240,60 @@
       "address": "0xAAf402dE45f63a7800361d285b82be96dDAc1296",
       "claimed": "Binance",
       "note": "A third-party claim with no proof: the address has no activity on this network."
+    },
+    {
+      "id": "inferred-hot-wallet-plain",
+      "expect": "not-deposit",
+      "ask": "plain",
+      "address": "0x4a6dbb33bc962c48db40e5eac91edf5ba316fe70",
+      "inferred_role": "hot_wallet",
+      "inferred_model": "gnn_robinhood_2026-11-14-r4",
+      "note": "A hot wallet the exchange model inferred from how it moves money (basis predicted); no listed source names it. Here asked whether it is an exchange deposit."
+    },
+    {
+      "id": "inferred-hot-wallet-owner",
+      "expect": "not-deposit",
+      "ask": "owner",
+      "address": "0x4a6dbb33bc962c48db40e5eac91edf5ba316fe70",
+      "inferred_role": "hot_wallet",
+      "inferred_model": "gnn_robinhood_2026-11-14-r4",
+      "note": "A hot wallet the exchange model inferred from how it moves money (basis predicted); no listed source names it. Here asked who it belongs to."
+    },
+    {
+      "id": "inferred-hot-wallet-trail-end",
+      "expect": "not-deposit",
+      "ask": "trail-end",
+      "address": "0x4a6dbb33bc962c48db40e5eac91edf5ba316fe70",
+      "inferred_role": "hot_wallet",
+      "inferred_model": "gnn_robinhood_2026-11-14-r4",
+      "note": "A hot wallet the exchange model inferred from how it moves money (basis predicted); no listed source names it. Here asked whether a trail that ends there reached an exchange."
+    },
+    {
+      "id": "inferred-deposit-plain",
+      "expect": "not-deposit",
+      "ask": "plain",
+      "address": "0x01377d0df218720ef72858162eb8459ca56236eb",
+      "inferred_role": "deposit",
+      "inferred_model": "gnn_robinhood_2026-11-14-r4",
+      "note": "A deposit the exchange model placed behind a hot wallet it inferred itself (basis predicted_hot_wallet); no listed source names it. Here asked whether it is an exchange deposit."
+    },
+    {
+      "id": "inferred-deposit-owner",
+      "expect": "not-deposit",
+      "ask": "owner",
+      "address": "0x01377d0df218720ef72858162eb8459ca56236eb",
+      "inferred_role": "deposit",
+      "inferred_model": "gnn_robinhood_2026-11-14-r4",
+      "note": "A deposit the exchange model placed behind a hot wallet it inferred itself (basis predicted_hot_wallet); no listed source names it. Here asked who it belongs to."
+    },
+    {
+      "id": "inferred-deposit-trail-end",
+      "expect": "not-deposit",
+      "ask": "trail-end",
+      "address": "0x01377d0df218720ef72858162eb8459ca56236eb",
+      "inferred_role": "deposit",
+      "inferred_model": "gnn_robinhood_2026-11-14-r4",
+      "note": "A deposit the exchange model placed behind a hot wallet it inferred itself (basis predicted_hot_wallet); no listed source names it. Here asked whether a trail that ends there reached an exchange."
     }
   ]
 }

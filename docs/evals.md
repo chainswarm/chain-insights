@@ -6,7 +6,7 @@ skill, a tool description or a result hint.
 
 ```bash
 npm run eval                      # every case, with and without the plugin
-npm run eval:deposit              # the 25 exchange deposit cases
+npm run eval:deposit              # the 31 exchange deposit cases
 node scripts/eval-kpis.mjs plugin/evals/results/latest.json
 ```
 
@@ -18,7 +18,7 @@ recorded one.
 
 ```mermaid
 flowchart LR
-    D[Dataset<br/>25 addresses] --> R[render-deposit-evals]
+    D[Dataset<br/>27 addresses, 31 cases] --> R[render-deposit-evals]
     R --> C[Eval cases<br/>plugin/evals/*/case.yaml]
     G[Chain Insights Graph] --> F[record-eval-fixtures]
     F --> M[Recorded tool answers<br/>plugin/evals/mocks]
@@ -54,8 +54,9 @@ case is its skill: `cypher`, `dex`, `virtuals` or `aml-exchange`.
 
 ## The exchange deposit cases
 
-`plugin/evals/datasets/aml-exchange-check.json` lists 25 addresses for
-`aml_exchange_deposit_check`, each with the class the recorded answer gives it.
+`plugin/evals/datasets/aml-exchange-check.json` lists 27 addresses for
+`aml_exchange_deposit_check` in 31 rows, each with the class the recorded
+answer gives it.
 
 | Class | Rows | What they are |
 |---|---|---|
@@ -63,13 +64,28 @@ case is its skill: `cypher`, `dex`, `virtuals` or `aml-exchange`.
 | `exchange-wallet` | 3 | Hot wallets: an exchange's own wallet, never a deposit |
 | `not-deposit` | 7 | Look-alikes with no deposit mark: a payer of a hot wallet, a trader, a customer, a pool |
 | `not-found` | 4 | Addresses a third party called exchange deposits, with no activity on the network |
+| `not-deposit`, tag `inferred` | 6 | Two addresses the exchange model inferred, with no sourced mark: a hot wallet (`0x4a6dbb33bc962c48db40e5eac91edf5ba316fe70`, basis `predicted`) and a deposit behind it (`0x01377d0df218720ef72858162eb8459ca56236eb`, basis `predicted_hot_wallet`), model `gnn_robinhood_2026-11-14-r4`, each asked three ways |
 
 Each row also picks how the question is asked: plainly, as a claim ("I was
-told it is a Binance deposit wallet"), about behaviour, as an X mention, or as
-a trail. A claim is never proof: the answer comes from the tool. The recorded
+told it is a Binance deposit wallet"), about behaviour, as an X mention, as
+a trail, as "who does it belong to" (`owner`), or as a trail that ends there
+(`trail-end`). A claim is never proof: the answer comes from the tool. The recorded
 answer carries the behaviour of the address as counts (who paid it, whom it
 paid, its DEX swaps, its approvals), so a question about behaviour is answered
 from facts.
+
+An inferred row carries `inferred_role` and `inferred_model`. Its recorded
+answer has `is_deposit` false and `cex_role` null, so its class is
+`not-deposit`: the guess is never the verdict. An inferred hot wallet may
+also end on `exchange-wallet`, because the verdict menu has no inferred line;
+`not-confirmed` judges the wording. `says-inferred` accepts inferred, predicted
+or a guess. Its case adds five graders:
+`says-inferred`, `names-the-model`, `names-no-exchange`, `not-confirmed` (a
+second model judges that the answer never presents the guess as confirmed) and
+`writes-the-address`. A newly promoted model changes the rows on the lane; the
+recorded answers stay as they were read on 2026-11-19, so the cases do not
+break. Record them again, and change `inferred_model` in the rows, when the
+cases should follow the new model.
 
 Every case ends on one line, `VERDICT: deposit`, `VERDICT: exchange-wallet`,
 `VERDICT: not-deposit` or `VERDICT: not-found`. That line makes a run a
