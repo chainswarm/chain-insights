@@ -3,6 +3,17 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.85.2] - 2026-11-19 — The token lookup no longer calls its row count a total
+
+### Changed
+
+- `meta_token_lookup`: the field `total`, the number of rows read (26 at
+  most), is gone. An agent had answered "26 contracts carry the ticker" from
+  it; 88 did. The count is `matches`, and it is null when the graph server
+  does not count.
+- On such a server the hint says "more than 25" and that the number is not in
+  the answer.
+
 ## [0.85.1] - 2026-11-19 — A cut token list says the later contracts are missing
 
 ### Changed

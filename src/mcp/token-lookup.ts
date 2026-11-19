@@ -68,8 +68,7 @@ export interface MetaTokenLookupResult {
   query: string
   matched_on: 'symbol' | 'name' | null
   candidates: TokenCandidate[]
-  /** The rows the server sent, at most 26: 26 means there are more than the 25 returned. */
-  total: number
+  /** More contracts carry the key than the candidates listed. */
   truncated: boolean
   /** How many contracts carry the key, counted by the server; null when the server does not count. */
   matches: number | null
@@ -371,8 +370,9 @@ function hintFor(
       parts.push(`${candidates.length} contracts on ${network} carry "${query}".`)
     } else if (matches === null) {
       parts.push(
-        `${candidates.length} contracts on ${network} carry "${query}", and more exist than the ${CANDIDATES_MAX} listed. ` +
-          'The list is a part: never give its length as the count, and never say that none exist beyond it.'
+        `More than ${CANDIDATES_MAX} contracts on ${network} carry "${query}": how many is not in this answer. ` +
+          `candidates lists the ${candidates.length} oldest, the verified first. ` +
+          `The list is a part: never give ${candidates.length} or ${ROWS_READ} as the count, say "more than ${CANDIDATES_MAX}", and never say that none exist beyond it.`
       )
     } else {
       parts.push(
@@ -446,7 +446,6 @@ export async function handleMetaTokenLookup(
       ...base,
       matched_on: null,
       candidates: [],
-      total: 0,
       truncated: false,
       matches: null,
       newest: [],
@@ -490,7 +489,6 @@ export async function handleMetaTokenLookup(
       ...base,
       matched_on: null,
       candidates: [],
-      total: 0,
       truncated: false,
       matches: null,
       newest: [],
@@ -552,7 +550,6 @@ export async function handleMetaTokenLookup(
     ...base,
     matched_on: candidates.length > 0 ? matchedOn : null,
     candidates,
-    total,
     truncated,
     matches,
     newest,
