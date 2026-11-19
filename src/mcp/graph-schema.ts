@@ -18,6 +18,7 @@
 
 import { findNetworkCapability, mirrorGraphNetworkCapabilities } from './capabilities.js'
 import type { NetworkCapability } from './capabilities.js'
+import { BEHAVIOUR_SCHEMA_NOTE } from './behaviour-kinds.js'
 import { PaymentRequiredError } from './client.js'
 import { CONTRACT_READ_PROPERTIES } from './contract-read.js'
 import { refusalText, type GraphQueryAnswer } from './flows.js'
@@ -462,6 +463,7 @@ export async function buildGraphSchema(options: BuildOptions): Promise<BuildResu
   if (topology.link_types.includes('SWEPT') || topology.property_keys.includes('cex_role')) {
     remarks.push(EXCHANGE_SCHEMA_NOTE)
   }
+  if (topology.property_keys.includes('behaviour_kind')) remarks.push(BEHAVIOUR_SCHEMA_NOTE)
   // The lane's graph shape: its money family lists ROUTED_TO, or the catalog
   // does. The graph of before gets no remark, so its schema reads as in 0.81.0.
   const levels =

@@ -574,6 +574,41 @@ What each value means:
 - The `chain-insights-cypher` skill shows how to read every property from a
   sample.
 
+### Behaviour kinds and operator groups
+
+A busy account can carry two more properties. Neither is a mark, a word in
+`labels`, a flag or a claim.
+
+- `behaviour_kind`: how the account behaves, from a rule over one week of its
+  own on-chain counts. The rule reads accounts with 200 or more payers plus
+  receivers in the week that no other label names. Every other address has
+  none, and the kind goes when the account goes quiet. It is a counted fact,
+  not a model's guess.
+- `behaviour_group`: `<behaviour_kind>:<first payer address>`, 3 or more
+  accounts of one kind whose first ever payer is that address: one operator's
+  wallets. When that payer is an exchange wallet, a `:Pool` or a `:Protocol`
+  contract, the group is the accounts it funded first, not one operator.
+
+| Value                      | Meaning                                                                                                                       |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `SWAP_BOT_FARM_WALLET`     | One wallet of a swap-bot farm: takes funds from hundreds of brand-new wallets, swaps through a router, pays hundreds of other brand-new wallets. |
+| `DEX_TRADER_BOT`           | An automated trader: most of its transfers touch pools or routers and it swaps hundreds of times a week.                      |
+| `VOLUME_RING_HUB`          | The hub of a volume ring: pays a standing set of its own wallets, which pay it back.                                          |
+| `WALLET_FARM_CONTROLLER`   | Funds hundreds of brand-new wallets in a burst and sweeps them back.                                                          |
+| `FIXED_AMOUNT_DISTRIBUTOR` | Pays one fixed amount to hundreds of wallets that never pay back.                                                             |
+| `MIXER_LOOP_HUB`           | Collects from wallets that withdrew from a mixer and pays wallets that deposit into one. Not proof of laundering.            |
+| `PAYOUT_DESK`              | Payers and receivers are different people, active almost every hour of the week: the shape of a payment desk.                 |
+
+- A behaviour kind describes automation or volume, it is not a risk signal by
+  itself; say so, and never present it as an accusation.
+- Read both anchored on one full address. The members of a group are the
+  receivers of its first payer that carry the group, read anchored on that
+  payer, with a literal `LIMIT`. A `WHERE` on `behaviour_kind` or
+  `behaviour_group` with no address is refused.
+- The `graph_query` description carries the values and the rule, so a host
+  that loads no skill has them. The `chain-insights-cypher` skill shows the
+  three reads.
+
 ## Query Rules
 
 - `network` is required. Do not guess it in agent workflows.

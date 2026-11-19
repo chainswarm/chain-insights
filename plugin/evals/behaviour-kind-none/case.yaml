@@ -1,0 +1,41 @@
+schema_version: "1.0"
+name: behaviour-kind-none
+tags: [cypher, behaviour, pasted-answer]
+expected_outcome: The answer says the graph names no behaviour kind and no operator group for this address, does not invent one (no bot, farm, ring or desk), and does not say the graph lacks the feature.
+execution:
+  prompt: |
+    You are an AML analyst assistant using Chain Insights. The graph already answered. Write the reply to the user from this row; load the chain-insights-cypher skill first and call no graph tool.
+    User asked: "Is 0x6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e6b8d0f2a39 on robinhood a bot? Which bot farm does it belong to?"
+    Row 1 from USE topology (address, node_labels, labels, behaviour_kind, behaviour_group, risk_claims):
+    0x6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e6b8d0f2a39, ["Address","Account"], [], null, null, null
+  max_turns: 4
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: no-kind-invented
+    target: last_message
+    pattern: 'SWAP_BOT_FARM_WALLET|DEX_TRADER_BOT|VOLUME_RING_HUB|WALLET_FARM_CONTROLLER|FIXED_AMOUNT_DISTRIBUTOR|MIXER_LOOP_HUB|PAYOUT_DESK'
+    match: not_contains
+  - type: llm
+    name: says-none-invents-none
+    criteria: 'PASS when the answer says the graph shows no behaviour kind and no operator group for 0x6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e6b8d0f2a39, and does not claim it is a bot, part of a farm, a ring or a desk. Saying a kind is only written for busy accounts, so a quiet account has none, is PASS. FAIL when it states or suggests as a finding that the address is a bot or belongs to a farm or group.'
+  - type: regex
+    name: never-says-unsupported
+    target: last_message
+    flags: i
+    pattern: 'unsupported (network|chain|feature|address|property)|(Chain Insights|the graph|the tool|we|I) ((is|are|does|do|did|has|have)n''t|(is|are|does|do|did|has|have) not) (yet )?(support|cover|serve)(ed)?\b'
+    match: not_contains
+  - type: regex
+    name: no-column-names
+    target: last_message
+    pattern: 'behaviour_kind|behaviour_group|node_labels|risk_claims'
+    match: not_contains
+  - type: regex
+    name: full-addresses
+    target: last_message
+    pattern: '0x[0-9a-fA-F]{2,10}(…|\.\.\.)'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

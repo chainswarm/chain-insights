@@ -3,6 +3,32 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.86.0] - 2026-11-19 — Every host says what kind of busy account an address is, and never as an accusation
+
+### Added
+
+- The graph writes two new properties on a busy account: `behaviour_kind`,
+  how it behaves by a rule over one week of its own on-chain counts, and
+  `behaviour_group`, `<behaviour_kind>:<first payer address>` for 3 or more
+  accounts of one kind with the same first payer. The `graph_query`
+  description, the server instructions, `meta_schema` and the
+  `chain-insights-cypher` skill now name the seven kinds in plain words:
+  `SWAP_BOT_FARM_WALLET`, `DEX_TRADER_BOT`, `VOLUME_RING_HUB`,
+  `WALLET_FARM_CONTROLLER`, `FIXED_AMOUNT_DISTRIBUTOR`, `MIXER_LOOP_HUB` and
+  `PAYOUT_DESK`.
+- Every host is told the rule: a behaviour kind describes automation or
+  volume, it is not a risk signal by itself; say so, and never present it as
+  an accusation. A mixer loop hub is no proof of laundering, and a kind is a
+  counted fact, never called inferred.
+- The skill shows three reads: an address's kind and group, anchored on the
+  address; the group's first payer; and the group's members, the payer's
+  receivers that carry the group, anchored on the payer. When the first payer
+  is an exchange wallet, a pool or a protocol contract, the answer says the
+  group is the accounts it funded first, not one operator.
+- Five eval cases, `plugin/evals/behaviour-*`: a kind with a group, a kind
+  with no group, no kind, a trader bot the user calls a scammer, and a mixer
+  loop hub.
+
 ## [0.85.2] - 2026-11-19 — The token lookup no longer calls its row count a total
 
 ### Changed

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect } from 'vitest'
 
+import { BEHAVIOUR_HINT } from '../../src/mcp/behaviour-kinds.js'
 import { CONTRACT_READ_HINT } from '../../src/mcp/contract-read.js'
 import { routingHintLines } from '../../src/mcp/layer-routing.js'
 import { initWorkspace } from '../../src/workspace/init.js'
@@ -43,12 +44,14 @@ export function servedGraphHints(): string {
   expect(end).toBeGreaterThan(start)
   const literal = source.slice(source.indexOf('[', start), end + 1)
   // The routing hints are built from src/mcp/layer-routing.ts, the one source of
-  // the routing rule, and the Contract read hint from src/mcp/contract-read.ts,
-  // so the literal is read with both in scope.
+  // the routing rule, the Contract read hint from src/mcp/contract-read.ts and
+  // the behaviour hint from src/mcp/behaviour-kinds.ts, so the literal is read
+  // with all three in scope.
   return (
-    new Function('routingHintLines', 'CONTRACT_READ_HINT', `return ${literal}`)(
+    new Function('routingHintLines', 'CONTRACT_READ_HINT', 'BEHAVIOUR_HINT', `return ${literal}`)(
       routingHintLines,
-      CONTRACT_READ_HINT
+      CONTRACT_READ_HINT,
+      BEHAVIOUR_HINT
     ) as string[]
   ).join('\n')
 }
