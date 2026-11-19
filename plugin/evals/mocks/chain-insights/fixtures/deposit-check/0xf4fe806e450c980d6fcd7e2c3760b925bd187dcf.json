@@ -5,7 +5,7 @@
   "address": "0xf4fe806e450c980d6fcd7e2c3760b925bd187dcf",
   "found": true,
   "is_deposit": true,
-  "cex_role": "deposit",
+  "exchange_role": "deposit",
   "exchange": "gate",
   "exchange_display": "Gate",
   "labels": [

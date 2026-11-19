@@ -103,7 +103,7 @@ served file per network and two tools.
   `meta_dex_lookup` reads the DEX registry: from `main`, cached one hour, the
   packaged copy offline. It sends no graph read.
 - `aml_exchange_deposit_check` (`src/mcp/exchange-deposit-check.ts`) reads one
-  address's `cex_role` and its `SWEPT` links on the graph, anchored on the
+  address's `exchange_role` and its `SWEPT` links on the graph, anchored on the
   address, and its behaviour as counts (`behaviour`: payers, receivers, DEX
   pools, approvals). Whether an address is a deposit is always read from the
   graph, never from the file, and never judged again from the counts: the

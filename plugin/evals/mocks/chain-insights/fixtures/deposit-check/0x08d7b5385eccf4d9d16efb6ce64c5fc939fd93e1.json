@@ -5,7 +5,7 @@
   "address": "0x08d7b5385eccf4d9d16efb6ce64c5fc939fd93e1",
   "found": false,
   "is_deposit": false,
-  "cex_role": null,
+  "exchange_role": null,
   "exchange": null,
   "exchange_display": null,
   "labels": [],

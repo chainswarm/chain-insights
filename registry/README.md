@@ -147,7 +147,7 @@ indexer-evm-cex registry of the network, and under each only the wallets
 proven on that network's own data. The proxy tool `meta_exchange_lookup`
 serves it, and `aml_exchange_deposit_check` names an exchange from it.
 Whether an address is a deposit is read from the graph, never from this file:
-`aml_exchange_deposit_check` reads the address's `cex_role` and its `SWEPT`
+`aml_exchange_deposit_check` reads the address's `exchange_role` and its `SWEPT`
 links.
 
 | File | Exchanges | Wallets proven on the chain |

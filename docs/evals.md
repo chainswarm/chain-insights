@@ -75,7 +75,7 @@ paid, its DEX swaps, its approvals), so a question about behaviour is answered
 from facts.
 
 An inferred row carries `inferred_role` and `inferred_model`. Its recorded
-answer has `is_deposit` false and `cex_role` null, so its class is
+answer has `is_deposit` false and `exchange_role` null, so its class is
 `not-deposit`: the guess is never the verdict. An inferred hot wallet may
 also end on `exchange-wallet`, because the verdict menu has no inferred line;
 `not-confirmed` judges the wording. `says-inferred` accepts inferred, predicted

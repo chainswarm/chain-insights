@@ -5,7 +5,7 @@
  * A local tool of the proxy. It sends one graph_query_batch with six reads on
  * USE topology, all anchored on the address:
  *
- *   node      the address: its node labels, its label words and `cex_role`;
+ *   node      the address: its node labels, its label words and `exchange_role`;
  *   swept     its `SWEPT` links: each hot wallet it swept into, with the sweep
  *             count, the USD sum, the paths and the first and last sweep;
  *   paid_by   how many addresses paid it, and how many of them are exchange
@@ -20,7 +20,7 @@
  * A behaviour read that fails leaves its counts null; the check still answers.
  *
  * `SWEPT` (layer `cex_sweeps`) is drawn only from an address the deposit rule
- * judged a deposit, and `cex_role` comes from the exchange label's subtype. The
+ * judged a deposit, and `exchange_role` comes from the exchange label's subtype. The
  * graph judges, this tool only reads.
  *
  * The exchange model's own guess rides beside them on the node (graph sync
@@ -42,7 +42,7 @@ import {
   type LoadedExchangeRegistry,
 } from './exchange-registry.js'
 import { EXCHANGE_OPENING_RULE } from './exchange-tool.js'
-import { CEX_ROLES } from './graph-schema.js'
+import { EXCHANGE_ROLES, exchangeRoleRead } from './graph-schema.js'
 import { isEpochMs, utcText } from './timestamp-text.js'
 import { membersOf, refusalOf, type GraphAnswer, type Member } from './token-lookup.js'
 
@@ -61,7 +61,7 @@ export const EXCHANGE_DEPOSIT_BEHAVIOUR =
 
 export const EXCHANGE_DEPOSIT_PROFILE =
   `${EXCHANGE_DEPOSIT_BEHAVIOUR} ` +
-  'The graph judges that, never you: the verdict is is_deposit, cex_role and swept. Give behaviour and does_not_fit_deposit as the facts behind it, and never set a threshold of your own for payers, volume or sweeps. ' +
+  'The graph judges that, never you: the verdict is is_deposit, exchange_role and swept. Give behaviour and does_not_fit_deposit as the facts behind it, and never set a threshold of your own for payers, volume or sweeps. ' +
   'With no deposit mark an address is not shown to be a deposit, whoever says it is one; with found false it has no activity on the network, and the claim is unproven there.'
 
 /** The one rule for an inferred answer, in the description every host reads and in the skill. */
@@ -71,7 +71,7 @@ export const EXCHANGE_INFERRED_RULE =
 export const AML_EXCHANGE_DEPOSIT_CHECK_DESCRIPTION =
   'Checks one address: is it a deposit address of a centralized exchange (Binance, Bitget, Bybit, Coinbase, Gate, KuCoin, MEXC, OKX, ...), ' +
   'of which exchange, and into which hot wallet was it swept, how many times, by which path and when. ' +
-  'It reads the SWEPT links of the address and its cex_role (deposit, hot_wallet, cold_wallet or withdrawal) on the graph, and its behaviour as counts ' +
+  'It reads the SWEPT links of the address and its exchange_role (deposit, hot_wallet, cold_wallet or withdrawal) on the graph, and its behaviour as counts ' +
   '(how many addresses paid it, how many it paid, how many of each are exchange wallets, the DEX pools it swapped on, the spenders it approved), anchored on the address: ' +
   'six reads in one batch, billed as any read. Use it when a trail reaches an address that may be an exchange wallet, when the user asks where money entered an exchange, ' +
   'or when someone says an address is an exchange deposit: a claim is never proof, the answer of this tool is. ' +
@@ -86,7 +86,7 @@ export const AML_EXCHANGE_DEPOSIT_CHECK_ARGS = ['network', 'address'] as const
 /** The most hot wallets one deposit's read returns. */
 export const SWEPT_LIMIT = 20
 
-export type CexRole = (typeof CEX_ROLES)[number]
+export type ExchangeRole = (typeof EXCHANGE_ROLES)[number]
 
 /** The roles the exchange model infers. */
 export const INFERRED_EXCHANGE_ROLES = ['deposit', 'hot_wallet'] as const
@@ -161,9 +161,9 @@ export interface AmlExchangeDepositCheckResult {
   address: string
   /** false when the graph holds no node for the address. */
   found: boolean
-  /** true when the address carries cex_role deposit or has a SWEPT link. */
+  /** true when the address carries exchange_role deposit or has a SWEPT link. */
   is_deposit: boolean
-  cex_role: CexRole | null
+  exchange_role: ExchangeRole | null
   /** The exchange id, from the hot wallet it swept into, else from its label words. */
   exchange: string | null
   exchange_display: string | null
@@ -212,12 +212,12 @@ function assertReadAddress(address: string): void {
   }
 }
 
-/** The node read: the address, its marks, its cex_role and the exchange model's inferred role. */
+/** The node read: the address, its marks, its exchange_role and the exchange model's inferred role. */
 export function depositNodeQuery(address: string): string {
   assertReadAddress(address)
   return (
     `USE topology MATCH (a:Address {address: "${address}"}) ` +
-    'RETURN a.address AS address, labels(a) AS node_labels, a.labels AS labels, a.cex_role AS cex_role, ' +
+    `RETURN a.address AS address, labels(a) AS node_labels, a.labels AS labels, ${exchangeRoleRead('a')} AS exchange_role, ` +
     'a.inferred_exchange_role AS inferred_exchange_role, a.inferred_sources AS inferred_sources, ' +
     'a.inferred_exchange_role_updated_timestamp AS inferred_exchange_role_updated_timestamp LIMIT 1'
   )
@@ -228,7 +228,7 @@ export function depositSweptQuery(address: string): string {
   assertReadAddress(address)
   return (
     `USE topology MATCH (a:Address {address: "${address}"})-[s:SWEPT]->(h:Address) ` +
-    'RETURN h.address AS hot_wallet, h.labels AS hot_wallet_labels, h.cex_role AS hot_wallet_role, ' +
+    `RETURN h.address AS hot_wallet, h.labels AS hot_wallet_labels, ${exchangeRoleRead('h')} AS hot_wallet_role, ` +
     's.sweep_count AS sweep_count, s.amount_usd_sum AS amount_usd_sum, s.paths AS paths, ' +
     `s.first_seen_timestamp AS first_seen_timestamp, s.last_seen_timestamp AS last_seen_timestamp LIMIT ${SWEPT_LIMIT}`
   )
@@ -300,9 +300,9 @@ const addressOrNull = (value: unknown): string | null =>
 
 const utcOrNull = (ms: number | null): string | null => (isEpochMs(ms) ? utcText(ms) : null)
 
-function cexRoleOf(value: unknown): CexRole | null {
+function exchangeRoleOf(value: unknown): ExchangeRole | null {
   const role = textOrNull(value)?.toLowerCase()
-  return (CEX_ROLES as readonly string[]).includes(role ?? '') ? (role as CexRole) : null
+  return (EXCHANGE_ROLES as readonly string[]).includes(role ?? '') ? (role as ExchangeRole) : null
 }
 
 /**
@@ -472,7 +472,7 @@ export function depositCheckFromMembers(
   }
   sweeps.sort((a, b) => (b.sweep_count ?? 0) - (a.sweep_count ?? 0))
   exchange ??= exchangeOfLabels(labels, rows) ?? exchangeOfWallet(address, rows)?.entry ?? null
-  const role = cexRoleOf(nodeRow?.cex_role)
+  const role = exchangeRoleOf(nodeRow?.exchange_role)
   const found = nodeRow !== undefined || sweeps.length > 0
   const isDeposit = role === 'deposit' || sweeps.length > 0
   const behaviour = behaviourFromMembers(members)
@@ -485,7 +485,7 @@ export function depositCheckFromMembers(
     address,
     found,
     is_deposit: isDeposit,
-    cex_role: role ?? (sweeps.length > 0 ? ('deposit' as const) : null),
+    exchange_role: role ?? (sweeps.length > 0 ? ('deposit' as const) : null),
     exchange: exchange?.exchange ?? null,
     exchange_display: exchange?.display ?? null,
     labels,
@@ -544,9 +544,9 @@ function hintFor(result: Omit<AmlExchangeDepositCheckResult, 'hint'>): string {
   if (result.inferred && result.inferred_role && result.inferred_model) {
     return inferredHint(result, result.inferred_role, result.inferred_model)
   }
-  if (result.cex_role) {
+  if (result.exchange_role) {
     return (
-      `${ANSWER_HINT} Say: "${address} is a ${result.cex_role.replace('_', ' ')} of ${name} on ${network}, not a deposit address." ` +
+      `${ANSWER_HINT} Say: "${address} is a ${result.exchange_role.replace('_', ' ')} of ${name} on ${network}, not a deposit address." ` +
       'A trail that reaches it has entered the exchange: end the trail there.'
     )
   }
@@ -555,7 +555,7 @@ function hintFor(result: Omit<AmlExchangeDepositCheckResult, 'hint'>): string {
       ? `What a deposit address does not do, and this one did: ${result.does_not_fit_deposit.join('; ')}. `
       : 'Its counts alone rule nothing out; the missing mark does: the rule of the graph did not judge it a deposit. '
   return (
-    `${ANSWER_HINT} ${address} carries no deposit mark: no SWEPT link and no cex_role. ` +
+    `${ANSWER_HINT} ${address} carries no deposit mark: no SWEPT link and no exchange_role. ` +
     'Say that the graph shows no sweep of it into a listed exchange hot wallet. That is not proof the address belongs to no exchange; ' +
     `its labels and its links say what else it is. ${behaviourHint(result)}${misfit}` +
     'Give these facts as the reason and no other: set no threshold of your own for payers, volume or sweeps.'
@@ -586,7 +586,7 @@ function inferredHint(
     `${ANSWER_HINT} Say: "${address} is ${what}, inferred by model ${model}, on ${network}. ` +
     'No listed source names it as an exchange address." ' +
     `${basis}${trail}` +
-    'Report it as inferred, never as a confirmed exchange address: is_deposit (false) and cex_role (null) are the sourced verdict, and the guess does not change them. ' +
+    'Report it as inferred, never as a confirmed exchange address: is_deposit (false) and exchange_role (null) are the sourced verdict, and the guess does not change them. ' +
     `${behaviourHint(result)}` +
     'Give these facts as the reason and no other: set no threshold of your own for payers, volume or sweeps.'
   )

@@ -50,16 +50,30 @@ export const SAMPLED_LINK_TYPES = [
 ] as const
 
 /**
- * The values of `cex_role` on an `:Exchange` address: which wallet of its
+ * The values of `exchange_role` on an `:Exchange` address: which wallet of its
  * exchange the address is. The labels layer sets it from the exchange label's
  * subtype; `SWEPT` (layer `cex_sweeps`) runs from a `deposit` to the
  * `hot_wallet` it swept into.
  */
-export const CEX_ROLES = ['deposit', 'hot_wallet', 'cold_wallet', 'withdrawal'] as const
+export const EXCHANGE_ROLES = ['deposit', 'hot_wallet', 'cold_wallet', 'withdrawal'] as const
 
-/** The note a schema carries when the graph serves `SWEPT` or `cex_role`. */
+/** The node property keys that carry the exchange role, new name first. */
+// The cex_role half is deleted once both lanes are re-indexed with exchange_role.
+export const EXCHANGE_ROLE_KEYS = ['exchange_role', 'cex_role'] as const
+
+/**
+ * The Cypher expression that reads the exchange role of the node `variable` on
+ * both lanes: `coalesce(<v>.exchange_role, <v>.cex_role)`.
+ */
+// The cex_role half is deleted once both lanes are re-indexed with exchange_role.
+export function exchangeRoleRead(variable: string): string {
+  return `coalesce(${variable}.exchange_role, ${variable}.cex_role)`
+}
+
+/** The note a schema carries when the graph serves `SWEPT` or `exchange_role`. */
 export const EXCHANGE_SCHEMA_NOTE =
-  `cex_role on an :Exchange address says which wallet of its exchange it is: ${CEX_ROLES.join(', ')}. ` +
+  `exchange_role on an :Exchange address says which wallet of its exchange it is: ${EXCHANGE_ROLES.join(', ')}. ` +
+  `A lane not yet re-indexed still carries it as cex_role; read ${exchangeRoleRead('a')}. ` +
   'SWEPT runs from an exchange deposit to the hot wallet it swept into; a trail that reaches it ends there. ' +
   'inferred_exchange_role (deposit or hot_wallet) is the exchange model\'s guess, with its ml:exchange-roles:<model>:<basis> entry in inferred_sources: never a label, never a SWEPT link, and always said as inferred by that model.'
 
@@ -460,7 +474,10 @@ export async function buildGraphSchema(options: BuildOptions): Promise<BuildResu
       'synced_through_height and pair_key are sync bookkeeping: never filter or sort on them.'
     )
   }
-  if (topology.link_types.includes('SWEPT') || topology.property_keys.includes('cex_role')) {
+  if (
+    topology.link_types.includes('SWEPT') ||
+    EXCHANGE_ROLE_KEYS.some((key) => topology.property_keys.includes(key))
+  ) {
     remarks.push(EXCHANGE_SCHEMA_NOTE)
   }
   if (topology.property_keys.includes('behaviour_kind')) remarks.push(BEHAVIOUR_SCHEMA_NOTE)

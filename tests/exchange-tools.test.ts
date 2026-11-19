@@ -21,6 +21,7 @@ import {
   handleMetaExchangeLookup,
   type MetaExchangeLookupResult,
 } from '../src/mcp/exchange-tool.js'
+import { exchangeRoleRead } from '../src/mcp/graph-schema.js'
 import { PUBLIC_MCP_TOOL_ALLOWED_ARGS } from '../src/mcp/tool-visibility.js'
 import { repoRoot } from './dex-registry.js'
 
@@ -253,7 +254,8 @@ describe('aml_exchange_deposit_check', () => {
       expect(query).toMatch(/ LIMIT \d+$/)
     }
     expect(sent[0]!.queries[1]!.query).toContain('-[s:SWEPT]->(h:Address)')
-    expect(sent[0]!.queries[0]!.query).toContain('a.cex_role AS cex_role')
+    expect(sent[0]!.queries[0]!.query).toContain(`${exchangeRoleRead('a')} AS exchange_role`)
+    expect(sent[0]!.queries[1]!.query).toContain(`${exchangeRoleRead('h')} AS hot_wallet_role`)
   })
 
   it('a deposit names its exchange from the hot wallet it swept into, with the sweeps', async () => {
@@ -262,7 +264,7 @@ describe('aml_exchange_deposit_check', () => {
         address: DEPOSIT,
         node_labels: ['Address', 'Exchange'],
         labels: ['Exchange', 'bitget'],
-        cex_role: 'deposit',
+        exchange_role: 'deposit',
       }),
       sweptMember([
         {
@@ -281,7 +283,7 @@ describe('aml_exchange_deposit_check', () => {
     expect(structured).toMatchObject({
       found: true,
       is_deposit: true,
-      cex_role: 'deposit',
+      exchange_role: 'deposit',
       exchange: 'bitget',
       exchange_display: 'Bitget',
     })
@@ -302,7 +304,7 @@ describe('aml_exchange_deposit_check', () => {
 
   it('a deposit that swept into a hot wallet the file leaves out is named from the label words of that wallet', async () => {
     const { structured } = await check([
-      nodeMember({ address: DEPOSIT, labels: [], cex_role: 'deposit' }),
+      nodeMember({ address: DEPOSIT, labels: [], exchange_role: 'deposit' }),
       sweptMember([
         {
           hot_wallet: '0x4cad1efbfd5f0848e0c3c14fab23f92b2fa81f17',
@@ -319,12 +321,12 @@ describe('aml_exchange_deposit_check', () => {
 
   it('a hot wallet is an exchange wallet but no deposit', async () => {
     const { structured } = await check([
-      nodeMember({ address: DEPOSIT, labels: ['Exchange', 'gate'], cex_role: 'hot_wallet' }),
+      nodeMember({ address: DEPOSIT, labels: ['Exchange', 'gate'], exchange_role: 'hot_wallet' }),
       sweptMember([]),
     ])
     expect(structured).toMatchObject({
       is_deposit: false,
-      cex_role: 'hot_wallet',
+      exchange_role: 'hot_wallet',
       exchange: 'gate',
     })
     expect(structured.hint).toContain(
@@ -332,18 +334,39 @@ describe('aml_exchange_deposit_check', () => {
     )
   })
 
+  it('a lane not yet re-indexed, whose node carries only the old cex_role, still answers the role', async () => {
+    // The lane evaluates the coalesce the node read sends; this stand-in does
+    // the same over a node that has cex_role and no exchange_role.
+    const laneNode: Record<string, unknown> = { address: DEPOSIT, labels: ['Exchange', 'gate'], cex_role: 'hot_wallet' }
+    const sent: Batch[] = []
+    const { structured } = await check(
+      [
+        nodeMember({
+          address: laneNode.address,
+          labels: laneNode.labels,
+          exchange_role: laneNode.exchange_role ?? laneNode.cex_role ?? null,
+        }),
+        sweptMember([]),
+      ],
+      sent
+    )
+    expect(sent[0]!.queries[0]!.query).toContain('coalesce(a.exchange_role, a.cex_role) AS exchange_role')
+    expect(structured).toMatchObject({ is_deposit: false, exchange_role: 'hot_wallet', exchange: 'gate' })
+    expect(structured).not.toHaveProperty('cex_role')
+  })
+
   it('an address with no mark says what the graph shows, and is no proof either way', async () => {
     const { structured } = await check([
-      nodeMember({ address: DEPOSIT, labels: [], cex_role: null }),
+      nodeMember({ address: DEPOSIT, labels: [], exchange_role: null }),
       sweptMember([]),
     ])
     expect(structured).toMatchObject({
       found: true,
       is_deposit: false,
-      cex_role: null,
+      exchange_role: null,
       exchange: null,
     })
-    expect(structured.hint).toContain('carries no deposit mark: no SWEPT link and no cex_role')
+    expect(structured.hint).toContain('carries no deposit mark: no SWEPT link and no exchange_role')
     // A host that re-judges the address from its payers invents a rule.
     expect(structured.hint).toContain('set no threshold of your own')
     expect(structured.hint).not.toMatch(/not (covered|served|supported)|unsupported/i)
@@ -351,7 +374,7 @@ describe('aml_exchange_deposit_check', () => {
 
   it('an unmarked address that trades and pays outsiders gets those two facts, and no threshold', async () => {
     const { structured } = await check([
-      nodeMember({ address: DEPOSIT, labels: [], cex_role: null }),
+      nodeMember({ address: DEPOSIT, labels: [], exchange_role: null }),
       sweptMember([]),
       ...behaviourMembers({ payers: 214, payers_exchange: 1, receivers: 57, receivers_exchange: 1, dex_pools: 291, approvals: 11 }),
     ])
@@ -376,7 +399,7 @@ describe('aml_exchange_deposit_check', () => {
 
   it('an unmarked address that pays only an exchange wallet has no misfit: the payer count is for the rule to judge', async () => {
     const { structured } = await check([
-      nodeMember({ address: DEPOSIT, labels: [], cex_role: null }),
+      nodeMember({ address: DEPOSIT, labels: [], exchange_role: null }),
       sweptMember([]),
       ...behaviourMembers({ payers: 24, payers_exchange: 0, receivers: 1, receivers_exchange: 1, dex_pools: 0, approvals: 0 }),
     ])
@@ -388,7 +411,7 @@ describe('aml_exchange_deposit_check', () => {
 
   it('a deposit carries its counts and no misfit, whatever the counts are', async () => {
     const { structured } = await check([
-      nodeMember({ address: DEPOSIT, labels: ['Exchange', 'gate'], cex_role: 'deposit' }),
+      nodeMember({ address: DEPOSIT, labels: ['Exchange', 'gate'], exchange_role: 'deposit' }),
       sweptMember([]),
       ...behaviourMembers({ payers: 2, payers_exchange: 1, receivers: 2, receivers_exchange: 1, dex_pools: 0, approvals: 1 }),
     ])
@@ -400,7 +423,7 @@ describe('aml_exchange_deposit_check', () => {
 
   it('a behaviour read that fails leaves its counts null and the check still answers', async () => {
     const { result, structured } = await check([
-      nodeMember({ address: DEPOSIT, labels: [], cex_role: null }),
+      nodeMember({ address: DEPOSIT, labels: [], exchange_role: null }),
       sweptMember([]),
       { id: 'paid_by', ok: false, error: 'query_timeout' },
       { id: 'paid', ok: true, results: [{ receivers: 5000, receivers_exchange: 6 }] },
@@ -468,20 +491,20 @@ describe('aml_exchange_deposit_check: the exchange model inferred a role', () =>
       inferred_at: string | null
       says: string
     }
-    sourced?: { is_deposit: boolean; cex_role: string | null; says: string }
+    sourced?: { is_deposit: boolean; exchange_role: string | null; says: string }
   }> = [
     {
       name: 'sourced only',
-      node: { address: DEPOSIT, labels: ['Exchange', 'gate'], cex_role: 'hot_wallet' },
+      node: { address: DEPOSIT, labels: ['Exchange', 'gate'], exchange_role: 'hot_wallet' },
       inferred: null,
-      sourced: { is_deposit: false, cex_role: 'hot_wallet', says: 'is a hot wallet of Gate on robinhood' },
+      sourced: { is_deposit: false, exchange_role: 'hot_wallet', says: 'is a hot wallet of Gate on robinhood' },
     },
     {
       name: 'a deposit behind a listed hot wallet (rule)',
       node: {
         address: DEPOSIT,
         labels: [],
-        cex_role: null,
+        exchange_role: null,
         inferred_exchange_role: 'deposit',
         inferred_sources: ['ml:infrastructure:v7:hub', `ml:exchange-roles:${MODEL}:rule`],
         inferred_exchange_role_updated_timestamp: WRITTEN,
@@ -530,13 +553,13 @@ describe('aml_exchange_deposit_check: the exchange model inferred a role', () =>
       node: {
         address: DEPOSIT,
         labels: ['Exchange', 'bitget'],
-        cex_role: 'deposit',
+        exchange_role: 'deposit',
         inferred_exchange_role: 'hot_wallet',
         inferred_sources: [`ml:exchange-roles:${MODEL}:p-hub`],
       },
       swept: [{ hot_wallet: BITGET_HOT, hot_wallet_labels: ['Exchange', 'bitget'], sweep_count: 2 }],
       inferred: null,
-      sourced: { is_deposit: true, cex_role: 'deposit', says: 'is a deposit address of Bitget on robinhood.' },
+      sourced: { is_deposit: true, exchange_role: 'deposit', says: 'is a deposit address of Bitget on robinhood.' },
     },
     {
       name: 'a role with no entry of the exchange model is no inferred mark',
@@ -547,7 +570,7 @@ describe('aml_exchange_deposit_check: the exchange model inferred a role', () =>
         inferred_sources: ['ml:infrastructure:v7:hub'],
       },
       inferred: null,
-      sourced: { is_deposit: false, cex_role: null, says: 'carries no deposit mark' },
+      sourced: { is_deposit: false, exchange_role: null, says: 'carries no deposit mark' },
     },
   ]
 
@@ -559,7 +582,7 @@ describe('aml_exchange_deposit_check: the exchange model inferred a role', () =>
     expect(text).not.toMatch(/unknown|not supported|unsupported|PREDICTED/)
     if (inferred) {
       const { says, ...fields } = inferred
-      expect(structured).toMatchObject({ ...fields, inferred: true, is_deposit: false, cex_role: null })
+      expect(structured).toMatchObject({ ...fields, inferred: true, is_deposit: false, exchange_role: null })
       expect(structured.hint).toContain(`Say: "${DEPOSIT} ${says}`)
       expect(structured.hint).toContain('No listed source names it as an exchange address.')
       expect(structured.hint).toContain('never as a confirmed exchange address')
@@ -567,7 +590,7 @@ describe('aml_exchange_deposit_check: the exchange model inferred a role', () =>
       expect(text).toContain(MODEL)
     } else {
       for (const field of INFERRED_FIELDS) expect(structured).not.toHaveProperty(field)
-      expect(structured).toMatchObject({ is_deposit: sourced!.is_deposit, cex_role: sourced!.cex_role })
+      expect(structured).toMatchObject({ is_deposit: sourced!.is_deposit, exchange_role: sourced!.exchange_role })
       expect(structured.hint).toContain(sourced!.says)
       expect(text).not.toMatch(/inferred/i)
       expect(text).not.toContain(MODEL)

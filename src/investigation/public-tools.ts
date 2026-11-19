@@ -8,6 +8,7 @@ import { workspaceOutputPaths } from '../workspace/output-root.js'
 import { GRAPH_TOOL_REQUEST_TIMEOUT_MS } from '../mcp/request-timeout.js'
 import { readSwapLinkShape } from '../mcp/capabilities.js'
 import type { SwapLinkShape } from '../mcp/layer-routing.js'
+import { exchangeRoleRead } from '../mcp/graph-schema.js'
 import {
   createUsageAccumulator,
   usageBlock,
@@ -385,7 +386,7 @@ function exchangeOutflowQueryAtDepth(
   // target, which may be one.
   // Exchange stop: the walk ends at the first :Exchange address (is_exchange
   // set), a hot wallet or a deposit alike. When that end is a deposit
-  // (cex_role deposit), resolveExchangeEnd makes it the deposit_address and
+  // (exchange_role deposit), resolveExchangeEnd makes it the deposit_address and
   // the SWEPT read names the hot wallet it was swept into.
   const poolGuards = walkGuardTerms(['a', ...intermediateVariables], depth)
   const depositVariable = nodeVariables[nodeVariables.length - 2]!
@@ -395,7 +396,7 @@ function exchangeOutflowQueryAtDepth(
     query: [
       `MATCH (a:Address {address: "${escapeCypherString(address)}"})${relationshipChain}`,
       `WHERE a.address <> exchange.address AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''} AND ${poolGuards}`,
-      `RETURN "outflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, exchange.cex_role AS exchange_cex_role, ${depositVariable}.address AS deposit_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      `RETURN "outflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${exchangeRoleRead('exchange')} AS exchange_role, ${depositVariable}.address AS deposit_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       'ORDER BY hops ASC',
       'LIMIT 200',
     ].join(' '),
@@ -435,7 +436,7 @@ function exchangeInflowQueryAtDepth(address: string, depth: number): { id: strin
     query: [
       `MATCH (exchange:Address)${relationshipChain}`,
       `WHERE a.address = "${escapeCypherString(address)}" AND a.address <> exchange.address AND exchange.is_exchange IS NOT NULL${intermediatePredicates.length > 0 ? ` AND ${intermediatePredicates.join(' AND ')}` : ''} AND ${poolGuards}`,
-      `RETURN "inflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, exchange.cex_role AS exchange_cex_role, ${withdrawalVariable}.address AS withdrawal_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
+      `RETURN "inflow" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, ${exchangeRoleRead('exchange')} AS exchange_role, ${withdrawalVariable}.address AS withdrawal_address, ${depth} AS hops, ${terminalEdgeVariable}.amount_usd_sum AS amount_usd_sum, ${terminalEdgeVariable}.tx_count AS tx_count, ${terminalEdgeVariable}.first_seen_timestamp AS first_seen_timestamp, ${terminalEdgeVariable}.last_seen_timestamp AS last_seen_timestamp, [${nodeVariables.map((nodeVariable) => `${nodeVariable}.address`).join(', ')}] AS addresses, [${nodeVariables.map((nodeVariable) => pathNodeMap(nodeVariable)).join(', ')}] AS path_nodes, [${edgeVariables.map(flowEdgeMap).join(', ')}] AS edge_props`,
       'ORDER BY hops ASC',
       'LIMIT 200',
     ].join(' '),
@@ -445,7 +446,7 @@ function exchangeInflowQueryAtDepth(address: string, depth: number): { id: strin
 // ── Exchange ends ──
 // The labels layer marks every wallet of a centralized exchange :Exchange
 // with is_exchange set, a deposit as well as a hot wallet, and says which one
-// in cex_role (deposit, hot_wallet, cold_wallet, withdrawal). The exchange
+// in exchange_role (deposit, hot_wallet, cold_wallet, withdrawal). The exchange
 // walks above end at the first such address. When that end is a deposit, the
 // deposit IS the exchange end: the node before it is the payer, never the
 // deposit, and the exchange is named through the deposit's SWEPT link to the
@@ -465,12 +466,12 @@ export function exchangeIdFromLabels(labels: unknown): string | undefined {
 
 /**
  * One exchange walk row with its end resolved: `exchange_role` is the end's
- * cex_role (`exchange` when the graph carries none), `exchange` its id. An
+ * exchange_role read from the graph (`exchange` when the graph carries none), `exchange` its id. An
  * outflow that ends at a deposit reports the deposit as `deposit_address`
  * and the node the money came from as `payer_address`.
  */
 export function resolveExchangeEnd(row: Record<string, unknown>): Record<string, unknown> {
-  const role = firstString(row['exchange_cex_role'])?.toLowerCase()
+  const role = firstString(row['exchange_role'])?.toLowerCase()
   const exchangeId = exchangeIdFromLabels(
     row['exchange_system_labels'] ?? row['exchange_display_labels'] ?? row['exchange_labels']
   )
@@ -510,7 +511,7 @@ export function exchangeDepositSweptQuery(
     id: `exchange_deposit_swept_${index + 1}`,
     query: [
       `MATCH (d:Address {address: "${escapeCypherString(deposit)}"})-[s:SWEPT]->(h:Address)`,
-      'RETURN d.address AS deposit_address, h.address AS hot_wallet, h.labels AS hot_wallet_labels, h.cex_role AS hot_wallet_role, s.sweep_count AS sweep_count, s.amount_usd_sum AS amount_usd_sum, s.paths AS paths, s.first_seen_timestamp AS first_seen_timestamp, s.last_seen_timestamp AS last_seen_timestamp',
+      `RETURN d.address AS deposit_address, h.address AS hot_wallet, h.labels AS hot_wallet_labels, ${exchangeRoleRead('h')} AS hot_wallet_role, s.sweep_count AS sweep_count, s.amount_usd_sum AS amount_usd_sum, s.paths AS paths, s.first_seen_timestamp AS first_seen_timestamp, s.last_seen_timestamp AS last_seen_timestamp`,
       `LIMIT ${EXCHANGE_DEPOSIT_SWEPT_LIMIT}`,
     ].join(' '),
   }

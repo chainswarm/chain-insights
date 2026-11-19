@@ -262,8 +262,8 @@ describe('the graph schema built from the recorded catalog answers', () => {
     for (const keys of Object.values(samples)) expect(keys).toEqual([...keys].sort())
   })
 
-  it('samples SWEPT and names cex_role when the graph serves the exchange sweeps', async () => {
-    // The recorded catalog with the link SWEPT and the key cex_role added, as a
+  it('samples SWEPT and names exchange_role when the graph serves the exchange sweeps', async () => {
+    // The recorded catalog with the link SWEPT and the key exchange_role added, as a
     // graph with the layer cex_sweeps serves them.
     const withRows = (key: string, extra: Record<string, unknown>[]) => {
       const reply = replyFor(key) as { structuredContent: { facts: { query: { results: unknown[] } } } }
@@ -274,7 +274,7 @@ describe('the graph schema built from the recorded catalog answers', () => {
     const swept = linkSampleQuery('SWEPT')
     const { calls, client } = fakeClient((key) => {
       if (key === LINK_TYPES) return withRows(key, [{ relationshipType: 'SWEPT' }])
-      if (key === PROPERTY_KEYS) return withRows(key, [{ propertyKey: 'cex_role' }])
+      if (key === PROPERTY_KEYS) return withRows(key, [{ propertyKey: 'exchange_role' }])
       if (key === swept) {
         const structured = {
           facts: {
@@ -323,7 +323,20 @@ describe('the graph schema built from the recorded catalog answers', () => {
     expect(plain.document.notes).not.toContain(BEHAVIOUR_SCHEMA_NOTE)
   })
 
-  it('names no exchange sweeps on a graph that serves neither SWEPT nor cex_role', async () => {
+  it('names the exchange role on a lane not yet re-indexed, whose catalog lists only cex_role', async () => {
+    const { client } = fakeClient((key) => {
+      if (key !== PROPERTY_KEYS) return undefined
+      const reply = replyFor(key) as { structuredContent: { facts: { query: { results: unknown[] } } } }
+      const structured = structuredClone(reply.structuredContent)
+      structured.facts.query.results = [...structured.facts.query.results, { propertyKey: 'cex_role' }]
+      return { content: [{ type: 'text', text: JSON.stringify(structured) }], structuredContent: structured }
+    })
+    const { document } = await buildGraphSchema({ client, network: 'robinhood', now: () => T0 })
+    expect(document.notes).toContain(EXCHANGE_SCHEMA_NOTE)
+    expect(EXCHANGE_SCHEMA_NOTE).toContain('read coalesce(a.exchange_role, a.cex_role)')
+  })
+
+  it('names no exchange sweeps on a graph that serves neither SWEPT nor exchange_role', async () => {
     const { client } = fakeClient()
     const { document } = await buildGraphSchema({ client, network: 'robinhood', now: () => T0 })
     expect(document.notes).not.toContain(EXCHANGE_SCHEMA_NOTE)
