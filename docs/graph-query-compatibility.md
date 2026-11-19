@@ -453,6 +453,17 @@ layer `inferred`: `inferred_exchange_role` (`deposit` or `hot_wallet`),
 node label, never in `labels` and never a `SWEPT` link. `cex_role` wins over
 it; an address with only the guess is said to be inferred by that model.
 
+A busy account may also carry `behaviour_kind`, how it behaves by a rule over
+one week of its own on-chain counts (`SWAP_BOT_FARM_WALLET`, `DEX_TRADER_BOT`,
+`VOLUME_RING_HUB`, `WALLET_FARM_CONTROLLER`, `FIXED_AMOUNT_DISTRIBUTOR`,
+`MIXER_LOOP_HUB` or `PAYOUT_DESK`), and `behaviour_group`,
+`<behaviour_kind>:<first payer address>` for 3 or more accounts of one kind
+with the same first payer. Neither is a node label, a word in `labels`, a flag
+or a claim, and neither is indexed: read them anchored on an address. A
+behaviour kind describes automation or volume, it is not a risk signal by
+itself. The values are in
+[Graph tools](graph-tools.md#behaviour-kinds-and-operator-groups).
+
 The labels layer adds three judgement marks with no flag: `:Poisoned` (a
 look-alike address that sent worthless dust), `:Targeted` (a poisoning target
 not yet proven to have lost money) and `:OnMoneyTrail` (on the trail the
@@ -471,6 +482,8 @@ The values and their meaning are in
 | `MATCH (a:Token) WHERE "FAKE_TOKEN" IN a.suspect_labels RETURN a.address, a.suspect_labels LIMIT 25` | ✅ the mark is the anchor |
 | `MATCH (a:Address {address: "0x1111111111111111111111111111111111111111"}) RETURN a.protection_claims LIMIT 1` | ✅ anchored on one address                |
 | `MATCH (a:Address) WHERE "FAKE_TOKEN" IN a.risk_claims`         | refused: no mark and no address          |
+| `MATCH (a:Address {address: "0x1111111111111111111111111111111111111111"}) RETURN a.behaviour_kind, a.behaviour_group LIMIT 1` | ✅ anchored on one address |
+| `MATCH (a:Address) WHERE a.behaviour_kind = "DEX_TRADER_BOT"` | refused: no mark and no address          |
 
 Caveats: facts carries only its mapped labels, so role-label patterns are
 topology-only. The property-flag form (`is_exchange`) remains the canonical

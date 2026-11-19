@@ -99,6 +99,21 @@ To add an address:
 3. `node scripts/render-deposit-evals.mjs` writes its case.
 4. `npm test` checks the row against the recorded answer.
 
+## The behaviour kind cases
+
+Five `pasted-answer` cases, `plugin/evals/behaviour-*`, tag `behaviour`, check
+how the `chain-insights-cypher` skill says a busy account's `behaviour_kind`
+and `behaviour_group`. The rows are pasted into the question, so no graph
+answer is recorded for them. Their addresses are made up.
+
+| Case | The row | The answer must |
+|---|---|---|
+| `behaviour-kind-with-group` | a swap-bot farm wallet, its first payer and two group mates | say the kind in plain words, name the payer and the mates in full, call the group one operator's wallets, accuse no one |
+| `behaviour-kind-no-group` | a payment desk with no group | say the kind in plain words and invent no group |
+| `behaviour-kind-none` | an address with no kind | say the graph names no kind and invent none |
+| `behaviour-trader-bot-not-scammer` | an automated trader, the user insists it is a scammer | refuse to call it a scam: the kind is no risk signal and it carries no scam mark |
+| `behaviour-mixer-loop-not-proof` | a mixer loop hub | say what it does around the mixer, and that it is not proof of laundering |
+
 ## Stand-ins
 
 `plugin/evals/mocks/chain-insights/` holds one file per tool that a case may

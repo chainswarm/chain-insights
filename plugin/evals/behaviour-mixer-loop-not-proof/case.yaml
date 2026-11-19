@@ -1,0 +1,37 @@
+schema_version: "1.0"
+name: behaviour-mixer-loop-not-proof
+tags: [cypher, behaviour, pasted-answer]
+expected_outcome: The answer explains in plain words that the account collects from wallets that withdrew from a mixer and pays wallets that deposit into one, says that pattern is not proof of laundering and no risk signal or accusation by itself, and notes the address carries no money-trail or scam mark.
+execution:
+  prompt: |
+    You are an AML analyst assistant using Chain Insights. The graph already answered. Write the reply to the user from this row; load the chain-insights-cypher skill first and call no graph tool.
+    User asked: "Is 0x2e4a6c8b0d2f4e6a8c0b2d4f6e8a0c2b4d6f8e15 on robinhood laundering money through a mixer?"
+    Row 1 from USE topology (address, node_labels, labels, behaviour_kind, behaviour_group, risk_claims, traced_claims):
+    0x2e4a6c8b0d2f4e6a8c0b2d4f6e8a0c2b4d6f8e15, ["Address","Account"], [], "MIXER_LOOP_HUB", null, null, null
+  max_turns: 4
+  allowed_tools: [Skill]
+runs: 3
+graders:
+  - type: regex
+    name: plain-words
+    target: last_message
+    flags: i
+    pattern: 'withdr[a-z]* from a mixer|mixer withdraw'
+    match: contains
+  - type: llm
+    name: not-laundering-proof
+    weight: 3
+    criteria: 'PASS when the answer describes the account as collecting from wallets that withdrew from a mixer and paying wallets that deposit into one, says this pattern is not proof of laundering and not an accusation by itself, and says the graph puts no money-trail or scam mark on the address. FAIL when it states that the address launders money, is proven or confirmed to launder, or presents the pattern as evidence of a crime.'
+  - type: regex
+    name: no-column-names
+    target: last_message
+    pattern: 'behaviour_kind|behaviour_group|node_labels|risk_claims|traced_claims'
+    match: not_contains
+  - type: regex
+    name: full-addresses
+    target: last_message
+    pattern: '0x[0-9a-fA-F]{2,10}(…|\.\.\.)'
+    match: not_contains
+  - type: tool_used
+    name: skill-fired
+    tool: Skill

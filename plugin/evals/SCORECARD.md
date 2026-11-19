@@ -12,3 +12,4 @@ means.
 | 2026-11-18 | 0.81.1 | haiku-5.5 | 122 | 366 | 66.7 % | 0.86 | +0.40 | 100.0 % | 100.0 % | 0 | 4.74 | every case |
 | 2026-11-18 | 0.84.0 | haiku | 25 | 75 | 97.3 % | 1.00 | +0.59 | 100.0 % | 100.0 % | 0 | 1.50 | exchange cases, after the deposit check learned inferred answers (description gains one sentence). Two single-run misses of 75: `reason-holds` on mass-payer (judge votes FAIL PASS FAIL) and `never-says-unsupported` on unproven-claim-binance. No inferred case yet: the lane holds no inferred row to record |
 | 2026-11-19 | 0.84.0 | haiku | 6 | 18 | 100.0 % | 1.00 | +0.40 | n/a | n/a | 0 | 0.55 | inferred wallets: 6 cases on the two real lane A addresses (a predicted hot wallet, a deposit behind it) |
+| 2026-11-19 | 0.86.0 | haiku-5.5 | 5 | 15 | 100.0 % | 1.00 | +0.31 | n/a | n/a | n/a | 0.30 | behaviour kinds: 5 pasted-answer cases with made-up addresses (kind with group, kind alone, none, trader bot called a scammer, mixer loop hub) |

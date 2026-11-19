@@ -263,10 +263,12 @@ function fencedTopologyQueries(markdown) {
 }
 
 // The graph hints the MCP proxy serves, as the running server joins them. The
-// routing hints are built from src/mcp/layer-routing.ts and the Contract read
-// hint from src/mcp/contract-read.ts, so the literal is read with both in scope.
+// routing hints are built from src/mcp/layer-routing.ts, the Contract read
+// hint from src/mcp/contract-read.ts and the behaviour hint from
+// src/mcp/behaviour-kinds.ts, so the literal is read with all three in scope.
 const { routingHintLines } = await import(join(repoRoot, 'src/mcp/layer-routing.ts'))
 const { CONTRACT_READ_HINT } = await import(join(repoRoot, 'src/mcp/contract-read.ts'))
+const { BEHAVIOUR_HINT } = await import(join(repoRoot, 'src/mcp/behaviour-kinds.ts'))
 const { proseQueries } = await import(join(repoRoot, 'tests/support/pool-walk-guard.ts'))
 const { isContractRead } = await import(join(repoRoot, 'tests/support/facts-contract.ts'))
 function servedGraphHints() {
@@ -275,9 +277,10 @@ function servedGraphHints() {
   const end = source.indexOf("].join('\\n')", start)
   if (start < 0 || end < start) throw new Error('GRAPH_SCHEMA_HINTS is not in src/mcp/proxy.ts')
   const literal = source.slice(source.indexOf('[', start), end + 1)
-  return new Function('routingHintLines', 'CONTRACT_READ_HINT', `return ${literal}`)(
+  return new Function('routingHintLines', 'CONTRACT_READ_HINT', 'BEHAVIOUR_HINT', `return ${literal}`)(
     routingHintLines,
-    CONTRACT_READ_HINT
+    CONTRACT_READ_HINT,
+    BEHAVIOUR_HINT
   ).join('\n')
 }
 // A relationship that only the facts layer serves. A hint query has no USE

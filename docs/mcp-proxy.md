@@ -356,6 +356,14 @@ never search the web), the `graph_query` description sends a named token to
 it, and the core skill `chain-insights-cypher` repeats it as a row of its
 question table.
 
+The behaviour kinds of busy accounts (`behaviour_kind`, `behaviour_group`)
+take the path of the judgement marks. The `graph_query` description carries
+every kind in plain words and the rule: a behaviour kind describes automation
+or volume, it is not a risk signal by itself, and an answer never presents it
+as an accusation. The server instructions and `meta_schema` say the same, and
+the core skill repeats it in its section "Behaviour kinds".
+`tests/behaviour-kinds.test.ts` holds every surface to it.
+
 A host that loads skills gets both. A host that loads none gets the door.
 `tests/host-parity.test.ts` checks it: every
 `skills/chain-insights-<protocol>/SKILL.md` has a door, the door is in

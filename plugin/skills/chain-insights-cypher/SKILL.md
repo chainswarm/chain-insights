@@ -235,6 +235,7 @@ Marks say what an address is. They sit beside the kind and are never an anchor:
   RETURN w.swap_count AS swap_count, w.sold_usd AS sold_usd, w.bought_usd AS bought_usd, w.pools AS pools LIMIT 1
   ```
 - `:Scam` (`is_scam`), `:Poisoned`, `:Victim` (`is_victim`), `:Targeted` and `:OnMoneyTrail` are judgement marks from the labels layer. Why the mark is there sits in a sorted list on the node: `risk_claims` beside `:Scam`, `:Poisoned` and `:Sanctioned`, `protection_claims` beside `:Victim` and `:Targeted`, `traced_claims` beside `:OnMoneyTrail`. `suspect_labels` holds a warning or a record that accuses nobody: the address used a mixer pool, or it is a token that copies a listed token's name. It has no mark of its own. See [Judgement marks](#judgement-marks-scams-victims-and-trails).
+- `behaviour_kind` and `behaviour_group` are no marks: two properties on a busy account, how it behaves and its operator group. See [Behaviour kinds](#behaviour-kinds-busy-accounts-and-their-operator-groups).
 - A basket is a Robinhood stock-basket token: one token that holds several stock tokens in near-equal USD weights. One factory, `0xe78b036bd6da158cd61a3dac3f67e18f62ecddfd`, creates every basket, and one router, `0xb672a5d825f82dea8574711d1da696fcc48d2ae0`, mints and redeems them. A basket is `:Protocol` and `:Token`, and its `labels` carry the word `Basket`. The factory is `:Protocol` and its `labels` carry `BasketFactory`. The router has no mark of its own beyond `:Contract`. See [Baskets](#baskets-is-this-a-basket-and-what-does-it-trade).
 
 **Ask by mark.** A question that names a kind of thing (mixers, launchpad pools, NFT collections, tokens of one standard, arbitrage bots) is a label match on the mark, a probe the server answers from the label index: nine `:Mixer` rows come back in 13 ms, a count of 2.4 million `:Token` in 4 s.
@@ -350,6 +351,59 @@ MATCH (v:Victim)-[p:APPROVED]->(d:Address {address: "0x1111111111111111111111111
 WHERE "VICTIM" IN v.protection_claims
 RETURN v.address AS victim_address, p.granted_tokens AS granted_tokens, p.last_height AS last_height LIMIT 25
 ```
+
+### Behaviour kinds: busy accounts and their operator groups
+
+A busy account can carry `behaviour_kind`: how it behaves, from a rule over one week of its own on-chain counts. The rule reads accounts with 200 or more payers plus receivers in the week that no other label names. Every other address has none. The kind goes when the account goes quiet. It is a counted fact about the account, not a model's guess: never call it inferred.
+
+A behaviour kind describes automation or volume, it is not a risk signal by itself; say so, and never present it as an accusation.
+
+Say the kind in its plain words, never the constant alone:
+
+| Kind | Say |
+| --- | --- |
+| `SWAP_BOT_FARM_WALLET` | one wallet of a swap-bot farm: takes funds from hundreds of brand-new wallets, swaps through a router, pays hundreds of other brand-new wallets |
+| `DEX_TRADER_BOT` | an automated trader: most of its transfers touch pools or routers and it swaps hundreds of times a week |
+| `VOLUME_RING_HUB` | the hub of a volume ring: pays a standing set of its own wallets, which pay it back |
+| `WALLET_FARM_CONTROLLER` | funds hundreds of brand-new wallets in a burst and sweeps them back |
+| `FIXED_AMOUNT_DISTRIBUTOR` | pays one fixed amount to hundreds of wallets that never pay back |
+| `MIXER_LOOP_HUB` | collects from wallets that withdrew from a mixer and pays wallets that deposit into one |
+| `PAYOUT_DESK` | payers and receivers are different people, active almost every hour of the week: the shape of a payment desk |
+
+`behaviour_group` is `<behaviour_kind>:<first payer address>`: 3 or more accounts of one kind whose first ever payer is that address, one operator's wallets. It is absent when the account is in no group, and never there without the kind.
+
+How to answer:
+
+- A trader bot is no scammer. A user who asks "is this bot a scam" gets the kind in plain words, the sentence above, and the judgement marks of the address: a scam is a `:Scam` mark with its `risk_claims`, never a behaviour kind.
+- `MIXER_LOOP_HUB` is a pattern of payments around a mixer, not proof of laundering. Say what the account does, and name a laundering trail only when `:OnMoneyTrail` says so.
+- A kind is no mark and no word in `labels`. A judgement mark on the same address is read and said on its own.
+- When the first payer of a group is an exchange wallet (`is_exchange`), a `:Pool` or a `:Protocol` contract, the group is the accounts it funded first, not one operator: say that, and send no members read.
+
+What kind is this address, and in which group? One read, anchored on the address:
+
+```cypher
+USE topology
+MATCH (a:Address {address: "0x1111111111111111111111111111111111111111"})
+RETURN a.address AS address, labels(a) AS node_labels, a.labels AS labels, a.behaviour_kind AS behaviour_kind, a.behaviour_group AS behaviour_group, a.risk_claims AS risk_claims LIMIT 1
+```
+
+Its group mates, or the members of a group someone names: the first payer is the address after the colon in `behaviour_group`. Read the payer first, anchored on it:
+
+```cypher
+USE topology
+MATCH (p:Address {address: "0x2222222222222222222222222222222222222222"})
+RETURN p.address AS address, labels(p) AS node_labels, p.labels AS labels, p.is_exchange AS is_exchange, p.degree_out AS receivers LIMIT 1
+```
+
+Then its receivers that carry the group, anchored on the payer. Every member's first payment came from it, so each member is one of its receivers. Write the group in full, the kind and the 42-character address:
+
+```cypher
+USE topology
+MATCH (p:Address {address: "0x2222222222222222222222222222222222222222"})-[f:FLOWED_TO]->(b:Address) WHERE NOT p:Pool AND b.behaviour_group = "DEX_TRADER_BOT:0x2222222222222222222222222222222222222222"
+RETURN p.address AS from_address, b.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, p.labels AS from_labels, b.labels AS to_labels, p.is_exchange AS from_is_exchange, b.is_exchange AS to_is_exchange ORDER BY f.first_seen_timestamp LIMIT 25
+```
+
+When 25 rows come back, say there may be more members. Never write `MATCH (a:Address) WHERE a.behaviour_kind = ...` or a `WHERE` on `behaviour_group` with no address: neither is a mark, the read has no anchor and the server refuses it. A question for every account of one kind gets the same answer as a whole-chain search: ask for an address, a group or its first payer.
 
 ## Topology
 

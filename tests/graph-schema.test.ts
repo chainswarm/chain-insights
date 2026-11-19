@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { BEHAVIOUR_SCHEMA_NOTE } from '../src/mcp/behaviour-kinds.js'
 import { PaymentRequiredError } from '../src/mcp/client.js'
 import {
   ADDRESS_SAMPLE_LIMIT,
@@ -300,6 +301,26 @@ describe('the graph schema built from the recorded catalog answers', () => {
     expect(document.notes).toContain(EXCHANGE_SCHEMA_NOTE)
     expect(EXCHANGE_SCHEMA_NOTE).toContain('deposit, hot_wallet, cold_wallet, withdrawal')
     expect(formatGraphSchemaText(document)).toContain(EXCHANGE_SCHEMA_NOTE)
+  })
+
+  it('notes the behaviour kinds on a graph that serves behaviour_kind, and only there', async () => {
+    // The recorded catalog with the key behaviour_kind added, as a graph whose
+    // labels layer writes the behaviour kinds serves it.
+    const withRows = (key: string, extra: Record<string, unknown>[]) => {
+      const reply = replyFor(key) as { structuredContent: { facts: { query: { results: unknown[] } } } }
+      const structured = structuredClone(reply.structuredContent)
+      structured.facts.query.results = [...structured.facts.query.results, ...extra]
+      return { content: [{ type: 'text', text: JSON.stringify(structured) }], structuredContent: structured }
+    }
+    const { client } = fakeClient((key) =>
+      key === PROPERTY_KEYS ? withRows(key, [{ propertyKey: 'behaviour_kind' }]) : undefined
+    )
+    const { document } = await buildGraphSchema({ client, network: 'robinhood', now: () => T0 })
+    expect(document.notes).toContain(BEHAVIOUR_SCHEMA_NOTE)
+    expect(formatGraphSchemaText(document)).toContain(BEHAVIOUR_SCHEMA_NOTE)
+
+    const plain = await buildGraphSchema({ client: fakeClient().client, network: 'robinhood', now: () => T0 })
+    expect(plain.document.notes).not.toContain(BEHAVIOUR_SCHEMA_NOTE)
   })
 
   it('names no exchange sweeps on a graph that serves neither SWEPT nor cex_role', async () => {
