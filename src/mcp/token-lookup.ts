@@ -393,6 +393,14 @@ function hintFor(
         'each took a symbol that a verified token already carried. That is a copy of the name. A copied name alone is not proof of a scam.'
     )
   }
+  if (later && later.at_least) {
+    parts.push(
+      `This answer does not list every contract first seen after the verified contract ${later.verified_contract}` +
+        `${matches === null ? ': it lists the oldest only' : ''}. How many were made after it is not known from this answer` +
+        `${later.count === 0 ? ', and a list that shows none does not mean none exist' : ''}. ` +
+        'Never answer that none, or no contract, was created after it; say the list holds the oldest contracts and the later ones are not in it.'
+    )
+  }
   if (creatorsNotRead) {
     parts.push(
       `The creators were not read for ${creatorsNotRead}. creator and factory are empty there because the read failed, ` +
