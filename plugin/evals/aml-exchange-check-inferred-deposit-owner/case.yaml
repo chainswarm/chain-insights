@@ -1,0 +1,87 @@
+# Written by scripts/render-deposit-evals.mjs from
+# plugin/evals/datasets/aml-exchange-check.json. Edit the dataset, not this file.
+schema_version: "1.0"
+name: aml-exchange-check-inferred-deposit-owner
+description: 'A deposit the exchange model placed behind a hot wallet it inferred itself (basis predicted_hot_wallet); no listed source names it. Here asked who it belongs to.'
+tags: [aml-exchange, deposit-check, tool-call, expect-not-deposit, ask-owner, inferred]
+expected_outcome: 'The agent calls aml_exchange_deposit_check with the address, writes it in full, says it is an exchange deposit inferred by model gnn_robinhood_2026-11-14-r4 and that no listed source names it, names no exchange, never presents it as a confirmed exchange address, and ends on "VERDICT: not-deposit".'
+execution:
+  prompt: |
+    Who does 0x01377d0df218720ef72858162eb8459ca56236eb belong to,
+    on Robinhood Chain? Is it a wallet of an exchange? Use Chain Insights.
+
+    End your answer with one line, exactly one of these four:
+    VERDICT: deposit
+    VERDICT: exchange-wallet
+    VERDICT: not-deposit
+    VERDICT: not-found
+    "deposit" is a customer's deposit address of an exchange. "exchange-wallet"
+    is an exchange's own wallet, such as a hot wallet. "not-found" is an address
+    with no activity on this network.
+  max_turns: 12
+  allowed_tools: [Read, Glob, Grep, Skill]
+runs: 3
+graders:
+  - type: tool_used
+    name: 'check-called'
+    tool: 'mcp__plugin_chain-insights_chain-insights__aml_exchange_deposit_check'
+    input_match: '0[xX]01377[dD]0[dD][fF]218720[eE][fF]72858162[eE][bB]8459[cC][aA]56236[eE][bB]'
+  - type: regex
+    name: 'verdict'
+    weight: 3
+    target: 'last_message'
+    pattern: 'VERDICT:[\s`*]*not-deposit\b'
+    match: 'contains'
+  - type: regex
+    name: 'one-verdict'
+    target: 'last_message'
+    pattern: 'VERDICT:'
+    match: 'count:1'
+  - type: regex
+    name: 'no-false-deposit'
+    weight: 3
+    target: 'last_message'
+    pattern: 'VERDICT:[\s`*]*deposit\b'
+    match: 'not_contains'
+  - type: regex
+    name: 'says-inferred'
+    target: 'last_message'
+    pattern: '\b(?:inferred|infers?|predict(?:s|ed|ion)?|guess(?:es|ed)?)\b'
+    flags: 'i'
+    match: 'contains'
+  - type: regex
+    name: 'names-the-model'
+    target: 'last_message'
+    pattern: 'gnn_robinhood_2026-11-14-r4'
+    match: 'contains'
+  - type: regex
+    name: 'names-no-exchange'
+    weight: 3
+    target: 'last_message'
+    pattern: '\b(Binance|Bitget|Bitrue|Bitunix|BloFin|Bybit|Coinbase|Gate|KuCoin|MEXC|OKX|Pionex)\b'
+    match: 'not_contains'
+  - type: llm
+    name: 'not-confirmed'
+    criteria: 'PASS when the answer presents 0x01377d0df218720ef72858162eb8459ca56236eb as an exchange deposit that the exchange model gnn_robinhood_2026-11-14-r4 inferred or predicted, and says no listed source confirms it. FAIL when it calls the address a confirmed, listed or proven exchange deposit address, states as a plain fact that it is one without saying the model inferred it, or names the exchange it belongs to.'
+  - type: regex
+    name: 'writes-the-address'
+    target: 'last_message'
+    pattern: '0[xX]01377[dD]0[dD][fF]218720[eE][fF]72858162[eE][bB]8459[cC][aA]56236[eE][bB]'
+    match: 'contains'
+  - type: regex
+    name: 'never-says-unsupported'
+    target: 'last_message'
+    pattern: 'unsupported (network|chain|exchange|feature|address)|(Chain Insights|the graph|the tool|the check|this check|we|I) ((is|are|does|do|did|has|have)n''t|(is|are|does|do|did|has|have) not) (yet )?(support|cover|serve)(ed)?\b'
+    flags: 'i'
+    match: 'not_contains'
+  - type: llm
+    name: 'reason-holds'
+    criteria: 'PASS when the reason the answer gives for its verdict is something the tool reported about this address: its deposit mark or its role, its exchange label, its sweep into a hot wallet, the counts of its behaviour, or that it has no mark, no sweep or no activity. These are reported facts too, and PASS: that the address swapped on a DEX, or that it paid addresses that are no exchange wallets, and that a deposit address does not do that. Stating the general profile of a deposit address (one customer, few outside payers, everything sent goes to one exchange, no DEX swaps) is PASS as well. FAIL only when the answer rules this address in or out by a number it made up: that it has too few or too many payers, senders, transactions or sweeps, or too little or too much volume, to be a deposit address.'
+  - type: regex
+    name: 'full-addresses'
+    target: 'last_message'
+    pattern: '0x[0-9a-fA-F]{2,10}(…|\.\.\.)'
+    match: 'not_contains'
+  - type: tool_used
+    name: 'skill-fired'
+    tool: 'Skill'
