@@ -2,8 +2,9 @@ import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// The golden mark set and its reader, shared by the T1 fixture test and the
-// live marks test. See tests/graph-marks-golden.test.ts.
+// The golden mark set and its reader, used by the T1 fixture test. The read
+// against a lane is chain-insights-validator's. See
+// tests/graph-marks-golden.test.ts.
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 

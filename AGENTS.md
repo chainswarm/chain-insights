@@ -33,11 +33,24 @@ risk screening and fund-flow tracing.
   zero `:Identity` nodes — every trace failed as "unresolved" with no
   indication `dist/` itself was the problem, not the data). `npm test`
   does not rebuild `dist/` either — only `npm run build` does.
-- Before finishing changes, run:
-  - `npm run typecheck`
-  - `npm run build`
-  - `npm test`
-  - `npm run release:check`
+- Before finishing changes, run `bash ci/lint.sh` and `bash ci/t1.sh`
+  (typecheck, build, the unit tests with coverage), then
+  `npm run release:check`. On the workstation every test run goes through
+  AP1000 `scripts/test-sandbox.sh`, never against the real home.
+
+## Testing
+
+- Every test is a unit test: it runs in memory, with committed fixtures.
+  No test asks for a server or a chain node (AP1000 change
+  `validator-agents-replace-integration-tests`, 2026-11-20).
+- `ci/lint.sh` refuses a `*.integration.test.ts` or `*.t2.test.ts` file and
+  a test that reads `CHAIN_INSIGHTS_LIVE_*`, `CHAIN_INSIGHTS_T2`,
+  `ANVIL_BIN` or `STARROCKS_*`, or starts anvil.
+- There is no start-up smoke: the package runs no StarRocks.
+- What a lane serves (the exchange registry rows, the golden marks, the
+  documented recipes) and what a buy does on chain are judged on the
+  staging lane by chain-insights-validator. A change that needs a new check
+  names it in its pull request. Detail: `docs/testing.md`.
 
 ## Exchanges
 
@@ -80,10 +93,8 @@ An exchange (DEX) reaches every host through one served file and one tool.
   `node scripts/sync-plugin-skills.mjs`; `tests/plugin.test.ts` fails on drift.
 - Every trail skill keeps one shared rule: a contract recipient (a router, a
   pool manager) is never the buyer.
-- The live suites are `tests/dex-registry-live.integration.test.ts` and
-  `tests/graph-recipes-live.integration.test.ts`. Run them per release with
-  `vitest --project integration`, `CHAIN_INSIGHTS_LIVE_GRAPH_MCP_ENDPOINT` and
-  `CHAIN_INSIGHTS_LIVE_GRAPH_MCP_TOKEN`. They never run in the push gate.
+- Every registry row is read against the staging lane's graph by
+  chain-insights-validator (`docs/testing.md`), not by a test here.
 
 ## Centralized exchanges
 

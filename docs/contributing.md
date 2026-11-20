@@ -91,10 +91,9 @@ git diff --check
 
 ### CI Gotchas
 
-- `verify.yml` runs on every pull request and every push to `main`, on the
-  self-hosted `chainswarm-runner` runners. Its three tiers are the files
-  under `ci/` (`t1.sh`, `lint.sh`, `build.sh`), so `bash ci/t1.sh` runs the
-  same gate locally.
+- `verify.yml` runs by hand and before a release, never on a pull request.
+  Its three jobs are the files under `ci/` (`t1.sh`, `lint.sh`, `build.sh`),
+  so `bash ci/t1.sh` runs the same check locally. See `docs/testing.md`.
 - Repo CI has a release gate blocking non-release PRs and a secret scan
   flagging `0x{64}` hex. Avoid committing 64-hex strings.
 - UATs expecting unprefixed tool names (`address_risk`, `trace_funds`, …)

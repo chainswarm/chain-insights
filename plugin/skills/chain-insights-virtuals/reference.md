@@ -280,4 +280,4 @@ Ask for every launchpad pool by the two marks, never by a text match over `label
 USE topology MATCH (p:Pool:Launchpad) RETURN p.address AS address, labels(p) AS node_labels, p.labels AS labels LIMIT 25
 ```
 
-The core skill's golden set (`tests/fixtures/graph-marks-golden.json`) pins these rows and the live test reads them on every release.
+The core skill's golden set (`tests/fixtures/graph-marks-golden.json`) pins these rows, and chain-insights-validator reads them on the staging lane.

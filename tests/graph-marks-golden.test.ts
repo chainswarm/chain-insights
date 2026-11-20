@@ -10,12 +10,12 @@ const addressCard = JSON.parse(
 // The marks the card gives (Exchange, Deposit, HotWallet, Scam, Victim) are served too.
 const MARKS: string[] = [...SERVED_MARKS, ...addressCard.marks.map((mark) => mark.name)]
 
-// The golden mark set (tests/fixtures/graph-marks-golden.json) is what the
-// live marks test and the AP1000 UAT script read. This T1 test keeps the file
+// The golden mark set (tests/fixtures/graph-marks-golden.json) is what
+// chain-insights-validator and the AP1000 UAT script read on a lane. This T1 test keeps the file
 // itself honest: every row is a full lower-case address with a source
 // permalink and a since block, every mark is one the graph serves, and the
-// count floors cover every mark family. The live read is
-// tests/graph-marks-live.integration.test.ts.
+// count floors cover every mark family. The read against a lane is
+// chain-insights-validator's (docs/testing.md).
 
 describe('the golden mark set', () => {
   const golden = readGolden()
