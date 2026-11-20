@@ -11,6 +11,12 @@
 #   3. the secret egress scan over the code files this branch changes
 #      against the base (origin/main, or RELEASE_GATE_BASE_REF); on the base
 #      itself nothing changed and the scan passes
+#   4. no test asks for a server or a chain node: no `*.integration.test.ts`
+#      or `*.t2.test.ts` file, no test that reads a CHAIN_INSIGHTS_LIVE_*,
+#      CHAIN_INSIGHTS_T2, ANVIL_BIN or STARROCKS_* setting or starts anvil.
+#      What a lane serves is judged on the staging lane by
+#      chain-insights-validator (AP1000 change
+#      validator-agents-replace-integration-tests).
 #
 # The budget covers the three checks; the install sits outside it.
 #
@@ -93,6 +99,19 @@ for f in "${changed_files[@]+"${changed_files[@]}"}"; do
     exit 1
   fi
 done
+
+echo "lint: no test asks for a server or a chain node"
+server_tests="$(
+  {
+    find tests -name '*.integration.test.ts' -o -name '*.t2.test.ts'
+    grep -rlE "CHAIN_INSIGHTS_LIVE_|CHAIN_INSIGHTS_T2|ANVIL_BIN|STARROCKS_|spawn\\(anvil|['\"]anvil['\"]" tests || true
+  } | sort -u
+)"
+if [ -n "$server_tests" ]; then
+  printf '  %s\n' $server_tests
+  echo "These tests ask for a server or a chain node; chain-insights-validator judges the lane instead." >&2
+  exit 1
+fi
 
 seconds=$(( $(date +%s) - start ))
 echo "LINT test phase: ${seconds}s (budget ${budget}s)"

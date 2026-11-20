@@ -4,11 +4,14 @@ import type { SubscriptionStatusFacts } from '../src/mcp/subscription-status.js'
 import {
   assertConfirmable,
   confirmText,
+  executeBuy,
   planBuy,
   waitForGrant,
+  type BuyChain,
   type BuyState,
 } from '../src/subscription/buy.js'
 import { quoteForDays } from '../src/subscription/quote.js'
+import { CIA_TOKEN_ADDRESS } from '../src/wallet/robinhood.js'
 
 const WALLET = '0x00000000000000000000000000000000000000aa'
 const SINK = '0x67a8c068cc762e371706ea6c399178171f92810d'
@@ -211,5 +214,104 @@ describe('cia subscription buy: the wait for the grant', () => {
     })
     expect(clock.elapsed()).toBe(120_000)
     expect(reads).toBe(24)
+  })
+})
+
+// The order of one buy, over the answers its chain gives. The chain is the
+// buy's own seam, answered in memory: what the sink contract does with a
+// deposit is judged on the staging lane by chain-insights-validator, never here.
+describe('cia subscription buy: the order of one run', () => {
+  const KEY = `0x${'11'.repeat(32)}` as const
+  // 1 day at 0.01 USD per $CIA is 400 $CIA.
+  const PRICE = { usd: '0.01', updatedAt: new Date('2026-10-28T09:58:00Z') }
+  const ONE_DAY = cia('400')
+  const APPROVE_TX = `0x${'a1'.repeat(32)}`
+  const DEPOSIT_TX = `0x${'d1'.repeat(32)}`
+
+  type Sent = { approve: number; deposit: number }
+  function chainOf(answers: {
+    allowance?: bigint
+    approveStatus?: 'success' | 'reverted'
+    depositStatus?: 'success' | 'reverted'
+    received?: { from: string; token: string; amount: bigint } | null
+  }): { chain: BuyChain; sent: Sent } {
+    const sent: Sent = { approve: 0, deposit: 0 }
+    const chain: BuyChain = {
+      readCiaBalance: async () => cia('1000'),
+      readEthBalance: async () => parseUnits('0.001', 18),
+      readAllowance: async () => answers.allowance ?? 0n,
+      approve: async () => {
+        sent.approve++
+        return { txHash: APPROVE_TX, status: answers.approveStatus ?? 'success' }
+      },
+      deposit: async (_key, amount) => {
+        sent.deposit++
+        return {
+          txHash: DEPOSIT_TX,
+          status: answers.depositStatus ?? 'success',
+          received:
+            answers.received === undefined ? { from: WALLET, token: CIA_TOKEN_ADDRESS, amount } : answers.received,
+        }
+      },
+    }
+    return { chain, sent }
+  }
+
+  function buy(chain: BuyChain) {
+    let reads = 0
+    const clock = fakeClock()
+    const run = executeBuy({
+      account: { address: WALLET, privateKey: KEY },
+      days: 1,
+      chain,
+      readStatus: async () => (reads++ === 0 ? anonymous : granted('2026-10-29T10:00:00Z', 1)),
+      fetchPrice: async () => PRICE,
+      confirm: async () => true,
+      now: clock.now,
+      sleep: clock.sleep,
+    })
+    return { run, reads: () => reads }
+  }
+
+  it('approves, then deposits, then reads the grant', async () => {
+    const { chain, sent } = chainOf({})
+    const result = await buy(chain).run
+    expect(sent).toEqual({ approve: 1, deposit: 1 })
+    expect(result).toMatchObject({ approve_tx: APPROVE_TX, deposit_tx: DEPOSIT_TX, amount_cia: '400' })
+    expect(result.grant).toMatchObject({ outcome: 'granted', window_end: '2026-10-29T10:00:00Z' })
+    expect(result.deposit_url).toBe(`https://robin.etherscan.io/tx/${DEPOSIT_TX}`)
+  })
+
+  it('sends one transaction when the allowance covers the amount', async () => {
+    const { chain, sent } = chainOf({ allowance: ONE_DAY })
+    const result = await buy(chain).run
+    expect(sent).toEqual({ approve: 0, deposit: 1 })
+    expect(result.approve_tx).toBeNull()
+  })
+
+  it('a failed approval sends no deposit', async () => {
+    const { chain, sent } = chainOf({ approveStatus: 'reverted' })
+    await expect(buy(chain).run).rejects.toThrow('The approval failed on chain')
+    expect(sent).toEqual({ approve: 1, deposit: 0 })
+  })
+
+  it('a reverted deposit stops before the grant is read', async () => {
+    const { chain } = chainOf({ allowance: ONE_DAY, depositStatus: 'reverted' })
+    const run = buy(chain)
+    await expect(run.run).rejects.toThrow('The payment failed on chain')
+    expect(run.reads()).toBe(1)
+  })
+
+  it('a receipt that does not show this wallet paying the amount says not to pay again', async () => {
+    for (const received of [
+      null,
+      { from: SINK, token: CIA_TOKEN_ADDRESS, amount: ONE_DAY },
+      { from: WALLET, token: CIA_TOKEN_ADDRESS, amount: ONE_DAY - 1n },
+    ]) {
+      const { chain } = chainOf({ allowance: ONE_DAY, received })
+      const run = buy(chain)
+      await expect(run.run).rejects.toThrow('Do not pay again')
+      expect(run.reads()).toBe(1)
+    }
   })
 })

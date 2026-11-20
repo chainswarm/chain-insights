@@ -1,12 +1,18 @@
 name: Verify
 
-# Three tiers, each one file under ci/, the same file the local merge gate
-# runs on the agent's host (AP1000 change local-ci-gate, C1):
+# Each job runs one file under ci/, the same file the workstation runs
+# before a merge:
 #
 #   T1     ci/t1.sh     typecheck, build, vitest with coverage   180 s
-#   T2     ci/t2.sh     vitest t2 project against anvil          600 s
-#   lint   ci/lint.sh   oxlint, secret pattern scan, egress scan 120 s
+#   lint   ci/lint.sh   oxlint, secret scans, no test that asks  120 s
+#                       for a server or a chain node
 #   build  ci/build.sh  build, publint, attw, release gate, pack
+#
+# No test here reaches a server or a chain node, and there is no start-up
+# smoke: the package runs no StarRocks. What the served graph answers and
+# what a buy does on chain are judged on the staging lane by
+# chain-insights-validator (AP1000 change
+# validator-agents-replace-integration-tests).
 #
 # A tier prints "<TIER> test phase: <n>s (budget <m>s)" and fails over its
 # budget. ci/manifest.json names the tiers.
@@ -72,23 +78,6 @@ jobs:
           name: coverage-lcov
           path: .ci/t1/lcov.info
           if-no-files-found: ignore
-
-  t2:
-    name: T2 (anvil)
-    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-latest' || fromJSON('["self-hosted","chainswarm-runner","X64"]') }}
-    timeout-minutes: 20
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup Node
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 22
-
-      - name: T2
-        run: bash ci/t2.sh
 
   lint:
     name: lint

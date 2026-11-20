@@ -19,8 +19,8 @@ import { readAdapters, readRegistry, repoRoot, TRAIL_TYPES } from './dex-registr
 // registry/robinhood.json its served copy, which the proxy tool meta_dex_lookup
 // fetches and the skill memo renders from. This T1 test keeps the table and the
 // copy equal (the pin check CI runs), keeps the copy honest, and keeps the memo
-// the skills carry equal to the copy. The live read of every row is
-// tests/dex-registry-live.integration.test.ts.
+// the skills carry equal to the copy. Every row is read against the staging
+// lane's graph by chain-insights-validator (docs/testing.md).
 
 const ADDRESS = /^0x[0-9a-f]{40}$/
 const SOURCE = /^https:\/\/\S+$/

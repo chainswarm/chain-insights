@@ -135,10 +135,10 @@ node scripts/render-dex-registry.mjs --check   # exit 1 when a memo table differ
   rows: every adapter in order, the lowest block, the first source;
 - `example_pool` and `pool_floor` are `null` when the exchange gives none.
 
-The release suite `tests/dex-registry-live.integration.test.ts` reads every
-row against a live graph per release candidate: every factory, manager and
-router is a contract, every factory with a pool floor shows at least that many
-pools, and every example pool is a `:Pool` deployed by its factory.
+chain-insights-validator reads every row against the staging lane's graph:
+every factory, manager and router is a contract, every factory with a pool
+floor shows at least that many pools, and every example pool is a `:Pool`
+deployed by its factory (`docs/testing.md`).
 
 ## Centralized exchanges
 
