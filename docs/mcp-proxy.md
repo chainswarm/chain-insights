@@ -107,6 +107,20 @@ note, and such a schema is kept for 10 minutes, not 24 hours. In the terminal,
 structured form and `--refresh` to rebuild it.
 `cia mcp call meta_schema network=robinhood` does the same.
 
+The answer also lists the address card, the one card the graph writes on every
+`:Address` node: each card property with its type, the question it answers,
+its meaning and its closed values, and each mark and flag with the card words
+that give it (`address_card` in the structured form). The description carries
+the card's one rule: read the address card (identity, address_roles,
+behaviour, evidence, judgements, risk), not the labels list. The dictionary is
+the public file [`registry/address-card.json`](../registry/address-card.json),
+generated from the label vocabulary and never edited by hand. It is read like
+the exchange lookup: from `main` over `raw.githubusercontent.com`, cached one
+hour in `~/.chain-insights/cache/address-card.json`, the packaged copy when the
+fetch fails. A malformed file is refused with one line in the proxy log and
+the packaged copy answers. `CHAIN_INSIGHTS_ADDRESS_CARD_URL` points the
+proxy at another copy. The card is not part of the 24-hour schema cache.
+
 `meta_dex_lookup` turns the name of a decentralized exchange, a launchpad or a
 vault into its addresses. It takes `network` (required), `name` (optional:
 with no name it lists every covered exchange) and `pools` (default `true`).

@@ -15,9 +15,23 @@ export type GoldenMarkRow = {
   /** Role words the node's `labels` property must carry (Basket, BasketFactory). Optional. */
   words?: string[]
   token_standard?: string
+  /**
+   * A subset of the address card the node must carry (registry/address-card.json).
+   * A listed string property must be equal, a listed list property must contain
+   * every listed entry; a property the row does not list is not judged.
+   */
+  card?: GoldenCard
+  /**
+   * `staging`: the row asserts a judgement label (Scam, Victim) or a card mark
+   * (Deposit, HotWallet) that only the staging lane carries, so it is read only
+   * when the live run names that lane.
+   */
+  lane_only?: 'staging'
   since_block: number
   source: string
 }
+
+export type GoldenCard = Record<string, string | string[]>
 
 export type GoldenCountRow = { mark: string; floor: number; lane: string; read_at: string }
 
@@ -51,3 +65,21 @@ export function readGolden(): GoldenFile {
   ) as GoldenFile
 }
 
+
+/** The card problems of one node against a golden row's card: empty when the subset holds. */
+export function cardProblems(card: GoldenCard, served: Record<string, unknown>): string[] {
+  const problems: string[] = []
+  for (const [property, wanted] of Object.entries(card)) {
+    const value = served[property]
+    if (Array.isArray(wanted)) {
+      const list = Array.isArray(value) ? value.map(String) : []
+      const missing = wanted.filter((entry) => !list.includes(entry))
+      if (missing.length) {
+        problems.push(`card ${property} misses ${missing.join(', ')}; served [${list.join(', ')}]`)
+      }
+    } else if (value !== wanted) {
+      problems.push(`card ${property} ${JSON.stringify(value ?? null)} wanted ${wanted}`)
+    }
+  }
+  return problems
+}

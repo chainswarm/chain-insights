@@ -174,3 +174,18 @@ writes the file from the indexer's registry, leaves out every wallet with no
 block, and keeps each exchange's display name and aliases.
 `tests/exchange-registry.test.ts` holds every file to these rules. A row merged
 on `main` reaches every running proxy within one hour.
+
+## The address card
+
+[address-card.json](address-card.json) is the dictionary of the address card,
+the one card the graph writes on every `:Address` node. It lists each card
+property with its type, its question, its meaning and its closed values, each
+mark and each flag with the card words that give it, and the one `rule`: read
+the address card (identity, address_roles, behaviour, evidence, judgements,
+risk), not the labels list.
+
+The file is generated from the label vocabulary and never edited by hand. The
+proxy tool `meta_schema` serves it, read from `main` and cached one hour, with
+the packaged copy offline. `tests/graph-schema-address-card.test.ts` holds the
+answer to the file, and `tests/graph-marks-golden.test.ts` holds the golden
+card rows to it.

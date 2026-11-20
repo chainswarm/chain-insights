@@ -108,6 +108,7 @@ import {
   type ExchangeDepositCheckDependencies,
 } from './exchange-deposit-check.js'
 import { loadExchangeRegistry } from './exchange-registry.js'
+import { loadAddressCard } from './address-card.js'
 
 export const LOCAL_TOOL_NAMES = new Set([
   'meta_network_capabilities',
@@ -1285,6 +1286,12 @@ export async function createProxy(): Promise<void> {
       return fn(remoteClient)
     },
     describeFailure: (err) => remoteCallFailureText('meta_schema', err),
+    loadAddressCard: () =>
+      loadAddressCard({
+        log: (line) => {
+          void logger.info('address_card.fault', { line })
+        },
+      }),
   }
   server.registerTool(
     'meta_schema',

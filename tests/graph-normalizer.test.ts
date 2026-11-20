@@ -224,4 +224,41 @@ describe('normalizeGraphPayload', () => {
       labels: ['Binance', 'exchange', 'validator', 'miner subnet 27'],
     })
   })
+
+  it('passes no address card word into its role output', async () => {
+    const { normalizeGraphPayload } = await import('../src/investigation/graph-normalizer.js')
+    const plain = {
+      address: '0x0003242ca05b9fb4413c3ce1079426439f5161a2',
+      labels: ['gate'],
+      system_labels: ['Address'],
+    }
+    // The card of a Gate deposit address, and no `roles` property.
+    const carded = {
+      ...plain,
+      identity: 'exchange',
+      identity_name: 'gate',
+      identities: ['exchange'],
+      address_roles: ['exchange_deposit'],
+      evidence: ['scam:APPROVAL_DRAINER', 'victim'],
+      judgements: ['suspect:FIXED_AMOUNT'],
+      role_fit: 'silent',
+      risk: 'critical',
+      sources: ['rule', 'evidence'],
+    }
+    const nodesOf = (node: Record<string, unknown>) =>
+      normalizeGraphPayload({
+        schema: 'chain-insights.graph.v1',
+        nodes: [node],
+        edges: [],
+        flows: [],
+        edge_anchors: [],
+      }).nodes[0]!
+
+    const withCard = nodesOf(carded)
+    const withoutCard = nodesOf(plain)
+    expect(withCard['roles']).toEqual(withoutCard['roles'])
+    expect(withCard['roles']).toBeUndefined()
+    expect(withCard['node_type']).toBe(withoutCard['node_type'])
+    expect(withCard['labels']).toEqual(withoutCard['labels'])
+  })
 })

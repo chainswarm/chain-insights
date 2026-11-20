@@ -1,7 +1,7 @@
 {
   "recorded_on": "2026-10-21",
   "network": "robinhood",
-  "note": "Marks are node labels beside :Address. A row asserts every mark in `marks` is present and every mark in `never` is absent; it never asserts equality, so a judgement label such as Scam or Victim on one lane (lane B carries them, lane A never does, ruling 2026-10-19) changes nothing. A count asserts the lane serves at least `floor` nodes with the mark.",
+  "note": "Marks are node labels beside :Address. A row asserts every mark in `marks` is present and every mark in `never` is absent; it never asserts equality, so a new mark on a lane changes nothing. The staging lane runs the evidence and carries judgement labels such as Scam and Victim (since 2026-11-05), the production lane may carry none, and the production lane carries the address card and its marks Deposit, HotWallet, ColdWallet and Withdrawal only after the lanes switch, so a row that asserts one of these names `lane_only` `staging` and is read only on that lane; a `card` is judged only on that lane too. A row's `card` is a subset of the address card the node must carry: a listed string property is equal, a listed list property contains every listed entry, and a property the row does not list is not judged. A count asserts the lane serves at least `floor` nodes with the mark.",
   "rows": [
     {
       "address": "0xface39ce3d6647f5e6a5fb2023d3514c93c268a6",
@@ -19,6 +19,14 @@
         "Launchpad",
         "SmartAccount"
       ],
+      "card": {
+        "identity": "mixer",
+        "identity_name": "hearsay:hrsy-1",
+        "risk": "high",
+        "sources": [
+          "registry"
+        ]
+      },
       "since_block": 88002512,
       "source": "https://github.com/chainswarm/AP1000/blob/main/docs/domain/mixer-registry/robinhood.md"
     },
@@ -811,6 +819,112 @@
       ],
       "since_block": 97138439,
       "source": "https://github.com/chainswarm/data-pipeline/blob/main/internal/graphrag/sync/dex/dozerdb/swaps.go"
+    },
+    {
+      "address": "0x0003242ca05b9fb4413c3ce1079426439f5161a2",
+      "name": "Gate deposit address",
+      "marks": [
+        "Address",
+        "Exchange",
+        "Deposit"
+      ],
+      "never": [],
+      "card": {
+        "identity": "exchange",
+        "identity_name": "gate",
+        "address_roles": [
+          "exchange_deposit"
+        ],
+        "role_fit": "silent",
+        "sources": [
+          "rule"
+        ]
+      },
+      "lane_only": "staging",
+      "since_block": 0,
+      "source": "https://github.com/chainswarm/data-pipeline-labelers/blob/main/internal/labels/cexsweep/cexsweep.go"
+    },
+    {
+      "address": "0x076ecda95837769f481b35286d63815f35097a41",
+      "name": "Kraken hot wallet",
+      "marks": [
+        "Address",
+        "Exchange",
+        "HotWallet"
+      ],
+      "never": [],
+      "card": {
+        "identity": "exchange",
+        "identity_name": "kraken",
+        "address_roles": [
+          "exchange_hot_wallet"
+        ],
+        "sources": [
+          "rule"
+        ]
+      },
+      "lane_only": "staging",
+      "since_block": 0,
+      "source": "https://github.com/chainswarm/data-pipeline-labelers/blob/main/internal/labels/cexsweep/cexsweep.go"
+    },
+    {
+      "address": "0x34e626eca01615a752f859ded5ac2b2779433797",
+      "name": "Approval drainer",
+      "marks": [
+        "Address",
+        "Scam"
+      ],
+      "never": [],
+      "lane_only": "staging",
+      "card": {
+        "evidence": [
+          "scam:APPROVAL_DRAINER"
+        ],
+        "risk": "critical",
+        "sources": [
+          "evidence"
+        ]
+      },
+      "since_block": 0,
+      "source": "https://github.com/chainswarm/data-pipeline-evidence/blob/main/cmd/evidence/sync/approvaldrainer.go"
+    },
+    {
+      "address": "0x000e319ee525e94d30933d5dfc2cfbed577b3188",
+      "name": "Victim of a traced theft",
+      "marks": [
+        "Address",
+        "Victim"
+      ],
+      "never": [],
+      "lane_only": "staging",
+      "card": {
+        "evidence": [
+          "victim"
+        ],
+        "sources": [
+          "evidence"
+        ]
+      },
+      "since_block": 0,
+      "source": "https://github.com/chainswarm/data-pipeline-evidence/blob/main/internal/evidence/walks/moneywalk.go"
+    },
+    {
+      "address": "0x00b49f56491eddd7e2441cae2587d72ecad2eadf",
+      "name": "DEX trader bot",
+      "marks": [
+        "Address",
+        "Account"
+      ],
+      "never": [],
+      "card": {
+        "behaviour": "DEX_TRADER_BOT",
+        "sources": [
+          "rule"
+        ]
+      },
+      "lane_only": "staging",
+      "since_block": 0,
+      "source": "https://github.com/chainswarm/data-pipeline-graph/blob/main/internal/graphrag/sync/annotations/roles.go"
     }
   ],
   "counts": [

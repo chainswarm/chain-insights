@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { buildGraphSchema } from '../src/mcp/graph-schema.js'
 import { saveGraphSchemaCache } from '../src/mcp/graph-schema-cache.js'
+import { loadAddressCard } from '../src/mcp/address-card.js'
 
 // `cia network <name> --schema` prints the graph schema of a network: the same
 // text meta_schema gives a model, or its JSON with --json, from the 24 hour cache
@@ -54,6 +55,8 @@ beforeAll(async () => {
       network: 'robinhood',
     })
     await saveGraphSchemaCache('robinhood', document, ENDPOINT, true, new Date())
+    // A fresh address card cache, so the CLI reads the card without a fetch.
+    await loadAddressCard({ fetch: (async () => new Response('', { status: 404 })) as typeof fetch, log: () => {} })
   } finally {
     if (previousHome === undefined) delete process.env['HOME']
     else process.env['HOME'] = previousHome
@@ -81,6 +84,7 @@ describe('cia network <name> --schema', () => {
     expect(result.stdout).toContain('USE facts\nRelationships: TRANSFER, BRIDGE_CROSSING')
     expect(result.stdout).toContain('USE chain\nLookups: Transaction, Block, Head')
     expect(result.stdout).toContain('Notes:\n- Link types with no sample: APPROVED')
+    expect(result.stdout).toContain('Address card, on every :Address node (registry/address-card.json')
   })
 
   it('prints the structured form with --json', () => {

@@ -3,6 +3,36 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.88.0] - 2026-11-20 — `meta_schema` lists the address card on every address
+
+### Added
+
+- `meta_schema` lists the address card: the one resolved card the graph
+  writes on every `:Address` node. Each card property comes with its type,
+  the question it answers, its meaning and its closed values (`identity`,
+  `identity_name`, `identities`, `address_roles`, `behaviour`,
+  `behaviour_week`, `role_fit`, `evidence`, `judgements`, `risk`, `sources`,
+  `card_version`, `card_updated_ms`), and each mark and flag comes with the
+  card words that give it. The answer carries it as `address_card`, and the
+  text prints it after `USE chain`, before the notes.
+- The card's dictionary is the public file `registry/address-card.json`,
+  generated from the label vocabulary. The proxy reads the copy on `main`,
+  cached one hour, with the packaged copy as the fallback; a malformed file
+  is refused with one line and the packaged copy answers.
+- The `meta_schema` description and the `chain-insights-cypher` skill carry
+  the card's one rule: read the address card (identity, address_roles,
+  behaviour, evidence, judgements, risk), not the labels list. The tools
+  still read the old lists, which stay beside the card.
+- The golden mark set holds card rows: an exchange deposit, a hot wallet, a
+  scammer, a victim, a mixer and a behaviour account, each asserting a subset
+  of its card. The scammer and victim rows are read only on the staging lane,
+  which carries judgement labels.
+
+### Changed
+
+- The exchange lookup and the address card share one public file loader
+  (`src/mcp/public-file.ts`). Two lookups at once share one fetch.
+
 ## [0.87.0] - 2026-11-19 — The exchange role is called `exchange_role`, on both lanes
 
 ### Changed
