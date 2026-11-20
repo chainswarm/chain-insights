@@ -727,6 +727,24 @@ Name another link type to read its keys: `SWAPPED`, `LINKED`, `OPERATED_BY`, `BR
 
 The server serves five read-only catalog calls: `CALL db.labels()`, `CALL db.relationshipTypes()`, `CALL db.propertyKeys()`, `CALL db.schema.visualization()` and `SHOW INDEXES`. `meta_schema` sends four of them for you through one session and keeps the answer, so do not send them yourself.
 
+## The address card
+
+Read the address card (identity, address_roles, behaviour, evidence, judgements, risk), not the labels list.
+
+Every `:Address` node carries one card. `meta_schema` lists each card property with its question, its meaning and its closed values, and each mark and flag with the words that give it.
+
+| Question | Card properties |
+|---|---|
+| What is the address, and its name (an exchange id)? | `identity`, `identity_name`, `identities` |
+| Which wallet is it (`exchange_deposit`, `exchange_hot_wallet` and the other roles)? | `address_roles` |
+| What does one week of counts show, and does it fit the role? | `behaviour`, `behaviour_week`, `role_fit` |
+| What did it do, or what was done to it? Each entry is `word:VALUE`. | `evidence` |
+| Which risky patterns, that accuse nobody? Each entry is `word:VALUE`. | `judgements` |
+| How high is its risk: the highest level of any live word? | `risk` |
+| Who gave the answers, from which vocabulary version, and when? | `sources`, `card_version`, `card_updated_ms` |
+
+The card sits beside the `labels` list. The recipes of this skill keep reading the marks they name.
+
 ## Facts: an address pair with one day
 
 `USE facts` looks up rows you already know. A facts read names an address pair with one day. A transaction is read on `USE chain`, not here. A pair is both addresses, from then to, each as `{address: "<address>"}`, and the day is `t.block_date = "YYYY-MM-DD"`. One address, a day alone, a window of days, a block range and a bare `LIMIT` are not enough. It serves `TRANSFER`, `SWAP`, `LIQUIDITY_ADD`, `LIQUIDITY_REMOVE` and `BRIDGE_CROSSING` rows. The one facts read with no pair and no day is one contract by its address, in the next section.

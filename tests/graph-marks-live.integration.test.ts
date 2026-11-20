@@ -6,7 +6,12 @@ import { applyMcpAuthHeaders } from '../src/mcp/client.js'
 import { callGraphQueryBatch, type ToolCaller } from '../src/mcp/graph-client.js'
 import { PACKAGE_VERSION } from '../src/version.js'
 import { readRegistry } from './dex-registry.js'
-import { readGolden, type GoldenCountRow, type GoldenMarkRow } from './graph-marks-golden.js'
+import {
+  cardProblems,
+  readGolden,
+  type GoldenCountRow,
+  type GoldenMarkRow,
+} from './graph-marks-golden.js'
 
 // Live read of the golden mark set (tests/fixtures/graph-marks-golden.json)
 // against a Chain Insights Graph lane. One batch per 20 reads, under a
@@ -20,6 +25,13 @@ import { readGolden, type GoldenCountRow, type GoldenMarkRow } from './graph-mar
 // least the recorded floor: the chain grows, so equality would fail on
 // health.
 //
+// A row with a `card` also reads those card properties of the node and
+// asserts the subset: a listed string is equal, a listed list contains every
+// listed entry. A row with `lane_only: "staging"` asserts a judgement label
+// or a card mark only the staging lane carries; it is judged only when
+// CHAIN_INSIGHTS_LIVE_GRAPH_LANE=staging names the lane read. A `card` is
+// judged only then too.
+//
 // The example pool of every row of the exchange registry
 // (registry/robinhood.json) is read the same way: it is :Pool and its labels
 // hold one of the row's adapters. Nothing about an exchange name is read: the
@@ -27,11 +39,14 @@ import { readGolden, type GoldenCountRow, type GoldenMarkRow } from './graph-mar
 //
 //   CHAIN_INSIGHTS_LIVE_GRAPH_MCP_ENDPOINT=http://127.0.0.1:8012/mcp \
 //   CHAIN_INSIGHTS_LIVE_GRAPH_MCP_TOKEN=<the lane's debug bearer> \
+//   CHAIN_INSIGHTS_LIVE_GRAPH_LANE=staging \
 //   npx vitest run tests/graph-marks-live.integration.test.ts
 
 const endpoint = process.env['CHAIN_INSIGHTS_LIVE_GRAPH_MCP_ENDPOINT']?.trim()
 const token = process.env['CHAIN_INSIGHTS_LIVE_GRAPH_MCP_TOKEN']?.trim()
 const network = process.env['CHAIN_INSIGHTS_LIVE_GRAPH_NETWORK']?.trim() || 'robinhood'
+// `staging` when the endpoint is the staging lane: its judgement-label rows are judged too.
+const lane = process.env['CHAIN_INSIGHTS_LIVE_GRAPH_LANE']?.trim() || ''
 
 // The server caps one batch at 20 queries.
 const BATCH_SIZE = 20
@@ -49,12 +64,18 @@ type MarkRead = {
   node_labels: string[]
   token_standard: string | null
   labels: string[] | null
+  [cardProperty: string]: unknown
 }
 
 export function rowQuery(row: GoldenMarkRow): string {
+  // The card properties the row lists; tests/graph-marks-golden.test.ts holds
+  // each to a property name of registry/address-card.json.
+  const card = Object.keys(row.card ?? {})
+    .map((name) => `, a.${name} AS ${name}`)
+    .join('')
   return (
     `USE topology MATCH (a:Address {address: "${row.address}"}) ` +
-    'RETURN a.address AS address, labels(a) AS node_labels, a.token_standard AS token_standard, a.labels AS labels LIMIT 1'
+    `RETURN a.address AS address, labels(a) AS node_labels, a.token_standard AS token_standard, a.labels AS labels${card} LIMIT 1`
   )
 }
 
@@ -85,6 +106,7 @@ export function judgeRow(row: GoldenMarkRow, read: MarkRead | undefined): string
   if (row.token_standard && read.token_standard !== row.token_standard) {
     problems.push(`token_standard ${String(read.token_standard)} wanted ${row.token_standard}`)
   }
+  if (row.card) problems.push(...cardProblems(row.card, read))
   if (!problems.length) return null
   return `${where}: ${problems.join('; ')}; served [${[...served].sort().join(', ')}]`
 }
@@ -151,8 +173,10 @@ describe.skipIf(!endpoint)('the golden mark set against a live Chain Insights Gr
   it('serves every golden mark on every row, and no forbidden one', () => {
     const verdicts: string[] = []
     for (const row of golden.rows) {
+      if (row.lane_only && row.lane_only !== lane) continue
       const [read] = (answers.get(`row:${row.address}`)?.results ?? []) as MarkRead[]
-      const verdict = judgeRow(row, read)
+      // The card is on the staging lane only until the lanes switch.
+      const verdict = judgeRow(lane === 'staging' ? row : { ...row, card: undefined }, read)
       if (verdict) verdicts.push(verdict)
     }
     expect(verdicts, 'rows whose marks the lane does not serve').toEqual([])

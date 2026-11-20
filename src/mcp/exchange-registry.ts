@@ -15,7 +15,8 @@
  * written by scripts/pin-exchange-registry.mjs and held to the rules below by
  * tests/exchange-registry.test.ts.
  *
- * The proxy reads the file as it reads the DEX registry (src/mcp/dex-registry.ts):
+ * The proxy reads the file through the shared public file loader
+ * (src/mcp/public-file.ts), as it reads the address card dictionary:
  *
  *   cached    ~/.chain-insights/cache/exchange-registry-<network>.json, younger than one hour
  *   fetched   the copy on main, https://raw.githubusercontent.com/chainswarm/chain-insights/main/registry/exchanges/<network>.json,
@@ -28,19 +29,17 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs'
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chainInsightsHome } from './cache-location.js'
 import {
-  DEX_REGISTRY_FETCH_BUDGET_MS,
-  DEX_REGISTRY_TTL_MS,
   NEAR_DISTANCE,
   NEAR_MIN_ALIAS_LENGTH,
   damerauLevenshtein,
   normalizeDexNetwork,
   normaliseName,
 } from './dex-registry.js'
+import { loadPublicFile, type PublicFileOptions } from './public-file.js'
 
 export const EXCHANGE_REGISTRY_SCHEMA = 'chain-insights.exchange-registry.v1' as const
 export const EXCHANGE_REGISTRY_URL_ENV = 'CHAIN_INSIGHTS_EXCHANGE_REGISTRY_URL'
@@ -184,65 +183,10 @@ export function readPackagedExchangeRegistry(
   return parsed as ExchangeRegistryDocument
 }
 
-interface CacheFile {
-  document: ExchangeRegistryDocument
-  checked_at_ms: number
-  source: 'fetched' | 'packaged'
-}
-
-async function readCache(network: string): Promise<CacheFile | null> {
-  try {
-    const parsed = JSON.parse(await readFile(exchangeRegistryCachePath(network), 'utf8')) as unknown
-    if (!isRecord(parsed) || typeof parsed.checked_at_ms !== 'number') return null
-    if (parsed.source !== 'fetched' && parsed.source !== 'packaged') return null
-    if (exchangeRegistryFault(parsed.document, network) !== null) return null
-    return parsed as unknown as CacheFile
-  } catch {
-    return null
-  }
-}
-
-async function writeCache(network: string, file: CacheFile): Promise<void> {
-  const target = exchangeRegistryCachePath(network)
-  await mkdir(path.dirname(target), { recursive: true })
-  const scratch = `${target}.${process.pid}.tmp`
-  await writeFile(scratch, JSON.stringify(file, null, 2) + '\n', { mode: 0o600 })
-  await rename(scratch, target)
-}
-
-export interface LoadExchangeRegistryOptions {
-  fetch?: typeof fetch
-  now?: () => number
+export interface LoadExchangeRegistryOptions extends PublicFileOptions {
   env?: NodeJS.ProcessEnv
   log?: (line: string) => void
   packagedDir?: string
-  budgetMs?: number
-}
-
-async function fetchDocument(
-  network: string,
-  options: LoadExchangeRegistryOptions
-): Promise<{ document: ExchangeRegistryDocument } | { fault: string }> {
-  const url = exchangeRegistryUrl(network, options.env)
-  let response: Response
-  try {
-    response = await (options.fetch ?? fetch)(url, {
-      signal: AbortSignal.timeout(options.budgetMs ?? DEX_REGISTRY_FETCH_BUDGET_MS),
-    })
-  } catch (err) {
-    return { fault: `${url} unreachable: ${err instanceof Error ? err.message : String(err)}` }
-  }
-  if (response.status !== 200) return { fault: `${url} answered HTTP ${response.status}` }
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(await response.text())
-  } catch {
-    return { fault: `${url} is not JSON` }
-  }
-  const fault = exchangeRegistryFault(parsed, network)
-  return fault
-    ? { fault: `${url} is malformed: ${fault}` }
-    : { document: parsed as ExchangeRegistryDocument }
 }
 
 /** A network with no file: no rows, so every lookup on it answers with an empty list. */
@@ -262,57 +206,28 @@ const defaultLog = (line: string): void => {
 
 /**
  * The lookup file of one network: the fresh cache, else the public file, else
- * the stale cache, else the packaged copy. A packaged copy with a higher
- * version than the cache or the public file wins. A network with no file
- * anywhere answers with no rows; it never throws for a well-formed network.
+ * the stale cache, else the packaged copy (src/mcp/public-file.ts). A packaged
+ * copy with a higher version than the cache or the public file wins. A network
+ * with no file anywhere answers with no rows; it never throws for a
+ * well-formed network.
  */
 export async function loadExchangeRegistry(
   rawNetwork: unknown,
   options: LoadExchangeRegistryOptions = {}
 ): Promise<LoadedExchangeRegistry> {
   const network = normalizeDexNetwork(rawNetwork)
-  const now = options.now ?? Date.now
-  const log = options.log ?? defaultLog
-  const packaged = readPackagedExchangeRegistry(network, options.packagedDir)
-  const pick = (
-    document: ExchangeRegistryDocument,
-    source: ExchangeRegistrySource
-  ): LoadedExchangeRegistry =>
-    packaged !== null && packaged.registry_version > document.registry_version
-      ? { document: packaged, source: 'packaged' }
-      : { document, source }
-
-  const cache = await readCache(network)
-  const age = cache ? now() - cache.checked_at_ms : Infinity
-  if (cache && age >= 0 && age < DEX_REGISTRY_TTL_MS) {
-    return pick(cache.document, cache.source === 'fetched' ? 'cached' : 'packaged')
-  }
-  const save = async (file: CacheFile): Promise<void> => {
-    try {
-      await writeCache(network, file)
-    } catch (err) {
-      log(
-        `the cache ${exchangeRegistryCachePath(network)} could not be written: ${err instanceof Error ? err.message : String(err)}`
-      )
-    }
-  }
-  const outcome = await fetchDocument(network, options)
-  const checked = now()
-  if ('document' in outcome) {
-    await save({ document: outcome.document, checked_at_ms: checked, source: 'fetched' })
-    return pick(outcome.document, 'fetched')
-  }
-  if (cache) {
-    log(outcome.fault)
-    await save({ ...cache, checked_at_ms: checked })
-    return pick(cache.document, cache.source === 'fetched' ? 'cached' : 'packaged')
-  }
-  if (packaged) {
-    log(outcome.fault)
-    await save({ document: packaged, checked_at_ms: checked, source: 'packaged' })
-    return { document: packaged, source: 'packaged' }
-  }
-  return { document: emptyDocument(network), source: 'none' }
+  const loaded = await loadPublicFile<ExchangeRegistryDocument>(
+    {
+      url: exchangeRegistryUrl(network, options.env),
+      cachePath: exchangeRegistryCachePath(network),
+      fault: (value) => exchangeRegistryFault(value, network),
+      packaged: readPackagedExchangeRegistry(network, options.packagedDir),
+      version: (document) => document.registry_version,
+      log: options.log ?? defaultLog,
+    },
+    options
+  )
+  return loaded ?? { document: emptyDocument(network), source: 'none' }
 }
 
 // ─── The name and the address match ───────────────────────────────────────────

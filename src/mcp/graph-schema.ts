@@ -18,6 +18,13 @@
 
 import { findNetworkCapability, mirrorGraphNetworkCapabilities } from './capabilities.js'
 import type { NetworkCapability } from './capabilities.js'
+import {
+  ADDRESS_CARD_RULE,
+  addressCardSection,
+  formatAddressCardLines,
+  type AddressCardSection,
+  type LoadedAddressCard,
+} from './address-card.js'
 import { BEHAVIOUR_SCHEMA_NOTE } from './behaviour-kinds.js'
 import { PaymentRequiredError } from './client.js'
 import { CONTRACT_READ_PROPERTIES } from './contract-read.js'
@@ -30,7 +37,8 @@ export const GRAPH_SCHEMA_SOURCE = 'live catalog' as const
 export const META_SCHEMA_TITLE = 'Graph schema'
 export const META_SCHEMA_DESCRIPTION =
   'Return the live graph schema of one network: the labels, the link types, the field names of an address and of each main link, the indexes, the USE facts relationships with the TRANSFER columns and the properties of the Contract read, and the USE chain lookups. ' +
-  'Call it first when you need field names. It is cached for 24 hours; pass refresh=true to rebuild it.'
+  'Call it first when you need field names. It is cached for 24 hours; pass refresh=true to rebuild it. ' +
+  `It also lists the address card on every address, each property with its question and its values. ${ADDRESS_CARD_RULE}`
 
 /** Fields of an address come from this many sampled nodes, and of a link from this many sampled links. */
 export const ADDRESS_SAMPLE_LIMIT = 20
@@ -150,6 +158,11 @@ export interface GraphSchemaDocument {
   }
   /** `levels` when the lane serves ROUTED_TO; absent on the graph of before. */
   swap_links?: 'levels'
+  /**
+   * The address card dictionary, from registry/address-card.json. Added to each
+   * answer, never cached with the schema: the file has its own one-hour cache.
+   */
+  address_card?: AddressCardSection
   notes: string[]
 }
 
@@ -609,10 +622,37 @@ export function formatGraphSchemaText(document: GraphSchemaDocument): string {
     'USE chain',
     listLine('Lookups', chain.lookups)
   )
+  if (document.address_card) lines.push('', ...formatAddressCardLines(document.address_card))
   if (document.notes.length > 0) {
     lines.push('', 'Notes:', ...document.notes.map((note) => `- ${note}`))
   }
   return lines.join('\n')
+}
+
+// ─── The address card ─────────────────────────────────────────────────────────
+
+/**
+ * The schema with the address card dictionary beside it. The card is read on
+ * every answer through its own cache; a card that cannot be read leaves a note
+ * and never fails the schema.
+ */
+export async function withAddressCard(
+  document: GraphSchemaDocument,
+  load: () => Promise<LoadedAddressCard | null>
+): Promise<GraphSchemaDocument> {
+  try {
+    const loaded = await load()
+    if (!loaded) return document
+    return { ...document, address_card: addressCardSection(loaded) }
+  } catch (err) {
+    return {
+      ...document,
+      notes: [
+        ...document.notes,
+        `The address card dictionary could not be read: ${err instanceof Error ? err.message : String(err)}`,
+      ],
+    }
+  }
 }
 
 // ─── The MCP tool ─────────────────────────────────────────────────────────────
@@ -622,6 +662,8 @@ export interface GraphSchemaDependencies {
   withClient: GetGraphSchemaOptions['withClient']
   /** The text of a failure that is not a GraphSchemaError: payment required, transport. */
   describeFailure: (err: unknown) => string
+  /** Reads registry/address-card.json (src/mcp/address-card.ts). Without it the answer carries no card. */
+  loadAddressCard?: () => Promise<LoadedAddressCard | null>
   now?: () => Date
   pauseMs?: number
   sleep?: (ms: number) => Promise<void>
@@ -648,7 +690,7 @@ export async function handleMetaSchema(
     return errorResult('invalid_refresh: refresh must be true or false')
   }
   try {
-    const document = await getGraphSchema({
+    const schema = await getGraphSchema({
       network: record.network,
       refresh: refresh === true,
       endpoint: deps.endpoint,
@@ -657,6 +699,9 @@ export async function handleMetaSchema(
       ...(deps.pauseMs === undefined ? {} : { pauseMs: deps.pauseMs }),
       ...(deps.sleep ? { sleep: deps.sleep } : {}),
     })
+    const document = deps.loadAddressCard
+      ? await withAddressCard(schema, deps.loadAddressCard)
+      : schema
     return {
       content: [{ type: 'text', text: formatGraphSchemaText(document) }],
       structuredContent: document as unknown as Record<string, unknown>,

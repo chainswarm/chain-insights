@@ -1,0 +1,372 @@
+{
+  "generated_from": "AP1000 docs/domain/label-vocabulary.yaml",
+  "version": "1",
+  "rule": "Read the address card (identity, address_roles, behaviour, evidence, judgements, risk), not the labels list.",
+  "properties": [
+    {
+      "name": "identity",
+      "type": "string",
+      "question": "identity",
+      "means": "What the address is: the identity word of the lowest rank.",
+      "values": [
+        "exchange",
+        "payment_processor",
+        "otc_desk",
+        "mixer",
+        "bridge",
+        "launchpad",
+        "dex",
+        "defi",
+        "gambling",
+        "token",
+        "protocol",
+        "foundation",
+        "validator",
+        "implementation",
+        "contract",
+        "hub",
+        "whale",
+        "miner",
+        "neuron",
+        "subnet"
+      ]
+    },
+    {
+      "name": "identity_name",
+      "type": "string",
+      "question": "identity",
+      "means": "The name the winning identity row gives, such as the exchange id. Absent when the value is empty or repeats the word."
+    },
+    {
+      "name": "identities",
+      "type": "list<string>",
+      "question": "identity",
+      "means": "Every identity word of the address, each once, in rank order.",
+      "values": [
+        "exchange",
+        "payment_processor",
+        "otc_desk",
+        "mixer",
+        "bridge",
+        "launchpad",
+        "dex",
+        "defi",
+        "gambling",
+        "token",
+        "protocol",
+        "foundation",
+        "validator",
+        "implementation",
+        "contract",
+        "hub",
+        "whale",
+        "miner",
+        "neuron",
+        "subnet"
+      ]
+    },
+    {
+      "name": "address_roles",
+      "type": "list<string>",
+      "question": "role",
+      "means": "Every role word of the address, each once, sorted.",
+      "values": [
+        "exchange_deposit",
+        "exchange_hot_wallet",
+        "exchange_cold_wallet",
+        "exchange_withdrawal",
+        "router",
+        "bundler",
+        "paymaster",
+        "entrypoint"
+      ]
+    },
+    {
+      "name": "behaviour",
+      "type": "string",
+      "question": "behaviour",
+      "means": "What kind of automated or high-volume account one week of on-chain counts shows. Not a risk.",
+      "values": [
+        "SWAP_BOT_FARM_WALLET",
+        "DEX_TRADER_BOT",
+        "VOLUME_RING_HUB",
+        "WALLET_FARM_CONTROLLER",
+        "FIXED_AMOUNT_DISTRIBUTOR",
+        "MIXER_LOOP_HUB",
+        "PAYOUT_DESK"
+      ]
+    },
+    {
+      "name": "behaviour_week",
+      "type": "string",
+      "question": "behaviour",
+      "means": "The last day of the week the behaviour was read for."
+    },
+    {
+      "name": "role_fit",
+      "type": "string",
+      "question": "role",
+      "means": "Whether the behaviour fits the address's role: fits, silent (no behaviour) or off_pattern. Absent when no role of the address has a fits list.",
+      "values": [
+        "fits",
+        "silent",
+        "off_pattern"
+      ]
+    },
+    {
+      "name": "evidence",
+      "type": "list<string>",
+      "question": "evidence",
+      "means": "What the address did or what was done to it: one entry per live row, word:VALUE, or the word alone when the value is empty or repeats the word. Sorted.",
+      "values": [
+        "scam",
+        "exploit",
+        "fraud",
+        "stolen",
+        "poisoning",
+        "sanctioned",
+        "issuer_frozen",
+        "traced",
+        "victim",
+        "target"
+      ],
+      "value_form": "word:VALUE"
+    },
+    {
+      "name": "judgements",
+      "type": "list<string>",
+      "question": "judgement",
+      "means": "Risky patterns that do not convict on their own: one entry per live row, word:VALUE. Sorted. A judgement accuses nobody.",
+      "values": [
+        "suspect"
+      ],
+      "value_form": "word:VALUE"
+    },
+    {
+      "name": "risk",
+      "type": "string",
+      "question": "card",
+      "means": "The highest level of any live word of the address. Absent when every word is none.",
+      "values": [
+        "critical",
+        "high",
+        "medium",
+        "low"
+      ]
+    },
+    {
+      "name": "sources",
+      "type": "list<string>",
+      "question": "card",
+      "means": "Who gave the answers on the card, in this order.",
+      "values": [
+        "registry",
+        "rule",
+        "evidence"
+      ]
+    },
+    {
+      "name": "card_version",
+      "type": "string",
+      "question": "card",
+      "means": "The vocabulary version that resolved the card."
+    },
+    {
+      "name": "card_updated_ms",
+      "type": "integer",
+      "question": "card",
+      "means": "When the labels layer last wrote the card, in epoch milliseconds."
+    }
+  ],
+  "marks": [
+    {
+      "name": "Bridge",
+      "question": "identity",
+      "words": [
+        "bridge"
+      ]
+    },
+    {
+      "name": "ColdWallet",
+      "question": "role",
+      "words": [
+        "exchange_cold_wallet"
+      ]
+    },
+    {
+      "name": "Deposit",
+      "question": "role",
+      "words": [
+        "exchange_deposit"
+      ]
+    },
+    {
+      "name": "Exchange",
+      "question": "identity",
+      "words": [
+        "exchange"
+      ]
+    },
+    {
+      "name": "HotWallet",
+      "question": "role",
+      "words": [
+        "exchange_hot_wallet"
+      ]
+    },
+    {
+      "name": "IssuerFrozen",
+      "question": "evidence",
+      "words": [
+        "issuer_frozen"
+      ]
+    },
+    {
+      "name": "Launchpad",
+      "question": "identity",
+      "words": [
+        "launchpad"
+      ]
+    },
+    {
+      "name": "Mixer",
+      "question": "identity",
+      "words": [
+        "mixer"
+      ]
+    },
+    {
+      "name": "OnMoneyTrail",
+      "question": "evidence",
+      "words": [
+        "traced"
+      ]
+    },
+    {
+      "name": "Poisoned",
+      "question": "evidence",
+      "words": [
+        "poisoning"
+      ]
+    },
+    {
+      "name": "Protocol",
+      "question": "identity",
+      "words": [
+        "bridge",
+        "contract",
+        "defi",
+        "dex",
+        "launchpad",
+        "mixer"
+      ]
+    },
+    {
+      "name": "Sanctioned",
+      "question": "evidence",
+      "words": [
+        "sanctioned"
+      ]
+    },
+    {
+      "name": "Scam",
+      "question": "evidence",
+      "words": [
+        "exploit",
+        "fraud",
+        "scam",
+        "stolen"
+      ]
+    },
+    {
+      "name": "Service",
+      "question": "identity",
+      "words": [
+        "otc_desk",
+        "payment_processor"
+      ]
+    },
+    {
+      "name": "Targeted",
+      "question": "evidence",
+      "words": [
+        "target",
+        "victim"
+      ]
+    },
+    {
+      "name": "Token",
+      "question": "identity",
+      "words": [
+        "token"
+      ]
+    },
+    {
+      "name": "Victim",
+      "question": "evidence",
+      "words": [
+        "victim"
+      ]
+    },
+    {
+      "name": "Withdrawal",
+      "question": "role",
+      "words": [
+        "exchange_withdrawal"
+      ]
+    }
+  ],
+  "flags": [
+    {
+      "name": "is_exchange",
+      "question": "identity",
+      "words": [
+        "exchange"
+      ]
+    },
+    {
+      "name": "is_issuer_frozen",
+      "question": "evidence",
+      "words": [
+        "issuer_frozen"
+      ]
+    },
+    {
+      "name": "is_sanctioned",
+      "question": "evidence",
+      "words": [
+        "sanctioned"
+      ]
+    },
+    {
+      "name": "is_scam",
+      "question": "evidence",
+      "words": [
+        "exploit",
+        "fraud",
+        "scam",
+        "stolen"
+      ]
+    },
+    {
+      "name": "is_service",
+      "question": "identity",
+      "words": [
+        "otc_desk",
+        "payment_processor"
+      ]
+    },
+    {
+      "name": "is_victim",
+      "question": "evidence",
+      "words": [
+        "victim"
+      ]
+    }
+  ],
+  "sources": [
+    "registry",
+    "rule",
+    "evidence"
+  ]
+}

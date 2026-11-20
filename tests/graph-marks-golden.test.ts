@@ -1,5 +1,14 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { readGolden, SERVED_MARKS, TOKEN_STANDARDS } from './graph-marks-golden.js'
+import type { AddressCardDocument } from '../src/mcp/address-card.js'
+import { cardProblems, readGolden, SERVED_MARKS, TOKEN_STANDARDS } from './graph-marks-golden.js'
+
+const addressCard = JSON.parse(
+  readFileSync(join(process.cwd(), 'registry/address-card.json'), 'utf8')
+) as AddressCardDocument
+// The marks the card gives (Exchange, Deposit, HotWallet, Scam, Victim) are served too.
+const MARKS: string[] = [...SERVED_MARKS, ...addressCard.marks.map((mark) => mark.name)]
 
 // The golden mark set (tests/fixtures/graph-marks-golden.json) is what the
 // live marks test and the AP1000 UAT script read. This T1 test keeps the file
@@ -33,18 +42,68 @@ describe('the golden mark set', () => {
     for (const row of golden.rows) {
       expect(row.marks, row.address).toContain('Address')
       for (const mark of [...row.marks, ...row.never]) {
-        expect(SERVED_MARKS, `${row.address} names ${mark}`).toContain(mark)
+        expect(MARKS, `${row.address} names ${mark}`).toContain(mark)
       }
       for (const mark of row.never) {
         expect(row.marks, `${row.address} wants ${mark} present and absent`).not.toContain(mark)
       }
-      // Judgement labels differ by lane (lane A carries none, ruling
-      // 2026-10-19), so no row may assert on them either way.
+      // Judgement labels differ by lane: the staging lane runs the evidence and
+      // carries them, the production lane may not. A row asserts one present
+      // only as a staging-lane row, and never asserts one absent.
+      if (row.lane_only !== undefined) expect(row.lane_only, row.address).toBe('staging')
       for (const judgement of ['Scam', 'Victim', 'Targeted']) {
-        expect(row.marks, row.address).not.toContain(judgement)
+        if (row.lane_only !== 'staging') expect(row.marks, row.address).not.toContain(judgement)
         expect(row.never, row.address).not.toContain(judgement)
       }
     }
+  })
+
+  it('names only card properties, words and values the address card dictionary knows', () => {
+    const properties = new Map(addressCard.properties.map((property) => [property.name, property]))
+    // Free text: the name an identity row gives, and the value part of an entry.
+    const free = new Set(['identity_name', 'behaviour_week', 'card_version'])
+    const carded = golden.rows.filter((row) => row.card)
+    expect(carded.length).toBeGreaterThanOrEqual(6)
+    for (const row of carded) {
+      const card = row.card!
+      expect(Object.keys(card).length, row.address).toBeGreaterThan(0)
+      for (const [name, wanted] of Object.entries(card)) {
+        const property = properties.get(name)
+        expect(property, `${row.address} names the card property ${name}`).toBeDefined()
+        const isList = property!.type.startsWith('list<')
+        expect(Array.isArray(wanted), `${row.address} ${name} is a ${property!.type}`).toBe(isList)
+        const entries = Array.isArray(wanted) ? wanted : [wanted]
+        if (isList) expect(entries.length, `${row.address} ${name}`).toBeGreaterThan(0)
+        for (const entry of entries) {
+          expect(typeof entry === 'string' && entry !== '', `${row.address} ${name}`).toBe(true)
+          if (free.has(name) || !property!.values) continue
+          // word:VALUE when the property has a value form; the word is closed, the value free.
+          const word = property!.value_form ? entry.split(':')[0]! : entry
+          expect(property!.values, `${row.address} ${name} ${entry}`).toContain(word)
+        }
+      }
+    }
+    // One row for each question the card answers.
+    for (const name of ['identity', 'address_roles', 'behaviour', 'evidence', 'risk']) {
+      expect(carded.some((row) => name in row.card!), `no row asserts the card ${name}`).toBe(true)
+    }
+  })
+
+  it('judges a card as a subset, never as equality', () => {
+    const card = { identity: 'exchange', address_roles: ['exchange_deposit'], sources: ['rule'] }
+    const served = {
+      identity: 'exchange',
+      address_roles: ['exchange_deposit', 'exchange_hot_wallet'],
+      sources: ['registry', 'rule'],
+      risk: 'low',
+    }
+    expect(cardProblems(card, served)).toEqual([])
+    expect(cardProblems(card, { ...served, identity: 'mixer' })).toEqual([
+      'card identity "mixer" wanted exchange',
+    ])
+    expect(cardProblems(card, { ...served, address_roles: null })).toEqual([
+      'card address_roles misses exchange_deposit; served []',
+    ])
   })
 
   it('asserts label words only as plain role words, never a judgement', () => {

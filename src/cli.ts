@@ -183,14 +183,18 @@ async function printNetworkSchema(
 ): Promise<void> {
   const { loadConfig } = await import('./config/index.js')
   const { resolveGraphMcpEndpoint } = await import('./mcp/client.js')
-  const { formatGraphSchemaText, getGraphSchema } = await import('./mcp/graph-schema.js')
+  const { formatGraphSchemaText, getGraphSchema, withAddressCard } = await import(
+    './mcp/graph-schema.js'
+  )
+  const { loadAddressCard } = await import('./mcp/address-card.js')
   const config = await loadConfig()
-  const schema = await getGraphSchema({
+  const built = await getGraphSchema({
     network: name,
     refresh: opts.refresh === true,
     endpoint: resolveGraphMcpEndpoint(config),
     withClient: (fn) => withGraphMcpClient('chain-insights-cli-schema', (client) => fn(client)),
   })
+  const schema = await withAddressCard(built, () => loadAddressCard())
   console.log(opts.json ? JSON.stringify(schema, null, 2) : formatGraphSchemaText(schema))
 }
 
