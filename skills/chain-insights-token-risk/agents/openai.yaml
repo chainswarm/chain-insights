@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Chain Insights Token Risk'
+  short_description: 'The risk of one token or pool: its founder, factory, gas wallets and pools'
+  default_prompt: 'Load chain-insights-cypher first. For the risk of one token or pool, call aml_token_risk with the network and the full contract address; for a ticker call meta_token_lookup first. The token word is the highest of the token, its founder and its pools; a factory, a first funder and a liquidity provider never raise it. Never call a token safe, and name a part in not_read as not read.'

@@ -3,6 +3,45 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.90.0] - 2026-11-22 — `aml_token_risk`: a token or a pool, its founder, factory and pools
+
+### Added
+
+- `aml_token_risk` is a local tool of the proxy, listed for every host. It
+  takes `network`, `address` (a token contract or a pool) and an optional
+  `surroundings`, and sends at most three batches of at most 20 reads on
+  `USE topology`, built on the address answer of `aml_address_risk`.
+- The answer names the founder (the wallet that sent the deployment, with
+  its full address answer), the factory or launchpad that deployed it (named
+  from the exchange registry), the first three accounts that paid the
+  founder, and the pools with their providers, this token's side and their 5
+  biggest adders and removers, all from one read per direction. The 10
+  biggest pools are detailed; `pools_found` counts them all.
+- `risk.word` is the highest of the token's own word, its founder's and each
+  detailed pool's own; `raised_by` says whose. A factory, a first funder and
+  a liquidity provider carry their own word and never raise it.
+- A pool row is one address. The pools inside one pool manager are
+  answered as one row for the manager (`is_manager`), with its providers and
+  this token's side, not pool by pool; the manager's node sums are never
+  shown as a pool's, and a manager row raises nothing.
+- A part that did not answer is named in `not_read`, with the code its
+  refusal names (`query_timeout`, `family_behind`, `anchor_missing`). A USD
+  sum with no priced link is `null`, never `0`.
+- `cia mcp call aml_token_risk` and `cia workflow aml-token-risk` run the
+  same screen in a terminal.
+- The skills `chain-insights-address-risk` and `chain-insights-token-risk`
+  open on the two risk tools.
+
+### Changed
+
+- The shared row readers of the risk tools moved to `src/mcp/row-values.ts`,
+  and the exchange registry lookup by address to `dexOfAddress`.
+- The CLI opens one graph session for every batch of one risk tool call.
+- A risk tool's `not_read` code is the code named in the refusal text, when
+  the text does not start with it.
+- `docs/mcp-proxy.md` no longer says `aml_address_risk` is hidden: it has
+  been listed since 0.89.0.
+
 ## [0.89.0] - 2026-11-22 — `aml_address_risk` returns, as a local tool that states facts
 
 ### Added

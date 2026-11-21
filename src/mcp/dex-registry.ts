@@ -409,6 +409,16 @@ export async function loadRegistry(
 // ─── The name match ───────────────────────────────────────────────────────────
 
 /** Lower case, with every space, ".", "-" and "_" removed: "Uni v4" and "uni-v4" are "univ4". */
+/** The exchange that lists a contract, by any role or as a helper, or null. */
+/** The exchange whose pool manager this address is: a vault exchange that holds its pools in one contract. */
+export function dexManagerOf(address: string, rows: readonly DexEntry[]): DexEntry | null {
+  return rows.find((row) => row.trail_type === 'vault' && row.roles[address] === 'manager') ?? null
+}
+
+export function dexOfAddress(address: string, rows: readonly DexEntry[]): DexEntry | null {
+  return rows.find((row) => address in row.roles || row.helpers?.includes(address)) ?? null
+}
+
 export function normaliseName(name: string): string {
   return name.toLowerCase().replace(/[\s.\-_]+/g, '')
 }

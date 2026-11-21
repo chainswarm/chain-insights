@@ -52,8 +52,9 @@ const srcSkillsDir = path.join(__dirname, '..', 'skills')
 const SKILL_VERSION_FILE = '.chain-insights-version'
 // The core skill every install carries. Protocol skills sit beside it.
 const CORE_SKILL_NAME = 'chain-insights-cypher'
+// chain-insights-address-risk was retired in 0.44.0 and ships again from
+// 0.90.0, on the aml_address_risk tool: it is no longer a retired name.
 const RETIRED_SKILL_NAMES = Object.freeze([
-  'chain-insights-address-risk',
   'chain-insights-bittensor-cypher',
   'chain-insights-developer-experience',
   'chain-insights-investigation',

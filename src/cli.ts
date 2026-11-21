@@ -180,53 +180,103 @@ async function printNetworkSchema(
 }
 
 /**
- * The proxy's aml_address_risk, run with the CLI's own graph session. Every
- * argument is checked before a session opens; the one batch opens it.
+ * One graph session for a CLI run of a local tool, opened by its first batch
+ * and closed once the tool answers: a tool that checks its arguments first
+ * opens none for a refused call, and a tool of three batches opens one.
  */
-async function runAmlAddressRiskCli(args: {
-  network: unknown
-  address: unknown
-  surroundings?: unknown
-}): Promise<{ text: string; isError: boolean }> {
-  const { handleAmlAddressRisk } = await import('./mcp/address-risk.js')
+function lazyGraphSession(name: string) {
+  type Client = import('@modelcontextprotocol/sdk/client/index.js').Client
+  let opened: Promise<Client> | null = null
+  let release: () => void = () => {}
+  let finished: Promise<unknown> = Promise.resolve()
+  return {
+    client(): Promise<Client> {
+      opened ??= new Promise<Client>((resolve, reject) => {
+        finished = withGraphMcpClient(name, (client) => {
+          resolve(client)
+          return new Promise<void>((done) => {
+            release = done
+          })
+        }).catch(reject)
+      })
+      return opened
+    },
+    async close(): Promise<void> {
+      release()
+      await finished
+    },
+  }
+}
+
+/**
+ * The proxy's risk tools, run with the CLI's own graph session:
+ * aml_address_risk and aml_token_risk. Every argument is checked before the
+ * session opens.
+ */
+async function runRiskToolCli(
+  tool: 'aml_address_risk' | 'aml_token_risk',
+  args: { network: unknown; address: unknown; surroundings?: unknown }
+): Promise<{ text: string; isError: boolean }> {
   const { loadAddressCard } = await import('./mcp/address-card.js')
   const { loadExchangeRegistry } = await import('./mcp/exchange-registry.js')
   type Answer = { content?: unknown[]; structuredContent?: unknown; isError?: boolean }
-  const result = await handleAmlAddressRisk(
-    {
-      network: args.network,
-      address: args.address,
-      ...(args.surroundings === undefined ? {} : { surroundings: args.surroundings }),
-    },
-    {
-      loadAddressCard: () => loadAddressCard(),
-      loadExchangeRegistry: (network) => loadExchangeRegistry(network),
-      graphQueryBatch: (batchArgs) =>
-        withGraphMcpClient('chain-insights-cli-address-risk', async (client) =>
-          (await client.callTool({ name: 'graph_query_batch', arguments: batchArgs })) as Answer
-        ),
-      describeFailure: (err) => (err as Error).message,
+  const session = lazyGraphSession(`chain-insights-cli-${tool.replace(/_/g, '-')}`)
+  const input = {
+    network: args.network,
+    address: args.address,
+    ...(args.surroundings === undefined ? {} : { surroundings: args.surroundings }),
+  }
+  const shared = {
+    loadAddressCard: () => loadAddressCard(),
+    loadExchangeRegistry: (network: string) => loadExchangeRegistry(network),
+    graphQueryBatch: async (batchArgs: { network: string; queries: Array<{ id: string; query: string }> }) =>
+      (await (await session.client()).callTool({ name: 'graph_query_batch', arguments: batchArgs })) as Answer,
+    describeFailure: (err: unknown) => (err as Error).message,
+  }
+  try {
+    if (tool === 'aml_address_risk') {
+      const { handleAmlAddressRisk } = await import('./mcp/address-risk.js')
+      const result = await handleAmlAddressRisk(input, shared)
+      return { text: result.content[0]?.text ?? '', isError: result.isError }
     }
-  )
-  return { text: result.content[0]?.text ?? '', isError: result.isError }
+    const { handleAmlTokenRisk } = await import('./mcp/token-risk.js')
+    const { loadRegistry } = await import('./mcp/dex-registry.js')
+    const result = await handleAmlTokenRisk(input, {
+      ...shared,
+      loadDexRegistry: (network) => loadRegistry(network),
+    })
+    return { text: result.content[0]?.text ?? '', isError: result.isError }
+  } finally {
+    await session.close()
+  }
 }
 
-function addAmlAddressRiskCommand(parent: Command, networksCommand: string): void {
+function addRiskWorkflowCommand(
+  parent: Command,
+  networksCommand: string,
+  tool: 'aml_address_risk' | 'aml_token_risk'
+): void {
+  const address = tool === 'aml_address_risk'
   parent.addCommand(
-    createCliCommand('aml-address-risk')
+    createCliCommand(address ? 'aml-address-risk' : 'aml-token-risk')
       .description(
-        'CIA workflow: who an address is and how risky: its risk word with every reason, the risk model score, its risky partners and its exchange ends'
+        address
+          ? 'CIA workflow: who an address is and how risky: its risk word with every reason, the risk model score, its risky partners and its exchange ends'
+          : 'CIA workflow: what about a token or a pool: its founder, factory, gas wallets and pools with their liquidity providers, each with its own risk word'
       )
-      .requiredOption('--address <address>', 'Full blockchain address to screen')
+      .requiredOption(
+        '--address <address>',
+        address ? 'Full blockchain address to screen' : 'Full address of the token contract or the pool'
+      )
       .requiredOption(
         '--network <network>',
         `Network to query. Run \`${networksCommand}\` for supported networks.`
       )
-      .option('--surroundings', 'Add the nodes and money links behind the answer')
+      .option('--surroundings', 'Add the nodes and links behind the answer')
       .option('--json', 'Print machine-readable JSON output (the answer is always JSON)')
       .action(async (opts: { address: string; network: string; surroundings?: boolean }) => {
         try {
-          const result = await runAmlAddressRiskCli({
+          const result = await runRiskToolCli(tool, {
             network: opts.network,
             address: opts.address,
             ...(opts.surroundings ? { surroundings: true } : {}),
@@ -297,7 +347,8 @@ program
 
 const workflowCommand = program.command('workflow').description('Run a high-level CIA workflow')
 
-addAmlAddressRiskCommand(workflowCommand, 'cia networks')
+addRiskWorkflowCommand(workflowCommand, 'cia networks', 'aml_address_risk')
+addRiskWorkflowCommand(workflowCommand, 'cia networks', 'aml_token_risk')
 
 program
   .command('status')
@@ -862,6 +913,8 @@ const mcpCommand = program
             await import('./mcp/deployer-screen.js')
           const { AML_ADDRESS_RISK_DESCRIPTION, AML_ADDRESS_RISK_TITLE, AML_ADDRESS_RISK_TOOL } =
             await import('./mcp/address-risk.js')
+          const { AML_TOKEN_RISK_DESCRIPTION, AML_TOKEN_RISK_TITLE, AML_TOKEN_RISK_TOOL } =
+            await import('./mcp/token-risk.js')
           console.log('')
           console.log(
             formatToolsTable(
@@ -870,6 +923,7 @@ const mcpCommand = program
                 { name: META_TOKEN_LOOKUP_TOOL, description: `${META_TOKEN_LOOKUP_TITLE}. ${META_TOKEN_LOOKUP_DESCRIPTION}` },
                 { name: AML_DEPLOYER_SCREEN_TOOL, description: `${AML_DEPLOYER_SCREEN_TITLE}. ${AML_DEPLOYER_SCREEN_DESCRIPTION}` },
                 { name: AML_ADDRESS_RISK_TOOL, description: `${AML_ADDRESS_RISK_TITLE}. ${AML_ADDRESS_RISK_DESCRIPTION}` },
+                { name: AML_TOKEN_RISK_TOOL, description: `${AML_TOKEN_RISK_TITLE}. ${AML_TOKEN_RISK_DESCRIPTION}` },
               ],
               'Local proxy tool'
             )
@@ -1012,10 +1066,10 @@ mcpCommand.addCommand(
           return
         }
 
-        if (tool === 'aml_address_risk') {
+        if (tool === 'aml_address_risk' || tool === 'aml_token_risk') {
           // The proxy's local tool, run here with the CLI's own graph session.
           const surroundings = args['surroundings']
-          const result = await runAmlAddressRiskCli({
+          const result = await runRiskToolCli(tool, {
             network: args['network'],
             address: args['address'],
             ...(surroundings === undefined

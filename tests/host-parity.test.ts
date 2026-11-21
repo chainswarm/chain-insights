@@ -31,7 +31,10 @@ import { readRegistry, repoRoot } from './dex-registry.js'
 //   4. the skill names each door in its text, as its first step.
 //
 // The core skill chain-insights-cypher is exempt: its door is meta_rules plus
-// the graph_query description. The host matrix is in docs/mcp-proxy.md.
+// the graph_query description. The risk skills (SCREEN_SKILLS) name no
+// exchange: their question is one address, token or pool, and their door
+// carries the rule they open with. They are held to rules 1, 2 and 4. The host
+// matrix is in docs/mcp-proxy.md.
 //
 // The level rule (money is read on three levels) lives in the descriptions of
 // graph_query and meta_dex_lookup, and every skill that teaches the levels
@@ -39,6 +42,9 @@ import { readRegistry, repoRoot } from './dex-registry.js'
 // misses it is red: a rule in a skill only does not exist for Desktop chat.
 
 const CORE_SKILL = 'chain-insights-cypher'
+
+/** The skills of one screened subject, whose door is a risk tool: no exchange names to trigger on. */
+export const SCREEN_SKILLS = ['chain-insights-address-risk', 'chain-insights-token-risk'] as const
 
 function protocolSkills(root: string): string[] {
   return readdirSync(join(root, 'skills'), { withFileTypes: true })
@@ -106,8 +112,9 @@ export function hostParityProblems(root: string = repoRoot): string[] {
       problems.push(`${path}: no door: line in the frontmatter`)
       continue
     }
-    const triggers = exchangeNames(meta['description'] ?? '', root)
-    if (triggers.length === 0) {
+    const screen = (SCREEN_SKILLS as readonly string[]).includes(name)
+    const triggers = screen ? [] : exchangeNames(meta['description'] ?? '', root)
+    if (!screen && triggers.length === 0) {
       problems.push(
         `${path}: its description names no exchange of the registry, so no door can carry its trigger words`
       )
@@ -209,18 +216,37 @@ describe('host parity', () => {
 
   it('every protocol skill names a local tool door that carries its trigger words', () => {
     expect(protocolSkills(repoRoot)).toEqual([
+      'chain-insights-address-risk',
       'chain-insights-aml-exchange',
       'chain-insights-dex',
       'chain-insights-dex-gauge',
       'chain-insights-dex-launchpad',
       'chain-insights-dex-vault',
+      'chain-insights-token-risk',
       'chain-insights-virtuals',
     ])
     expect(hostParityProblems()).toEqual([])
   })
 
+  it('each risk skill opens on its one risk tool, and the tool carries the judgement rule', () => {
+    const doors: Record<(typeof SCREEN_SKILLS)[number], string> = {
+      'chain-insights-address-risk': 'aml_address_risk',
+      'chain-insights-token-risk': 'aml_token_risk',
+    }
+    for (const name of SCREEN_SKILLS) {
+      const text = readFileSync(join(repoRoot, 'skills', name, 'SKILL.md'), 'utf8')
+      const door = doors[name]
+      expect(frontMatter(text)['door'], name).toBe(door)
+      expect(LOCAL_TOOL_NAMES.has(door), door).toBe(true)
+      expect(KNOWN_PUBLIC_TOOL_DESCRIPTIONS[door], door).toMatch(/never call an? .*safe/)
+      expect(text, name).toMatch(/Never call an? .*safe/)
+    }
+  })
+
   it('the exchange skills and Virtuals open on meta_dex_lookup', () => {
-    for (const name of protocolSkills(repoRoot).filter((skill) => skill !== 'chain-insights-aml-exchange')) {
+    for (const name of protocolSkills(repoRoot).filter(
+      (skill) => skill !== 'chain-insights-aml-exchange' && !(SCREEN_SKILLS as readonly string[]).includes(skill)
+    )) {
       expect(
         frontMatter(readFileSync(join(repoRoot, 'skills', name, 'SKILL.md'), 'utf8'))['door'],
         name

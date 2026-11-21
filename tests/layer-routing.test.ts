@@ -225,7 +225,7 @@ describe('the routing lines are one text in the skill, the guide and the served 
 })
 
 // One core skill, chain-insights-cypher, plus any number of protocol skills,
-// each loaded on demand. The address risk and the schema skills are gone.
+// each loaded on demand. The schema skills are gone.
 describe('one core graph skill, and protocol skills beside it', () => {
   const shipped = readdirSync(join(repoRoot, 'skills')).sort()
 
@@ -235,7 +235,6 @@ describe('one core graph skill, and protocol skills beside it', () => {
       expect(name).toMatch(/^chain-insights-[a-z0-9-]+$/)
       expect(existsSync(join(repoRoot, 'skills', name, 'SKILL.md')), name).toBe(true)
     }
-    expect(shipped).not.toContain('chain-insights-address-risk')
   })
 
   it('the plugin carries the same skills as skills/', () => {

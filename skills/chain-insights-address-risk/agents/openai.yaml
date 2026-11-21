@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Chain Insights Address Risk'
+  short_description: 'The risk of one address: its word, reasons, model score and money partners'
+  default_prompt: 'Load chain-insights-cypher first. For the risk of one address, call aml_address_risk with the network and the full address. Read risk.word as the higher of what labels prove and what the risk model predicts; say when the model alone set it, never call an address safe, and name a part in not_read as not read.'

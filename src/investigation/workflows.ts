@@ -14,6 +14,13 @@ export const CIA_WORKFLOWS: readonly CiaWorkflow[] = [
     description: 'Screen one address for AML risk, behavior, and exchange exposure.',
     command: 'cia workflow aml-address-risk',
   },
+  {
+    name: 'aml-token-risk',
+    tool: 'aml_token_risk',
+    network: 'robinhood',
+    description: 'Screen one token or pool: its founder, factory, gas wallets and pools, each with its own risk word.',
+    command: 'cia workflow aml-token-risk',
+  },
 ]
 
 const NAME_WIDTH = 22
