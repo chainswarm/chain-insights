@@ -109,6 +109,14 @@ import {
 } from './exchange-deposit-check.js'
 import { loadExchangeRegistry } from './exchange-registry.js'
 import { loadAddressCard } from './address-card.js'
+import {
+  AML_ADDRESS_RISK_ANNOTATIONS,
+  AML_ADDRESS_RISK_DESCRIPTION,
+  AML_ADDRESS_RISK_TITLE,
+  AML_ADDRESS_RISK_TOOL,
+  handleAmlAddressRisk,
+  type AddressRiskDependencies,
+} from './address-risk.js'
 
 export const LOCAL_TOOL_NAMES = new Set([
   'meta_network_capabilities',
@@ -122,6 +130,7 @@ export const LOCAL_TOOL_NAMES = new Set([
   AML_DEPLOYER_SCREEN_TOOL,
   META_EXCHANGE_LOOKUP_TOOL,
   AML_EXCHANGE_DEPOSIT_CHECK_TOOL,
+  AML_ADDRESS_RISK_TOOL,
   'wallet_balance',
   'wallet_topup',
   SUBSCRIPTION_TOPUP_TOOL,
@@ -228,6 +237,7 @@ export const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   [AML_DEPLOYER_SCREEN_TOOL]: AML_DEPLOYER_SCREEN_DESCRIPTION,
   [META_EXCHANGE_LOOKUP_TOOL]: META_EXCHANGE_LOOKUP_DESCRIPTION,
   [AML_EXCHANGE_DEPOSIT_CHECK_TOOL]: AML_EXCHANGE_DEPOSIT_CHECK_DESCRIPTION,
+  [AML_ADDRESS_RISK_TOOL]: AML_ADDRESS_RISK_DESCRIPTION,
   meta_usage_status: "Return the caller's public free graph_query quota for the current UTC day.",
   meta_subscription_status: META_SUBSCRIPTION_STATUS_DESCRIPTION,
   meta_help: 'Show a short guide to Chain Insights tools and workflow.',
@@ -1274,6 +1284,13 @@ export async function createProxy(): Promise<void> {
   // meta_schema: the live graph schema of one network, built from the catalog
   // statements of the graph endpoint and kept on disk for 24 hours. A build reads
   // through the proxy's one remote session; a cache hit reads nothing.
+  // The card dictionary, for meta_schema and for the risk word of aml_address_risk.
+  const loadCard = () =>
+    loadAddressCard({
+      log: (line) => {
+        void logger.info('address_card.fault', { line })
+      },
+    })
   const schemaDependencies: GraphSchemaDependencies = {
     endpoint: graphMcpEndpoint,
     withClient: async (fn) => {
@@ -1286,12 +1303,7 @@ export async function createProxy(): Promise<void> {
       return fn(remoteClient)
     },
     describeFailure: (err) => remoteCallFailureText('meta_schema', err),
-    loadAddressCard: () =>
-      loadAddressCard({
-        log: (line) => {
-          void logger.info('address_card.fault', { line })
-        },
-      }),
+    loadAddressCard: loadCard,
   }
   server.registerTool(
     'meta_schema',
@@ -1488,6 +1500,38 @@ export async function createProxy(): Promise<void> {
       annotations: AML_EXCHANGE_DEPOSIT_CHECK_ANNOTATIONS,
     },
     async (args) => handleAmlExchangeDepositCheck(args, depositCheckDependencies)
+  )
+
+  // aml_address_risk: one address becomes who it is and how risky: its card,
+  // the risk word with every reason, the model's level and score, its risky
+  // partners and its exchange ends. One topology batch of three reads anchored
+  // on the address, billed as any read. Facts and measures, no verdict.
+  const addressRiskDependencies: AddressRiskDependencies = {
+    loadAddressCard: loadCard,
+    loadExchangeRegistry: loadExchanges,
+    graphQueryBatch: tokenDependencies.graphQueryBatch,
+    unavailable: tokenDependencies.unavailable,
+    describeFailure: dexDependencies.describeFailure,
+  }
+  server.registerTool(
+    AML_ADDRESS_RISK_TOOL,
+    {
+      title: AML_ADDRESS_RISK_TITLE,
+      description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS[AML_ADDRESS_RISK_TOOL],
+      inputSchema: {
+        network: NETWORK_SCHEMA,
+        address: z
+          .string()
+          .min(1)
+          .describe('The address to screen: 0x plus 40 hex characters, any case. A name or a ticker is not an address: call meta_token_lookup or meta_exchange_lookup first.'),
+        surroundings: z
+          .boolean()
+          .optional()
+          .describe('true adds the nodes and money links behind the answer, for a host that draws. Off unless asked for.'),
+      },
+      annotations: AML_ADDRESS_RISK_ANNOTATIONS,
+    },
+    async (args) => handleAmlAddressRisk(args, addressRiskDependencies)
   )
 
   // One reader for the tool and for the browser page's free-credits meter.
@@ -1819,6 +1863,7 @@ export async function createProxy(): Promise<void> {
                 '- aml_deployer_screen: who is behind a token or a wallet, as facts: the launcher, its first funder and what kind of wallet that is, their labels and the first inbound bridge deposit. No score, no verdict.',
                 '- meta_exchange_lookup: turn a centralized exchange name (Binance, OKX, Bitget) into its hot wallets, each proven on the chain. Call it first when a question names one.',
                 '- aml_exchange_deposit_check: is this address an exchange deposit, of which exchange, and into which hot wallet was it swept. A trail ends at a deposit.',
+                '- aml_address_risk: who one address is and how risky, as facts: its risk word (the higher of what labels prove and what the risk model predicts) with every reason, the model score, its risky partners and its exchange ends. No verdict.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
                 '- meta_subscription_status: check the subscription of the local wallet: window, days left, daily allowance and use, and payments not credited yet.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
@@ -1844,6 +1889,7 @@ export async function createProxy(): Promise<void> {
                 '- aml_deployer_screen: who is behind a token or a wallet, as facts: the launcher, its first funder and what kind of wallet that is, their labels and the first inbound bridge deposit. No score, no verdict.',
                 '- meta_exchange_lookup: turn a centralized exchange name (Binance, OKX, Bitget) into its hot wallets, each proven on the chain. Call it first when a question names one.',
                 '- aml_exchange_deposit_check: is this address an exchange deposit, of which exchange, and into which hot wallet was it swept. A trail ends at a deposit.',
+                '- aml_address_risk: who one address is and how risky, as facts: its risk word (the higher of what labels prove and what the risk model predicts) with every reason, the model score, its risky partners and its exchange ends. No verdict.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
                 '- meta_subscription_status: check the subscription of the local wallet: window, days left, daily allowance and use, and payments not credited yet.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',

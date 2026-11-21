@@ -3,9 +3,6 @@ import { McpToolError, formatMcpToolError } from './print-result.js'
 export const HIDDEN_REMOTE_TOOL_NAMES = new Set([
   'topup',
   'address_risk',
-  // Hidden until its verdict is fixed: never listed, never registered, never
-  // called through the proxy. The remote graph endpoint does not serve it.
-  'aml_address_risk',
   'trace_victim_funds',
   'trace_suspect_funds',
   'trace_deposit_sources',
@@ -51,6 +48,8 @@ export const PUBLIC_MCP_TOOL_ALLOWED_ARGS: Record<string, string[]> = {
   meta_exchange_lookup: ['network', 'name', 'address'],
   // A local tool of the proxy (src/mcp/exchange-deposit-check.ts): is this address an exchange deposit.
   aml_exchange_deposit_check: ['network', 'address'],
+  // A local tool of the proxy (src/mcp/address-risk.ts): who an address is and how risky.
+  aml_address_risk: ['network', 'address', 'surroundings'],
 }
 
 export function isHiddenRemoteToolName(name: string): boolean {

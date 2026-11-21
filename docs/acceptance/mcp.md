@@ -18,7 +18,7 @@ sleep 2
 
 # Test tool listing via JSON-RPC
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | chain-insights-mcp-proxy | jq '.result.tools[].name'
-# Expected: Returns the sixteen public tool names (graph_query, graph_query_batch, meta_network_capabilities, meta_schema, meta_dex_lookup, meta_token_lookup, aml_deployer_screen, meta_exchange_lookup, aml_exchange_deposit_check, meta_rules, meta_help, meta_usage_status, meta_subscription_status, wallet_balance, wallet_topup, subscription_topup) and graph_expand, which hosts keep out of the model's list. No aml_address_risk: it is hidden.
+# Expected: Returns the seventeen public tool names (graph_query, graph_query_batch, meta_network_capabilities, meta_schema, meta_dex_lookup, meta_token_lookup, aml_deployer_screen, meta_exchange_lookup, aml_exchange_deposit_check, aml_address_risk, meta_rules, meta_help, meta_usage_status, meta_subscription_status, wallet_balance, wallet_topup, subscription_topup) and graph_expand, which hosts keep out of the model's list.
 
 # Test local tool (no Graph connection required)
 echo '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"meta_help","arguments":{}}}' | chain-insights-mcp-proxy | jq '.result.content[].text' | head -5
@@ -32,9 +32,9 @@ echo '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"meta_netwo
 cia mcp call graph_query network=robinhood "query=USE topology MATCH (a:Address) RETURN a.address AS address LIMIT 1" 2>&1 | grep -i "payment"
 # Expected: Error message mentioning "Payment required" and next steps (wallet ready, access-key set)
 
-# Test the hidden tool: aml_address_risk is refused as an unknown tool
-echo '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"aml_address_risk","arguments":{"network":"robinhood","address":"0xtest"}}}' | chain-insights-mcp-proxy 2>&1 | grep -i "not found"
-# Expected: "Tool aml_address_risk not found"
+# Test the local address risk tool: a malformed address is refused before any read
+echo '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"aml_address_risk","arguments":{"network":"robinhood","address":"0xtest"}}}' | chain-insights-mcp-proxy 2>&1 | grep -i "invalid_address"
+# Expected: "invalid_address: address is required: 0x plus 40 hex characters."
 
 # Test structured logging
 tail -f ~/.chain-insights/runtime/logs/mcp-proxy.jsonl | head -5

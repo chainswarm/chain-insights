@@ -3,6 +3,45 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.89.0] - 2026-11-22 — `aml_address_risk` returns, as a local tool that states facts
+
+### Added
+
+- `aml_address_risk` is a local tool of the proxy again, listed for every
+  host. It takes `network`, `address` and an optional `surroundings`, and
+  sends one batch of three reads anchored on the address: the address with
+  its card and the risk model's `risk_level` and `risk_score`, its senders and
+  its receivers (money links worth 1 USD or more, the 25 newest a direction).
+- `risk.word` is the higher of `rules_word`, the highest level among the
+  card's identity, evidence and judgement words, and `model_word`, the risk
+  model's level. Only a label gives `critical`; the model never lowers a
+  label word. `unscored` means neither speaks. `risk.set_by` says who set
+  the word, and `risk.score` is the model's number, or `null`.
+- Every reason carries its question, standing, level and the fixed `plain`
+  sentence of the card dictionary, found by the entry's word and value alone:
+  `scam:FAKE_TOKEN_DEPLOYER` reads as the pattern fact, level none, and
+  `scam:APPROVAL_DRAINER` as the scam word. A judgement reads `pattern`, with
+  its value. Every word of `identities` counts, so a mixer that is not the
+  top identity raises the word. A word the model set carries a reason with
+  standing `predicted`.
+- The answer lists the risky partners (word `medium` or above, by the same
+  rule), counts the partners with only a pattern fact (`pattern_partners`),
+  lists the exchange wallets the address exchanged money with, names any
+  partner read that did not answer in `not_read`, and with
+  `surroundings: true` adds the nodes and links behind it.
+- `registry/address-card.json` carries `words`: each card word with its
+  question, level, standing and plain sentence. The tool computes the word
+  from it, so a dictionary merged on `main` reaches every proxy within the
+  hour. A file with no `words` is refused and the packaged copy answers.
+
+### Changed
+
+- The answer holds facts and measures only: no hint, no summary, no verdict.
+  The tool description tells the host how to write its judgement.
+- `cia workflow aml-address-risk` and `cia mcp call aml_address_risk` run the
+  new tool and print its JSON. The workflow's `--version` and
+  `--compare-address` options are removed; `--surroundings` is added.
+
 ## [0.88.0] - 2026-11-20 — `meta_schema` lists the address card on every address
 
 ### Added

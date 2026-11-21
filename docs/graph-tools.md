@@ -19,9 +19,6 @@ The networks and layers a backend serves are read through
 `meta_network_capabilities`; the backend's own capability tool is never
 exposed by name.
 
-`aml_address_risk` is hidden until its verdict is fixed. The MCP proxy does
-not list it and refuses a call to it as an unknown tool.
-
 `cia mcp tools` lists the remote GraphRAG surface only. Use `cia networks` for
 the short network overview, `cia network <name>` for how far one network is
 indexed, and `cia mcp networks` for the full network capability matrix with
@@ -30,7 +27,7 @@ Use `cia mcp call` for low-level GraphRAG calls and custom read-only queries.
 
 The Chain Insights MCP proxy adds the local tools `meta_network_capabilities`,
 `meta_schema`, `meta_dex_lookup`, `meta_token_lookup`, `aml_deployer_screen`,
-`meta_exchange_lookup`, `aml_exchange_deposit_check`, `meta_rules`, `meta_help`, `meta_usage_status`,
+`meta_exchange_lookup`, `aml_exchange_deposit_check`, `aml_address_risk`, `meta_rules`, `meta_help`, `meta_usage_status`,
 `meta_subscription_status`, `wallet_balance`, `wallet_topup` and
 `subscription_topup`. `aml_deployer_screen` screens who is behind a token or a
 wallet from two anchored topology reads: the launcher, its first funder and
@@ -43,7 +40,10 @@ centralized exchange name into its proven hot wallets, and
 `aml_exchange_deposit_check` says whether one address is an exchange deposit,
 of which exchange, and into which hot wallet it was swept (`SWEPT`), with the
 counts of its behaviour: who paid it, whom it paid, its DEX swaps and its
-approvals. On hosted
+approvals. `aml_address_risk` screens one address: its risk word, the higher
+of what its labels prove and what the risk model predicts, with every reason,
+the model's score, and the partners and exchange wallets it exchanged money
+with; see [MCP proxy](mcp-proxy.md#local-tools). On hosted
 backends, `meta_usage_status` can reflect remote quota telemetry. On
 backends without a quota tool, Chain Insights returns a local unmetered
 primitive-backend status instead.

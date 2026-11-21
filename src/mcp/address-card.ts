@@ -7,7 +7,8 @@
  * patterns that convict nobody (judgements), its risk, and who gave the
  * answers (sources). registry/address-card.json names each card property with
  * its question, its meaning and its closed values, each mark and each flag with
- * the words that give it, and the one rule an agent follows. The file is
+ * the words that give it, each card word with its question, its level and its
+ * plain sentence (words), and the one rule an agent follows. The file is
  * generated from the label vocabulary and never edited by hand.
  *
  * The proxy reads it through the shared public file loader
@@ -62,6 +63,26 @@ export interface AddressCardMark {
   words: string[]
 }
 
+/** The levels a card word may carry, lowest first. */
+export const ADDRESS_CARD_LEVELS = ['none', 'low', 'medium', 'high', 'critical'] as const
+export type AddressCardLevel = (typeof ADDRESS_CARD_LEVELS)[number]
+
+/**
+ * One word of the card dictionary: the word, the question it answers, its
+ * level, and the one fixed sentence that says what it means. An item with a
+ * value is the meaning of `word:VALUE`; the item with none is every other
+ * value of the word.
+ */
+export interface AddressCardWord {
+  word: string
+  question: string
+  level: AddressCardLevel
+  value?: string
+  /** proven or reported, when the word says how it is known. */
+  standing?: string
+  plain: string
+}
+
 export interface AddressCardDocument {
   generated_from?: string
   version: string
@@ -70,6 +91,7 @@ export interface AddressCardDocument {
   marks: AddressCardMark[]
   flags: AddressCardMark[]
   sources: string[]
+  words: AddressCardWord[]
 }
 
 export type LoadedAddressCard = LoadedPublicFile<AddressCardDocument>
@@ -131,6 +153,26 @@ export function addressCardFault(value: unknown): string | null {
   const flags = markFault(value.flags, 'flags')
   if (flags) return flags
   if (!isWordList(value.sources)) return 'sources is not a list of words'
+  return wordsFault(value.words)
+}
+
+/** The fault of the words list, or null. A file with no words is refused, so the packaged copy answers. */
+function wordsFault(list: unknown): string | null {
+  if (!Array.isArray(list) || list.length === 0) return 'words is not a list'
+  for (const [index, entry] of list.entries()) {
+    const at = `words[${index}]`
+    if (!isRecord(entry)) return `${at} is not an object`
+    if (!isWord(entry.word)) return `${at} has no word`
+    if (!isWord(entry.question)) return `${at} (${entry.word}) has no question`
+    if (!(ADDRESS_CARD_LEVELS as readonly unknown[]).includes(entry.level)) {
+      return `${at} (${entry.word}) level is not one of ${ADDRESS_CARD_LEVELS.join(', ')}`
+    }
+    if (!isWord(entry.plain)) return `${at} (${entry.word}) has no plain sentence`
+    if (entry.value !== undefined && !isWord(entry.value)) return `${at} (${entry.word}) value is empty`
+    if (entry.standing !== undefined && !isWord(entry.standing)) {
+      return `${at} (${entry.word}) standing is empty`
+    }
+  }
   return null
 }
 

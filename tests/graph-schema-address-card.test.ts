@@ -82,6 +82,25 @@ describe('the address card in meta_schema', () => {
     expect(card.rule).toBe(ADDRESS_CARD_RULE)
   })
 
+  it('refuses a dictionary whose words are missing or malformed, so the packaged copy answers', () => {
+    const word = { word: 'scam', question: 'evidence', level: 'critical', plain: 'A sentence.' }
+    const faults = [
+      [undefined, 'words is not a list'],
+      [[], 'words is not a list'],
+      [['scam'], 'words[0] is not an object'],
+      [[{ ...word, word: '' }], 'words[0] has no word'],
+      [[{ ...word, question: '' }], 'words[0] (scam) has no question'],
+      [[{ ...word, level: 'severe' }], 'words[0] (scam) level is not one of none, low, medium, high, critical'],
+      [[{ ...word, plain: ' ' }], 'words[0] (scam) has no plain sentence'],
+      [[{ ...word, value: '' }], 'words[0] (scam) value is empty'],
+      [[{ ...word, standing: '' }], 'words[0] (scam) standing is empty'],
+    ] as const
+    for (const [words, fault] of faults) {
+      expect(addressCardFault({ ...card, words })).toBe(fault)
+    }
+    expect(addressCardFault({ ...card, words: [word] })).toBeNull()
+  })
+
   it('carries the rule of the file word for word in the tool description', () => {
     expect(META_SCHEMA_DESCRIPTION).toContain(card.rule)
     expect(META_SCHEMA_DESCRIPTION.length).toBeLessThan(700)

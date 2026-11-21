@@ -11,8 +11,9 @@ Tests: tests/mcp-proxy.test.ts, tests/cli-mcp.test.ts
 Holds the address screening recipes (`public-tools.ts`), the risk-level
 normalisation the graph verdicts need (`risk-level.ts`), the graph row
 normaliser, and the workflow catalogue. It composes read-only `graph_query`
-and `graph_query_batch` calls. The MCP proxy does not offer the screening as
-a tool: `aml_address_risk` is hidden until its verdict is fixed.
+and `graph_query_batch` calls. Neither the MCP proxy nor the CLI runs these
+recipes any more: `aml_address_risk` and `cia workflow aml-address-risk` run
+the proxy's local tool (`src/mcp/address-risk.ts`).
 
 ## Reads
 

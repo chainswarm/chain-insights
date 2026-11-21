@@ -14,11 +14,12 @@ node bin/cli.js --help
 
 ## Adding AML Tools
 
-Two AML tools live in the Chain Insights layer today, both local tools of the
+Three AML tools live in the Chain Insights layer today, all local tools of the
 MCP proxy: `aml_deployer_screen` returns facts about who is behind a token or
-a wallet, never a score, and `aml_exchange_deposit_check` says whether an
-address is an exchange deposit and into which hot wallet it was swept. `aml_address_risk` is hidden until its verdict is
-fixed.
+a wallet, never a score, `aml_exchange_deposit_check` says whether an
+address is an exchange deposit and into which hot wallet it was swept, and
+`aml_address_risk` gives one address's risk word with every reason, the risk
+model's score and its risky partners, as facts with no verdict.
 
 When adding a tool, document:
 

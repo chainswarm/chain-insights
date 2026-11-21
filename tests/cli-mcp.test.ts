@@ -675,8 +675,7 @@ describe('CLI mcp subcommand (MCP-02)', () => {
     ],
     ['balance', "MCP tool 'balance' is not exposed by Chain Insights. Use wallet_balance instead."],
     ['help', "MCP tool 'help' is not exposed by Chain Insights. Use meta_help instead."],
-    // Hidden until its verdict is fixed.
-    ['aml_address_risk', "MCP tool 'aml_address_risk' is not exposed by Chain Insights."],
+    ['address_risk', "MCP tool 'address_risk' is not exposed by Chain Insights."],
   ])('mcp call rejects hidden tool %s before remote passthrough', async (tool, message) => {
     await expect(
       runMcpCallAction(tool, ['trusted_addresses=0xSeed', 'network=robinhood'])

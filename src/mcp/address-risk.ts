@@ -1,0 +1,727 @@
+/**
+ * aml_address_risk: who is this address, and how risky is it?
+ *
+ * A local tool of the proxy. It sends one graph_query_batch with three reads
+ * on USE topology, all anchored on the address:
+ *
+ *   node  the address: its node labels and its card (identity, roles,
+ *         behaviour, evidence, judgements, sources, card_version), the risk
+ *         model's `risk_level` and `risk_score`, and its exchange role;
+ *   in    its senders: the newest FLOWED_TO links into it worth 1 USD or more,
+ *         with each sender's own card words (identities included) and model
+ *         level;
+ *   out   its receivers: the same, out of it.
+ *
+ * The risk word is the higher of what the labels prove (rules) and what the
+ * risk model predicts (model), computed by src/mcp/risk-word.ts from the card
+ * entries and the card dictionary. The partners' words are computed by the
+ * same rule from their own rows, and never change the address's word.
+ *
+ * The tool states, the host judges: the answer holds facts and measures, no
+ * summary, no advice and no verdict. The only prose is each reason's fixed
+ * plain sentence from the card dictionary.
+ *
+ * `addressRiskQueries` and `addressRiskFromMembers` are the address answer of
+ * every risk tool: a tool that names many addresses batches their reads under
+ * a prefix each, and builds each answer with the same code.
+ */
+
+import type { AddressCardWord, LoadedAddressCard } from './address-card.js'
+import { DexRegistryError, normalizeDexNetwork } from './dex-registry.js'
+import {
+  exchangeOfLabels,
+  exchangeOfWallet,
+  type ExchangeEntry,
+  type LoadedExchangeRegistry,
+} from './exchange-registry.js'
+import { exchangeRoleRead } from './graph-schema.js'
+import {
+  levelRank,
+  modelReasonOf,
+  modelScoreOf,
+  modelWordOf,
+  reasonOf,
+  riskOf,
+  rulesWordOf,
+  splitCardEntry,
+  type ModelWord,
+  type Reason,
+  type RiskWord,
+  type SetBy,
+} from './risk-word.js'
+import { isEpochMs, utcText } from './timestamp-text.js'
+import { membersOf, refusalOf, type GraphAnswer, type Member } from './token-lookup.js'
+
+export const AML_ADDRESS_RISK_TOOL = 'aml_address_risk' as const
+export const AML_ADDRESS_RISK_SCHEMA = 'chain-insights.aml-address-risk.v2' as const
+export const AML_ADDRESS_RISK_TITLE = 'Address risk'
+
+/** How a host reads the answer: the one text every host reads, in the tool description. */
+export const ADDRESS_RISK_READING_RULE =
+  'The tool states facts and measures; you write the judgement: say which reasons you rely on, ' +
+  'say when the word comes from the model alone (set_by model) that it is a prediction, never call an address safe, ' +
+  'and name a part listed in not_read as not read.'
+
+export const AML_ADDRESS_RISK_DESCRIPTION =
+  'Answers who one address is and how risky it is: its identity, wallet roles and behaviour, its risk word with every reason, ' +
+  'the risk model level and score, the partners it exchanged money with (1 USD or more, the 25 newest each way) that carry a risk word of medium or above, ' +
+  'and the exchange wallets its money came from or reached. Three reads anchored on the address, in one batch, billed as any read. ' +
+  'risk.word is the higher of what labels prove (rules_word) and what the risk model predicts (model_word); critical comes only from a label. ' +
+  'risk.score is the model number from 0 to 1, or null: a label never makes a number. ' +
+  'unscored means neither labels nor the model speak about the address: it is not low and not safe. ' +
+  'A risky partner is listed beside the word and never changes it. ' +
+  `${ADDRESS_RISK_READING_RULE} ` +
+  'Write every address in full, all 42 characters. Pass surroundings: true for the nodes and money links behind the answer, to draw.'
+
+export const AML_ADDRESS_RISK_ANNOTATIONS = {
+  readOnlyHint: true,
+  idempotentHint: true,
+  openWorldHint: false,
+} as const
+export const AML_ADDRESS_RISK_ARGS = ['network', 'address', 'surroundings'] as const
+
+/** The partners kept per direction, the newest first. One more is read to know whether more exist. */
+export const PARTNER_LIMIT = 25
+/** The money floor of a partner link, in USD: a link under it is dust, filtered by the read. */
+export const EXPOSURE_FLOOR_USD = 1
+/** The most nodes the surroundings carry. */
+export const SURROUNDINGS_NODE_LIMIT = 60
+/** The addresses that are never a partner: tokens minted from and burned to them. */
+export const ZERO_ADDRESSES = [
+  '0x0000000000000000000000000000000000000000',
+  '0x000000000000000000000000000000000000dead',
+] as const
+
+export type AddressKind = 'account' | 'contract' | 'token' | 'pool' | 'unknown'
+export type PartnerDirection = 'sent_to_subject' | 'received_from_subject'
+export type NotReadPart = 'senders' | 'receivers'
+
+export interface AddressRisk {
+  word: RiskWord
+  score: number | null
+  rules_word: string
+  model_word: ModelWord
+  set_by: SetBy
+  reasons: Reason[]
+  /** Card words the dictionary does not hold: listed, they set nothing. */
+  unknown_words: string[]
+  /** The dictionary version that resolved the card on the graph, or null. */
+  card_version: string | null
+}
+
+export interface ModelScore {
+  level: ModelWord
+  score: number | null
+  scored: boolean
+}
+
+export interface RiskyPartner {
+  address: string
+  direction: PartnerDirection
+  risk_word: RiskWord
+  set_by: SetBy
+  reasons: Reason[]
+  tokens_worth_usd: number | null
+  tx_count: number | null
+  first_seen_utc: string | null
+  last_seen_utc: string | null
+}
+
+export interface ExchangeEnd {
+  address: string
+  direction: PartnerDirection
+  /** The exchange id, from the lookup file, else the name on the card. */
+  exchange: string | null
+  exchange_role: string | null
+  tokens_worth_usd: number | null
+  first_seen_utc: string | null
+  last_seen_utc: string | null
+}
+
+export interface Exposure {
+  floor_usd: typeof EXPOSURE_FLOOR_USD
+  /** Partner links kept: worth 1 USD or more, not a token contract, not a zero address. */
+  counterparties_read: number
+  /** Partner links read and dropped: a token contract or a zero address. */
+  left_out: number
+  /** True when a direction had more partners than PARTNER_LIMIT. */
+  truncated: boolean
+  with_risk: RiskyPartner[]
+  /** Kept partners with at least one pattern fact and no word of medium or above. */
+  pattern_partners: number
+}
+
+export interface NotRead {
+  part: NotReadPart
+  code: string
+  reason: string
+}
+
+export interface SurroundingsNode {
+  address: string
+  role: 'subject' | 'partner' | 'exchange_end'
+  kind: AddressKind
+  name: string | null
+  risk_word: RiskWord
+  model_level: ModelWord
+}
+
+export interface SurroundingsLink {
+  from_address: string
+  to_address: string
+  link: 'FLOWED_TO'
+  tokens_worth_usd: number | null
+  first_seen_utc: string | null
+  last_seen_utc: string | null
+}
+
+export interface Surroundings {
+  nodes: SurroundingsNode[]
+  links: SurroundingsLink[]
+  truncated: boolean
+}
+
+export interface AmlAddressRiskResult {
+  schema: typeof AML_ADDRESS_RISK_SCHEMA
+  tool: typeof AML_ADDRESS_RISK_TOOL
+  network: string
+  address: string
+  /** false when the graph holds no node for the address. */
+  found: boolean
+  kind: AddressKind
+  identity: { word: string; name: string | null } | null
+  roles: string[]
+  behaviour: string | null
+  risk: AddressRisk
+  model: ModelScore
+  /** Null when the address is not found. */
+  exposure: Exposure | null
+  exchange_ends: ExchangeEnd[]
+  not_read: NotRead[]
+  surroundings?: Surroundings
+}
+
+export interface AddressRiskDependencies {
+  /** The card dictionary: the fresh cache, the public file, or the packaged copy. */
+  loadAddressCard: () => Promise<LoadedAddressCard | null>
+  loadExchangeRegistry: (network: string) => Promise<LoadedExchangeRegistry>
+  graphQueryBatch: (args: {
+    network: string
+    queries: Array<{ id: string; query: string }>
+  }) => Promise<GraphAnswer>
+  unavailable?: () => Promise<string | undefined> | string | undefined
+  describeFailure: (err: unknown) => string
+}
+
+export type AmlAddressRiskToolResult = {
+  content: Array<{ type: 'text'; text: string }>
+  structuredContent?: Record<string, unknown>
+  isError: boolean
+}
+
+const ADDRESS_INPUT = /^0x[0-9a-fA-F]{40}$/
+const ADDRESS_READ = /^0x[0-9a-f]{40}$/
+
+function assertReadAddress(address: string): void {
+  if (!ADDRESS_READ.test(address)) {
+    throw new Error(`address risk: ${JSON.stringify(address)} is not a lowercase 0x address`)
+  }
+}
+
+/** The node read: the card, the model's level and score, and the exchange role. */
+export function addressNodeQuery(address: string): string {
+  assertReadAddress(address)
+  return (
+    `USE topology MATCH (a:Address {address: "${address}"}) ` +
+    'RETURN labels(a) AS node_labels, a.card_version AS card_version, a.identity AS identity, a.identity_name AS identity_name, ' +
+    'a.identities AS identities, a.address_roles AS address_roles, a.behaviour AS behaviour, a.evidence AS evidence, ' +
+    'a.judgements AS judgements, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, ' +
+    `${exchangeRoleRead('a')} AS exchange_role LIMIT 1`
+  )
+}
+
+/** A partner read: the newest money links of one direction, one more than kept. */
+export function addressPartnerQuery(address: string, direction: 'in' | 'out'): string {
+  assertReadAddress(address)
+  const anchor = `(a:Address {address: "${address}"})`
+  const match =
+    direction === 'in'
+      ? `(b:Address)-[f:FLOWED_TO]->${anchor}`
+      : `${anchor}-[f:FLOWED_TO]->(b:Address)`
+  return (
+    `USE topology MATCH ${match} WHERE f.amount_usd_sum >= ${EXPOSURE_FLOOR_USD} ` +
+    'RETURN b.address AS address, labels(b) AS node_labels, b.identity AS identity, b.identity_name AS identity_name, ' +
+    'b.identities AS identities, ' +
+    'b.evidence AS evidence, b.judgements AS judgements, b.risk_level AS risk_level, ' +
+    `${exchangeRoleRead('b')} AS exchange_role, ` +
+    'f.amount_usd_sum AS tokens_worth_usd, f.tx_count AS tx_count, ' +
+    'f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp ' +
+    `ORDER BY f.last_seen_timestamp DESC LIMIT ${PARTNER_LIMIT + 1}`
+  )
+}
+
+/** The three batch members of one address, their ids under `prefix`: `${prefix}node`, `${prefix}in`, `${prefix}out`. */
+export function addressRiskQueries(
+  address: string,
+  prefix = ''
+): Array<{ id: string; query: string }> {
+  return [
+    { id: `${prefix}node`, query: addressNodeQuery(address) },
+    { id: `${prefix}in`, query: addressPartnerQuery(address, 'in') },
+    { id: `${prefix}out`, query: addressPartnerQuery(address, 'out') },
+  ]
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+const strings = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value.filter((v): v is string => typeof v === 'string' && v.trim() !== '').map((v) => v.trim())
+    : []
+
+const numberOrNull = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value)))
+    return Number(value)
+  return null
+}
+
+const textOrNull = (value: unknown): string | null =>
+  typeof value === 'string' && value.trim() !== '' ? value.trim() : null
+
+const addressOrNull = (value: unknown): string | null =>
+  typeof value === 'string' && ADDRESS_INPUT.test(value.trim()) ? value.trim().toLowerCase() : null
+
+const utcOrNull = (value: unknown): string | null => {
+  const ms = numberOrNull(value)
+  return isEpochMs(ms) ? utcText(ms) : null
+}
+
+const answered = (member: Member | undefined): boolean =>
+  member?.ok === true && Array.isArray(member.results)
+
+const rowsOf = (member: Member | undefined): Array<Record<string, unknown>> =>
+  answered(member) ? (member!.results as unknown[]).filter(isRecord) : []
+
+/** Why a member did not answer: its code, as a refusal names it, and its text. */
+function notReadOf(part: NotReadPart, id: string, member: Member | undefined): NotRead {
+  if (!member) {
+    return { part, code: 'not_answered', reason: `the ${id} read is missing from the batch answer` }
+  }
+  const text = typeof member.error === 'string' ? member.error.trim() : ''
+  if (text === '') return { part, code: 'not_answered', reason: `the ${id} read did not answer` }
+  const refusal = refusalOf({ content: [{ type: 'text', text }] })
+  return { part, code: refusal.code, reason: refusal.text }
+}
+
+/** The kind of an address from its node labels: Pool wins over Token over Contract over Account. */
+export function kindOf(nodeLabels: readonly string[]): AddressKind {
+  if (nodeLabels.includes('Pool')) return 'pool'
+  if (nodeLabels.includes('Token')) return 'token'
+  if (nodeLabels.includes('Contract')) return 'contract'
+  if (nodeLabels.includes('Account')) return 'account'
+  return 'unknown'
+}
+
+/**
+ * The reasons and the word of one row: the top identity, every other identity
+ * word that carries a level, the entries of evidence and judgements, and the
+ * model level. Each entry is read by the dictionary, whatever list it came from.
+ */
+export function rowRisk(
+  row: Record<string, unknown> | undefined,
+  dictionary: readonly AddressCardWord[]
+): Omit<AddressRisk, 'card_version'> {
+  const reasons: Reason[] = []
+  const unknown: string[] = []
+  const take = (entry: string, keep: (reason: Reason) => boolean = () => true) => {
+    const reason = reasonOf(entry, dictionary)
+    if (reason) {
+      if (keep(reason)) reasons.push(reason)
+    } else {
+      const { word } = splitCardEntry(entry)
+      if (word !== '' && !unknown.includes(word)) unknown.push(word)
+    }
+  }
+  const identity = textOrNull(row?.identity)
+  if (identity) take(identity)
+  // A mixer that is not the top identity still raises the word.
+  for (const word of strings(row?.identities)) {
+    if (word.toLowerCase() === identity?.toLowerCase()) continue
+    take(word, (reason) => reason.level !== 'none')
+  }
+  for (const entry of strings(row?.evidence)) take(entry)
+  for (const entry of strings(row?.judgements)) take(entry)
+  const modelWord = modelWordOf(row?.risk_level)
+  const risk = riskOf({
+    rulesWord: rulesWordOf(reasons),
+    modelWord,
+    score: modelScoreOf(row?.risk_score),
+  })
+  if (modelWord !== 'not_scored' && (risk.set_by === 'model' || risk.set_by === 'both')) {
+    reasons.push(modelReasonOf(modelWord))
+  }
+  return { ...risk, reasons, unknown_words: unknown }
+}
+
+/** A partner row, as the answer reads it. */
+interface Partner {
+  address: string
+  direction: PartnerDirection
+  row: Record<string, unknown>
+  kind: AddressKind
+  risk: Omit<AddressRisk, 'card_version'>
+  exchange: { exchange: string | null; exchange_role: string | null } | null
+}
+
+function isTokenContract(nodeLabels: readonly string[]): boolean {
+  return nodeLabels.includes('Token') && !nodeLabels.includes('Pool')
+}
+
+/** The exchange of a partner that is an exchange wallet, or null when it is none. */
+function exchangeOfPartner(
+  address: string,
+  row: Record<string, unknown>,
+  nodeLabels: readonly string[],
+  exchangeRows: ExchangeEntry[]
+): Partner['exchange'] {
+  const identity = textOrNull(row.identity)?.toLowerCase()
+  const role = textOrNull(row.exchange_role)?.toLowerCase() ?? null
+  if (identity !== 'exchange' && role === null && !nodeLabels.includes('Exchange')) return null
+  const name = textOrNull(row.identity_name)
+  const listed =
+    exchangeOfWallet(address, exchangeRows)?.entry ??
+    (name ? exchangeOfLabels([name], exchangeRows) : null)
+  return { exchange: listed?.exchange ?? name, exchange_role: role }
+}
+
+/** The partners of one direction, the token contracts and zero addresses dropped and counted. */
+function partnersOf(
+  member: Member | undefined,
+  direction: PartnerDirection,
+  dictionary: readonly AddressCardWord[],
+  exchangeRows: ExchangeEntry[]
+): { partners: Partner[]; leftOut: number; truncated: boolean } {
+  const rows = rowsOf(member)
+  const partners: Partner[] = []
+  let leftOut = 0
+  for (const row of rows.slice(0, PARTNER_LIMIT)) {
+    const address = addressOrNull(row.address)
+    if (!address) continue
+    const nodeLabels = strings(row.node_labels)
+    if (isTokenContract(nodeLabels) || (ZERO_ADDRESSES as readonly string[]).includes(address)) {
+      leftOut += 1
+      continue
+    }
+    partners.push({
+      address,
+      direction,
+      row,
+      kind: kindOf(nodeLabels),
+      risk: rowRisk(row, dictionary),
+      exchange: exchangeOfPartner(address, row, nodeLabels, exchangeRows),
+    })
+  }
+  return { partners, leftOut, truncated: rows.length > PARTNER_LIMIT }
+}
+
+function riskyPartnerOf(partner: Partner): RiskyPartner {
+  return {
+    address: partner.address,
+    direction: partner.direction,
+    risk_word: partner.risk.word,
+    set_by: partner.risk.set_by,
+    reasons: partner.risk.reasons,
+    tokens_worth_usd: numberOrNull(partner.row.tokens_worth_usd),
+    tx_count: numberOrNull(partner.row.tx_count),
+    first_seen_utc: utcOrNull(partner.row.first_seen_timestamp),
+    last_seen_utc: utcOrNull(partner.row.last_seen_timestamp),
+  }
+}
+
+const MEDIUM_RANK = levelRank('medium')
+const wordRank = (word: RiskWord): number => (word === 'unscored' ? -1 : levelRank(word))
+
+/** The nodes and money links behind the answer, from the rows already read. */
+function surroundingsOf(subject: SurroundingsNode, partners: Partner[], truncated: boolean): Surroundings {
+  const nodes: SurroundingsNode[] = [subject]
+  const listed = new Set([subject.address])
+  let capped = false
+  for (const partner of partners) {
+    if (listed.has(partner.address)) continue
+    if (nodes.length >= SURROUNDINGS_NODE_LIMIT) {
+      capped = true
+      continue
+    }
+    listed.add(partner.address)
+    nodes.push({
+      address: partner.address,
+      role: partner.exchange ? 'exchange_end' : 'partner',
+      kind: partner.kind,
+      name: partner.exchange?.exchange ?? textOrNull(partner.row.identity_name),
+      risk_word: partner.risk.word,
+      model_level: partner.risk.model_word,
+    })
+  }
+  const links: SurroundingsLink[] = []
+  for (const partner of partners) {
+    if (!listed.has(partner.address)) continue
+    const sent = partner.direction === 'sent_to_subject'
+    links.push({
+      from_address: sent ? partner.address : subject.address,
+      to_address: sent ? subject.address : partner.address,
+      link: 'FLOWED_TO',
+      tokens_worth_usd: numberOrNull(partner.row.tokens_worth_usd),
+      first_seen_utc: utcOrNull(partner.row.first_seen_timestamp),
+      last_seen_utc: utcOrNull(partner.row.last_seen_timestamp),
+    })
+  }
+  return { nodes, links, truncated: truncated || capped }
+}
+
+/**
+ * The address answer built from its batch members, or why it cannot be. Only
+ * a node read that did not answer is a failure; a partner read that did not
+ * answer is named in not_read and the answer still stands.
+ */
+export function addressRiskFromMembers(
+  network: string,
+  address: string,
+  members: Map<string, Member>,
+  dictionary: readonly AddressCardWord[],
+  exchangeRows: ExchangeEntry[],
+  prefix = '',
+  options: { surroundings?: boolean } = {}
+): { result: AmlAddressRiskResult } | { failure: string } {
+  const nodeId = `${prefix}node`
+  const node = members.get(nodeId)
+  if (!answered(node)) {
+    if (!node) return { failure: `the ${nodeId} read is missing from the batch answer` }
+    return {
+      failure:
+        typeof node.error === 'string' && node.error.trim() !== ''
+          ? node.error
+          : `the ${nodeId} read did not answer`,
+    }
+  }
+  const nodeRow = rowsOf(node)[0]
+  const base = {
+    schema: AML_ADDRESS_RISK_SCHEMA,
+    tool: AML_ADDRESS_RISK_TOOL,
+    network,
+    address,
+  }
+  if (!nodeRow) {
+    const result: AmlAddressRiskResult = {
+      ...base,
+      found: false,
+      kind: 'unknown',
+      identity: null,
+      roles: [],
+      behaviour: null,
+      risk: {
+        word: 'unscored',
+        score: null,
+        rules_word: 'none',
+        model_word: 'not_scored',
+        set_by: 'none',
+        reasons: [],
+        unknown_words: [],
+        card_version: null,
+      },
+      model: { level: 'not_scored', score: null, scored: false },
+      exposure: null,
+      exchange_ends: [],
+      not_read: [],
+      ...(options.surroundings === true
+        ? {
+            surroundings: {
+              nodes: [
+                {
+                  address,
+                  role: 'subject' as const,
+                  kind: 'unknown' as const,
+                  name: null,
+                  risk_word: 'unscored' as const,
+                  model_level: 'not_scored' as const,
+                },
+              ],
+              links: [],
+              truncated: false,
+            },
+          }
+        : {}),
+    }
+    return { result }
+  }
+
+  const risk = rowRisk(nodeRow, dictionary)
+  const kind = kindOf(strings(nodeRow.node_labels))
+  const identityWord = textOrNull(nodeRow.identity)
+  const identityName = textOrNull(nodeRow.identity_name)
+
+  const notRead: NotRead[] = []
+  const directions: Array<{ id: string; part: NotReadPart; direction: PartnerDirection }> = [
+    { id: `${prefix}in`, part: 'senders', direction: 'sent_to_subject' },
+    { id: `${prefix}out`, part: 'receivers', direction: 'received_from_subject' },
+  ]
+  const partners: Partner[] = []
+  let leftOut = 0
+  let truncated = false
+  for (const { id, part, direction } of directions) {
+    const member = members.get(id)
+    if (!answered(member)) {
+      notRead.push(notReadOf(part, id, member))
+      continue
+    }
+    const read = partnersOf(member, direction, dictionary, exchangeRows)
+    partners.push(...read.partners)
+    leftOut += read.leftOut
+    truncated ||= read.truncated
+  }
+
+  const exchangeEnds: ExchangeEnd[] = partners
+    .filter((partner) => partner.exchange !== null)
+    .map((partner) => ({
+      address: partner.address,
+      direction: partner.direction,
+      exchange: partner.exchange!.exchange,
+      exchange_role: partner.exchange!.exchange_role,
+      tokens_worth_usd: numberOrNull(partner.row.tokens_worth_usd),
+      first_seen_utc: utcOrNull(partner.row.first_seen_timestamp),
+      last_seen_utc: utcOrNull(partner.row.last_seen_timestamp),
+    }))
+
+  const result: AmlAddressRiskResult = {
+    ...base,
+    found: true,
+    kind,
+    identity: identityWord ? { word: identityWord, name: identityName } : null,
+    roles: strings(nodeRow.address_roles),
+    behaviour: textOrNull(nodeRow.behaviour),
+    risk: { ...risk, card_version: textOrNull(nodeRow.card_version) },
+    model: { level: risk.model_word, score: risk.score, scored: risk.model_word !== 'not_scored' },
+    exposure: {
+      floor_usd: EXPOSURE_FLOOR_USD,
+      counterparties_read: partners.length,
+      left_out: leftOut,
+      truncated,
+      with_risk: partners
+        .filter((partner) => wordRank(partner.risk.word) >= MEDIUM_RANK)
+        .map(riskyPartnerOf),
+      pattern_partners: partners.filter(
+        (partner) =>
+          wordRank(partner.risk.word) < MEDIUM_RANK &&
+          partner.risk.reasons.some((reason) => reason.question === 'judgement')
+      ).length,
+    },
+    exchange_ends: exchangeEnds,
+    not_read: notRead,
+  }
+  if (options.surroundings === true) {
+    result.surroundings = surroundingsOf(
+      {
+        address,
+        role: 'subject',
+        kind,
+        name: identityName,
+        risk_word: risk.word,
+        model_level: risk.model_word,
+      },
+      partners,
+      truncated
+    )
+  }
+  return { result }
+}
+
+function errorResult(text: string): AmlAddressRiskToolResult {
+  return { content: [{ type: 'text', text }], isError: true }
+}
+
+function textResult(structured: AmlAddressRiskResult): AmlAddressRiskToolResult {
+  return {
+    content: [{ type: 'text', text: JSON.stringify(structured, null, 2) }],
+    structuredContent: structured as unknown as Record<string, unknown>,
+    isError: false,
+  }
+}
+
+/** aml_address_risk, {network, address, surroundings?}. Every argument is checked before a read is sent. */
+export async function handleAmlAddressRisk(
+  args: unknown,
+  deps: AddressRiskDependencies
+): Promise<AmlAddressRiskToolResult> {
+  const record = isRecord(args) ? args : {}
+  let network: string
+  try {
+    network = normalizeDexNetwork(record.network)
+  } catch (err) {
+    return errorResult(
+      err instanceof DexRegistryError ? err.message : `invalid_network: ${(err as Error).message}`
+    )
+  }
+  const raw = typeof record.address === 'string' ? record.address.trim() : ''
+  if (!ADDRESS_INPUT.test(raw)) {
+    return errorResult(
+      'invalid_address: address is required: 0x plus 40 hex characters. ' +
+        'A name or a ticker is not an address: call meta_token_lookup or meta_exchange_lookup first.'
+    )
+  }
+  if (record.surroundings !== undefined && typeof record.surroundings !== 'boolean') {
+    return errorResult('invalid_surroundings: surroundings is true or false.')
+  }
+  const address = raw.toLowerCase()
+  const surroundings = record.surroundings === true
+
+  const unavailable = await deps.unavailable?.()
+  if (unavailable) {
+    return errorResult(
+      `No address risk read was sent: ${unavailable} There is no answer yet, which is not "no risk": try again later.`
+    )
+  }
+
+  let dictionary: readonly AddressCardWord[]
+  try {
+    const card = await deps.loadAddressCard()
+    if (!card) throw new Error('no copy of the address card dictionary is available')
+    dictionary = card.document.words
+  } catch (err) {
+    return errorResult(
+      `No address risk read was sent: the address card dictionary did not load (${(err as Error).message}). ` +
+        'There is no answer yet, which is not "no risk".'
+    )
+  }
+
+  let exchangeRows: ExchangeEntry[] = []
+  try {
+    exchangeRows = (await deps.loadExchangeRegistry(network)).document.rows
+  } catch {
+    // The lookup only names an exchange; the graph read still answers.
+  }
+
+  let answer: GraphAnswer
+  try {
+    answer = await deps.graphQueryBatch({ network, queries: addressRiskQueries(address) })
+  } catch (err) {
+    return errorResult(
+      `The address risk read failed: ${deps.describeFailure(err)} This is not "no risk": send the same call again once.`
+    )
+  }
+  const members = membersOf(answer)
+  if (members.size === 0) {
+    const text = answer.isError === true ? refusalOf(answer).text : 'the batch answer held no reads'
+    return errorResult(`The address risk read failed: ${text} This is not "no risk".`)
+  }
+  const built = addressRiskFromMembers(network, address, members, dictionary, exchangeRows, '', {
+    surroundings,
+  })
+  if ('failure' in built) {
+    return errorResult(
+      `The address risk read failed: ${built.failure} This is not "no risk": send the same call again once.`
+    )
+  }
+  return textResult(built.result)
+}
