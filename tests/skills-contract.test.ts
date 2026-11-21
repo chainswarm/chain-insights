@@ -178,8 +178,8 @@ describe('shipped Chain Insights skills contract', () => {
     expect(cypher).toContain('## Find the fields')
 
     expect(cypher).not.toMatch(/workspace|debug MCP/i)
-    // The risk screen is hidden until its verdict is fixed: no skill drives it,
-    // and no skill sends an agent to a workflow command to find one.
+    // The cypher skill does not drive the risk screen: the tool's own
+    // description does, and no skill sends an agent to a workflow command.
     expect(cypher).not.toContain('aml_address_risk')
     expect(cypher).not.toContain('aml-address-risk')
   })
@@ -291,7 +291,8 @@ describe('shipped Chain Insights skills contract', () => {
     expect(readme).toContain('approved access key')
     expect(readme).toContain('prepared wallet')
     expect(readme).toContain('[MCP proxy](docs/mcp-proxy.md)')
-    expect(readme).not.toContain('aml_address_risk')
+    // The local address risk tool is in the README tool table.
+    expect(readme).toContain('| `aml_address_risk`')
     expect(readme).toContain('graph_query')
     expect(readme).toContain('graph_query_batch')
 

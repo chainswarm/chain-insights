@@ -86,6 +86,7 @@ The proxy:
 | `aml_deployer_screen`        | Screen who is behind a token or a wallet: launcher, first funder, labels, facts only |
 | `meta_exchange_lookup`       | Turn a centralized exchange name, or one of its wallets, into its listed wallets     |
 | `aml_exchange_deposit_check` | Check one address: an exchange deposit, of which exchange, swept into which wallet   |
+| `aml_address_risk`           | Screen one address: who it is, its risk word with reasons, model score, partners     |
 | `meta_rules`                 | Read the answer rules when the `chain-insights-cypher` skill is not loaded           |
 | `meta_help`                  | Show Chain Insights tool and workflow guidance                                       |
 | `meta_usage_status`          | Check the caller's daily free-tier graph query allowance                             |
@@ -319,6 +320,63 @@ flowchart LR
 `cia mcp call aml_exchange_deposit_check network=robinhood address=0x...` runs
 the same check in a terminal.
 
+`aml_address_risk` screens one address. It takes `network` and `address`
+(both required) and `surroundings` (optional, `true` or `false`). One
+`graph_query_batch` sends three reads on `USE topology`, all anchored on the
+address: the address with its card and the risk model's level and score, its
+senders and its receivers (the newest money links worth 1 USD or more, 26 a
+direction to know whether more than 25 exist).
+
+```mermaid
+flowchart LR
+    C["card entries<br/>identity, evidence, judgements"] -->|"card dictionary<br/>registry/address-card.json words"| R["rules_word"]
+    M["risk model<br/>risk_level, risk_score"] --> W["model_word"]
+    R --> H["risk.word = the higher"]
+    W --> H
+```
+
+- `risk.word` is `critical`, `high`, `medium`, `low` or `unscored`. It is the
+  higher of `rules_word` (the highest level among the card's identity
+  words, every one of `identities` counted, and its evidence and judgement
+  entries, or `none`) and `model_word` (`high`, `medium`,
+  `low` or `not_scored`). Only a label gives `critical`. A label word is never
+  lowered by the model. `unscored` means neither speaks: it is not `low`, and
+  not safe.
+- `risk.set_by` says who set the word: `rules`, `model`, `both` or `none`.
+  `risk.score` is the model's number from 0 to 1, unchanged, or `null`: a
+  label never makes a number.
+- `risk.reasons` holds one reason per card word, each with its question, its
+  standing, its level and its fixed `plain` sentence from the card dictionary.
+  An entry is looked up by its word and value alone, whatever card list it
+  came from: `scam:FAKE_TOKEN_LP` is the pattern fact the dictionary says it
+  is, and `scam` with any other value is the scam word. A reason whose
+  dictionary question is `judgement` reads `pattern`, with its value, and sets
+  no level. An identity of `identities` other than the top one adds a reason
+  only when it carries a level. A word the model set adds one
+  reason with standing `predicted`. A card word the dictionary does not hold
+  is listed in `unknown_words` and sets nothing. `card_version` is the
+  dictionary version the graph resolved the card with.
+- The word is computed from the entries and the served card dictionary, so a
+  dictionary merged on `main` changes every answer within the hour.
+- `exposure` lists the partners that carry a word of `medium` or above, each
+  with its own word and reasons, computed by the same rule. A risky partner
+  never changes the address's word. `pattern_partners` counts the partners
+  with a pattern fact and no word of `medium` or above. A token contract and
+  the zero addresses are left out and counted in `left_out`.
+- `exchange_ends` lists the exchange wallets the address paid or was paid by,
+  named through the exchange lookup.
+- `not_read` names a partner read that did not answer, with its code; the
+  answer still stands. A failed address read is an error.
+- With `surroundings: true` the answer adds the nodes (at most 60) and the
+  `FLOWED_TO` links behind it, built from the same reads, for a host that
+  draws.
+- The answer holds facts and measures only: no summary, no advice, no
+  verdict. The host writes the judgement.
+
+`cia mcp call aml_address_risk network=robinhood address=0x...` and
+`cia workflow aml-address-risk --network robinhood --address 0x...` run the same
+screen in a terminal.
+
 ## Host parity
 
 **A rule a host never loads does not exist for that host.** Each host loads a
@@ -334,6 +392,7 @@ different part of what this package ships:
 | protocol tool doors                                                 | yes         | yes               | yes   | yes    | yes            | yes                      |
 | token door `meta_token_lookup`                                      | yes         | yes               | yes   | yes    | yes            | yes                      |
 | exchange doors `meta_exchange_lookup`, `aml_exchange_deposit_check` | yes         | yes               | yes   | yes    | yes            | yes                      |
+| address risk `aml_address_risk`                                     | yes         | yes               | yes   | yes    | yes            | yes                      |
 
 The scout agent pins the CLI by version in its image and copies only
 `chain-insights-cypher` and `chain-insights-virtuals` into its project, yet asks

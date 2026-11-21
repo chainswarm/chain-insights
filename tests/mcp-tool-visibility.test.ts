@@ -9,24 +9,30 @@ import {
   visibleRemoteTools,
 } from '../src/mcp/tool-visibility.js'
 
-describe('aml_address_risk is hidden until its verdict is fixed', () => {
-  it('is a hidden name, never listed from a remote catalogue and refused by name', () => {
-    expect(isHiddenRemoteToolName('aml_address_risk')).toBe(true)
+describe('aml_address_risk is a local tool of the proxy, and address_risk stays hidden', () => {
+  it('is no hidden name; the retired remote address_risk still is', () => {
+    expect(isHiddenRemoteToolName('aml_address_risk')).toBe(false)
+    expect(isHiddenRemoteToolName('address_risk')).toBe(true)
     expect(
       visibleRemoteTools([
-        { name: 'aml_address_risk' },
+        { name: 'address_risk' },
         { name: 'graph_query' },
         { name: 'graph_query_batch' },
       ]).map((tool) => tool.name)
     ).toEqual(['graph_query', 'graph_query_batch'])
-    expect(() => assertPublicMcpToolName('aml_address_risk')).toThrow(
-      "MCP tool 'aml_address_risk' is not exposed by Chain Insights."
+    expect(() => assertPublicMcpToolName('aml_address_risk')).not.toThrow()
+    expect(() => assertPublicMcpToolName('address_risk')).toThrow(
+      "MCP tool 'address_risk' is not exposed by Chain Insights."
     )
   })
 
-  it('has no public argument contract', () => {
+  it('has a public argument contract: network, address and surroundings', () => {
     expect(PUBLIC_MCP_TOOL_REQUIRED_ARGS).not.toHaveProperty('aml_address_risk')
-    expect(PUBLIC_MCP_TOOL_ALLOWED_ARGS).not.toHaveProperty('aml_address_risk')
+    expect(PUBLIC_MCP_TOOL_ALLOWED_ARGS['aml_address_risk']).toEqual([
+      'network',
+      'address',
+      'surroundings',
+    ])
   })
 })
 

@@ -120,36 +120,27 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(out).toContain('hermes')
   })
 
-  it('AML workflow exposes JSON output and version selection', () => {
+  it('AML workflow exposes JSON output and the surroundings, and has no tool version any more', () => {
     const out = execFileSync(
       'node',
       ['--import', tsxLoader, srcCli, 'workflow', 'aml-address-risk', '--help'],
       { encoding: 'utf8' }
     )
     expect(out).toContain('--json')
-    expect(out).toContain('--version <version>')
+    expect(out).toContain('--surroundings')
+    expect(out).not.toContain('--version <version>')
+    expect(out).not.toContain('--compare-address')
   })
 
-  it('AML tool version is not swallowed by the package version flag', () => {
-    const path = ['workflow', 'aml-address-risk']
-    const helpResult = spawnSync(
-      'node',
-      ['--import', tsxLoader, srcCli, ...path, '--version', 'v1', '--help'],
-      { encoding: 'utf8' }
-    )
-    expect(helpResult.status).toBe(0)
-    expect(`${helpResult.stdout}\n${helpResult.stderr}`).toContain(`Usage: cia ${path.join(' ')}`)
-    expect(`${helpResult.stdout}\n${helpResult.stderr}`).not.toMatch(/^0\.24\.2$/m)
-
+  it('AML workflow refuses a malformed address before any graph session', () => {
     const result = spawnSync(
       'node',
       [
         '--import',
         tsxLoader,
         srcCli,
-        ...path,
-        '--version',
-        'v2',
+        'workflow',
+        'aml-address-risk',
         '--address',
         '0xabc',
         '--network',
@@ -157,10 +148,8 @@ describe('CLI scaffold (FOUND-02)', () => {
       ],
       { encoding: 'utf8' }
     )
-    const output = `${result.stdout}\n${result.stderr}`
     expect(result.status).toBe(1)
-    expect(output).toContain('Unsupported aml_address_risk version "v2"')
-    expect(output).not.toMatch(/^0\.24\.2$/m)
+    expect(result.stderr).toContain('invalid_address: address is required: 0x plus 40 hex characters.')
   })
 
   it('--help lists wallet subcommand', () => {
@@ -212,7 +201,7 @@ describe('CLI scaffold (FOUND-02)', () => {
     expect(`${result.stdout}\n${result.stderr}`).toMatch(/unknown command/i)
   })
 
-  it('refuses aml_address_risk through the low-level mcp call: the tool is hidden until its verdict is fixed', () => {
+  it('runs aml_address_risk through the low-level mcp call as the proxy local tool, checking the address before any read', () => {
     const result = spawnSync(
       process.execPath,
       [
@@ -229,8 +218,8 @@ describe('CLI scaffold (FOUND-02)', () => {
     )
     expect(result.status).toBe(1)
     const output = `${result.stdout}\n${result.stderr}`
-    expect(output).toContain("MCP tool 'aml_address_risk' is not exposed by Chain Insights.")
-    expect(output).not.toContain('cia workflow aml-address-risk')
+    expect(output).toContain('invalid_address: address is required: 0x plus 40 hex characters.')
+    expect(output).not.toContain('is not exposed by Chain Insights')
   })
 
   it('workflows lists the canonical workflow execution command without network access', () => {

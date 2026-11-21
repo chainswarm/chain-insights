@@ -440,8 +440,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(toolNames).toContain('meta_usage_status')
     expect(toolNames).toContain('meta_help')
     expect(toolNames).toContain('graph_query')
-    // Hidden until its verdict is fixed: no proxy tool, local or remote.
-    expect(toolNames).not.toContain('aml_address_risk')
+    // A local tool of the proxy, registered once, in stateless mode too.
+    expect(toolNames.filter((name) => name === 'aml_address_risk')).toHaveLength(1)
     expect(toolNames).not.toContain(retiredName('aml_trace_victim', '_funds'))
     expect(toolNames).not.toContain(retiredName('aml_trace_suspect', '_funds'))
     expect(toolNames).not.toContain(retiredName('aml_trace_deposit', '_sources'))
@@ -2866,10 +2866,10 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     )
   })
 
-  it('hides aml_address_risk: not listed, not registered, not in the instructions, and a call is refused as an unknown tool', async () => {
+  it('serves aml_address_risk as its own local tool: listed once, never passed through, and checked before any read', async () => {
     const { loadSchema } = await import('../src/mcp/schema-cache.js')
-    // Even a remote endpoint that lists the tool does not bring it back, and an
-    // endpoint that lacks it brings no local fallback.
+    // A remote endpoint that lists a tool of the same name never replaces the
+    // local one: the proxy lists its own, once.
     vi.mocked(loadSchema).mockResolvedValueOnce([
       { name: 'graph_query', description: 'Federated graph query' },
       { name: 'graph_query_batch', description: 'Federated graph query batch' },
@@ -2922,25 +2922,32 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
 
     expect(String(initialized.instructions)).not.toContain('aml_address_risk')
 
-    const names = ((await request(2, 'tools/list', {})).tools as Array<{ name: string }>).map(
-      (tool) => tool.name
-    )
+    const tools = (await request(2, 'tools/list', {})).tools as Array<{
+      name: string
+      description?: string
+    }>
+    const names = tools.map((tool) => tool.name)
     expect(names).toContain('graph_query')
-    expect(names).not.toContain('aml_address_risk')
+    expect(names.filter((name) => name === 'aml_address_risk')).toHaveLength(1)
+    const { AML_ADDRESS_RISK_DESCRIPTION } = await import('../src/mcp/address-risk.js')
+    expect(tools.find((tool) => tool.name === 'aml_address_risk')?.description).toBe(
+      AML_ADDRESS_RISK_DESCRIPTION
+    )
 
     const prompts = ((await request(3, 'prompts/list', {})).prompts as Array<{ name: string }>).map(
       (prompt) => prompt.name
     )
     expect(prompts).not.toContain('aml-address-risk')
 
-    // The host calls it anyway: the proxy answers as it answers any unknown tool,
-    // and nothing reaches the endpoint.
+    // The local handler answers: a malformed address is refused before any
+    // read, and nothing reaches the endpoint.
     const refused = await request(4, 'tools/call', {
       name: 'aml_address_risk',
-      arguments: { network: 'robinhood', address: '0x04911a118f11c75667e4d0dfb8e640af5a353550' },
+      arguments: { network: 'robinhood', address: '0x0491' },
     })
     const refusal = JSON.stringify(refused)
-    expect(refusal).toMatch(/not found|unknown tool/i)
+    expect(refusal).toContain('invalid_address')
+    expect(refusal).not.toMatch(/not found|unknown tool/i)
     expect(callTool).not.toHaveBeenCalled()
   })
 
@@ -2974,7 +2981,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
         'meta-help',
       ])
     )
-    // The risk screen is hidden until its verdict is fixed: no prompt names it.
+    // The risk screen is a local tool; no prompt names it.
     expect(promptNames).not.toContain('aml-address-risk')
     expect(promptNames).not.toContain('address-risk')
     expect(promptNames).not.toContain('trace-tools')
@@ -3738,7 +3745,7 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     )
     expect(result.content[0].text).toContain('Workflow:')
     expect(result.content[0].text).toContain('Network is required')
-    expect(result.content[0].text).not.toContain('aml_address_risk')
+    expect(result.content[0].text).toContain('- aml_address_risk: who one address is and how risky, as facts')
     expect(result.content[0].text).toContain('graph_query_batch')
     // The hidden remote topup tool is never named; the local wallet_topup and subscription_topup are.
     expect(result.content[0].text).not.toMatch(/\btopup\b/)

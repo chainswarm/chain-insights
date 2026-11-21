@@ -36,25 +36,6 @@ const installerFlags = rawArgs.filter(
   (a) => a === '--claude' || a === '--claude-desktop' || a === '--codex' || a === '--hermes'
 )
 
-// Commander treats the root package `--version` option as global, so it would
-// consume the same flag on the AML workflow command before the child can route
-// a tool contract. Rewrite only the child-command form to a hidden alias. The
-// visible child help still documents `--version`, while root `cia --version`
-// remains the package version.
-function normalizeAmlToolVersionArgv(argv: string[]): string[] {
-  const commandIndex = rawArgs.findIndex(
-    (arg, index) => arg === 'aml-address-risk' && index === 1 && rawArgs[0] === 'workflow'
-  )
-  if (commandIndex === -1) return argv
-
-  return argv.map((arg, index) => {
-    const userArgIndex = index - 2
-    if (userArgIndex <= commandIndex) return arg
-    if (arg === '--version') return '--tool-version'
-    if (arg.startsWith('--version=')) return `--tool-version=${arg.slice('--version='.length)}`
-    return arg
-  })
-}
 // A help/version request must never trigger a global install side effect — let
 // commander handle it and print help/version instead.
 const wantsHelpOrVersion = rawArgs.some(
@@ -198,63 +179,68 @@ async function printNetworkSchema(
   console.log(opts.json ? JSON.stringify(schema, null, 2) : formatGraphSchemaText(schema))
 }
 
+/**
+ * The proxy's aml_address_risk, run with the CLI's own graph session. Every
+ * argument is checked before a session opens; the one batch opens it.
+ */
+async function runAmlAddressRiskCli(args: {
+  network: unknown
+  address: unknown
+  surroundings?: unknown
+}): Promise<{ text: string; isError: boolean }> {
+  const { handleAmlAddressRisk } = await import('./mcp/address-risk.js')
+  const { loadAddressCard } = await import('./mcp/address-card.js')
+  const { loadExchangeRegistry } = await import('./mcp/exchange-registry.js')
+  type Answer = { content?: unknown[]; structuredContent?: unknown; isError?: boolean }
+  const result = await handleAmlAddressRisk(
+    {
+      network: args.network,
+      address: args.address,
+      ...(args.surroundings === undefined ? {} : { surroundings: args.surroundings }),
+    },
+    {
+      loadAddressCard: () => loadAddressCard(),
+      loadExchangeRegistry: (network) => loadExchangeRegistry(network),
+      graphQueryBatch: (batchArgs) =>
+        withGraphMcpClient('chain-insights-cli-address-risk', async (client) =>
+          (await client.callTool({ name: 'graph_query_batch', arguments: batchArgs })) as Answer
+        ),
+      describeFailure: (err) => (err as Error).message,
+    }
+  )
+  return { text: result.content[0]?.text ?? '', isError: result.isError }
+}
+
 function addAmlAddressRiskCommand(parent: Command, networksCommand: string): void {
   parent.addCommand(
     createCliCommand('aml-address-risk')
       .description(
-        'CIA workflow: screen an address for AML risk, exchange behavior, and optional comparison with another address'
+        'CIA workflow: who an address is and how risky: its risk word with every reason, the risk model score, its risky partners and its exchange ends'
       )
       .requiredOption('--address <address>', 'Full blockchain address to screen')
       .requiredOption(
         '--network <network>',
         `Network to query. Run \`${networksCommand}\` for supported networks.`
       )
-      .option(
-        '--compare-address <address>',
-        'Optional second address to compare against the screened address'
-      )
-      .option('--json', 'Print machine-readable JSON output')
-      .option(
-        '--version <version>',
-        'AML tool contract version. Omit to use the latest version (currently v1)'
-      )
-      .addOption(
-        new Option('--tool-version <version>', 'Internal alias for the AML tool version').hideHelp()
-      )
-      .action(
-        async (opts: {
-          address: string
-          network: string
-          compareAddress?: string
-          json?: boolean
-          version?: string
-          toolVersion?: string
-        }) => {
-          try {
-            const { resolveAmlAddressRiskVersion } = await import('./investigation/public-tools.js')
-            const requestedVersion = opts.toolVersion ?? opts.version
-            resolveAmlAddressRiskVersion(requestedVersion)
-            await withGraphMcpClient('chain-insights-cli-aml-address-risk', async (client) => {
-              const { runAmlAddressRisk } = await import('./investigation/public-tools.js')
-              const result = await runAmlAddressRisk(
-                client,
-                {
-                  address: opts.address,
-                  network: opts.network,
-                  compareAddress: opts.compareAddress,
-                },
-                requestedVersion
-              )
-              console.log(
-                opts.json ? JSON.stringify(result.structuredContent, null, 2) : result.summaryText
-              )
-            })
-          } catch (err) {
-            console.error((err as Error).message)
+      .option('--surroundings', 'Add the nodes and money links behind the answer')
+      .option('--json', 'Print machine-readable JSON output (the answer is always JSON)')
+      .action(async (opts: { address: string; network: string; surroundings?: boolean }) => {
+        try {
+          const result = await runAmlAddressRiskCli({
+            network: opts.network,
+            address: opts.address,
+            ...(opts.surroundings ? { surroundings: true } : {}),
+          })
+          if (result.isError) {
+            console.error(result.text)
             process.exit(1)
           }
+          console.log(result.text)
+        } catch (err) {
+          console.error((err as Error).message)
+          process.exit(1)
         }
-      )
+      })
   )
 }
 
@@ -874,6 +860,8 @@ const mcpCommand = program
             await import('./mcp/token-lookup.js')
           const { AML_DEPLOYER_SCREEN_DESCRIPTION, AML_DEPLOYER_SCREEN_TITLE, AML_DEPLOYER_SCREEN_TOOL } =
             await import('./mcp/deployer-screen.js')
+          const { AML_ADDRESS_RISK_DESCRIPTION, AML_ADDRESS_RISK_TITLE, AML_ADDRESS_RISK_TOOL } =
+            await import('./mcp/address-risk.js')
           console.log('')
           console.log(
             formatToolsTable(
@@ -881,6 +869,7 @@ const mcpCommand = program
                 { name: META_DEX_LOOKUP_TOOL, description: `${META_DEX_LOOKUP_TITLE}. ${META_DEX_LOOKUP_DESCRIPTION}` },
                 { name: META_TOKEN_LOOKUP_TOOL, description: `${META_TOKEN_LOOKUP_TITLE}. ${META_TOKEN_LOOKUP_DESCRIPTION}` },
                 { name: AML_DEPLOYER_SCREEN_TOOL, description: `${AML_DEPLOYER_SCREEN_TITLE}. ${AML_DEPLOYER_SCREEN_DESCRIPTION}` },
+                { name: AML_ADDRESS_RISK_TOOL, description: `${AML_ADDRESS_RISK_TITLE}. ${AML_ADDRESS_RISK_DESCRIPTION}` },
               ],
               'Local proxy tool'
             )
@@ -1023,6 +1012,21 @@ mcpCommand.addCommand(
           return
         }
 
+        if (tool === 'aml_address_risk') {
+          // The proxy's local tool, run here with the CLI's own graph session.
+          const surroundings = args['surroundings']
+          const result = await runAmlAddressRiskCli({
+            network: args['network'],
+            address: args['address'],
+            ...(surroundings === undefined
+              ? {}
+              : { surroundings: String(surroundings).toLowerCase() === 'true' }),
+          })
+          console.log(result.text)
+          if (result.isError) process.exitCode = 1
+          return
+        }
+
         if (tool === 'graph_expand') {
           throw new Error(
             'graph_expand is used only by the Chain Insights view in Claude. Run `cia mcp call graph_query` with your own query instead.'
@@ -1126,7 +1130,7 @@ mcpCommand.addCommand(
 // parseAsync (not parse) so a rejected async action surfaces as a clean
 // one-line error and a non-zero exit, instead of an unhandled-rejection stack
 // trace. Commands with their own try/catch still exit(1) before this fires.
-program.parseAsync(normalizeAmlToolVersionArgv(process.argv)).catch((err) => {
+program.parseAsync(process.argv).catch((err) => {
   console.error((err as Error).message)
   process.exit(1)
 })

@@ -1,6 +1,6 @@
 {
   "generated_from": "AP1000 docs/domain/label-vocabulary.yaml",
-  "version": "1",
+  "version": "2",
   "rule": "Read the address card (identity, address_roles, behaviour, evidence, judgements, risk), not the labels list.",
   "properties": [
     {
@@ -368,5 +368,313 @@
     "registry",
     "rule",
     "evidence"
+  ],
+  "words": [
+    {
+      "word": "exchange",
+      "question": "identity",
+      "level": "none",
+      "plain": "A centralised exchange's account. The value is the exchange id."
+    },
+    {
+      "word": "payment_processor",
+      "question": "identity",
+      "level": "none",
+      "plain": "A crypto payment processor's account. The value is the company id."
+    },
+    {
+      "word": "otc_desk",
+      "question": "identity",
+      "level": "none",
+      "plain": "An over-the-counter (OTC) trading desk's account. The value is the desk id."
+    },
+    {
+      "word": "mixer",
+      "question": "identity",
+      "level": "high",
+      "plain": "A mixing service's pool or helper contract from the mixer registry. The value is protocol:pool."
+    },
+    {
+      "word": "bridge",
+      "question": "identity",
+      "level": "none",
+      "plain": "A bridge contract or account. The value is the bridge name."
+    },
+    {
+      "word": "launchpad",
+      "question": "identity",
+      "level": "none",
+      "plain": "A token launchpad's contract, or an agent's bonding pair or token on it."
+    },
+    {
+      "word": "dex",
+      "question": "identity",
+      "level": "none",
+      "plain": "A pool, pair or router contract of an exchange protocol. The value is the contract class."
+    },
+    {
+      "word": "defi",
+      "question": "identity",
+      "level": "none",
+      "plain": "A lending, vault or yield contract. The value is the contract class."
+    },
+    {
+      "word": "gambling",
+      "question": "identity",
+      "level": "none",
+      "plain": "A gambling service's account. The value is the service name."
+    },
+    {
+      "word": "token",
+      "question": "identity",
+      "level": "none",
+      "plain": "A token contract. The value is the registry name or the contract class."
+    },
+    {
+      "word": "protocol",
+      "question": "identity",
+      "level": "none",
+      "plain": "A protocol's own account: treasury, deployer or foundation."
+    },
+    {
+      "word": "foundation",
+      "question": "identity",
+      "level": "none",
+      "plain": "A chain foundation's account."
+    },
+    {
+      "word": "validator",
+      "question": "identity",
+      "level": "none",
+      "plain": "A validator or sequencer."
+    },
+    {
+      "word": "implementation",
+      "question": "identity",
+      "level": "none",
+      "plain": "The smart-account code a wallet runs. The value is the implementation, such as safe."
+    },
+    {
+      "word": "contract",
+      "question": "identity",
+      "level": "none",
+      "plain": "Any other verified contract. The value is the contract class."
+    },
+    {
+      "word": "hub",
+      "question": "identity",
+      "level": "none",
+      "plain": "A fan-out hub with many counterparties."
+    },
+    {
+      "word": "whale",
+      "question": "identity",
+      "level": "none",
+      "plain": "A large holder."
+    },
+    {
+      "word": "miner",
+      "question": "identity",
+      "level": "none",
+      "plain": "A Bittensor miner."
+    },
+    {
+      "word": "neuron",
+      "question": "identity",
+      "level": "none",
+      "plain": "A Bittensor neuron."
+    },
+    {
+      "word": "subnet",
+      "question": "identity",
+      "level": "none",
+      "plain": "A Bittensor subnet."
+    },
+    {
+      "word": "scam",
+      "question": "evidence",
+      "level": "critical",
+      "standing": "proven",
+      "plain": "Named as a scam actor, with a proven act or on an imported list."
+    },
+    {
+      "word": "exploit",
+      "question": "evidence",
+      "level": "critical",
+      "standing": "reported",
+      "plain": "Named on a list as a hack or exploit actor."
+    },
+    {
+      "word": "fraud",
+      "question": "evidence",
+      "level": "critical",
+      "standing": "reported",
+      "plain": "Named on a list as a fraud actor."
+    },
+    {
+      "word": "stolen",
+      "question": "evidence",
+      "level": "critical",
+      "standing": "reported",
+      "plain": "Named on a list as holding or moving stolen funds."
+    },
+    {
+      "word": "poisoning",
+      "question": "evidence",
+      "level": "critical",
+      "standing": "proven",
+      "plain": "Sent look-alike transfers to poison address histories."
+    },
+    {
+      "word": "sanctioned",
+      "question": "evidence",
+      "level": "critical",
+      "standing": "reported",
+      "plain": "On a legal sanctions list."
+    },
+    {
+      "word": "issuer_frozen",
+      "question": "evidence",
+      "level": "high",
+      "standing": "proven",
+      "plain": "A stablecoin issuer froze this wallet on chain."
+    },
+    {
+      "word": "traced",
+      "question": "evidence",
+      "level": "high",
+      "standing": "proven",
+      "plain": "On a money trail from an accused address: it received stolen funds, or funded the accused."
+    },
+    {
+      "word": "traced",
+      "question": "evidence",
+      "level": "critical",
+      "value": "LAUNDERED",
+      "standing": "proven",
+      "plain": "Received stolen funds on a money trail and moved them on."
+    },
+    {
+      "word": "traced",
+      "question": "evidence",
+      "level": "critical",
+      "value": "MIXED",
+      "standing": "proven",
+      "plain": "Received stolen funds on a money trail and put them into a mixer."
+    },
+    {
+      "word": "victim",
+      "question": "evidence",
+      "level": "none",
+      "standing": "reported",
+      "plain": "Lost money to a labelled attacker."
+    },
+    {
+      "word": "target",
+      "question": "evidence",
+      "level": "none",
+      "standing": "reported",
+      "plain": "Was the target of an attack."
+    },
+    {
+      "word": "poisoning",
+      "question": "evidence",
+      "level": "critical",
+      "value": "ADDRESS_POISONING",
+      "standing": "proven",
+      "plain": "Sent look-alike transfers to poison address histories."
+    },
+    {
+      "word": "sanctioned",
+      "question": "evidence",
+      "level": "critical",
+      "value": "SANCTIONED",
+      "standing": "reported",
+      "plain": "On a legal sanctions list."
+    },
+    {
+      "word": "victim",
+      "question": "evidence",
+      "level": "none",
+      "value": "ADDRESS_POISONING_TARGET",
+      "standing": "reported",
+      "plain": "Was the target of an address-poisoning attack."
+    },
+    {
+      "word": "suspect",
+      "question": "judgement",
+      "level": "none",
+      "plain": "Shows a pattern that does not convict on its own."
+    },
+    {
+      "word": "suspect",
+      "question": "judgement",
+      "level": "none",
+      "value": "FAKE_TOKEN",
+      "plain": "Copies the name or symbol of a verified token."
+    },
+    {
+      "word": "suspect",
+      "question": "judgement",
+      "level": "none",
+      "value": "FAKE_TOKEN_DEPLOYER",
+      "plain": "Deployed a token that copies the name or symbol of a verified token."
+    },
+    {
+      "word": "suspect",
+      "question": "judgement",
+      "level": "none",
+      "value": "FAKE_TOKEN_LP",
+      "plain": "Added liquidity to a token that copies the name or symbol of a verified token."
+    },
+    {
+      "word": "suspect",
+      "question": "judgement",
+      "level": "none",
+      "value": "PHANTOM_TRANSFER_EMITTER",
+      "plain": "Emitted transfer events for tokens that never moved."
+    },
+    {
+      "word": "suspect",
+      "question": "judgement",
+      "level": "none",
+      "value": "UNSAFE_DELEGATE",
+      "plain": "Delegates its account to code that lets another party move its funds."
+    },
+    {
+      "word": "suspect",
+      "question": "judgement",
+      "level": "none",
+      "value": "MIXER_DEPOSITOR",
+      "plain": "Deposited into a mixer."
+    },
+    {
+      "word": "suspect",
+      "question": "judgement",
+      "level": "none",
+      "value": "MIXER_WITHDRAWER",
+      "plain": "Withdrew from a mixer."
+    },
+    {
+      "word": "scam",
+      "question": "judgement",
+      "level": "none",
+      "value": "FAKE_TOKEN",
+      "plain": "Copies the name or symbol of a verified token."
+    },
+    {
+      "word": "scam",
+      "question": "judgement",
+      "level": "none",
+      "value": "FAKE_TOKEN_DEPLOYER",
+      "plain": "Deployed a token that copies the name or symbol of a verified token."
+    },
+    {
+      "word": "scam",
+      "question": "judgement",
+      "level": "none",
+      "value": "FAKE_TOKEN_LP",
+      "plain": "Added liquidity to a token that copies the name or symbol of a verified token."
+    }
   ]
 }
