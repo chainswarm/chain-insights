@@ -87,6 +87,7 @@ The proxy:
 | `meta_exchange_lookup`       | Turn a centralized exchange name, or one of its wallets, into its listed wallets     |
 | `aml_exchange_deposit_check` | Check one address: an exchange deposit, of which exchange, swept into which wallet   |
 | `aml_address_risk`           | Screen one address: who it is, its risk word with reasons, model score, partners     |
+| `aml_token_risk`             | Screen one token or pool: founder, factory, gas wallets, pools, each with its word   |
 | `meta_rules`                 | Read the answer rules when the `chain-insights-cypher` skill is not loaded           |
 | `meta_help`                  | Show Chain Insights tool and workflow guidance                                       |
 | `meta_usage_status`          | Check the caller's daily free-tier graph query allowance                             |
@@ -377,6 +378,77 @@ flowchart LR
 `cia workflow aml-address-risk --network robinhood --address 0x...` run the same
 screen in a terminal.
 
+`aml_token_risk` screens one token contract or one pool, built on the address
+answer. It takes the same three arguments. The node's labels decide what was
+asked: a node with `Pool` is a pool (a launchpad pair carries `Token` and
+`Pool`, and `Pool` wins), a node with `Token` is a token, and any other
+address is answered with its own word only, to be asked again with
+`aml_address_risk`. At most three `graph_query_batch` calls of at most 20
+reads each, all on `USE topology`:
+
+```mermaid
+flowchart LR
+    B1["batch 1<br/>the subject: node, senders, receivers,<br/>deployment, adders, removers, assets"] --> B2["batch 2, a token<br/>providers by asset (both directions, first),<br/>founder, factory, gas wallets"]
+    B1 --> P2["batch 2, a pool<br/>its tokens and its deployer"]
+    B2 --> B3["batch 3<br/>the 10 biggest pools with their own address:<br/>node and deployment"]
+```
+
+- The founder is the wallet that sent the deployment (`tx_origin`, else the
+  deployer). The factory is the contract that deployed it, when the
+  deployment kind is `factory`; its `name` comes from the exchange registry,
+  else `null`. The founder carries the full address answer: its word, its
+  `exposure` and its `exchange_ends`.
+- `risk.word` is the highest of the token's own word, its founder's word and
+  each detailed pool's own word. `raised_by` (`token`, `founder` or `pool`)
+  and `raised_by_address` say whose, and `set_by` how that word was set
+  (`none` when unscored); `risk.own` is the token's own block and
+  `risk.score` its own model score. A factory, a gas wallet (the first three
+  accounts that paid the founder), an adder and a remover carry their own
+  word and never raise it. A pool manager raises nothing. A pool answer
+  carries the pool's own word only.
+- The pools come from two whole-chain reads, one per direction, first in
+  their batch: every `ADDED_LIQUIDITY` link that carries the token as
+  `asset`, one row per pool and provider (200 rows at most), and the same on
+  `REMOVED_LIQUIDITY` from the pool to its receiver. One read gives the
+  pools, their providers and their 5 biggest adders or removers at once.
+  A read that is refused or times out is named in `not_read`; the other
+  reads still answer.
+- A pool row is one address. The pools inside one pool manager (the manager
+  of a vault exchange in the exchange registry, such as Uniswap v4) are
+  answered as one row for the manager, not pool by pool: `is_manager: true`,
+  `pools_inside: null`, its providers and this token's side. Its node sums
+  are the manager's whole book, so `liquidity` is `null`, and it has no
+  word.
+- Every pool row carries `exchange`, the registry name by its manager or
+  its factory, else `null`; `providers` (distinct adders of this token);
+  and `token_side` (this token added and removed; `removed_usd` is `0` when
+  the removals read answered whole with no row for the pool, and `null`
+  when that read did not answer, came back full, or carried no price). A
+  pool with its own
+  address, among the 10 biggest, adds its node: its own word in `risk` and
+  both sides of `liquidity`.
+- `pools_found` counts the pool addresses read; the 10 biggest by tokens
+  added are detailed (`detail: true`); `pools_truncated` says when more
+  exist; `providers_truncated` says a providers read came back full, and
+  `not_read` names it as `pool_providers` or `pool_removals` with code
+  `truncated`.
+- A USD sum with no priced link is `null`, never `0`.
+- `not_read` names every part that did not answer (`pools`,
+  `pool_removals`, `founder`, `factory`, `gas_wallets`, a pool's `pool`,
+  and more), with its code: the code the refusal names, such as
+  `query_timeout`, `family_behind` or `anchor_missing`. A part not read is
+  never "none found". A failed subject read is an error.
+- With `surroundings: true` the answer adds the nodes (at most 60; partners
+  are dropped first, then removers, then adders) and the `FLOWED_TO`,
+  `DEPLOYED_CONTRACT`, `ADDED_LIQUIDITY` and `REMOVED_LIQUIDITY` links
+  between them.
+- The answer holds facts and measures only: no summary, no advice, no
+  verdict.
+
+`cia mcp call aml_token_risk network=robinhood address=0x...` and
+`cia workflow aml-token-risk --network robinhood --address 0x...` run the same
+screen in a terminal.
+
 ## Host parity
 
 **A rule a host never loads does not exist for that host.** Each host loads a
@@ -393,6 +465,7 @@ different part of what this package ships:
 | token door `meta_token_lookup`                                      | yes         | yes               | yes   | yes    | yes            | yes                      |
 | exchange doors `meta_exchange_lookup`, `aml_exchange_deposit_check` | yes         | yes               | yes   | yes    | yes            | yes                      |
 | address risk `aml_address_risk`                                     | yes         | yes               | yes   | yes    | yes            | yes                      |
+| token risk `aml_token_risk`                                         | yes         | yes               | yes   | yes    | yes            | yes                      |
 
 The scout agent pins the CLI by version in its image and copies only
 `chain-insights-cypher` and `chain-insights-virtuals` into its project, yet asks
@@ -413,6 +486,10 @@ The rule:
    `door: <tool>, <tool>` for a skill with two doors.
    `chain-insights-aml-exchange` has two: `meta_exchange_lookup` for an
    exchange by name and `aml_exchange_deposit_check` for one address.
+   The risk skills `chain-insights-address-risk` and
+   `chain-insights-token-risk` open on `aml_address_risk` and
+   `aml_token_risk`. Their question is one address, token or pool, so they
+   name no exchange.
 2. Each door's description carries the rule the skill opens with, and names
    the skill's trigger words.
 3. The skill names the door as its first step.
@@ -588,9 +665,6 @@ tool, it returns a local unmetered primitive-backend status.
 Graph queries take full blockchain addresses directly and return blockchain
 addresses as the public result surface. The graph is address-grain, so there
 is no identity-resolution step. Never shorten an address.
-
-The proxy does not offer `aml_address_risk`. It is hidden until its verdict is
-fixed: `tools/list` omits it, and a call to it is refused as an unknown tool.
 
 ## Auth Modes
 

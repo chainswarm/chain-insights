@@ -42,6 +42,7 @@ import {
   modelWordOf,
   reasonOf,
   riskOf,
+  riskWordRank,
   rulesWordOf,
   splitCardEntry,
   type ModelWord,
@@ -49,7 +50,17 @@ import {
   type RiskWord,
   type SetBy,
 } from './risk-word.js'
-import { isEpochMs, utcText } from './timestamp-text.js'
+import {
+  addressOrNull,
+  isRecord,
+  memberAnswered,
+  memberRefusal,
+  memberRows,
+  numberOrNull,
+  strings,
+  textOrNull,
+  utcOrNull,
+} from './row-values.js'
 import { membersOf, refusalOf, type GraphAnswer, type Member } from './token-lookup.js'
 
 export const AML_ADDRESS_RISK_TOOL = 'aml_address_risk' as const
@@ -219,24 +230,29 @@ export type AmlAddressRiskToolResult = {
   isError: boolean
 }
 
-const ADDRESS_INPUT = /^0x[0-9a-fA-F]{40}$/
+/** A full address as a caller may type it: 0x plus 40 hex characters, any case. */
+export const ADDRESS_INPUT = /^0x[0-9a-fA-F]{40}$/
 const ADDRESS_READ = /^0x[0-9a-f]{40}$/
 
-function assertReadAddress(address: string): void {
+export function assertReadAddress(address: string): void {
   if (!ADDRESS_READ.test(address)) {
     throw new Error(`address risk: ${JSON.stringify(address)} is not a lowercase 0x address`)
   }
 }
 
-/** The node read: the card, the model's level and score, and the exchange role. */
-export function addressNodeQuery(address: string): string {
+/**
+ * The node read: the card, the model's level and score, and the exchange role.
+ * `extra` adds columns of the node `a` (a token's standard, a pool's sums).
+ */
+export function addressNodeQuery(address: string, extra: readonly string[] = []): string {
   assertReadAddress(address)
+  const more = extra.length > 0 ? `, ${extra.join(', ')}` : ''
   return (
     `USE topology MATCH (a:Address {address: "${address}"}) ` +
     'RETURN labels(a) AS node_labels, a.card_version AS card_version, a.identity AS identity, a.identity_name AS identity_name, ' +
     'a.identities AS identities, a.address_roles AS address_roles, a.behaviour AS behaviour, a.evidence AS evidence, ' +
     'a.judgements AS judgements, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, ' +
-    `${exchangeRoleRead('a')} AS exchange_role LIMIT 1`
+    `${exchangeRoleRead('a')} AS exchange_role${more} LIMIT 1`
   )
 }
 
@@ -272,48 +288,11 @@ export function addressRiskQueries(
   ]
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object' && !Array.isArray(value)
-}
+const answered = memberAnswered
+const rowsOf = memberRows
 
-const strings = (value: unknown): string[] =>
-  Array.isArray(value)
-    ? value.filter((v): v is string => typeof v === 'string' && v.trim() !== '').map((v) => v.trim())
-    : []
-
-const numberOrNull = (value: unknown): number | null => {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value)))
-    return Number(value)
-  return null
-}
-
-const textOrNull = (value: unknown): string | null =>
-  typeof value === 'string' && value.trim() !== '' ? value.trim() : null
-
-const addressOrNull = (value: unknown): string | null =>
-  typeof value === 'string' && ADDRESS_INPUT.test(value.trim()) ? value.trim().toLowerCase() : null
-
-const utcOrNull = (value: unknown): string | null => {
-  const ms = numberOrNull(value)
-  return isEpochMs(ms) ? utcText(ms) : null
-}
-
-const answered = (member: Member | undefined): boolean =>
-  member?.ok === true && Array.isArray(member.results)
-
-const rowsOf = (member: Member | undefined): Array<Record<string, unknown>> =>
-  answered(member) ? (member!.results as unknown[]).filter(isRecord) : []
-
-/** Why a member did not answer: its code, as a refusal names it, and its text. */
 function notReadOf(part: NotReadPart, id: string, member: Member | undefined): NotRead {
-  if (!member) {
-    return { part, code: 'not_answered', reason: `the ${id} read is missing from the batch answer` }
-  }
-  const text = typeof member.error === 'string' ? member.error.trim() : ''
-  if (text === '') return { part, code: 'not_answered', reason: `the ${id} read did not answer` }
-  const refusal = refusalOf({ content: [{ type: 'text', text }] })
-  return { part, code: refusal.code, reason: refusal.text }
+  return { part, ...memberRefusal(id, member) }
 }
 
 /** The kind of an address from its node labels: Pool wins over Token over Contract over Account. */
@@ -442,7 +421,7 @@ function riskyPartnerOf(partner: Partner): RiskyPartner {
 }
 
 const MEDIUM_RANK = levelRank('medium')
-const wordRank = (word: RiskWord): number => (word === 'unscored' ? -1 : levelRank(word))
+const wordRank = riskWordRank
 
 /** The nodes and money links behind the answer, from the rows already read. */
 function surroundingsOf(subject: SurroundingsNode, partners: Partner[], truncated: boolean): Surroundings {

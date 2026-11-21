@@ -27,7 +27,7 @@ Use `cia mcp call` for low-level GraphRAG calls and custom read-only queries.
 
 The Chain Insights MCP proxy adds the local tools `meta_network_capabilities`,
 `meta_schema`, `meta_dex_lookup`, `meta_token_lookup`, `aml_deployer_screen`,
-`meta_exchange_lookup`, `aml_exchange_deposit_check`, `aml_address_risk`, `meta_rules`, `meta_help`, `meta_usage_status`,
+`meta_exchange_lookup`, `aml_exchange_deposit_check`, `aml_address_risk`, `aml_token_risk`, `meta_rules`, `meta_help`, `meta_usage_status`,
 `meta_subscription_status`, `wallet_balance`, `wallet_topup` and
 `subscription_topup`. `aml_deployer_screen` screens who is behind a token or a
 wallet from two anchored topology reads: the launcher, its first funder and
@@ -43,7 +43,10 @@ counts of its behaviour: who paid it, whom it paid, its DEX swaps and its
 approvals. `aml_address_risk` screens one address: its risk word, the higher
 of what its labels prove and what the risk model predicts, with every reason,
 the model's score, and the partners and exchange wallets it exchanged money
-with; see [MCP proxy](mcp-proxy.md#local-tools). On hosted
+with; see [MCP proxy](mcp-proxy.md#local-tools). `aml_token_risk` screens
+one token or pool on the same rule: its founder, factory, first funders and
+pools, each party with its own word, and the token's word the highest of the
+token, its founder and its pools. On hosted
 backends, `meta_usage_status` can reflect remote quota telemetry. On
 backends without a quota tool, Chain Insights returns a local unmetered
 primitive-backend status instead.

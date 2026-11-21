@@ -27,6 +27,7 @@ import { LEVEL_RULE, type SwapLinkShape } from './layer-routing.js'
 import {
   DexRegistryError,
   matchDex,
+  dexOfAddress,
   normalizeDexNetwork,
   type DexCandidate,
   type DexEntry,
@@ -462,9 +463,7 @@ export async function handleMetaDexLookup(
 
   let match: DexMatchResult
   if (address !== null) {
-    const holder = document.rows.find(
-      (row) => address in row.roles || row.helpers?.includes(address)
-    )
+    const holder = dexOfAddress(address, document.rows)
     match = {
       matched: holder ?? null,
       ...(holder ? { took_for: `${holder.roles[address] ?? 'helper'}, served` } : {}),

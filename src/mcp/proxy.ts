@@ -117,6 +117,14 @@ import {
   handleAmlAddressRisk,
   type AddressRiskDependencies,
 } from './address-risk.js'
+import {
+  AML_TOKEN_RISK_ANNOTATIONS,
+  AML_TOKEN_RISK_DESCRIPTION,
+  AML_TOKEN_RISK_TITLE,
+  AML_TOKEN_RISK_TOOL,
+  handleAmlTokenRisk,
+  type TokenRiskDependencies,
+} from './token-risk.js'
 
 export const LOCAL_TOOL_NAMES = new Set([
   'meta_network_capabilities',
@@ -131,6 +139,7 @@ export const LOCAL_TOOL_NAMES = new Set([
   META_EXCHANGE_LOOKUP_TOOL,
   AML_EXCHANGE_DEPOSIT_CHECK_TOOL,
   AML_ADDRESS_RISK_TOOL,
+  AML_TOKEN_RISK_TOOL,
   'wallet_balance',
   'wallet_topup',
   SUBSCRIPTION_TOPUP_TOOL,
@@ -238,6 +247,7 @@ export const KNOWN_PUBLIC_TOOL_DESCRIPTIONS: Record<string, string> = {
   [META_EXCHANGE_LOOKUP_TOOL]: META_EXCHANGE_LOOKUP_DESCRIPTION,
   [AML_EXCHANGE_DEPOSIT_CHECK_TOOL]: AML_EXCHANGE_DEPOSIT_CHECK_DESCRIPTION,
   [AML_ADDRESS_RISK_TOOL]: AML_ADDRESS_RISK_DESCRIPTION,
+  [AML_TOKEN_RISK_TOOL]: AML_TOKEN_RISK_DESCRIPTION,
   meta_usage_status: "Return the caller's public free graph_query quota for the current UTC day.",
   meta_subscription_status: META_SUBSCRIPTION_STATUS_DESCRIPTION,
   meta_help: 'Show a short guide to Chain Insights tools and workflow.',
@@ -1534,6 +1544,34 @@ export async function createProxy(): Promise<void> {
     async (args) => handleAmlAddressRisk(args, addressRiskDependencies)
   )
 
+  // aml_token_risk: one token or pool becomes its founder, factory, gas
+  // wallets and pools, each party with its own word, built on the address
+  // answer. At most three topology batches, billed as any read. No verdict.
+  const tokenRiskDependencies: TokenRiskDependencies = {
+    ...addressRiskDependencies,
+    loadDexRegistry: dexDependencies.loadRegistry,
+  }
+  server.registerTool(
+    AML_TOKEN_RISK_TOOL,
+    {
+      title: AML_TOKEN_RISK_TITLE,
+      description: KNOWN_PUBLIC_TOOL_DESCRIPTIONS[AML_TOKEN_RISK_TOOL],
+      inputSchema: {
+        network: NETWORK_SCHEMA,
+        address: z
+          .string()
+          .min(1)
+          .describe('The token contract or the pool: 0x plus 40 hex characters, any case. A ticker is not an address: call meta_token_lookup first. A wallet goes to aml_address_risk.'),
+        surroundings: z
+          .boolean()
+          .optional()
+          .describe('true adds the nodes and links behind the answer, for a host that draws. Off unless asked for.'),
+      },
+      annotations: AML_TOKEN_RISK_ANNOTATIONS,
+    },
+    async (args) => handleAmlTokenRisk(args, tokenRiskDependencies)
+  )
+
   // One reader for the tool and for the browser page's free-credits meter.
   const readUsageStatus = async () => {
       try {
@@ -1864,6 +1902,7 @@ export async function createProxy(): Promise<void> {
                 '- meta_exchange_lookup: turn a centralized exchange name (Binance, OKX, Bitget) into its hot wallets, each proven on the chain. Call it first when a question names one.',
                 '- aml_exchange_deposit_check: is this address an exchange deposit, of which exchange, and into which hot wallet was it swept. A trail ends at a deposit.',
                 '- aml_address_risk: who one address is and how risky, as facts: its risk word (the higher of what labels prove and what the risk model predicts) with every reason, the model score, its risky partners and its exchange ends. No verdict.',
+                '- aml_token_risk: what about a token or a pool, as facts: its founder, factory, gas wallets and pools with their biggest liquidity providers, each with its own risk word. The token word is the highest of the token, its founder and its pools. No verdict.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
                 '- meta_subscription_status: check the subscription of the local wallet: window, days left, daily allowance and use, and payments not credited yet.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',
@@ -1890,6 +1929,7 @@ export async function createProxy(): Promise<void> {
                 '- meta_exchange_lookup: turn a centralized exchange name (Binance, OKX, Bitget) into its hot wallets, each proven on the chain. Call it first when a question names one.',
                 '- aml_exchange_deposit_check: is this address an exchange deposit, of which exchange, and into which hot wallet was it swept. A trail ends at a deposit.',
                 '- aml_address_risk: who one address is and how risky, as facts: its risk word (the higher of what labels prove and what the risk model predicts) with every reason, the model score, its risky partners and its exchange ends. No verdict.',
+                '- aml_token_risk: what about a token or a pool, as facts: its founder, factory, gas wallets and pools with their biggest liquidity providers, each with its own risk word. The token word is the highest of the token, its founder and its pools. No verdict.',
                 '- meta_usage_status: check the caller public free graph_query quota.',
                 '- meta_subscription_status: check the subscription of the local wallet: window, days left, daily allowance and use, and payments not credited yet.',
                 '- graph_query: run read-only GQL/Cypher through the universal graph endpoint. Use USE topology or USE facts.',

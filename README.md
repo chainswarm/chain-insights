@@ -112,6 +112,7 @@ Never touches:
 | `meta_exchange_lookup`      | Turn a centralized exchange name (Binance, OKX) into its wallets proven on chain   |
 | `aml_exchange_deposit_check`| Check an address: an exchange deposit, of which exchange, swept into which wallet  |
 | `aml_address_risk`          | Screen an address: who it is, its risk word with reasons, model score, risky partners |
+| `aml_token_risk`            | Screen a token or a pool: founder, factory, gas wallets and pools, each with its word |
 | `meta_usage_status`         | Check the caller's daily free-tier graph query allowance                           |
 | `meta_subscription_status`  | Check your wallet's subscription: days left, today's allowance, payments pending   |
 | `meta_rules`                | Read the answer rules when the `chain-insights-cypher` skill is not loaded         |

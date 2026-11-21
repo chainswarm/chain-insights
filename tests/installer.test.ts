@@ -17,7 +17,6 @@ const retiredSchemaSkill = ['chain-insights-schema', 'bittensor'].join('-')
 const retiredEvmSchemaSkill = ['chain-insights-schema', 'evm'].join('-')
 
 const retiredSkills = [
-  'chain-insights-address-risk',
   'chain-insights-bittensor-cypher',
   'chain-insights-developer-experience',
   'chain-insights-investigation',

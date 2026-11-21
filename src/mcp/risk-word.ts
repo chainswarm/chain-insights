@@ -67,6 +67,11 @@ export function levelRank(level: RiskLevel): number {
   return RISK_LEVELS.indexOf(level)
 }
 
+/** The rank of an answer's word: unscored below low, so any spoken word outranks it. */
+export function riskWordRank(word: RiskWord): number {
+  return word === 'unscored' ? -1 : levelRank(word)
+}
+
 const isLevel = (value: unknown): value is RiskLevel =>
   (RISK_LEVELS as readonly unknown[]).includes(value)
 

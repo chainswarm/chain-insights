@@ -50,6 +50,8 @@ export const PUBLIC_MCP_TOOL_ALLOWED_ARGS: Record<string, string[]> = {
   aml_exchange_deposit_check: ['network', 'address'],
   // A local tool of the proxy (src/mcp/address-risk.ts): who an address is and how risky.
   aml_address_risk: ['network', 'address', 'surroundings'],
+  // A local tool of the proxy (src/mcp/token-risk.ts): a token or a pool, its founder, factory and pools.
+  aml_token_risk: ['network', 'address', 'surroundings'],
 }
 
 export function isHiddenRemoteToolName(name: string): boolean {
