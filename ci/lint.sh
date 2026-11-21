@@ -113,6 +113,9 @@ if [ -n "$server_tests" ]; then
   exit 1
 fi
 
+echo "lint: no test asks for a server (AP1000 scripts/testing/no-server-test.sh)"
+bash .github/scripts/no-server-test.sh . 2>&1 | tee "$out/no-server-test.log"
+
 seconds=$(( $(date +%s) - start ))
 echo "LINT test phase: ${seconds}s (budget ${budget}s)"
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
