@@ -3,7 +3,7 @@ name: Verify
 # Each job runs one file under ci/, the same file the workstation runs
 # before a merge:
 #
-#   T1     ci/t1.sh     typecheck, build, vitest with coverage   180 s
+#   T1     ci/t1.sh     typecheck, build, vitest with coverage   300 s
 #   lint   ci/lint.sh   oxlint, secret scans, no test that asks  120 s
 #                       for a server or a chain node
 #   build  ci/build.sh  build, publint, attw, release gate, pack

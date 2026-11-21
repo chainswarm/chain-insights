@@ -8,7 +8,7 @@ No test here asks for a server or a chain node.
 flowchart TB
     T4["staging lane<br/>chain-insights-validator judges what graphrag-mcp serves<br/>and what a buy does on chain"]
     B["build<br/>ci/build.sh: build, publint, attw, release gate, pack"]
-    T1["T1 unit<br/>ci/t1.sh, 180 s: typecheck, build, vitest with coverage"]
+    T1["T1 unit<br/>ci/t1.sh, 300 s: typecheck, build, vitest with coverage"]
     L["lint<br/>ci/lint.sh, 120 s: oxlint, secret scans, no test that asks for a server"]
     T4 --- B --- T1 --- L
 ```
