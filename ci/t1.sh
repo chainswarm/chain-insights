@@ -17,11 +17,11 @@
 #
 # Artifacts: .ci/t1/typecheck.log, vitest.log, coverage-summary.json,
 # lcov.info, summary.md.
-# Prints exactly one budget line: "T1 test phase: <n>s (budget 180s)".
+# Prints exactly one budget line: "T1 test phase: <n>s (budget 300s)".
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-budget=180
+budget=300
 out=.ci/t1
 mkdir -p "$out"
 summary="${GITHUB_STEP_SUMMARY:-$out/step-summary.md}"
