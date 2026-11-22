@@ -32,7 +32,8 @@ RISK_GOLDEN_TOKEN_FILE=<file> npx tsx scripts/risk-golden.mjs token --json > evi
 ```
 
 The cases live in `scripts/risk-golden.json`. Each names only the expect keys
-it checks. A run fails when a case fails or the set holds fewer cases than
+it checks. A count that grows with the chain is a `*_min` key: a token's pool
+count is `pools_found_min`, never an exact `pools_found`. A run fails when a case fails or the set holds fewer cases than
 `--min` (20 address, 10 pool, 20 token by default).
 
 `.github/workflows/verify.yml` runs the same files, by hand and before a

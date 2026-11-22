@@ -302,7 +302,7 @@
       "expect": {
         "asked_as": "token",
         "founder": "0x6b890f743b9e89990b6dbd2f4a7a58cc8df5886e",
-        "pools_found": 3
+        "pools_found_min": 3
       }
     },
     {
@@ -311,7 +311,7 @@
       "expect": {
         "asked_as": "token",
         "founder": "0xb2899cb0ff832626604e44a44fc2184ff8442020",
-        "pools_found": 10
+        "pools_found_min": 10
       }
     },
     {
@@ -320,7 +320,7 @@
       "expect": {
         "asked_as": "token",
         "founder": "0x4337003fcd2f56de3977ccb806383e9161628d0e",
-        "pools_found": 1
+        "pools_found_min": 1
       }
     },
     {
@@ -329,7 +329,7 @@
       "expect": {
         "asked_as": "token",
         "founder": "0x5516b3451d4d6c9f63353fe7bc9537477ecce000",
-        "pools_found": 257
+        "pools_found_min": 257
       }
     },
     {
@@ -338,7 +338,7 @@
       "expect": {
         "asked_as": "token",
         "founder": "0x1b04299ed7fc7df2ab3831174eff1a476f4ab676",
-        "pools_found": 2
+        "pools_found_min": 2
       }
     },
     {
@@ -347,7 +347,7 @@
       "expect": {
         "asked_as": "token",
         "founder": "0x5516b3451d4d6c9f63353fe7bc9537477ecce000",
-        "pools_found": 75
+        "pools_found_min": 75
       }
     },
     {
@@ -356,7 +356,7 @@
       "expect": {
         "asked_as": "token",
         "founder": "0x4337004ec9c1417f1c7a26ebd4b4fbed6acf9e5d",
-        "pools_found": 1
+        "pools_found_min": 1
       }
     },
     {
@@ -365,7 +365,7 @@
       "expect": {
         "asked_as": "token",
         "founder": "0xaaa5d87392652647225b96563e469768f000b9de",
-        "pools_found": 53
+        "pools_found_min": 53
       }
     },
     {
@@ -374,7 +374,7 @@
       "expect": {
         "asked_as": "token",
         "founder": "0x54f9b12743a7deec0ea48721683cbebedc6e17bc",
-        "pools_found": 11
+        "pools_found_min": 11
       }
     },
     {
@@ -383,7 +383,7 @@
       "expect": {
         "asked_as": "token",
         "founder": "0x4337003fcd2f56de3977ccb806383e9161628d0e",
-        "pools_found": 1
+        "pools_found_min": 1
       }
     },
     {
@@ -392,7 +392,7 @@
       "expect": {
         "asked_as": "token",
         "founder": "0x29c1df08da7bf2bec8b17ce9898684090b27777d",
-        "pools_found": 30
+        "pools_found_min": 30
       }
     },
     {
@@ -401,7 +401,7 @@
       "expect": {
         "asked_as": "token",
         "founder": "0x5516b3451d4d6c9f63353fe7bc9537477ecce000",
-        "pools_found": 52
+        "pools_found_min": 52
       }
     },
     {
@@ -410,7 +410,7 @@
       "expect": {
         "asked_as": "token",
         "founder": "0xc4330342196c66b17985e45a759b42e146f4f68b",
-        "pools_found": 22
+        "pools_found_min": 22
       }
     },
     {
@@ -419,7 +419,7 @@
       "expect": {
         "asked_as": "token",
         "founder": "0xfb8dd88504a81d698c88ccf99039f572d75b63a8",
-        "pools_found": 1
+        "pools_found_min": 1
       }
     },
     {
@@ -428,7 +428,7 @@
       "expect": {
         "asked_as": "token",
         "founder": "0xd8ab093fd32dee6566e300e62fbb200014f589e6",
-        "pools_found": 3,
+        "pools_found_min": 3,
         "factory_name": "Virtuals Protocol"
       }
     },
@@ -438,7 +438,7 @@
       "expect": {
         "asked_as": "token",
         "founder": "0x4337002c5702ce424cb62a56ca038e31e1d4a93d",
-        "pools_found": 1
+        "pools_found_min": 1
       }
     },
     {
@@ -447,7 +447,7 @@
       "expect": {
         "asked_as": "token",
         "founder": "0x89562eb8979db1e85a01e85120bfd6a7c47a39cb",
-        "pools_found": 71
+        "pools_found_min": 71
       }
     },
     {
@@ -456,7 +456,7 @@
       "expect": {
         "asked_as": "token",
         "founder": "0xef699ac91d9d157b5f39c8391969f8827974a5a9",
-        "pools_found": 10
+        "pools_found_min": 10
       }
     },
     {
@@ -465,7 +465,7 @@
       "expect": {
         "asked_as": "token",
         "founder": "0x262fb2d70cec0bc60a7f93a97dc2b20b3b11af51",
-        "pools_found": 6
+        "pools_found_min": 6
       }
     },
     {
@@ -474,7 +474,7 @@
       "expect": {
         "asked_as": "token",
         "founder": "0x047d5cadaeb861bb532eb49360ee1892a9294888",
-        "pools_found": 12
+        "pools_found_min": 12
       }
     }
   ]
