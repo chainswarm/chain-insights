@@ -3,6 +3,31 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.92.0] - 2026-11-22 — a hub's counterparties are not ranked
+
+### Added
+
+- `aml_address_risk` and `aml_token_risk` read the subject's node first,
+  alone, with its link count (`degree_total`, `degree_out`). A hub, a node
+  with more than 50,000 links such as the zero address or a pool manager,
+  gets no partner reads: ranking a hub's money links cost 9 to 17.6 s.
+  `exposure.hub` is `true` with `degree_total`, `counterparties_read` is
+  `0`, and `not_read` names part `counterparties`, code `hub`, with what to
+  ask instead: one counterparty, or one token. The word still comes from the
+  card and the model. Every other answer carries `exposure.hub: false` and
+  its `degree_total` when the node holds it.
+- The golden runner compares an optional expect key `hub`.
+
+### Changed
+
+- `aml_address_risk` takes two calls (the node, then the partners), one for
+  an address the graph does not hold. `aml_token_risk` takes at most four,
+  and one for a wallet or an address not found.
+- `aml_token_risk` sends no assets read for a pool manager asked about
+  itself: over the Uniswap v4 manager's 207,581 links it took 24.7 s. Its
+  `pool_tokens` is `[]` and `not_read` does not name `tokens`: a manager's
+  tokens are answered per token, like its parties.
+
 ## [0.91.0] - 2026-11-22 — a launchpad names its token factory, the old screen is gone, a golden runner
 
 ### Added

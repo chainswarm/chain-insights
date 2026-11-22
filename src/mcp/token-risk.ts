@@ -2,17 +2,18 @@
  * aml_token_risk: what about this token, or this pool?
  *
  * A local tool of the proxy, built on the address answer of aml_address_risk.
- * At most three graph_query_batch calls, one after another, each of at most 20
+ * At most four graph_query_batch calls, one after another, each of at most 20
  * reads, all on USE topology:
  *
- *   1  the subject: its node (card, model, token facts, pool sums), its money
- *      senders and receivers, its deployment, and, for a pool, its adders,
- *      removers and assets;
- *   2  a token: its providers (two whole-chain reads by asset, first in the
- *      batch, which give its pools, their providers and their adders and
- *      removers at once), its founder (the full address answer), its factory
- *      and the founder's gas wallets. A pool: its tokens and its deployer;
- *   3  a token: the node and the deployment of each of the 10 biggest pools
+ *   1  the subject's node alone (card, model, token facts, pool sums, link
+ *      count): not found, or a wallet, ends here;
+ *   2  its money senders and receivers (never for a hub, more than HUB_DEGREE
+ *      links), its deployment, and its pool parts and assets;
+ *   3  a token: its pools and providers (four whole-chain reads by asset,
+ *      first in the batch), its founder (the full address answer), its
+ *      factory and the founder's gas wallets. A pool: its tokens and its
+ *      deployer;
+ *   4  a token: the node and the deployment of each of the 10 biggest pools
  *      that has its own address. A pool manager is one row and is not read.
  *
  * The founder is the wallet that sent the deployment (`tx_origin`), never the
@@ -30,6 +31,7 @@ import type { AddressCardWord, LoadedAddressCard } from './address-card.js'
 import {
   ADDRESS_INPUT,
   SURROUNDINGS_NODE_LIMIT,
+  hubDegreeOf,
   addressNodeQuery,
   addressPartnerQuery,
   addressRiskFromMembers,
@@ -102,11 +104,12 @@ export const AML_TOKEN_RISK_DESCRIPTION =
   'risk.word is the highest of the token own word, its founder word and each detailed pool own word, and raised_by says whose (raised_by_address names it); risk.own is the token own risk block. ' +
   'A factory or launchpad, a first funder and a liquidity provider never raise the word: each carries its own beside it. ' +
   'Every word is the higher of what labels prove and what the risk model predicts; unscored is not low and not safe. ' +
-  'A pool row is one address: the pools inside one pool manager (such as Uniswap v4) are answered as one row for the manager (is_manager true), with its providers and this token side, not pool by pool; a manager row carries no word and never raises it, and a manager asked about itself lists no adders or removers: its parties are answered per token, so ask the token. ' +
+  'A pool row is one address: the pools inside one pool manager (such as Uniswap v4) are answered as one row for the manager (is_manager true), with its providers and this token side, not pool by pool; a manager row carries no word and never raises it, and a manager asked about itself lists no adders, removers or tokens (pool_tokens is empty): its parties and its tokens are answered per token, so ask the token. ' +
   'pools_found counts every pool address of the token (up to 500); only the 10 biggest are detailed (detail true), pools_truncated says when more exist; providers and token_side count every provider of a pool; parties_truncated says the 5 biggest adders and removers of a pool may miss a party. ' +
   'A part listed in not_read was not read: it is never "none found". ' +
   `${TOKEN_RISK_READING_RULE} ` +
   'USD figures are tokens worth at day prices; null is unpriced, never 0. Write every address in full, all 42 characters. ' +
+  'A hub (more than 50,000 links, such as the zero address or a pool manager) has its counterparties not ranked: exposure.hub is true and not_read names counterparties; ask about one counterparty, or one token, instead. ' +
   'Pass surroundings: true for the nodes and links behind the answer, to draw.'
 
 export const AML_TOKEN_RISK_ANNOTATIONS = {
@@ -117,7 +120,7 @@ export const AML_TOKEN_RISK_ANNOTATIONS = {
 export const AML_TOKEN_RISK_ARGS = ['network', 'address', 'surroundings'] as const
 
 /** The most batches one answer sends, and the most reads in one batch. */
-export const BATCH_LIMIT = 3
+export const BATCH_LIMIT = 4
 export const BATCH_MEMBER_LIMIT = 20
 
 /** A token's node read adds its facts and, for a pool, its sums. */
@@ -453,24 +456,13 @@ export async function handleAmlTokenRisk(
     // The registry only names a factory.
   }
 
-  // Batch 1: the subject, its money partners, its deployment, and its pool parts.
-  const first: Batch = [
-    { id: 'node', query: addressNodeQuery(address, SUBJECT_COLUMNS) },
-    { id: 'in', query: addressPartnerQuery(address, 'in') },
-    { id: 'out', query: addressPartnerQuery(address, 'out') },
-    { id: 'deployment', query: deploymentQuery(address) },
-    // A pool manager's parties span its whole book, and the read times out: they are answered per token.
-    ...(dexManagerOf(address, dexRows)
-      ? []
-      : [
-          { id: 'adders', query: poolPartiesQuery(address, 'adders') },
-          { id: 'removers', query: poolPartiesQuery(address, 'removers') },
-        ]),
-    { id: 'assets', query: poolAssetsQuery(address) },
-  ]
+  // Call 1: the subject node alone (about 50 ms): found or not, what it is, and whether it is a hub.
   let answer: GraphAnswer
   try {
-    answer = await deps.graphQueryBatch({ network, queries: first })
+    answer = await deps.graphQueryBatch({
+      network,
+      queries: [{ id: 'node', query: addressNodeQuery(address, SUBJECT_COLUMNS) }],
+    })
   } catch (err) {
     return errorResult(
       `The token risk read failed: ${deps.describeFailure(err)} This is not "no risk": send the same call again once.`
@@ -481,22 +473,62 @@ export async function handleAmlTokenRisk(
     const text = answer.isError === true ? refusalOf(answer).text : 'the batch answer held no reads'
     return errorResult(`The token risk read failed: ${text} This is not "no risk".`)
   }
-  const subjectBuilt = addressRiskFromMembers(network, address, members1, dictionary, exchangeRows, '', {
-    surroundings: drawing,
-  })
+  const nodeMember = members1.get('node')
+  if (!memberAnswered(nodeMember)) {
+    return errorResult(
+      `The token risk read failed: ${memberRefusal('node', nodeMember).reason} This is not "no risk": send the same call again once.`
+    )
+  }
+  const nodeRow = memberRows(nodeMember)[0]
+  const isManager = dexManagerOf(address, dexRows) !== null
+  // A pool manager of the exchange registry is asked as a pool: the graph labels no manager :Pool.
+  const askedAs: AskedAs = !nodeRow
+    ? 'address'
+    : isManager
+      ? 'pool'
+      : askedAsOf(strings(nodeRow.node_labels))
+
+  // Call 2, for a token or a pool: its money partners (never for a hub), its deployment and its pool parts.
+  if (askedAs !== 'address') {
+    const hub = hubDegreeOf(nodeRow) !== null
+    const rest: Batch = [
+      ...(hub
+        ? []
+        : [
+            { id: 'in', query: addressPartnerQuery(address, 'in') },
+            { id: 'out', query: addressPartnerQuery(address, 'out') },
+          ]),
+      { id: 'deployment', query: deploymentQuery(address) },
+      // A pool manager's parties and tokens span its whole book, and the reads time out (24 s on the
+      // Uniswap v4 manager): they are answered per token.
+      ...(isManager
+        ? []
+        : [
+            { id: 'adders', query: poolPartiesQuery(address, 'adders') },
+            { id: 'removers', query: poolPartiesQuery(address, 'removers') },
+            { id: 'assets', query: poolAssetsQuery(address) },
+          ]),
+    ]
+    for (const [id, member] of await sendBatch(deps, network, rest)) members1.set(id, member)
+  }
+  const subjectBuilt = addressRiskFromMembers(
+    network,
+    address,
+    members1,
+    dictionary,
+    exchangeRows,
+    '',
+    {
+      surroundings: drawing,
+      hubGuard: true,
+    }
+  )
   if ('failure' in subjectBuilt) {
     return errorResult(
       `The token risk read failed: ${subjectBuilt.failure} This is not "no risk": send the same call again once.`
     )
   }
   const subject = subjectBuilt.result
-  const nodeRow = memberRows(members1.get('node'))[0]
-  // A pool manager of the exchange registry is asked as a pool: the graph labels no manager :Pool.
-  const askedAs: AskedAs = !nodeRow
-    ? 'address'
-    : dexManagerOf(address, dexRows)
-      ? 'pool'
-      : askedAsOf(strings(nodeRow.node_labels))
   const notRead: TokenNotRead[] = subject.not_read.map((entry) => ({ ...entry }))
 
   const base: AmlTokenRiskResult = {
@@ -508,7 +540,11 @@ export async function handleAmlTokenRisk(
     found: subject.found,
     token: null,
     // A wallet or an address not found: its own word, raised by nobody else.
-    risk: { ...raisedWordOf(subject.risk, []), word: subject.risk.word, set_by: subject.risk.set_by },
+    risk: {
+      ...raisedWordOf(subject.risk, []),
+      word: subject.risk.word,
+      set_by: subject.risk.set_by,
+    },
     model: subject.model,
     founder: null,
     factory: null,
@@ -544,7 +580,19 @@ export async function handleAmlTokenRisk(
   const graph = new SurroundingsBuilder(drawing ? subject : null)
 
   if (askedAs === 'pool') {
-    await answerPool({ deps, network, address, members1, dictionary, dexRows, deployment, notRead, result, graph, subject })
+    await answerPool({
+      deps,
+      network,
+      address,
+      members1,
+      dictionary,
+      dexRows,
+      deployment,
+      notRead,
+      result,
+      graph,
+      subject,
+    })
   } else {
     await answerToken({
       deps,
@@ -580,7 +628,11 @@ interface Step {
 }
 
 /** The exchange of a pool address: the manager's exchange, else its deployer's or factory's, else null. */
-function exchangeOf(pool: string, deployment: Deployment | null, dexRows: readonly DexEntry[]): string | null {
+function exchangeOf(
+  pool: string,
+  deployment: Deployment | null,
+  dexRows: readonly DexEntry[]
+): string | null {
   const by = [pool, deployment?.deployer ?? null, deployment?.factory_address ?? null]
   const manager = dexManagerOf(pool, dexRows)
   if (manager) return manager.display
@@ -594,14 +646,35 @@ function exchangeOf(pool: string, deployment: Deployment | null, dexRows: readon
 
 /** A pool: its own word, its sums and parties from batch 1, its tokens and deployer from batch 2. */
 async function answerPool(step: Step & { members1: Map<string, Member> }): Promise<void> {
-  const { deps, network, address, members1, dictionary, dexRows, deployment, notRead, result, graph, subject } = step
+  const {
+    deps,
+    network,
+    address,
+    members1,
+    dictionary,
+    dexRows,
+    deployment,
+    notRead,
+    result,
+    graph,
+    subject,
+  } = step
   const isManager = dexManagerOf(address, dexRows) !== null
   // A manager's parties are not read here (ask the token): none listed, and nothing named as not read.
-  const adders = isManager ? [] : poolPartiesOf('adder', memberRows(members1.get('adders')), dictionary)
-  const removers = isManager ? [] : poolPartiesOf('remover', memberRows(members1.get('removers')), dictionary)
+  const adders = isManager
+    ? []
+    : poolPartiesOf('adder', memberRows(members1.get('adders')), dictionary)
+  const removers = isManager
+    ? []
+    : poolPartiesOf('remover', memberRows(members1.get('removers')), dictionary)
   const parts: Array<readonly [string, string]> = [
-    ...(isManager ? [] : ([['adders', 'adders'], ['removers', 'removers']] as const)),
-    ['tokens', 'assets'],
+    ...(isManager
+      ? []
+      : ([
+          ['adders', 'adders'],
+          ['removers', 'removers'],
+          ['tokens', 'assets'],
+        ] as const)),
   ]
   for (const [part, id] of parts) {
     const missing = notReadOf(part, id, members1)
@@ -642,16 +715,25 @@ async function answerPool(step: Step & { members1: Map<string, Member> }): Promi
       const id = `token${index}_node`
       const missing = notReadOf('token', id, members2)
       if (missing) notRead.push(missing)
-      else result.pool_tokens.push(partyOf('token', token, memberRows(members2.get(id))[0], dictionary))
+      else
+        result.pool_tokens.push(
+          partyOf('token', token, memberRows(members2.get(id))[0], dictionary)
+        )
     })
     if (deployerAddress) {
       const missing = notReadOf('deployer', 'deployer_node', members2)
       if (missing) notRead.push(missing)
       else
-        result.deployer = partyOf('deployer', deployerAddress, memberRows(members2.get('deployer_node'))[0], dictionary)
+        result.deployer = partyOf(
+          'deployer',
+          deployerAddress,
+          memberRows(members2.get('deployer_node'))[0],
+          dictionary
+        )
     }
   }
-  if (result.deployer && deployment?.deployer) graph.deployed(deployment.deployer, address, deployment.created_utc)
+  if (result.deployer && deployment?.deployer)
+    graph.deployed(deployment.deployer, address, deployment.created_utc)
   if (result.deployer) graph.party(result.deployer, 'deployer')
   graph.pool(facts)
 }
@@ -663,8 +745,20 @@ async function answerToken(
     nodeRow: Record<string, unknown>
   }
 ): Promise<void> {
-  const { deps, network, address, dictionary, exchangeRows, dexRows, deployment, notRead, result, graph, subject, nodeRow } =
-    step
+  const {
+    deps,
+    network,
+    address,
+    dictionary,
+    exchangeRows,
+    dexRows,
+    deployment,
+    notRead,
+    result,
+    graph,
+    subject,
+    nodeRow,
+  } = step
   result.token = {
     address,
     standard: textOrNull(nodeRow.token_standard),
@@ -694,13 +788,26 @@ async function answerToken(
 
   // The founder: the full address answer, with its money partners.
   if (founder) {
-    const built = addressRiskFromMembers(network, founder, members2, dictionary, exchangeRows, 'founder_')
+    const built = addressRiskFromMembers(
+      network,
+      founder,
+      members2,
+      dictionary,
+      exchangeRows,
+      'founder_'
+    )
     if ('failure' in built) {
-      notRead.push({ part: 'founder', ...memberRefusal('founder_node', members2.get('founder_node')) })
+      notRead.push({
+        part: 'founder',
+        ...memberRefusal('founder_node', members2.get('founder_node')),
+      })
     } else {
       result.founder = founderOf(founder, built.result)
       for (const entry of built.result.not_read) {
-        notRead.push({ ...entry, part: entry.part === 'senders' ? 'founder_senders' : 'founder_receivers' })
+        notRead.push({
+          ...entry,
+          part: entry.part === 'senders' ? 'founder_senders' : 'founder_receivers',
+        })
       }
     }
     const gasMissing = notReadOf('gas_wallets', 'gas_wallets', members2)
@@ -784,13 +891,19 @@ async function answerToken(
   const poolQueries: Batch = []
   detailed.forEach((listing, index) => {
     if (managerOf(listing.pool)) return
-    poolQueries.push({ id: poolId(index, 'node'), query: addressNodeQuery(listing.pool, POOL_NODE_COLUMNS) })
+    poolQueries.push({
+      id: poolId(index, 'node'),
+      query: addressNodeQuery(listing.pool, POOL_NODE_COLUMNS),
+    })
     poolQueries.push({ id: poolId(index, 'deployment'), query: deploymentQuery(listing.pool) })
   })
-  const poolMembers = poolQueries.length > 0 ? await sendBatch(deps, network, poolQueries) : new Map<string, Member>()
+  const poolMembers =
+    poolQueries.length > 0 ? await sendBatch(deps, network, poolQueries) : new Map<string, Member>()
   const candidates: Candidate[] = [
     { by: 'token', address, risk: subject.risk },
-    ...(result.founder ? [{ by: 'founder' as const, address: result.founder.address, risk: result.founder.risk }] : []),
+    ...(result.founder
+      ? [{ by: 'founder' as const, address: result.founder.address, risk: result.founder.risk }]
+      : []),
   ]
   listings.forEach((listing, index) => {
     const manager = managerOf(listing.pool)

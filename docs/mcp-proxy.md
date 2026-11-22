@@ -322,10 +322,11 @@ flowchart LR
 the same check in a terminal.
 
 `aml_address_risk` screens one address. It takes `network` and `address`
-(both required) and `surroundings` (optional, `true` or `false`). One
-`graph_query_batch` sends three reads on `USE topology`, all anchored on the
-address: the address with its card and the risk model's level and score, its
-senders and its receivers (the newest money links worth 1 USD or more, 26 a
+(both required) and `surroundings` (optional, `true` or `false`). It sends
+three reads on `USE topology`, all anchored on the address, in two
+`graph_query_batch` calls: first the address alone, with its card, the risk
+model's level and score and its link count; then, unless it is not found or
+is a hub, its senders and its receivers (the newest money links worth 1 USD or more, 26 a
 direction to know whether more than 25 exist).
 
 ```mermaid
@@ -366,6 +367,14 @@ flowchart LR
   the zero addresses are left out and counted in `left_out`.
 - `exchange_ends` lists the exchange wallets the address paid or was paid by,
   named through the exchange lookup.
+- The node is read first, alone, in its own call. A hub, a node with more
+  than 50,000 links (`degree_total`, such as the zero address or a pool
+  manager), has its counterparties not ranked: the two partner reads are not
+  sent, `exposure.hub` is `true` with its `degree_total`,
+  `counterparties_read` is `0`, and `not_read` names part `counterparties`
+  with code `hub`. Ask about one counterparty, or one token, instead. The
+  word still comes from the card and the model. A node with no
+  `degree_total` is not a hub.
 - `not_read` names a partner read that did not answer, with its code; the
   answer still stands. A failed address read is an error.
 - With `surroundings: true` the answer adds the nodes (at most 60) and the
@@ -384,14 +393,16 @@ asked: a node with `Pool` is a pool (a launchpad pair carries `Token` and
 `Pool`, and `Pool` wins), and so is a pool manager the exchange registry
 lists; a node with `Token` is a token, and any other
 address is answered with its own word only, to be asked again with
-`aml_address_risk`. At most three `graph_query_batch` calls of at most 20
-reads each, all on `USE topology`:
+`aml_address_risk`. At most four `graph_query_batch` calls of at most 20
+reads each, all on `USE topology`. The first reads the subject's node alone;
+a hub's partner reads are never sent, as for `aml_address_risk`:
 
 ```mermaid
 flowchart LR
-    B1["batch 1<br/>the subject: node, senders, receivers,<br/>deployment, adders, removers, assets"] --> B2["batch 2, a token<br/>pools and providers by asset (both directions, first),<br/>founder, factory, gas wallets"]
-    B1 --> P2["batch 2, a pool<br/>its tokens and its deployer"]
-    B2 --> B3["batch 3<br/>the 10 biggest pools with their own address:<br/>node and deployment"]
+    B0["call 1<br/>the subject node alone:<br/>found, what it is, its link count"] --> B1["call 2<br/>senders and receivers (never for a hub),<br/>deployment, adders, removers, assets"]
+    B1 --> B2["call 3, a token<br/>pools and providers by asset (both directions, first),<br/>founder, factory, gas wallets"]
+    B1 --> P2["call 3, a pool<br/>its tokens and its deployer"]
+    B2 --> B3["call 4<br/>the 10 biggest pools with their own address:<br/>node and deployment"]
 ```
 
 - The founder is the wallet that sent the deployment (`tx_origin`, else the
@@ -428,9 +439,9 @@ flowchart LR
   answered as one row for the manager, not pool by pool: `is_manager: true`,
   `pools_inside: null`, its providers and this token's side. Its node sums
   are the manager's whole book, so `liquidity` is `null`, and it has no
-  word. A manager asked about itself sends no adders or removers read and
-  lists none (`adders: []`, `removers: []`): its parties are answered per
-  token, so ask the token.
+  word. A manager asked about itself sends no adders, removers or assets read
+  and lists none (`adders: []`, `removers: []`, `pool_tokens: []`): its
+  parties and its tokens are answered per token, so ask the token.
 - Every pool row carries `exchange`, the registry name by its manager or
   its factory, else `null`; `providers` (distinct adders of this token);
   and `token_side` (this token added and removed; `removed_usd` is `0` when

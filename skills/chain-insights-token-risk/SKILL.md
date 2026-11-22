@@ -56,13 +56,20 @@ USE topology MATCH (a:Address)-[r:ADDED_LIQUIDITY {asset: "0x766bd6598182586beda
   Uniswap v4) are answered as one row for the manager (`is_manager: true`),
   with its providers and this token's side (`token_side`), not pool by pool.
   A manager row has no word and never raises the token's. A manager asked
-  about itself lists no adders or removers: its parties are answered per
-  token, so ask the token.
+  about itself lists no adders, removers or tokens (`pool_tokens: []`): its
+  parties and its tokens are answered per token, so ask the token.
 - `pools_found` counts every pool address of the token, exact up to 500,
   and each pool's `providers` counts every provider. Only the 10 biggest
   are detailed (`detail: true`); `pools_truncated` says when more exist,
   and `parties_truncated` when a pool's 5 biggest adders or removers may
   miss a party.
+
+## A hub
+
+A token or a pool with more than 50,000 links is a hub: `exposure.hub` is
+`true` and its own counterparties are not ranked (`not_read` names
+`counterparties`). Its founder, factory and pools are still answered. To see
+who traded with it, ask about one counterparty.
 
 ## The judgement is yours
 

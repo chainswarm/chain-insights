@@ -66,6 +66,9 @@ describe('the golden compare', () => {
       ['pool: is_manager and providers_min', 'pool', { is_manager: false, providers_min: 1 }, tokenAnswer, true, []],
       ['pool with no pool row fails providers_min', 'pool', { providers_min: 1 }, { ...tokenAnswer, pools: [] }, false, ['providers_min']],
       ['an unknown key fails', 'address', { founder: FOUNDER }, addressAnswer, false, ['founder']],
+      ['hub true against a hub passes', 'address', { hub: true }, { ...addressAnswer, exposure: { hub: true } }, true, []],
+      ['hub true against a non-hub fails', 'pool', { hub: true }, { ...tokenAnswer, exposure: { hub: false } }, false, ['hub']],
+      ['hub with no exposure fails', 'token', { hub: false }, tokenAnswer, false, ['hub']],
       ['no answer fails', 'token', { word: 'low' }, null, false, ['word']],
     ]
     for (const [name, kind, expected, answer, ok, keys] of cases) {

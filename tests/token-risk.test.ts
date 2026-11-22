@@ -278,13 +278,18 @@ describe('aml_token_risk: a token', () => {
     })
     expect(structured.risk.own).toMatchObject({ word: 'unscored', card_version: '3' })
     // The two whole-chain providers reads go first in their batch; the manager gets no node read.
-    expect(sent[1]!.queries.slice(0, 4).map((read) => read.id)).toEqual([
+    // Call 1 is the node alone; call 2 the subject's other reads.
+    expect(sent.map((batch) => batch.queries.map((read) => read.id)).slice(0, 2)).toEqual([
+      ['node'],
+      ['in', 'out', 'deployment', 'adders', 'removers', 'assets'],
+    ])
+    expect(sent[2]!.queries.slice(0, 4).map((read) => read.id)).toEqual([
       'pools_added',
       'pools_removed',
       'providers_added',
       'providers_removed',
     ])
-    expect(sent.map((batch) => batch.queries.map((read) => read.id))[2]).toEqual([
+    expect(sent.map((batch) => batch.queries.map((read) => read.id))[3]).toEqual([
       'pool0_node',
       'pool0_deployment',
       'pool2_node',
@@ -353,10 +358,10 @@ describe('aml_token_risk: a token', () => {
     )
     expect(structured.factory).toBeNull()
     expect(structured.founder?.address).toBe(FOUNDER)
-    expect(sent[1]!.queries.some((read) => read.id === 'factory_node')).toBe(false)
+    expect(sent[2]!.queries.some((read) => read.id === 'factory_node')).toBe(false)
   })
 
-  it('with 12 pool addresses: 10 in detail, every one listed, within 3 batches of 20 reads', async () => {
+  it('with 12 pool addresses: 10 in detail, every one listed, within 4 batches of 20 reads', async () => {
     const rows = Array.from({ length: 12 }, (_, index) => ({
       pool: hex('b0', index + 1),
       ...provider(hex('add', index + 1), { tokens_worth_usd: 1000 - index }),
@@ -371,8 +376,8 @@ describe('aml_token_risk: a token', () => {
     ).toBe(true)
     // The removals read answered with no row for the pool: nothing removed.
     expect(structured.pools[11]!.token_side).toEqual({ added_usd: 989, removed_usd: 0 })
-    expect(sent).toHaveLength(3)
-    expect(sent[2]!.queries).toHaveLength(BATCH_MEMBER_LIMIT)
+    expect(sent).toHaveLength(4)
+    expect(sent[3]!.queries).toHaveLength(BATCH_MEMBER_LIMIT)
     expectBudget(sent)
   })
 
@@ -398,7 +403,7 @@ describe('aml_token_risk: a token', () => {
       token_side: { added_usd: 9701, removed_usd: 0 },
       adders: [],
     })
-    expect(sent).toHaveLength(3)
+    expect(sent).toHaveLength(4)
     expectBudget(sent)
   })
 
@@ -484,7 +489,7 @@ describe('aml_token_risk: a token', () => {
         ...deps(graph),
         graphQueryBatch: async (batch) => {
           calls += 1
-          if (calls === 2) throw new Error('payment required')
+          if (calls === 3) throw new Error('payment required')
           return graph.graphQueryBatch(batch)
         },
       }
@@ -589,7 +594,7 @@ describe('aml_token_risk: a pool, a wallet, nothing', () => {
     ])
     expect(structured.deployer).toMatchObject({ role: 'deployer', address: FOUNDER })
     expect(structured.exposure).not.toBeNull()
-    expect(sent.map((batch) => batch.queries.length)).toEqual([7, 3])
+    expect(sent.map((batch) => batch.queries.length)).toEqual([1, 6, 3])
   })
 
   it('a pool manager asked about itself: one row, no word of a pool, and its own word raises nothing', async () => {
@@ -613,9 +618,40 @@ describe('aml_token_risk: a pool, a wallet, nothing', () => {
       removers: [],
     })
     // No party read is sent for a manager, and none is named as not read.
-    expect(sent[0]!.queries.map((read) => read.id)).toEqual(['node', 'in', 'out', 'deployment', 'assets'])
-    expect(structured.not_read.filter((entry) => entry.part === 'adders' || entry.part === 'removers')).toEqual([])
+    expect(sent.map((batch) => batch.queries.map((read) => read.id)).slice(0, 2)).toEqual([
+      ['node'],
+      ['in', 'out', 'deployment'],
+    ])
+    expect(structured.not_read.filter((entry) => ['adders', 'removers', 'tokens'].includes(entry.part))).toEqual([])
+    expect(structured.pool_tokens).toEqual([])
     expect(structured.risk).toMatchObject({ word: 'critical', set_by: 'rules', raised_by: null })
+  })
+
+  it('a hub pool manager asked as a pool: no partner and no party read, the hub named, one row', async () => {
+    const { structured, sent } = await call(
+      tokenAnswers({ node: [{ node_labels: ['Address', 'Contract'], degree_total: 207_581 }], deployment: [] }),
+      {},
+      MANAGER
+    )
+    expect(sent.map((batch) => batch.queries.map((read) => read.id)).slice(0, 2)).toEqual([
+      ['node'],
+      ['deployment'],
+    ])
+    expect(structured.exposure).toMatchObject({ hub: true, degree_total: 207_581, counterparties_read: 0 })
+    expect(structured.not_read).toEqual([expect.objectContaining({ part: 'counterparties', code: 'hub' })])
+    expect(structured.pools[0]).toMatchObject({ is_manager: true, adders: [], removers: [] })
+  })
+
+  it('a hub token: its partners are not read, everything else is', async () => {
+    const { structured, sent } = await call(
+      tokenAnswers({ node: [{ ...TOKEN_ROW, degree_total: 1_000_000, risk_level: 'MEDIUM', risk_score: 0.4 }] })
+    )
+    expect(sent[1]!.queries.map((read) => read.id)).toEqual(['deployment', 'adders', 'removers', 'assets'])
+    expect(structured.exposure).toMatchObject({ hub: true, with_risk: [] })
+    expect(structured.risk).toMatchObject({ word: 'medium', raised_by: 'token' })
+    expect(structured.founder?.address).toBe(FOUNDER)
+    expect(structured.pools_found).toBe(3)
+    expect(structured.not_read.map((entry) => entry.part)).toEqual(['counterparties'])
   })
 
   it('a wallet is answered as an address: its own word, and nothing else read', async () => {

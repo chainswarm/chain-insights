@@ -76,11 +76,12 @@ export const ADDRESS_RISK_READING_RULE =
 export const AML_ADDRESS_RISK_DESCRIPTION =
   'Answers who one address is and how risky it is: its identity, wallet roles and behaviour, its risk word with every reason, ' +
   'the risk model level and score, the partners it exchanged money with (1 USD or more, the 25 newest each way) that carry a risk word of medium or above, ' +
-  'and the exchange wallets its money came from or reached. Three reads anchored on the address, in one batch, billed as any read. ' +
+  'and the exchange wallets its money came from or reached. Three reads anchored on the address, in two calls (the node first), billed as any read. ' +
   'risk.word is the higher of what labels prove (rules_word) and what the risk model predicts (model_word); critical comes only from a label. ' +
   'risk.score is the model number from 0 to 1, or null: a label never makes a number. ' +
   'unscored means neither labels nor the model speak about the address: it is not low and not safe. ' +
   'A risky partner is listed beside the word and never changes it. ' +
+  'A hub (more than 50,000 links, such as the zero address or a pool manager) has its counterparties not ranked: exposure.hub is true, counterparties_read is 0, and not_read names counterparties; ask about one counterparty, or one token, instead. ' +
   `${ADDRESS_RISK_READING_RULE} ` +
   'Write every address in full, all 42 characters. Pass surroundings: true for the nodes and money links behind the answer, to draw.'
 
@@ -105,7 +106,7 @@ export const ZERO_ADDRESSES = [
 
 export type AddressKind = 'account' | 'contract' | 'token' | 'pool' | 'unknown'
 export type PartnerDirection = 'sent_to_subject' | 'received_from_subject'
-export type NotReadPart = 'senders' | 'receivers'
+export type NotReadPart = 'senders' | 'receivers' | 'counterparties'
 
 export interface AddressRisk {
   word: RiskWord
@@ -151,6 +152,10 @@ export interface ExchangeEnd {
 
 export interface Exposure {
   floor_usd: typeof EXPOSURE_FLOOR_USD
+  /** True for a hub (more than HUB_DEGREE links): its counterparties are not ranked, and none is read. */
+  hub: boolean
+  /** The address's link count on its node, when the node carries it. */
+  degree_total: number | null
   /** Partner links kept: worth 1 USD or more, not a token contract, not a zero address. */
   counterparties_read: number
   /** Partner links read and dropped: a token contract or a zero address. */
@@ -252,8 +257,31 @@ export function addressNodeQuery(address: string, extra: readonly string[] = [])
     'RETURN labels(a) AS node_labels, a.card_version AS card_version, a.identity AS identity, a.identity_name AS identity_name, ' +
     'a.identities AS identities, a.address_roles AS address_roles, a.behaviour AS behaviour, a.evidence AS evidence, ' +
     'a.judgements AS judgements, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, ' +
-    `${exchangeRoleRead('a')} AS exchange_role${more} LIMIT 1`
+    `${exchangeRoleRead('a')} AS exchange_role, a.degree_total AS degree_total, a.degree_out AS degree_out${more} LIMIT 1`
   )
+}
+
+/**
+ * A hub has more links than this. Ranking a hub's money links by amount is
+ * what costs (9 s for the zero address, 17.6 s for a pool manager, against
+ * under 3.5 s for every other case measured): a hub's partner reads are not
+ * sent, and its counterparties are not ranked.
+ */
+export const HUB_DEGREE = 50_000
+
+/** The link count of a hub node, or null: a node whose degree is missing is not a hub. */
+export function hubDegreeOf(row: Record<string, unknown> | undefined): number | null {
+  const degree = numberOrNull(row?.degree_total)
+  return degree !== null && degree > HUB_DEGREE ? degree : null
+}
+
+/** The not-read entry of a hub's counterparties: what to ask instead. */
+export function hubNotRead(degree: number): NotRead {
+  return {
+    part: 'counterparties',
+    code: 'hub',
+    reason: `This address has ${degree} links. Its counterparties are not ranked: ask about one counterparty, or one token.`,
+  }
 }
 
 /** A partner read: the newest money links of one direction, one more than kept. */
@@ -472,7 +500,11 @@ export function addressRiskFromMembers(
   dictionary: readonly AddressCardWord[],
   exchangeRows: ExchangeEntry[],
   prefix = '',
-  options: { surroundings?: boolean } = {}
+  options: {
+    surroundings?: boolean
+    /** The partner reads were not sent for a hub: build the hub answer when the node is one. */
+    hubGuard?: boolean
+  } = {}
 ): { result: AmlAddressRiskResult } | { failure: string } {
   const nodeId = `${prefix}node`
   const node = members.get(nodeId)
@@ -542,10 +574,16 @@ export function addressRiskFromMembers(
   const identityName = textOrNull(nodeRow.identity_name)
 
   const notRead: NotRead[] = []
-  const directions: Array<{ id: string; part: NotReadPart; direction: PartnerDirection }> = [
-    { id: `${prefix}in`, part: 'senders', direction: 'sent_to_subject' },
-    { id: `${prefix}out`, part: 'receivers', direction: 'received_from_subject' },
-  ]
+  const degree = numberOrNull(nodeRow.degree_total)
+  const hub = options.hubGuard === true ? hubDegreeOf(nodeRow) : null
+  if (hub !== null) notRead.push(hubNotRead(hub))
+  const directions: Array<{ id: string; part: NotReadPart; direction: PartnerDirection }> =
+    hub !== null
+      ? []
+      : [
+          { id: `${prefix}in`, part: 'senders', direction: 'sent_to_subject' },
+          { id: `${prefix}out`, part: 'receivers', direction: 'received_from_subject' },
+        ]
   const partners: Partner[] = []
   let leftOut = 0
   let truncated = false
@@ -584,6 +622,8 @@ export function addressRiskFromMembers(
     model: { level: risk.model_word, score: risk.score, scored: risk.model_word !== 'not_scored' },
     exposure: {
       floor_usd: EXPOSURE_FLOOR_USD,
+      hub: hub !== null,
+      degree_total: degree,
       counterparties_read: partners.length,
       left_out: leftOut,
       truncated,
@@ -681,21 +721,38 @@ export async function handleAmlAddressRisk(
     // The lookup only names an exchange; the graph read still answers.
   }
 
-  let answer: GraphAnswer
-  try {
-    answer = await deps.graphQueryBatch({ network, queries: addressRiskQueries(address) })
-  } catch (err) {
-    return errorResult(
-      `The address risk read failed: ${deps.describeFailure(err)} This is not "no risk": send the same call again once.`
-    )
+  // Call 1: the node alone (about 50 ms). It says whether the address exists and whether it is a hub.
+  const read = async (queries: Array<{ id: string; query: string }>) => {
+    let answer: GraphAnswer
+    try {
+      answer = await deps.graphQueryBatch({ network, queries })
+    } catch (err) {
+      return { failure: `${deps.describeFailure(err)} This is not "no risk": send the same call again once.` }
+    }
+    const members = membersOf(answer)
+    if (members.size === 0) {
+      const text = answer.isError === true ? refusalOf(answer).text : 'the batch answer held no reads'
+      return { failure: `${text} This is not "no risk".` }
+    }
+    return { members }
   }
-  const members = membersOf(answer)
-  if (members.size === 0) {
-    const text = answer.isError === true ? refusalOf(answer).text : 'the batch answer held no reads'
-    return errorResult(`The address risk read failed: ${text} This is not "no risk".`)
+  const [nodeQuery, ...partnerQueries] = addressRiskQueries(address)
+  const first = await read([nodeQuery!])
+  if ('failure' in first) return errorResult(`The address risk read failed: ${first.failure}`)
+  const members = first.members
+  const nodeRow = memberRows(members.get('node'))[0]
+  // Call 2: the partner reads, unless the address is not found or is a hub.
+  if (nodeRow && hubDegreeOf(nodeRow) === null) {
+    const second = await read(partnerQueries)
+    if ('failure' in second) {
+      for (const { id } of partnerQueries) members.set(id, { id, ok: false, error: second.failure })
+    } else {
+      for (const [id, member] of second.members) members.set(id, member)
+    }
   }
   const built = addressRiskFromMembers(network, address, members, dictionary, exchangeRows, '', {
     surroundings,
+    hubGuard: true,
   })
   if ('failure' in built) {
     return errorResult(
