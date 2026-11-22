@@ -44,8 +44,10 @@ import {
 } from './address-risk.js'
 import { addressOrNull, numberOrNull, strings, textOrNull, utcOrNull } from './row-values.js'
 
-/** The rows a providers read lists at most; a full read means more may exist. */
+/** The rows a providers read lists at most; a full read means a pool's parties may miss someone. */
 export const PROVIDERS_READ_LIMIT = 200
+/** The pools a grouped pools read lists at most; a full read means more pools exist. */
+export const POOLS_READ_LIMIT = 500
 /** The pools detailed (node read, adders and removers), the biggest by tokens added first. */
 export const POOLS_DETAILED = 10
 /** The adders and the removers kept per pool. */
@@ -88,6 +90,25 @@ export function tokenProvidersQuery(token: string, side: 'added' | 'removed'): s
     'sum(r.event_count) AS events, min(r.first_seen_height) AS first_seen_height, ' +
     `max(r.last_seen_height) AS last_seen_height, ${partyColumns('a')} ` +
     `ORDER BY tokens_worth_usd DESC LIMIT ${PROVIDERS_READ_LIMIT}`
+  )
+}
+
+/**
+ * The pools of a token on one side, one row per pool address: its distinct
+ * providers (or removers), this token's USD sum, its priced links and its
+ * events. Grouped by the graph, so it counts every pool and every provider up
+ * to POOLS_READ_LIMIT pools, where the providers read stops at 200 rows.
+ */
+export function tokenPoolsQuery(token: string, side: 'added' | 'removed'): string {
+  assertReadAddress(token)
+  const [match, parties] =
+    side === 'added'
+      ? [`(a:Address)-[r:ADDED_LIQUIDITY {asset: "${token}"}]->(p:Address)`, 'providers']
+      : [`(p:Address)-[r:REMOVED_LIQUIDITY {asset: "${token}"}]->(a:Address)`, 'removers']
+  return (
+    `USE topology MATCH ${match} ` +
+    `RETURN p.address AS pool, count(DISTINCT a) AS ${parties}, sum(r.usd) AS ${side}_usd, ` +
+    `count(r.usd) AS priced, sum(r.event_count) AS events ORDER BY ${side}_usd DESC LIMIT ${POOLS_READ_LIMIT}`
   )
 }
 
@@ -226,7 +247,7 @@ export function poolPartiesOf(
 /** One pool address of a token, as its two providers reads list it. */
 export interface PoolListing {
   pool: string
-  /** Distinct adders of this token into the pool, among the rows read. */
+  /** Distinct adders of this token into the pool: by the grouped pools read, else among the rows read. */
   providers: number
   /** This token's side: added and removed, tokens worth USD; null when unpriced or not read. */
   added_usd: number | null
@@ -292,6 +313,69 @@ export function poolListingsOf(
   return listings.sort(
     (a, b) => rank(b.added_usd) - rank(a.added_usd) || a.pool.localeCompare(b.pool)
   )
+}
+
+/**
+ * The pool addresses of a token from its two grouped pools reads: providers
+ * and this token's side come from the groups, the parties of each pool from
+ * the providers rows. `removedGroups` is null when the grouped removals read
+ * did not answer: every removed sum is then null. A pool with no removal group
+ * in a grouped read under POOLS_READ_LIMIT rows removed nothing (0); a group
+ * whose links carry no price is null. `addedRows` and `removedRows` are null
+ * when that providers read did not answer: the pool then has no parties.
+ */
+export function poolListingsFromGroups(
+  addedGroups: Array<Record<string, unknown>>,
+  removedGroups: Array<Record<string, unknown>> | null,
+  addedRows: Array<Record<string, unknown>> | null,
+  removedRows: Array<Record<string, unknown>> | null
+): PoolListing[] {
+  const removedBy = new Map<string, Record<string, unknown>>()
+  for (const row of removedGroups ?? []) {
+    const pool = addressOrNull(row.pool)
+    if (pool) removedBy.set(pool, row)
+  }
+  const rowsBy = (rows: Array<Record<string, unknown>> | null) => {
+    const by = new Map<string, Array<Record<string, unknown>>>()
+    for (const row of rows ?? []) {
+      const pool = addressOrNull(row.pool)
+      if (!pool || !addressOrNull(row.address)) continue
+      by.set(pool, [...(by.get(pool) ?? []), row])
+    }
+    return by
+  }
+  const adderRows = rowsBy(addedRows)
+  const removerRows = rowsBy(removedRows)
+  const removedFull = (removedGroups?.length ?? 0) >= POOLS_READ_LIMIT
+  const listings: PoolListing[] = []
+  const seen = new Set<string>()
+  const push = (pool: string, added: Record<string, unknown> | null) => {
+    if (seen.has(pool)) return
+    seen.add(pool)
+    const removed = removedBy.get(pool)
+    listings.push({
+      pool,
+      providers: numberOrNull(added?.providers) ?? 0,
+      added_usd: added ? usdOf(added, 'added_usd') : null,
+      removed_usd:
+        removedGroups === null
+          ? null
+          : removed
+            ? usdOf(removed, 'removed_usd')
+            : removedFull
+              ? null
+              : 0,
+      adder_rows: adderRows.get(pool) ?? [],
+      remover_rows: removerRows.get(pool) ?? [],
+    })
+  }
+  for (const row of addedGroups) {
+    const pool = addressOrNull(row.pool)
+    if (pool) push(pool, row)
+  }
+  for (const pool of removedBy.keys()) push(pool, null)
+  const rank = (value: number | null) => (value === null ? -1 : value)
+  return listings.sort((a, b) => rank(b.added_usd) - rank(a.added_usd) || a.pool.localeCompare(b.pool))
 }
 
 export interface PoolLiquidity {

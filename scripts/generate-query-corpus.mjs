@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Generates tests/fixtures/graph-query-corpus.json: every graph query the
-// cia AML builders can emit, in PRODUCTION SHAPE — i.e. wrapped with the
-// exact `USE <scope>` prefix the runtime batch wrapper applies. The
+// risk tools (aml_address_risk, aml_token_risk) can emit, and every
+// documented recipe, in PRODUCTION SHAPE — each with the exact `USE <scope>`
+// prefix it is sent with. The
 // the upstream pipeline's internal corpus test runs
 // ValidateReadOnlyGraphQuery over every entry; the USE prefix matters
 // because the validator's StarRocks cost-shape gates key on `USE facts`.
@@ -29,128 +30,46 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)))
-const { queryBuilderContract } = await import(join(repoRoot, 'src/investigation/public-tools.ts'))
+const { addressNodeQuery, addressPartnerQuery } = await import(
+  join(repoRoot, 'src/mcp/address-risk.ts')
+)
+const {
+  POOL_NODE_COLUMNS,
+  deploymentQuery,
+  gasWalletsQuery,
+  poolAssetsQuery,
+  poolPartiesQuery,
+  tokenPoolsQuery,
+  tokenProvidersQuery,
+} = await import(join(repoRoot, 'src/mcp/pool-risk.ts'))
 
-const SCOPES = ['topology']
-// Recipe entries (openspec dozerdb-flows-to-slim-schema): the facts-lane pair
-// anchor and the inline average replace the dropped edge fields.
-// Escaping-sensitive values are part of the grid on purpose.
-const ADDR = 'corpus-address-a'
-const ADDR_QUOTED = 'corpus"quote'
-const COMPARE = 'corpus-address-b'
-const ANCHOR_DAY = '2026-07-11'
-const DEPOSITS = ['corpus-dep-1', 'corpus-dep-2', 'corpus-dep-3']
-// TraceActivityWindow shape ({ fromTimestamp, toTimestamp }) — a wrong key
-// here produces `>= undefined` predicates; tests/query-corpus.test.ts pins
-// their absence.
-const WINDOW = { fromTimestamp: 1704067200000, toTimestamp: 1735689600000 }
+// The reads of the risk tools aml_address_risk and aml_token_risk, on one
+// fixed address. Each builder refuses anything but a lowercase 0x address, so
+// the grid holds one address and no escaping case.
+const ADDR = '0x00000000000000000000000000000000c0a95e01'
 
 const entries = []
-const add = (builder, params, scope, item) => {
-  if (!item) return
-  for (const q of Array.isArray(item) ? item : [item]) {
-    entries.push({
-      builder,
-      params,
-      scope,
-      query: queryBuilderContract.topologyGraphQuery(q.query),
-    })
-  }
-}
-// Some builders hardcode their USE prefix inline; store those verbatim. The
-// scope is the graph the text names, so an entry never carries a scope that
-// its own text contradicts.
+// Every builder writes its own USE prefix: the scope is the graph the text names.
 const scopeOfQuery = (query) => /^USE\s+(\w+)/.exec(query)?.[1]
-const addVerbatim = (builder, params, item) => {
-  entries.push({ builder, params, scope: scopeOfQuery(item.query), query: item.query })
+const add = (builder, params, query) => {
+  entries.push({ builder, params, scope: scopeOfQuery(query), query })
 }
 
-for (const scope of SCOPES) {
-  for (const address of [ADDR, ADDR_QUOTED]) {
-    add(
-      'addressProfileQuery',
-      { address },
-      scope,
-      queryBuilderContract.addressProfileQuery(address)
-    )
-    add(
-      'exchangeOutflowQueries',
-      { address },
-      scope,
-      queryBuilderContract.exchangeOutflowQueries(address)
-    )
-    add(
-      'exchangeInflowQueries',
-      { address },
-      scope,
-      queryBuilderContract.exchangeInflowQueries(address)
-    )
-  }
-  add(
-    'compareAddressExistsQuery',
-    { address: ADDR },
-    scope,
-    queryBuilderContract.compareAddressExistsQuery(ADDR)
-  )
-  add(
-    'connectionProbeQuery',
-    { address: ADDR, compare: COMPARE },
-    scope,
-    queryBuilderContract.connectionProbeQuery(ADDR, COMPARE)
-  )
+add('addressNodeQuery', { address: ADDR }, addressNodeQuery(ADDR))
+add('addressNodeQuery', { address: ADDR, columns: 'pool' }, addressNodeQuery(ADDR, POOL_NODE_COLUMNS))
+for (const direction of ['in', 'out']) {
+  add('addressPartnerQuery', { address: ADDR, direction }, addressPartnerQuery(ADDR, direction))
 }
-
-// Route evidence: bounded ISO GQL shortest paths on the one topology graph.
-add(
-  'connectionRouteQueries',
-  { address: ADDR, compare: COMPARE },
-  'topology',
-  queryBuilderContract.connectionRouteQueries(ADDR, COMPARE)
-)
-add(
-  'connectionRouteQueries',
-  { address: ADDR_QUOTED, compare: COMPARE },
-  'topology',
-  queryBuilderContract.connectionRouteQueries(ADDR_QUOTED, COMPARE)
-)
-// The same route on a lane with the levels: FLOWED_TO|ROUTED_TO, the two
-// level 2 links, in place of FLOWED_TO|SWAPPED. Nothing else changes.
-add(
-  'connectionRouteQueries',
-  { address: ADDR, compare: COMPARE, shape: 'levels' },
-  'topology',
-  queryBuilderContract.connectionRouteQueries(ADDR, COMPARE, 'levels')
-)
-
-// Exchange ends: the SWEPT read of a deposit an exchange walk ended at.
-add(
-  'exchangeDepositSweptQuery',
-  { address: ADDR },
-  'topology',
-  queryBuilderContract.exchangeDepositSweptQuery(ADDR, 0)
-)
-
-// LINKED ownership overlay: served on the topology graph (also on facts).
-add(
-  'linkedExposureQueries',
-  { address: ADDR },
-  'topology',
-  queryBuilderContract.linkedExposureQueries(ADDR)
-)
-add(
-  'crossSpaceLinkedQuery',
-  { address: ADDR },
-  'topology',
-  queryBuilderContract.crossSpaceLinkedQuery(ADDR)
-)
-
-// USE prefix hardcoded inside the builder (addressFeatureQuery reads the node
-// properties on the topology graph)
-addVerbatim(
-  'addressFeatureQuery',
-  { address: ADDR },
-  queryBuilderContract.addressFeatureQuery(ADDR)
-)
+add('deploymentQuery', { address: ADDR }, deploymentQuery(ADDR))
+add('gasWalletsQuery', { address: ADDR }, gasWalletsQuery(ADDR))
+add('poolAssetsQuery', { address: ADDR }, poolAssetsQuery(ADDR))
+for (const side of ['adders', 'removers']) {
+  add('poolPartiesQuery', { address: ADDR, side }, poolPartiesQuery(ADDR, side))
+}
+for (const side of ['added', 'removed']) {
+  add('tokenPoolsQuery', { address: ADDR, side }, tokenPoolsQuery(ADDR, side))
+  add('tokenProvidersQuery', { address: ADDR, side }, tokenProvidersQuery(ADDR, side))
+}
 
 // Documented-recipe demand curve (corpus v2, MemGQL retirement wave): the
 // full set of query shapes the docs + skills advertise, harvested and
@@ -184,23 +103,6 @@ for (const recipe of documentedRecipes.recipes) {
     query: recipe.query,
   })
 }
-
-// Facts-lane anchor recipe: a transfer of a pair on one day. A facts read
-// names an address pair with one day, or one transaction hash, and takes no
-// ORDER BY, so the pair anchor takes the day and reads it.
-addVerbatim(
-  'pairAnchorQuery',
-  { from: ADDR, to: COMPARE, day: ANCHOR_DAY },
-  {
-    query: queryBuilderContract.pairAnchorQuery(ADDR, COMPARE, ANCHOR_DAY),
-  }
-)
-add(
-  'inlineAverageFlowQuery',
-  { address: ADDR, limit: 25 },
-  'topology',
-  queryBuilderContract.inlineAverageFlowQuery(ADDR, 25)
-)
 
 entries.sort(
   (a, b) =>

@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-import { connectionRouteQueries } from '../src/investigation/public-tools.js'
 import {
   keptSwapLinkShape,
   mirrorGraphNetworkCapabilities,
@@ -441,35 +440,7 @@ describe('the level rule', () => {
   })
 })
 
-// The connection route of aml_address_risk is a trace, so on a lane with the
-// levels it walks the two level 2 links. tests/fixtures/connection-route-0.81.0.json
-// was written from connectionRouteQueries before its edit.
-const routeSnapshot = JSON.parse(
-  readFileSync(join(repoRoot, 'tests/fixtures/connection-route-0.81.0.json'), 'utf8')
-) as {
-  cases: Array<{ address: string; compare: string; queries: Array<{ id: string; query: string }> }>
-}
-
-describe('the connection route of aml_address_risk', () => {
-  for (const c of routeSnapshot.cases) {
-    it(`${c.address}: the graph of before keeps 0.81.0, the levels walk FLOWED_TO|ROUTED_TO`, () => {
-      expect(connectionRouteQueries(c.address, c.compare)).toEqual(c.queries)
-      expect(connectionRouteQueries(c.address, c.compare, 'route')).toEqual(c.queries)
-      const levels = connectionRouteQueries(c.address, c.compare, 'levels')
-      expect(levels).toEqual(
-        c.queries.map(({ id, query }) => ({
-          id,
-          query: query.replaceAll('FLOWED_TO|SWAPPED', 'FLOWED_TO|ROUTED_TO'),
-        }))
-      )
-      for (const { query } of levels) {
-        expect(query).not.toContain('SWAPPED')
-        expect(query.match(/FLOWED_TO\|ROUTED_TO/g)).toHaveLength(2)
-        expect(query).toContain('WHERE NOT via:Pool')
-      }
-    })
-  }
-
+describe('the lane shape and the walk sentence', () => {
   it('reads the lane shape from network_capabilities, and keeps the graph of before on a failure', async () => {
     const reply = (families: unknown[]) => ({
       structuredContent: {

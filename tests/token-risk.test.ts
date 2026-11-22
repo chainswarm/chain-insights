@@ -126,8 +126,31 @@ function tokenAnswers(overrides: Record<string, Answer> = {}): (id: string) => A
     ],
     factory_node: [{ node_labels: ['Address', 'Contract'], risk_level: 'LOW', risk_score: 0.0001 }],
   }
+  // The grouped pools reads, unless a test gives them: the groups of the providers rows given,
+  // and the same refusal when those rows were refused.
+  const grouped = (side: 'added' | 'removed', id: string): Answer => {
+    const rows = overrides[`providers_${side}`] ?? defaults[`providers_${side}`]!
+    if (!Array.isArray(rows)) return { ...rows, id }
+    const byPool = new Map<string, { providers: Set<unknown>; usd: number; priced: number }>()
+    for (const row of rows) {
+      const group = byPool.get(row.pool as string) ?? { providers: new Set(), usd: 0, priced: 0 }
+      group.providers.add(row.address)
+      group.usd += Number(row.tokens_worth_usd ?? 0)
+      group.priced += Number(row.priced ?? 0)
+      byPool.set(row.pool as string, group)
+    }
+    return [...byPool].map(([pool, group]) => ({
+      pool,
+      [side === 'added' ? 'providers' : 'removers']: group.providers.size,
+      [`${side}_usd`]: group.usd,
+      priced: group.priced,
+      events: group.providers.size,
+    }))
+  }
   return (id) => {
     if (id in overrides) return overrides[id]!
+    if (id === 'pools_added') return grouped('added', id)
+    if (id === 'pools_removed') return grouped('removed', id)
     if (id in defaults) return defaults[id]!
     if (/^pool\d+_node$/.test(id)) return [poolNode()]
     if (/^pool\d+_deployment$/.test(id)) return [{ ...FACTORY_DEPLOYMENT, tx_id: '0x1' }]
@@ -183,7 +206,7 @@ const ANSWER_KEYS = [
   'pools',
   'pools_found',
   'pools_truncated',
-  'providers_truncated',
+  'parties_truncated',
   'pool_tokens',
   'deployer',
   'exposure',
@@ -215,7 +238,7 @@ describe('aml_token_risk: a token', () => {
       deployment: { tx_id: FACTORY_DEPLOYMENT.tx_id, created_utc: '2026-10-03 04:00:00 UTC', kind: 'factory' },
       pools_found: 3,
       pools_truncated: false,
-      providers_truncated: false,
+      parties_truncated: false,
       pool_tokens: [],
       deployer: null,
       not_read: [],
@@ -232,6 +255,7 @@ describe('aml_token_risk: a token', () => {
       role: 'factory',
       address: FACTORY,
       name: 'Virtuals Protocol',
+      named_by: 'registry',
       risk: { word: 'low', set_by: 'model', score: 0.0001 },
     })
     expect('exposure' in structured.factory!).toBe(false)
@@ -254,7 +278,12 @@ describe('aml_token_risk: a token', () => {
     })
     expect(structured.risk.own).toMatchObject({ word: 'unscored', card_version: '3' })
     // The two whole-chain providers reads go first in their batch; the manager gets no node read.
-    expect(sent[1]!.queries.slice(0, 2).map((read) => read.id)).toEqual(['providers_added', 'providers_removed'])
+    expect(sent[1]!.queries.slice(0, 4).map((read) => read.id)).toEqual([
+      'pools_added',
+      'pools_removed',
+      'providers_added',
+      'providers_removed',
+    ])
     expect(sent.map((batch) => batch.queries.map((read) => read.id))[2]).toEqual([
       'pool0_node',
       'pool0_deployment',
@@ -287,6 +316,27 @@ describe('aml_token_risk: a token', () => {
     // Unpriced added stays null; no removal row in a removals read that answered whole is 0.
     expect(structured.pools[2]!.token_side).toEqual({ added_usd: null, removed_usd: 0 })
     expect(Object.keys(structured.pools[0]!)).not.toContain('pools_inside')
+  })
+
+  it('a token factory with no registry row is named by the token launchpad identity, else left unnamed', async () => {
+    // The Virtuals token factory creates tokens, not pools: no exchange registry row of its own.
+    const tokenFactory = '0x43e4c17b15365596caae8e7d00e42bc8e988c2d4'
+    const deployment = [{ ...FACTORY_DEPLOYMENT, deployer: tokenFactory, factory_address: tokenFactory }]
+    const cases: Array<[string, Record<string, unknown>, string | null, string | null]> = [
+      ['the top identity', TOKEN_ROW, 'Virtuals Protocol', 'launchpad'],
+      [
+        'an entry of identities',
+        { ...TOKEN_ROW, identity: 'token', identity_name: 'CIA', identities: ['launchpad:virtuals:CIA:graduated'] },
+        'Virtuals Protocol',
+        'launchpad',
+      ],
+      ['a launchpad key the registry does not hold', { ...TOKEN_ROW, identity_name: 'nolaunch:X' }, null, null],
+      ['no launchpad identity', { ...TOKEN_ROW, identity: 'token', identity_name: 'CIA' }, null, null],
+    ]
+    for (const [name, node, factoryName, namedBy] of cases) {
+      const { structured } = await call(tokenAnswers({ node: [node], deployment }))
+      expect(structured.factory, name).toMatchObject({ address: tokenFactory, name: factoryName, named_by: namedBy })
+    }
   })
 
   it('a hand deployment has no factory; with no tx_origin the deployer is the founder', async () => {
@@ -326,14 +376,66 @@ describe('aml_token_risk: a token', () => {
     expectBudget(sent)
   })
 
-  it('a providers read that came back full says so', async () => {
-    const rows = Array.from({ length: 200 }, (_, index) => ({ pool: POOL, ...provider(hex('add', index + 1)) }))
-    const { structured } = await call(tokenAnswers({ providers_added: rows }))
-    expect(structured.providers_truncated).toBe(true)
-    expect(structured.pools[0]!.providers).toBe(200)
-    expect(structured.not_read).toEqual([
-      expect.objectContaining({ part: 'pool_providers', code: 'truncated' }),
+  it('a token with 300 pools and a full providers read: every pool counted, the parties may miss someone', async () => {
+    const groups = Array.from({ length: 300 }, (_, index) => ({
+      pool: hex('b0', index + 1),
+      providers: 40,
+      added_usd: 10_000 - index,
+      priced: 40,
+      events: 40,
+    }))
+    const rows = Array.from({ length: 200 }, (_, index) => ({ pool: hex('b0', (index % 5) + 1), ...provider(hex('add', index + 1)) }))
+    const { structured, sent } = await call(
+      tokenAnswers({ pools_added: groups, pools_removed: [], providers_added: rows, providers_removed: [] })
+    )
+    expect(structured).toMatchObject({ pools_found: 300, pools_truncated: true, parties_truncated: true })
+    expect(structured.not_read).toEqual([expect.objectContaining({ part: 'pool_parties', code: 'truncated' })])
+    expect(structured.pools[0]!.adders).toHaveLength(5)
+    // A pool beyond the 10 detailed keeps its providers and its side from the grouped read.
+    expect(structured.pools[299]).toMatchObject({
+      detail: false,
+      providers: 40,
+      token_side: { added_usd: 9701, removed_usd: 0 },
+      adders: [],
+    })
+    expect(sent).toHaveLength(3)
+    expectBudget(sent)
+  })
+
+  it('a grouped pools read full at 500 says more pools exist; a pool missing from a full removals read is null', async () => {
+    const groups = Array.from({ length: 500 }, (_, index) => ({
+      pool: hex('b0', index + 1),
+      providers: 1,
+      added_usd: 1000,
+      priced: 1,
+    }))
+    const removed = Array.from({ length: 500 }, (_, index) => ({
+      pool: hex('c0', index + 1),
+      removers: 1,
+      removed_usd: 5,
+      priced: 1,
+    }))
+    const { structured } = await call(tokenAnswers({ pools_added: groups, pools_removed: removed }))
+    expect(structured.pools_found).toBe(1000)
+    expect(structured.pools_truncated).toBe(true)
+    expect(structured.not_read.map((entry) => [entry.part, entry.code])).toEqual([
+      ['pools', 'truncated'],
+      ['pool_removals', 'truncated'],
     ])
+    expect(structured.pools[0]!.token_side).toEqual({ added_usd: 1000, removed_usd: null })
+  })
+
+  it('a grouped pools read that is refused falls back to the providers rows, and is named', async () => {
+    const { structured } = await call(
+      tokenAnswers({ pools_added: { id: 'pools_added', ok: false, error: 'query_timeout: 10 s' } })
+    )
+    expect(structured.pools_found).toBe(3)
+    expect(structured.pools.map((pool) => [pool.pool, pool.providers])).toEqual([
+      [POOL, 2],
+      [MANAGER, 12],
+      [POOL2, 1],
+    ])
+    expect(structured.not_read).toEqual([{ part: 'pools', code: 'query_timeout', reason: 'query_timeout: 10 s' }])
   })
 
   it('a pools read that is refused is named as not read; the founder still answers', async () => {
@@ -344,8 +446,10 @@ describe('aml_token_risk: a token', () => {
     )
     expect(structured.pools_found).toBeNull()
     expect(structured.pools).toEqual([])
+    const reason = 'family_behind: the dex family is 400000 blocks behind'
     expect(structured.not_read).toEqual([
-      { part: 'pools', code: 'family_behind', reason: 'family_behind: the dex family is 400000 blocks behind' },
+      { part: 'pool_parties', code: 'family_behind', reason },
+      { part: 'pools', code: 'family_behind', reason },
     ])
     expect(structured.founder?.address).toBe(FOUNDER)
   })
@@ -364,6 +468,7 @@ describe('aml_token_risk: a token', () => {
     expect(structured.not_read.map((entry) => [entry.part, entry.code, entry.pool ?? null])).toEqual([
       ['founder_senders', 'query_timeout', null],
       ['factory', 'not_answered', null],
+      ['pool_parties', 'query_timeout', null],
       ['pool_removals', 'query_timeout', null],
       ['pool', 'memory_limit', POOL],
     ])
@@ -387,7 +492,14 @@ describe('aml_token_risk: a token', () => {
     const answer = result.structuredContent as unknown as AmlTokenRiskResult
     expect(answer.founder).toBeNull()
     expect(answer.pools_found).toBeNull()
-    expect(answer.not_read.map((entry) => entry.part)).toEqual(['founder', 'gas_wallets', 'factory', 'pools'])
+    expect(answer.not_read.map((entry) => entry.part)).toEqual([
+      'founder',
+      'gas_wallets',
+      'factory',
+      'pool_parties',
+      'pool_parties',
+      'pools',
+    ])
     expect(answer.not_read[0]!.reason).toBe('payment required')
   })
 })
@@ -481,12 +593,28 @@ describe('aml_token_risk: a pool, a wallet, nothing', () => {
   })
 
   it('a pool manager asked about itself: one row, no word of a pool, and its own word raises nothing', async () => {
-    const { structured } = await call(
-      tokenAnswers({ node: [poolNode({ evidence: ['scam'] })], deployment: [], assets: [] }),
+    // The graph labels no pool manager :Pool; the exchange registry says what it is.
+    const { structured, sent } = await call(
+      tokenAnswers({
+        node: [{ node_labels: ['Address', 'Contract'], evidence: ['scam'] }],
+        deployment: [],
+        assets: [],
+      }),
       {},
       MANAGER
     )
-    expect(structured.pools[0]).toMatchObject({ is_manager: true, exchange: 'Uniswap v4', liquidity: null, risk: null })
+    expect(structured.asked_as).toBe('pool')
+    expect(structured.pools[0]).toMatchObject({
+      is_manager: true,
+      exchange: 'Uniswap v4',
+      liquidity: null,
+      risk: null,
+      adders: [],
+      removers: [],
+    })
+    // No party read is sent for a manager, and none is named as not read.
+    expect(sent[0]!.queries.map((read) => read.id)).toEqual(['node', 'in', 'out', 'deployment', 'assets'])
+    expect(structured.not_read.filter((entry) => entry.part === 'adders' || entry.part === 'removers')).toEqual([])
     expect(structured.risk).toMatchObject({ word: 'critical', set_by: 'rules', raised_by: null })
   })
 

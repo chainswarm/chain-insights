@@ -54,22 +54,25 @@ import type { ExchangeEntry, LoadedExchangeRegistry } from './exchange-registry.
 import {
   POOLS_DETAILED,
   POOL_NODE_COLUMNS,
+  POOLS_READ_LIMIT,
   PROVIDERS_READ_LIMIT,
   deploymentQuery,
   gasWalletsQuery,
   partyOf,
   poolAssetsQuery,
   poolFactsOf,
+  poolListingsFromGroups,
   poolListingsOf,
   poolPartiesOf,
   poolPartiesQuery,
   timeText,
+  tokenPoolsQuery,
   tokenProvidersQuery,
   type Party,
   type PoolFacts,
   type PoolListing,
 } from './pool-risk.js'
-import { riskWordRank, type RiskWord, type SetBy } from './risk-word.js'
+import { riskWordRank, splitCardEntry, type RiskWord, type SetBy } from './risk-word.js'
 import {
   addressOrNull,
   isRecord,
@@ -94,13 +97,13 @@ export const TOKEN_RISK_READING_RULE =
 
 export const AML_TOKEN_RISK_DESCRIPTION =
   'Answers what is known about one token contract or one pool: the token and how it was deployed, its founder (the wallet that sent the deployment, with its own risk answer and money partners), ' +
-  'the factory or launchpad that deployed it (such as Virtuals), the first accounts that paid the founder (gas wallets), and its pools with their liquidity, their 5 biggest adders and removers. ' +
+  'the factory or launchpad that deployed it (such as Virtuals; factory.name comes from the exchange registry, or from the token launchpad identity, and named_by says which), the first accounts that paid the founder (gas wallets), and its pools with their liquidity, their 5 biggest adders and removers. ' +
   'A wallet is no token: ask aml_address_risk about a wallet. A ticker is no address: call meta_token_lookup first. ' +
   'risk.word is the highest of the token own word, its founder word and each detailed pool own word, and raised_by says whose (raised_by_address names it); risk.own is the token own risk block. ' +
   'A factory or launchpad, a first funder and a liquidity provider never raise the word: each carries its own beside it. ' +
   'Every word is the higher of what labels prove and what the risk model predicts; unscored is not low and not safe. ' +
-  'A pool row is one address: the pools inside one pool manager (such as Uniswap v4) are answered as one row for the manager (is_manager true), with its providers and this token side, not pool by pool; a manager row carries no word and never raises it. ' +
-  'pools_found counts the pool addresses read; only the 10 biggest are detailed (detail true), pools_truncated says when more exist, and providers_truncated when the providers read was full. ' +
+  'A pool row is one address: the pools inside one pool manager (such as Uniswap v4) are answered as one row for the manager (is_manager true), with its providers and this token side, not pool by pool; a manager row carries no word and never raises it, and a manager asked about itself lists no adders or removers: its parties are answered per token, so ask the token. ' +
+  'pools_found counts every pool address of the token (up to 500); only the 10 biggest are detailed (detail true), pools_truncated says when more exist; providers and token_side count every provider of a pool; parties_truncated says the 5 biggest adders and removers of a pool may miss a party. ' +
   'A part listed in not_read was not read: it is never "none found". ' +
   `${TOKEN_RISK_READING_RULE} ` +
   'USD figures are tokens worth at day prices; null is unpriced, never 0. Write every address in full, all 42 characters. ' +
@@ -148,7 +151,51 @@ export interface TokenNotRead {
 }
 
 export type FounderParty = Party & { exposure: Exposure | null; exchange_ends: ExchangeEnd[] }
-export type FactoryParty = Party & { name: string | null }
+export type FactoryParty = Party & {
+  name: string | null
+  /** How the name was found: the exchange registry row of the factory, the token's launchpad identity, or null when unnamed. */
+  named_by: 'registry' | 'launchpad' | null
+}
+
+/**
+ * The exchange registry key of a token's launchpad identity: the first part
+ * of a `launchpad` card value (`virtuals:CIA:graduated` gives `virtuals`),
+ * from its identity or any entry of its identities. Null when it has none.
+ */
+export function launchpadKeyOf(row: Record<string, unknown> | undefined): string | null {
+  const values: string[] = []
+  if (textOrNull(row?.identity) === 'launchpad') {
+    const name = textOrNull(row?.identity_name)
+    if (name) values.push(name)
+  }
+  for (const entry of strings(row?.identities)) {
+    const { word, value } = splitCardEntry(entry)
+    if (word === 'launchpad' && value) values.push(value)
+  }
+  for (const value of values) {
+    const key = value.split(':')[0]?.trim().toLowerCase()
+    if (key) return key
+  }
+  return null
+}
+
+/**
+ * The name of a token's factory: its exchange registry row by address; else,
+ * a token factory with no row of its own (it creates tokens, not pools), the
+ * registry's name for the token's launchpad identity; else none.
+ */
+export function factoryNameOf(
+  factory: string,
+  tokenRow: Record<string, unknown> | undefined,
+  dexRows: readonly DexEntry[]
+): Pick<FactoryParty, 'name' | 'named_by'> {
+  const row = dexOfAddress(factory, dexRows)
+  if (row) return { name: row.display, named_by: 'registry' }
+  const key = launchpadKeyOf(tokenRow)
+  const launchpad = key ? dexRows.find((entry) => entry.dex === key) : undefined
+  if (launchpad) return { name: launchpad.display, named_by: 'launchpad' }
+  return { name: null, named_by: null }
+}
 
 export interface TokenSurroundingsNode extends Omit<SurroundingsNode, 'role'> {
   role:
@@ -191,8 +238,8 @@ export interface AmlTokenRiskResult {
   /** Every pool address read; null when the providers read did not answer. */
   pools_found: number | null
   pools_truncated: boolean
-  /** True when a providers read came back full: more providers, and maybe more pools, exist. */
-  providers_truncated: boolean
+  /** True when a providers rows read came back full: a pool's adders or removers may miss a party. */
+  parties_truncated: boolean
   /** A pool answer: the tokens of the pool. */
   pool_tokens: Party[]
   /** A pool answer: the wallet that deployed the pool. */
@@ -412,8 +459,13 @@ export async function handleAmlTokenRisk(
     { id: 'in', query: addressPartnerQuery(address, 'in') },
     { id: 'out', query: addressPartnerQuery(address, 'out') },
     { id: 'deployment', query: deploymentQuery(address) },
-    { id: 'adders', query: poolPartiesQuery(address, 'adders') },
-    { id: 'removers', query: poolPartiesQuery(address, 'removers') },
+    // A pool manager's parties span its whole book, and the read times out: they are answered per token.
+    ...(dexManagerOf(address, dexRows)
+      ? []
+      : [
+          { id: 'adders', query: poolPartiesQuery(address, 'adders') },
+          { id: 'removers', query: poolPartiesQuery(address, 'removers') },
+        ]),
     { id: 'assets', query: poolAssetsQuery(address) },
   ]
   let answer: GraphAnswer
@@ -439,7 +491,12 @@ export async function handleAmlTokenRisk(
   }
   const subject = subjectBuilt.result
   const nodeRow = memberRows(members1.get('node'))[0]
-  const askedAs: AskedAs = nodeRow ? askedAsOf(strings(nodeRow.node_labels)) : 'address'
+  // A pool manager of the exchange registry is asked as a pool: the graph labels no manager :Pool.
+  const askedAs: AskedAs = !nodeRow
+    ? 'address'
+    : dexManagerOf(address, dexRows)
+      ? 'pool'
+      : askedAsOf(strings(nodeRow.node_labels))
   const notRead: TokenNotRead[] = subject.not_read.map((entry) => ({ ...entry }))
 
   const base: AmlTokenRiskResult = {
@@ -460,7 +517,7 @@ export async function handleAmlTokenRisk(
     pools: [],
     pools_found: null,
     pools_truncated: false,
-    providers_truncated: false,
+    parties_truncated: false,
     pool_tokens: [],
     deployer: null,
     exposure: null,
@@ -538,17 +595,18 @@ function exchangeOf(pool: string, deployment: Deployment | null, dexRows: readon
 /** A pool: its own word, its sums and parties from batch 1, its tokens and deployer from batch 2. */
 async function answerPool(step: Step & { members1: Map<string, Member> }): Promise<void> {
   const { deps, network, address, members1, dictionary, dexRows, deployment, notRead, result, graph, subject } = step
-  const adders = poolPartiesOf('adder', memberRows(members1.get('adders')), dictionary)
-  const removers = poolPartiesOf('remover', memberRows(members1.get('removers')), dictionary)
-  for (const [part, id] of [
-    ['adders', 'adders'],
-    ['removers', 'removers'],
+  const isManager = dexManagerOf(address, dexRows) !== null
+  // A manager's parties are not read here (ask the token): none listed, and nothing named as not read.
+  const adders = isManager ? [] : poolPartiesOf('adder', memberRows(members1.get('adders')), dictionary)
+  const removers = isManager ? [] : poolPartiesOf('remover', memberRows(members1.get('removers')), dictionary)
+  const parts: Array<readonly [string, string]> = [
+    ...(isManager ? [] : ([['adders', 'adders'], ['removers', 'removers']] as const)),
     ['tokens', 'assets'],
-  ] as const) {
+  ]
+  for (const [part, id] of parts) {
     const missing = notReadOf(part, id, members1)
     if (missing) notRead.push(missing)
   }
-  const isManager = dexManagerOf(address, dexRows) !== null
   const nodeRow = memberRows(members1.get('node'))[0] ?? null
   const facts = poolFactsOf({
     pool: address,
@@ -615,8 +673,11 @@ async function answerToken(
   }
   const founder = deployment?.founder ?? null
   const factory = deployment?.factory ?? null
-  // The two whole-chain providers reads go first: each answers or is refused on its own.
+  // The four whole-chain reads go first, each answering or refused on its own:
+  // the grouped pools of each side (the exact count), then the providers rows (the parties).
   const second: Batch = [
+    { id: 'pools_added', query: tokenPoolsQuery(address, 'added') },
+    { id: 'pools_removed', query: tokenPoolsQuery(address, 'removed') },
     { id: 'providers_added', query: tokenProvidersQuery(address, 'added') },
     { id: 'providers_removed', query: tokenProvidersQuery(address, 'removed') },
     ...(founder
@@ -661,36 +722,62 @@ async function answerToken(
     else
       result.factory = {
         ...partyOf('factory', factory, memberRows(members2.get('factory_node'))[0], dictionary),
-        name: dexOfAddress(factory, dexRows)?.display ?? null,
+        ...factoryNameOf(factory, nodeRow, dexRows),
       }
   }
 
-  // The pools: every pool address of the two providers reads, the biggest detailed.
-  const addedMissing = notReadOf('pools', 'providers_added', members2)
-  let listings: PoolListing[] = []
-  if (addedMissing) {
-    notRead.push(addedMissing)
-  } else {
-    const removedMissing = notReadOf('pool_removals', 'providers_removed', members2)
-    if (removedMissing) notRead.push(removedMissing)
-    const added = memberRows(members2.get('providers_added'))
-    const removed = removedMissing ? null : memberRows(members2.get('providers_removed'))
-    for (const [part, rows] of [
-      ['pool_providers', added],
-      ['pool_removals', removed],
-    ] as const) {
-      if (rows && rows.length >= PROVIDERS_READ_LIMIT) {
-        result.providers_truncated = true
-        notRead.push({
-          part,
-          code: 'truncated',
-          reason: `the read came back full at ${PROVIDERS_READ_LIMIT} rows: more providers, and maybe more pools, exist`,
-        })
-      }
+  // The pools: every pool address of the grouped reads, the biggest detailed;
+  // the parties of each pool from the providers rows.
+  const partiesNotRead = (id: string) => notReadOf('pool_parties', id, members2)
+  const rowsOf = (id: string) => (partiesNotRead(id) ? null : memberRows(members2.get(id)))
+  const addedRows = rowsOf('providers_added')
+  const removedRows = rowsOf('providers_removed')
+  for (const id of ['providers_added', 'providers_removed']) {
+    const missing = partiesNotRead(id)
+    if (missing) notRead.push(missing)
+  }
+  for (const rows of [addedRows, removedRows]) {
+    if (rows && rows.length >= PROVIDERS_READ_LIMIT && !result.parties_truncated) {
+      result.parties_truncated = true
+      notRead.push({
+        part: 'pool_parties',
+        code: 'truncated',
+        reason: `a providers read came back full at ${PROVIDERS_READ_LIMIT} rows: the 5 biggest adders or removers of a pool may miss a party`,
+      })
     }
-    listings = poolListingsOf(added, removed)
+  }
+  const groupsMissing = notReadOf('pools', 'pools_added', members2)
+  let listings: PoolListing[] = []
+  if (!groupsMissing) {
+    const removedMissing = notReadOf('pool_removals', 'pools_removed', members2)
+    if (removedMissing) notRead.push(removedMissing)
+    const groups = memberRows(members2.get('pools_added'))
+    const removedGroups = removedMissing ? null : memberRows(members2.get('pools_removed'))
+    listings = poolListingsFromGroups(groups, removedGroups, addedRows, removedRows)
     result.pools_found = listings.length
-    result.pools_truncated = listings.length > POOLS_DETAILED
+    if (groups.length >= POOLS_READ_LIMIT) {
+      notRead.push({
+        part: 'pools',
+        code: 'truncated',
+        reason: `the pools read came back full at ${POOLS_READ_LIMIT} pools: more pools exist`,
+      })
+    }
+    if (removedGroups && removedGroups.length >= POOLS_READ_LIMIT) {
+      notRead.push({
+        part: 'pool_removals',
+        code: 'truncated',
+        reason: `the removals read came back full at ${POOLS_READ_LIMIT} pools: a pool not listed has its removed sum unknown`,
+      })
+    }
+    result.pools_truncated = groups.length >= POOLS_READ_LIMIT || listings.length > POOLS_DETAILED
+  } else {
+    // The grouped read did not answer: the pools come from the providers rows, as far as they reach.
+    notRead.push(groupsMissing)
+    if (addedRows) {
+      listings = poolListingsOf(addedRows, removedRows)
+      result.pools_found = listings.length
+      result.pools_truncated = listings.length > POOLS_DETAILED || result.parties_truncated
+    }
   }
   const managerOf = (pool: string) => dexManagerOf(pool, dexRows)
   const detailed = listings.slice(0, POOLS_DETAILED)

@@ -3,6 +3,47 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.91.0] - 2026-11-22 — a launchpad names its token factory, the old screen is gone, a golden runner
+
+### Added
+
+- `aml_token_risk` names a token factory with no exchange registry row of its
+  own from the token's `launchpad` identity: `virtuals:CIA:graduated` names
+  the Virtuals token factory "Virtuals Protocol". `factory.named_by` says
+  how the name was found: `registry`, `launchpad`, or `null` when unnamed.
+- `aml_token_risk` answers a pool manager the exchange registry lists as a
+  pool, one row for the manager. It sends no adders or removers read for
+  it: over a manager's whole book that read times out. A manager's parties
+  are answered per token.
+- `aml_token_risk` counts every pool of a token exactly, up to 500: one
+  grouped read per direction gives `pools_found`, and each pool's
+  `providers` and `token_side`. The 200-row providers read only names the
+  5 biggest adders and removers of each pool. A token with 320 pools and
+  9,838 providers was counted short before.
+
+### Changed
+
+- `providers_truncated` is now `parties_truncated`, part `pool_parties` in
+  `not_read`: a full providers read means a pool's adders or removers may
+  miss a party, not that pools or providers are missing.
+- `scripts/risk-golden.mjs <address|pool|token>` asks the risk tools about
+  each case of `scripts/risk-golden.json` on a live graph and prints one
+  `ok` or `FAIL` line per case, with the rows read, then `N of M`. `--json`
+  writes the full results. It reads its token from the file named in
+  `RISK_GOLDEN_TOKEN_FILE`. It is not in the package. A case line prints
+  the expected word, or the keys it compares.
+
+### Removed
+
+- The old address screen `src/investigation/public-tools.ts`, with the
+  modules only it used (`graph-normalizer.ts`, `risk-level.ts`,
+  `src/workspace/output-root.ts`, `src/lib/usage-accumulator.ts`) and their
+  tests. Nothing ran it since 0.89.0: `aml_address_risk` and
+  `aml_token_risk` are the screen.
+- `tests/fixtures/graph-query-corpus.json` now holds the reads of the risk
+  tools and the documented recipes; the builder entries of the old screen
+  left with it.
+
 ## [0.90.0] - 2026-11-22 — `aml_token_risk`: a token or a pool, its founder, factory and pools
 
 ### Added

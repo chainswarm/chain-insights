@@ -23,6 +23,18 @@ bash ci/lint.sh
 bash "$AP1000_SANDBOX" <worktree> -- bash ci/t1.sh   # AP1000 test-sandbox.sh
 ```
 
+The risk golden runner asks the risk tools about known addresses, pools and
+tokens on a live graph. It is not a test of T1 and is not in the package;
+its compare rule is (`tests/risk-golden-compare.test.ts`):
+
+```bash
+RISK_GOLDEN_TOKEN_FILE=<file> npx tsx scripts/risk-golden.mjs token --json > evidence.json
+```
+
+The cases live in `scripts/risk-golden.json`. Each names only the expect keys
+it checks. A run fails when a case fails or the set holds fewer cases than
+`--min` (20 address, 10 pool, 20 token by default).
+
 `.github/workflows/verify.yml` runs the same files, by hand and before a
 release. No pull request runs a test. There is no start-up smoke: the
 package runs no StarRocks.
