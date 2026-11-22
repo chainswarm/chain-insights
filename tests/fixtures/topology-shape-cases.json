@@ -6,7 +6,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (a:Address {address: \"0x00000000000000000000000000000000c0a95e01\"}) RETURN labels(a) AS node_labels, a.card_version AS card_version, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.address_roles AS address_roles, a.behaviour AS behaviour, a.evidence AS evidence, a.judgements AS judgements, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, coalesce(a.exchange_role, a.cex_role) AS exchange_role, a.liquidity_added_usd AS liquidity_added_usd, a.liquidity_removed_usd AS liquidity_removed_usd, a.liquidity_net_usd AS liquidity_net_usd, a.provider_count AS provider_count LIMIT 1",
+   "query": "USE topology MATCH (a:Address {address: \"0x00000000000000000000000000000000c0a95e01\"}) RETURN labels(a) AS node_labels, a.card_version AS card_version, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.address_roles AS address_roles, a.behaviour AS behaviour, a.evidence AS evidence, a.judgements AS judgements, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, coalesce(a.exchange_role, a.cex_role) AS exchange_role, a.degree_total AS degree_total, a.degree_out AS degree_out, a.liquidity_added_usd AS liquidity_added_usd, a.liquidity_removed_usd AS liquidity_removed_usd, a.liquidity_net_usd AS liquidity_net_usd, a.provider_count AS provider_count LIMIT 1",
    "source": "builder:addressNodeQuery"
   },
   {
@@ -14,7 +14,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (a:Address {address: \"0x00000000000000000000000000000000c0a95e01\"}) RETURN labels(a) AS node_labels, a.card_version AS card_version, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.address_roles AS address_roles, a.behaviour AS behaviour, a.evidence AS evidence, a.judgements AS judgements, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, coalesce(a.exchange_role, a.cex_role) AS exchange_role LIMIT 1",
+   "query": "USE topology MATCH (a:Address {address: \"0x00000000000000000000000000000000c0a95e01\"}) RETURN labels(a) AS node_labels, a.card_version AS card_version, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.address_roles AS address_roles, a.behaviour AS behaviour, a.evidence AS evidence, a.judgements AS judgements, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, coalesce(a.exchange_role, a.cex_role) AS exchange_role, a.degree_total AS degree_total, a.degree_out AS degree_out LIMIT 1",
    "source": "builder:addressNodeQuery"
   },
   {
@@ -622,7 +622,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (a:Address {address: \"0x766bd6598182586beda76414dc5f8deb1530a213\"}) RETURN labels(a) AS node_labels, a.card_version AS card_version, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.address_roles AS address_roles, a.behaviour AS behaviour, a.evidence AS evidence, a.judgements AS judgements, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, coalesce(a.exchange_role, a.cex_role) AS exchange_role LIMIT 1",
+   "query": "USE topology MATCH (a:Address {address: \"0x766bd6598182586beda76414dc5f8deb1530a213\"}) RETURN labels(a) AS node_labels, a.card_version AS card_version, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.address_roles AS address_roles, a.behaviour AS behaviour, a.evidence AS evidence, a.judgements AS judgements, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, coalesce(a.exchange_role, a.cex_role) AS exchange_role, a.degree_total AS degree_total, a.degree_out AS degree_out LIMIT 1",
    "source": "skills/chain-insights-address-risk/SKILL.md"
   },
   {

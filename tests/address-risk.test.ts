@@ -8,9 +8,11 @@ import {
   AML_ADDRESS_RISK_ARGS,
   AML_ADDRESS_RISK_DESCRIPTION,
   AML_ADDRESS_RISK_SCHEMA,
+  HUB_DEGREE,
   addressRiskFromMembers,
   addressRiskQueries,
   handleAmlAddressRisk,
+  hubDegreeOf,
   type AddressRiskDependencies,
   type AmlAddressRiskResult,
 } from '../src/mcp/address-risk.js'
@@ -152,14 +154,17 @@ const ANSWER_KEYS = [
 ]
 
 describe('aml_address_risk', () => {
-  it('sends one batch of three reads, each anchored on the lowercase address and bounded', async () => {
+  it('reads the node alone first, then the two partner reads, each anchored on the lowercase address and bounded', async () => {
     const sent: Batch[] = []
-    await call([nodeMember(null)], {}, sent)
-    expect(sent).toHaveLength(1)
+    await call(fullMembers(), {}, sent)
+    expect(sent).toHaveLength(2)
     expect(sent[0]!.network).toBe('robinhood')
-    expect(sent[0]!.queries).toEqual(addressRiskQueries(SUBJECT))
-    expect(sent[0]!.queries.map((query) => query.id)).toEqual(['node', 'in', 'out'])
-    for (const { query } of sent[0]!.queries) {
+    expect(sent.flatMap((batch) => batch.queries)).toEqual(addressRiskQueries(SUBJECT))
+    expect(sent.map((batch) => batch.queries.map((query) => query.id))).toEqual([['node'], ['in', 'out']])
+    const notFound: Batch[] = []
+    await call([nodeMember(null)], {}, notFound)
+    expect(notFound).toHaveLength(1)
+    for (const { query } of sent.flatMap((batch) => batch.queries)) {
       expect(query).toMatch(new RegExp(`^USE topology MATCH .*\\(a:Address \\{address: "${SUBJECT}"\\}\\)`))
       expect(query).toMatch(/ LIMIT \d+$/)
     }
@@ -169,6 +174,65 @@ describe('aml_address_risk', () => {
       'founder_out',
     ])
     expect(() => addressRiskQueries('0xABC')).toThrow('is not a lowercase 0x address')
+  })
+
+  it('a hub: no partner read is sent, its counterparties are named as not ranked, its word still from card and model', async () => {
+    const sent: Batch[] = []
+    const hubRow = { ...SUBJECT_ROW, evidence: ['scam'], degree_total: HUB_DEGREE + 1, degree_out: 12 }
+    const { result, structured } = await call([nodeMember(hubRow), ...fullMembers().slice(1)], {}, sent)
+    expect(result.isError).toBe(false)
+    expect(sent.map((batch) => batch.queries.map((query) => query.id))).toEqual([['node']])
+    expect(structured.risk).toMatchObject({ word: 'critical', set_by: 'rules', model_word: 'low', score: 0.03 })
+    expect(structured.exposure).toEqual({
+      floor_usd: 1,
+      hub: true,
+      degree_total: HUB_DEGREE + 1,
+      counterparties_read: 0,
+      left_out: 0,
+      truncated: false,
+      with_risk: [],
+      pattern_partners: 0,
+    })
+    expect(structured.exchange_ends).toEqual([])
+    expect(structured.not_read).toEqual([
+      {
+        part: 'counterparties',
+        code: 'hub',
+        reason: `This address has ${HUB_DEGREE + 1} links. Its counterparties are not ranked: ask about one counterparty, or one token.`,
+      },
+    ])
+  })
+
+  it('at the hub bound, or with no degree on the node, the partners are read', async () => {
+    for (const degree of [HUB_DEGREE, undefined, 'many']) {
+      const sent: Batch[] = []
+      const { structured } = await call([nodeMember({ ...SUBJECT_ROW, degree_total: degree }), ...fullMembers().slice(1)], {}, sent)
+      expect(sent, String(degree)).toHaveLength(2)
+      expect(structured.exposure).toMatchObject({ hub: false, counterparties_read: 4 })
+    }
+    expect(hubDegreeOf({ degree_total: '60000' })).toBe(60000)
+  })
+
+  it('a partner call that fails whole names both partner reads as not read; the word still stands', async () => {
+    let calls = 0
+    const result = await handleAmlAddressRisk(
+      { network: 'robinhood', address: SUBJECT },
+      {
+        ...deps(fullMembers()),
+        graphQueryBatch: async () => {
+          calls += 1
+          if (calls === 2) throw new Error('query_timeout: 100 s')
+          return { structuredContent: { facts: { queries: fullMembers() } } }
+        },
+      }
+    )
+    const structured = result.structuredContent as unknown as AmlAddressRiskResult
+    expect(result.isError).toBe(false)
+    expect(structured.not_read.map((entry) => [entry.part, entry.code])).toEqual([
+      ['senders', 'query_timeout'],
+      ['receivers', 'query_timeout'],
+    ])
+    expect(structured.risk.word).not.toBe('unscored')
   })
 
   it('an address the graph does not hold is not found and unscored', async () => {
@@ -218,6 +282,8 @@ describe('aml_address_risk', () => {
     })
     expect(structured.exposure).toEqual({
       floor_usd: 1,
+      hub: false,
+      degree_total: null,
       counterparties_read: 4,
       left_out: 3,
       truncated: false,

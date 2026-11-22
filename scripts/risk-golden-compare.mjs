@@ -11,9 +11,9 @@ export const DEFAULT_MIN = { address: 20, pool: 10, token: 20 }
 
 /** The expect keys each kind may name; a key not listed here is a mistake in the data file. */
 export const EXPECT_KEYS = {
-  address: ['word', 'set_by', 'rules_word', 'model_word', 'reasons', 'kind'],
-  pool: ['asked_as', 'word', 'set_by', 'is_manager', 'providers_min'],
-  token: ['asked_as', 'word', 'set_by', 'raised_by', 'founder', 'factory_name', 'pools_found', 'pools_found_min'],
+  address: ['word', 'set_by', 'rules_word', 'model_word', 'reasons', 'kind', 'hub'],
+  pool: ['asked_as', 'word', 'set_by', 'is_manager', 'providers_min', 'hub'],
+  token: ['asked_as', 'word', 'set_by', 'raised_by', 'founder', 'factory_name', 'pools_found', 'pools_found_min', 'hub'],
 }
 
 /**
@@ -33,6 +33,7 @@ export function valuesOf(kind, answer) {
       model_word: risk.model_word ?? null,
       reasons: (risk.reasons ?? []).map((reason) => reason.word),
       kind: answer?.kind ?? null,
+      hub: answer?.exposure?.hub ?? null,
       score: risk.score ?? null,
     }
   }
@@ -40,6 +41,7 @@ export function valuesOf(kind, answer) {
   const pool = (answer?.pools ?? [])[0] ?? null
   return {
     asked_as: answer?.asked_as ?? null,
+    hub: answer?.exposure?.hub ?? null,
     word: risk.word ?? null,
     set_by: risk.set_by ?? null,
     raised_by: risk.raised_by ?? null,

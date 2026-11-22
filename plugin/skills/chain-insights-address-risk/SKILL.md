@@ -24,7 +24,7 @@ The tool's first read, shown so a host without the tool can send the same
 one through `graph_query`:
 
 ```cypher
-USE topology MATCH (a:Address {address: "0x766bd6598182586beda76414dc5f8deb1530a213"}) RETURN labels(a) AS node_labels, a.card_version AS card_version, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.address_roles AS address_roles, a.behaviour AS behaviour, a.evidence AS evidence, a.judgements AS judgements, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, coalesce(a.exchange_role, a.cex_role) AS exchange_role LIMIT 1
+USE topology MATCH (a:Address {address: "0x766bd6598182586beda76414dc5f8deb1530a213"}) RETURN labels(a) AS node_labels, a.card_version AS card_version, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.address_roles AS address_roles, a.behaviour AS behaviour, a.evidence AS evidence, a.judgements AS judgements, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, coalesce(a.exchange_role, a.cex_role) AS exchange_role, a.degree_total AS degree_total, a.degree_out AS degree_out LIMIT 1
 ```
 
 ## How to read `risk`
@@ -42,6 +42,14 @@ USE topology MATCH (a:Address {address: "0x766bd6598182586beda76414dc5f8deb1530a
   `pattern` is a pattern fact: it accuses nobody and sets no word.
 - A partner in `exposure.with_risk` is listed beside the word and never
   changes it. Receiving money from a risky address is a fact, not guilt.
+
+## A hub
+
+An address with more than 50,000 links, such as the zero address or a pool
+manager, is a hub: `exposure.hub` is `true`, its counterparties are not
+ranked, and `not_read` names `counterparties` with code `hub`. Its word still
+comes from its card and the model. Say that its counterparties were not
+ranked, and ask about one counterparty, or one token, instead.
 
 ## The judgement is yours
 

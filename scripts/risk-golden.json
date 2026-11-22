@@ -5,6 +5,7 @@
       "address": "0x0000000000000000000000000000000000000000",
       "note": "label rows: none; model row: LOW 0.0001",
       "expect": {
+        "hub": true,
         "word": "low",
         "rules_word": "none",
         "model_word": "low",

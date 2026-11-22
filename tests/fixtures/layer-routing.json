@@ -633,7 +633,7 @@
    "id": "skill-address-risk-1",
    "layer": "topology",
    "anchor": "address",
-   "query": "USE topology MATCH (a:Address {address: \"0x766bd6598182586beda76414dc5f8deb1530a213\"}) RETURN labels(a) AS node_labels, a.card_version AS card_version, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.address_roles AS address_roles, a.behaviour AS behaviour, a.evidence AS evidence, a.judgements AS judgements, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, coalesce(a.exchange_role, a.cex_role) AS exchange_role LIMIT 1",
+   "query": "USE topology MATCH (a:Address {address: \"0x766bd6598182586beda76414dc5f8deb1530a213\"}) RETURN labels(a) AS node_labels, a.card_version AS card_version, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.address_roles AS address_roles, a.behaviour AS behaviour, a.evidence AS evidence, a.judgements AS judgements, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, coalesce(a.exchange_role, a.cex_role) AS exchange_role, a.degree_total AS degree_total, a.degree_out AS degree_out LIMIT 1",
    "source": "skills/chain-insights-address-risk/SKILL.md"
   },
   {
