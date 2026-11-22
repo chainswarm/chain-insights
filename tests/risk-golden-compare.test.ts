@@ -110,5 +110,7 @@ describe('the golden compare', () => {
       /expect key founder/
     )
     expect(DEFAULT_MIN).toEqual({ address: 20, pool: 10, token: 20 })
+    // A token gains pools as the chain grows: the count is a minimum, never exact.
+    for (const item of data.token) expect(item.expect, item.address).not.toHaveProperty('pools_found')
   })
 })
