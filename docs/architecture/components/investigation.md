@@ -2,44 +2,41 @@ Worker: investigation
 Entrypoint: src/investigation
 Package: investigation
 Language: typescript
-Tests: tests/mcp-proxy.test.ts, tests/cli-mcp.test.ts
+Tests: tests/investigation-workflows.test.ts, tests/truth-proposal.test.ts
 
 # investigation
 
 ## Purpose
 
-Holds the address screening recipes (`public-tools.ts`), the risk-level
-normalisation the graph verdicts need (`risk-level.ts`), the graph row
-normaliser, and the workflow catalogue. It composes read-only `graph_query`
-and `graph_query_batch` calls. Neither the MCP proxy nor the CLI runs these
-recipes any more: `aml_address_risk` and `cia workflow aml-address-risk` run
-the proxy's local tool (`src/mcp/address-risk.ts`).
+Holds the workflow catalogue (`workflows.ts`) and the truth proposal payload
+(`truth-proposal.ts`). The catalogue names each CIA workflow, the tool it
+runs and its command. The screening itself is done by the proxy's local
+tools: `aml_address_risk` (`src/mcp/address-risk.ts`) for one address and
+`aml_token_risk` (`src/mcp/token-risk.ts`) for a token or a pool. The CLI runs
+the same tools for `cia workflow aml-address-risk` and
+`cia workflow aml-token-risk`.
 
 ## Reads
 
-- **Remote MCP client:** Chain Insights Graph tool responses
-- **Investigation input:** address, network, and optional comparison address
-- **Config:** Search and endpoint settings
+- **Workflow catalogue:** static entries, no graph read
+- **Truth proposal:** the investigator config and the findings it is given
 
 ## Flow
 
 ```text
-addressRisk
-  -> graph schema and profile queries
-  -> risk and exchange-behavior facts
-  -> summary and structured result
+cia workflow aml-address-risk | aml-token-risk
+  -> CIA_WORKFLOWS entry (workflows.ts)
+  -> the proxy's local tool, with the CLI's own graph session
+  -> facts and measures, as JSON
 ```
 
 ## Invariants
 
 - Addresses remain full raw chain-native values.
 - The public investigation network is `robinhood`.
-- Graph reads use `topology` and `facts` explicitly.
-- Exchange hot wallets are terminal endpoints in traversal guidance.
 - Stateless calls do not write local investigation files.
 
 ## Run
 
-No public command runs this module directly. The proxy composes its reads
-behind the public graph tools, and the workflow catalogue it holds is not a
-public surface.
+No public command runs this module directly. `cia workflow` lists the
+catalogue and runs each entry's tool.

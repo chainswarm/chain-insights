@@ -42,7 +42,9 @@ USE topology MATCH (a:Address)-[r:ADDED_LIQUIDITY {asset: "0x766bd6598182586beda
   and each detailed pool's own word. `raised_by` says whose (`token`,
   `founder` or `pool`) and `raised_by_address` names it. `risk.own` is the
   token's own block.
-- The founder is the wallet that sent the deployment. A factory or
+- The founder is the wallet that sent the deployment. `factory.name` comes
+  from the exchange registry, or from the token's launchpad identity;
+  `named_by` says which. A factory or
   launchpad (such as Virtuals), a first funder in `gas_wallets` and a
   liquidity provider never raise the word: each carries its own beside it.
 - Every word is the higher of what labels prove (`rules_word`) and what the
@@ -53,10 +55,14 @@ USE topology MATCH (a:Address)-[r:ADDED_LIQUIDITY {asset: "0x766bd6598182586beda
 - A pool row is one address. The pools inside one pool manager (such as
   Uniswap v4) are answered as one row for the manager (`is_manager: true`),
   with its providers and this token's side (`token_side`), not pool by pool.
-  A manager row has no word and never raises the token's.
-- `pools_found` counts the pool addresses read. Only the 10 biggest are
-  detailed (`detail: true`); `pools_truncated` says when more exist, and
-  `providers_truncated` when the providers read came back full.
+  A manager row has no word and never raises the token's. A manager asked
+  about itself lists no adders or removers: its parties are answered per
+  token, so ask the token.
+- `pools_found` counts every pool address of the token, exact up to 500,
+  and each pool's `providers` counts every provider. Only the 10 biggest
+  are detailed (`detail: true`); `pools_truncated` says when more exist,
+  and `parties_truncated` when a pool's 5 biggest adders or removers may
+  miss a party.
 
 ## The judgement is yours
 

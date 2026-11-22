@@ -6,10 +6,12 @@ import type { AddressCardDocument } from '../src/mcp/address-card.js'
 import {
   partyOf,
   poolFactsOf,
+  poolListingsFromGroups,
   poolListingsOf,
   poolPartiesOf,
   poolPartiesQuery,
   timeText,
+  tokenPoolsQuery,
   tokenProvidersQuery,
   usdOf,
 } from '../src/mcp/pool-risk.js'
@@ -68,6 +70,33 @@ describe('the pools of a token', () => {
     expect(poolListingsOf([adder(OWN, PROVIDER_A, 5)], full.slice(1)).find((listing) => listing.pool === OWN)).toMatchObject({
       removed_usd: 0,
     })
+  })
+
+  it('the grouped reads count every pool: providers and this token side from the groups, parties from the rows', () => {
+    const groups = [
+      { pool: OWN, providers: 900, added_usd: 5000, priced: 9 },
+      { pool: MANAGER, providers: 12, added_usd: 0, priced: 0 },
+    ]
+    const listings = poolListingsFromGroups(
+      groups,
+      [
+        { pool: OWN, removers: 3, removed_usd: 40, priced: 3 },
+        { pool: OTHER, removers: 1, removed_usd: 2, priced: 1 },
+      ],
+      [adder(OWN, PROVIDER_A, 5)],
+      null
+    )
+    expect(listings.map(({ adder_rows, remover_rows, ...rest }) => [rest, adder_rows.length, remover_rows.length])).toEqual([
+      [{ pool: OWN, providers: 900, added_usd: 5000, removed_usd: 40 }, 1, 0],
+      // A pool only removed from is listed too (unpriced pools rank by address).
+      [{ pool: OTHER, providers: 0, added_usd: null, removed_usd: 2 }, 0, 0],
+      // Unpriced added stays null; no removal group in a removals read that answered whole is 0.
+      [{ pool: MANAGER, providers: 12, added_usd: null, removed_usd: 0 }, 0, 0],
+    ])
+    expect(poolListingsFromGroups(groups, null, null, null).map((listing) => listing.removed_usd)).toEqual([null, null])
+    const full = Array.from({ length: 500 }, (_, index) => ({ pool: `0x${'c'.repeat(36)}${String(index).padStart(4, '0')}`, removed_usd: 1, priced: 1 }))
+    expect(poolListingsFromGroups(groups, full, null, null).find((listing) => listing.pool === OWN)?.removed_usd).toBeNull()
+    expect(tokenPoolsQuery(TOKEN, 'removed')).not.toEqual(tokenPoolsQuery(TOKEN, 'added'))
   })
 
   it('a sum with no priced link is unpriced, never 0', () => {

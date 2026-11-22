@@ -1,111 +1,49 @@
 {
  "generated_by": "scripts/generate-query-corpus.mjs",
- "entry_count": 66,
+ "entry_count": 50,
  "entries": [
   {
-   "builder": "addressFeatureQuery",
+   "builder": "addressNodeQuery",
    "params": {
-    "address": "corpus-address-a"
+    "address": "0x00000000000000000000000000000000c0a95e01",
+    "columns": "pool"
    },
    "scope": "topology",
-   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"}) RETURN a.degree_in AS degree_in, a.degree_out AS degree_out, a.degree_total AS degree_total, a.tx_in_count AS tx_in_count, a.tx_out_count AS tx_out_count, a.tx_total_count AS tx_total_count, a.total_volume_usd AS total_volume_usd, a.total_in_usd AS total_in_usd, a.total_out_usd AS total_out_usd, a.net_flow_usd AS net_flow_usd, a.first_activity_timestamp AS first_activity_timestamp, a.last_activity_timestamp AS last_activity_timestamp, a.activity_span_days AS activity_span_days LIMIT 1"
+   "query": "USE topology MATCH (a:Address {address: \"0x00000000000000000000000000000000c0a95e01\"}) RETURN labels(a) AS node_labels, a.card_version AS card_version, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.address_roles AS address_roles, a.behaviour AS behaviour, a.evidence AS evidence, a.judgements AS judgements, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, coalesce(a.exchange_role, a.cex_role) AS exchange_role, a.liquidity_added_usd AS liquidity_added_usd, a.liquidity_removed_usd AS liquidity_removed_usd, a.liquidity_net_usd AS liquidity_net_usd, a.provider_count AS provider_count LIMIT 1"
   },
   {
-   "builder": "addressProfileQuery",
+   "builder": "addressNodeQuery",
    "params": {
-    "address": "corpus-address-a"
+    "address": "0x00000000000000000000000000000000c0a95e01"
    },
    "scope": "topology",
-   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"}) RETURN a.address AS address, a.network AS network, a.labels AS display_labels, a.labels AS system_labels, a.is_exchange AS is_exchange, a.risk_score AS live_risk_score, a.risk_level AS live_risk_level, a.label_risk_labels AS label_risk_labels, a.label_risk_levels AS label_risk_levels, a.label_risk_updated_timestamps AS label_risk_updated_timestamps LIMIT 1"
+   "query": "USE topology MATCH (a:Address {address: \"0x00000000000000000000000000000000c0a95e01\"}) RETURN labels(a) AS node_labels, a.card_version AS card_version, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.address_roles AS address_roles, a.behaviour AS behaviour, a.evidence AS evidence, a.judgements AS judgements, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, coalesce(a.exchange_role, a.cex_role) AS exchange_role LIMIT 1"
   },
   {
-   "builder": "addressProfileQuery",
+   "builder": "addressPartnerQuery",
    "params": {
-    "address": "corpus\"quote"
+    "address": "0x00000000000000000000000000000000c0a95e01",
+    "direction": "in"
    },
    "scope": "topology",
-   "query": "USE topology MATCH (a:Address {address: \"corpus\\\"quote\"}) RETURN a.address AS address, a.network AS network, a.labels AS display_labels, a.labels AS system_labels, a.is_exchange AS is_exchange, a.risk_score AS live_risk_score, a.risk_level AS live_risk_level, a.label_risk_labels AS label_risk_labels, a.label_risk_levels AS label_risk_levels, a.label_risk_updated_timestamps AS label_risk_updated_timestamps LIMIT 1"
+   "query": "USE topology MATCH (b:Address)-[f:FLOWED_TO]->(a:Address {address: \"0x00000000000000000000000000000000c0a95e01\"}) WHERE f.amount_usd_sum >= 1 RETURN b.address AS address, labels(b) AS node_labels, b.identity AS identity, b.identity_name AS identity_name, b.identities AS identities, b.evidence AS evidence, b.judgements AS judgements, b.risk_level AS risk_level, coalesce(b.exchange_role, b.cex_role) AS exchange_role, f.amount_usd_sum AS tokens_worth_usd, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp ORDER BY f.last_seen_timestamp DESC LIMIT 26"
   },
   {
-   "builder": "compareAddressExistsQuery",
+   "builder": "addressPartnerQuery",
    "params": {
-    "address": "corpus-address-a"
+    "address": "0x00000000000000000000000000000000c0a95e01",
+    "direction": "out"
    },
    "scope": "topology",
-   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"}) RETURN a.address AS address LIMIT 1"
+   "query": "USE topology MATCH (a:Address {address: \"0x00000000000000000000000000000000c0a95e01\"})-[f:FLOWED_TO]->(b:Address) WHERE f.amount_usd_sum >= 1 RETURN b.address AS address, labels(b) AS node_labels, b.identity AS identity, b.identity_name AS identity_name, b.identities AS identities, b.evidence AS evidence, b.judgements AS judgements, b.risk_level AS risk_level, coalesce(b.exchange_role, b.cex_role) AS exchange_role, f.amount_usd_sum AS tokens_worth_usd, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp ORDER BY f.last_seen_timestamp DESC LIMIT 26"
   },
   {
-   "builder": "connectionProbeQuery",
+   "builder": "deploymentQuery",
    "params": {
-    "address": "corpus-address-a",
-    "compare": "corpus-address-b"
+    "address": "0x00000000000000000000000000000000c0a95e01"
    },
    "scope": "topology",
-   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[r:FLOWED_TO]-(b:Address {address: \"corpus-address-b\"}) RETURN [a.address, b.address] AS addresses, 1 AS hops LIMIT 5"
-  },
-  {
-   "builder": "connectionRouteQueries",
-   "params": {
-    "address": "corpus-address-a",
-    "compare": "corpus-address-b",
-    "shape": "levels"
-   },
-   "scope": "topology",
-   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"corpus-address-a\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|ROUTED_TO]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]){0,4} ()-[:FLOWED_TO|ROUTED_TO]-(b:Address {address: \"corpus-address-b\"}) RETURN p LIMIT 1"
-  },
-  {
-   "builder": "connectionRouteQueries",
-   "params": {
-    "address": "corpus-address-a",
-    "compare": "corpus-address-b",
-    "shape": "levels"
-   },
-   "scope": "topology",
-   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"corpus-address-b\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|ROUTED_TO]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]){0,4} ()-[:FLOWED_TO|ROUTED_TO]-(b:Address {address: \"corpus-address-a\"}) RETURN p LIMIT 1"
-  },
-  {
-   "builder": "connectionRouteQueries",
-   "params": {
-    "address": "corpus-address-a",
-    "compare": "corpus-address-b"
-   },
-   "scope": "topology",
-   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"corpus-address-a\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: \"corpus-address-b\"}) RETURN p LIMIT 1"
-  },
-  {
-   "builder": "connectionRouteQueries",
-   "params": {
-    "address": "corpus-address-a",
-    "compare": "corpus-address-b"
-   },
-   "scope": "topology",
-   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"corpus-address-b\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: \"corpus-address-a\"}) RETURN p LIMIT 1"
-  },
-  {
-   "builder": "connectionRouteQueries",
-   "params": {
-    "address": "corpus\"quote",
-    "compare": "corpus-address-b"
-   },
-   "scope": "topology",
-   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"corpus-address-b\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: \"corpus\\\"quote\"}) RETURN p LIMIT 1"
-  },
-  {
-   "builder": "connectionRouteQueries",
-   "params": {
-    "address": "corpus\"quote",
-    "compare": "corpus-address-b"
-   },
-   "scope": "topology",
-   "query": "USE topology MATCH p = SHORTEST 1 (a:Address {address: \"corpus\\\"quote\"} WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]) (()-[:FLOWED_TO|SWAPPED]-(via:Address) WHERE NOT via:Pool AND NOT via:Protocol AND NOT via:System AND NOT via.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"]){0,4} ()-[:FLOWED_TO|SWAPPED]-(b:Address {address: \"corpus-address-b\"}) RETURN p LIMIT 1"
-  },
-  {
-   "builder": "crossSpaceLinkedQuery",
-   "params": {
-    "address": "corpus-address-a"
-   },
-   "scope": "topology",
-   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[l:LINKED]-(b:Address) WHERE a.network <> b.network RETURN a.address AS address, a.network AS network, b.address AS linked_address, b.network AS linked_network, l.basis AS basis, l.confidence AS confidence, l.source_event AS source_event, l.declared_owner AS declared_owner LIMIT 50"
+   "query": "USE topology MATCH (d:Address)-[r:DEPLOYED_CONTRACT]->(t:Address {address: \"0x00000000000000000000000000000000c0a95e01\"}) RETURN d.address AS deployer, r.tx_origin AS tx_origin, r.factory_address AS factory_address, r.kind AS kind, r.tx_id AS tx_id, r.block_timestamp AS block_timestamp LIMIT 1"
   },
   {
    "builder": "documented-recipe",
@@ -652,143 +590,74 @@
    "query": "USE topology MATCH (a:Address) WHERE a.address IN [\"0x966890d38bfd587c9d6fd6123389dfe18ac9de0e\", \"0x09e9df72f639875b58dbfd356e31c47b0b87f65b\"] RETURN a.address AS address, labels(a) AS node_labels, a.labels AS labels, a.token_standard AS token_standard LIMIT 2"
   },
   {
-   "builder": "exchangeDepositSweptQuery",
+   "builder": "gasWalletsQuery",
    "params": {
-    "address": "corpus-address-a"
+    "address": "0x00000000000000000000000000000000c0a95e01"
    },
    "scope": "topology",
-   "query": "USE topology MATCH (d:Address {address: \"corpus-address-a\"})-[s:SWEPT]->(h:Address) RETURN d.address AS deposit_address, h.address AS hot_wallet, h.labels AS hot_wallet_labels, coalesce(h.exchange_role, h.cex_role) AS hot_wallet_role, s.sweep_count AS sweep_count, s.amount_usd_sum AS amount_usd_sum, s.paths AS paths, s.first_seen_timestamp AS first_seen_timestamp, s.last_seen_timestamp AS last_seen_timestamp LIMIT 20"
+   "query": "USE topology MATCH (s:Account)-[f:FLOWED_TO]->(a:Address {address: \"0x00000000000000000000000000000000c0a95e01\"}) RETURN s.address AS address, f.amount_usd_sum AS tokens_worth_usd, f.first_seen_timestamp AS first_seen_timestamp, labels(s) AS node_labels, s.identity AS identity, s.identity_name AS identity_name, s.identities AS identities, s.evidence AS evidence, s.judgements AS judgements, s.risk_level AS risk_level, s.risk_score AS risk_score ORDER BY f.first_seen_timestamp ASC LIMIT 3"
   },
   {
-   "builder": "exchangeInflowQueries",
+   "builder": "poolAssetsQuery",
    "params": {
-    "address": "corpus-address-a"
+    "address": "0x00000000000000000000000000000000c0a95e01"
    },
    "scope": "topology",
-   "query": "USE topology MATCH (exchange:Address)-[r1:FLOWED_TO]->(a:Address) WHERE a.address = \"corpus-address-a\" AND a.address <> exchange.address AND exchange.is_exchange IS NOT NULL AND NOT a:Pool RETURN \"inflow\" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, coalesce(exchange.exchange_role, exchange.cex_role) AS exchange_role, a.address AS withdrawal_address, 1 AS hops, r1.amount_usd_sum AS amount_usd_sum, r1.tx_count AS tx_count, r1.first_seen_timestamp AS first_seen_timestamp, r1.last_seen_timestamp AS last_seen_timestamp, [exchange.address, a.address] AS addresses, [{address: exchange.address, network: exchange.network, labels: exchange.labels, system_labels: exchange.labels, is_exchange: exchange.is_exchange, risk_score: exchange.risk_score, risk_level: exchange.risk_level}, {address: a.address, network: a.network, labels: a.labels, system_labels: a.labels, is_exchange: a.is_exchange, risk_score: a.risk_score, risk_level: a.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp}] AS edge_props ORDER BY hops ASC LIMIT 200"
+   "query": "USE topology MATCH (a:Address)-[r:ADDED_LIQUIDITY]->(p:Address {address: \"0x00000000000000000000000000000000c0a95e01\"}) RETURN collect(DISTINCT r.asset) AS assets LIMIT 1"
   },
   {
-   "builder": "exchangeInflowQueries",
+   "builder": "poolPartiesQuery",
    "params": {
-    "address": "corpus-address-a"
+    "address": "0x00000000000000000000000000000000c0a95e01",
+    "side": "adders"
    },
    "scope": "topology",
-   "query": "USE topology MATCH (exchange:Address)-[r1:FLOWED_TO]->(n1:Address)-[r2:FLOWED_TO]->(a:Address) WHERE a.address = \"corpus-address-a\" AND a.address <> exchange.address AND exchange.is_exchange IS NOT NULL AND n1.is_exchange IS NULL AND NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT n1:Pool AND NOT n1:Protocol AND NOT n1:System AND NOT n1.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] RETURN \"inflow\" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, coalesce(exchange.exchange_role, exchange.cex_role) AS exchange_role, n1.address AS withdrawal_address, 2 AS hops, r2.amount_usd_sum AS amount_usd_sum, r2.tx_count AS tx_count, r2.first_seen_timestamp AS first_seen_timestamp, r2.last_seen_timestamp AS last_seen_timestamp, [exchange.address, n1.address, a.address] AS addresses, [{address: exchange.address, network: exchange.network, labels: exchange.labels, system_labels: exchange.labels, is_exchange: exchange.is_exchange, risk_score: exchange.risk_score, risk_level: exchange.risk_level}, {address: n1.address, network: n1.network, labels: n1.labels, system_labels: n1.labels, is_exchange: n1.is_exchange, risk_score: n1.risk_score, risk_level: n1.risk_level}, {address: a.address, network: a.network, labels: a.labels, system_labels: a.labels, is_exchange: a.is_exchange, risk_score: a.risk_score, risk_level: a.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp}, {amount_usd_sum: r2.amount_usd_sum, tx_count: r2.tx_count, first_seen_timestamp: r2.first_seen_timestamp, last_seen_timestamp: r2.last_seen_timestamp}] AS edge_props ORDER BY hops ASC LIMIT 200"
+   "query": "USE topology MATCH (a:Address)-[r:ADDED_LIQUIDITY]->(p:Address {address: \"0x00000000000000000000000000000000c0a95e01\"}) RETURN a.address AS address, sum(r.usd) AS tokens_worth_usd, count(r.usd) AS priced, sum(r.event_count) AS events, min(r.first_seen_height) AS first_seen_height, max(r.last_seen_height) AS last_seen_height, labels(a) AS node_labels, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.evidence AS evidence, a.judgements AS judgements, a.risk_level AS risk_level, a.risk_score AS risk_score ORDER BY tokens_worth_usd DESC LIMIT 5"
   },
   {
-   "builder": "exchangeInflowQueries",
+   "builder": "poolPartiesQuery",
    "params": {
-    "address": "corpus-address-a"
+    "address": "0x00000000000000000000000000000000c0a95e01",
+    "side": "removers"
    },
    "scope": "topology",
-   "query": "USE topology MATCH (exchange:Address)-[r1:FLOWED_TO]->(n1:Address)-[r2:FLOWED_TO]->(n2:Address)-[r3:FLOWED_TO]->(a:Address) WHERE a.address = \"corpus-address-a\" AND a.address <> exchange.address AND exchange.is_exchange IS NOT NULL AND n1.is_exchange IS NULL AND n2.is_exchange IS NULL AND NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT n1:Pool AND NOT n1:Protocol AND NOT n1:System AND NOT n1.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT n2:Pool AND NOT n2:Protocol AND NOT n2:System AND NOT n2.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] RETURN \"inflow\" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, coalesce(exchange.exchange_role, exchange.cex_role) AS exchange_role, n1.address AS withdrawal_address, 3 AS hops, r3.amount_usd_sum AS amount_usd_sum, r3.tx_count AS tx_count, r3.first_seen_timestamp AS first_seen_timestamp, r3.last_seen_timestamp AS last_seen_timestamp, [exchange.address, n1.address, n2.address, a.address] AS addresses, [{address: exchange.address, network: exchange.network, labels: exchange.labels, system_labels: exchange.labels, is_exchange: exchange.is_exchange, risk_score: exchange.risk_score, risk_level: exchange.risk_level}, {address: n1.address, network: n1.network, labels: n1.labels, system_labels: n1.labels, is_exchange: n1.is_exchange, risk_score: n1.risk_score, risk_level: n1.risk_level}, {address: n2.address, network: n2.network, labels: n2.labels, system_labels: n2.labels, is_exchange: n2.is_exchange, risk_score: n2.risk_score, risk_level: n2.risk_level}, {address: a.address, network: a.network, labels: a.labels, system_labels: a.labels, is_exchange: a.is_exchange, risk_score: a.risk_score, risk_level: a.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp}, {amount_usd_sum: r2.amount_usd_sum, tx_count: r2.tx_count, first_seen_timestamp: r2.first_seen_timestamp, last_seen_timestamp: r2.last_seen_timestamp}, {amount_usd_sum: r3.amount_usd_sum, tx_count: r3.tx_count, first_seen_timestamp: r3.first_seen_timestamp, last_seen_timestamp: r3.last_seen_timestamp}] AS edge_props ORDER BY hops ASC LIMIT 200"
+   "query": "USE topology MATCH (p:Address {address: \"0x00000000000000000000000000000000c0a95e01\"})-[r:REMOVED_LIQUIDITY]->(a:Address) RETURN a.address AS address, sum(r.usd) AS tokens_worth_usd, count(r.usd) AS priced, sum(r.event_count) AS events, min(r.first_seen_height) AS first_seen_height, max(r.last_seen_height) AS last_seen_height, labels(a) AS node_labels, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.evidence AS evidence, a.judgements AS judgements, a.risk_level AS risk_level, a.risk_score AS risk_score ORDER BY tokens_worth_usd DESC LIMIT 5"
   },
   {
-   "builder": "exchangeInflowQueries",
+   "builder": "tokenPoolsQuery",
    "params": {
-    "address": "corpus\"quote"
+    "address": "0x00000000000000000000000000000000c0a95e01",
+    "side": "added"
    },
    "scope": "topology",
-   "query": "USE topology MATCH (exchange:Address)-[r1:FLOWED_TO]->(a:Address) WHERE a.address = \"corpus\\\"quote\" AND a.address <> exchange.address AND exchange.is_exchange IS NOT NULL AND NOT a:Pool RETURN \"inflow\" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, coalesce(exchange.exchange_role, exchange.cex_role) AS exchange_role, a.address AS withdrawal_address, 1 AS hops, r1.amount_usd_sum AS amount_usd_sum, r1.tx_count AS tx_count, r1.first_seen_timestamp AS first_seen_timestamp, r1.last_seen_timestamp AS last_seen_timestamp, [exchange.address, a.address] AS addresses, [{address: exchange.address, network: exchange.network, labels: exchange.labels, system_labels: exchange.labels, is_exchange: exchange.is_exchange, risk_score: exchange.risk_score, risk_level: exchange.risk_level}, {address: a.address, network: a.network, labels: a.labels, system_labels: a.labels, is_exchange: a.is_exchange, risk_score: a.risk_score, risk_level: a.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp}] AS edge_props ORDER BY hops ASC LIMIT 200"
+   "query": "USE topology MATCH (a:Address)-[r:ADDED_LIQUIDITY {asset: \"0x00000000000000000000000000000000c0a95e01\"}]->(p:Address) RETURN p.address AS pool, count(DISTINCT a) AS providers, sum(r.usd) AS added_usd, count(r.usd) AS priced, sum(r.event_count) AS events ORDER BY added_usd DESC LIMIT 500"
   },
   {
-   "builder": "exchangeInflowQueries",
+   "builder": "tokenPoolsQuery",
    "params": {
-    "address": "corpus\"quote"
+    "address": "0x00000000000000000000000000000000c0a95e01",
+    "side": "removed"
    },
    "scope": "topology",
-   "query": "USE topology MATCH (exchange:Address)-[r1:FLOWED_TO]->(n1:Address)-[r2:FLOWED_TO]->(a:Address) WHERE a.address = \"corpus\\\"quote\" AND a.address <> exchange.address AND exchange.is_exchange IS NOT NULL AND n1.is_exchange IS NULL AND NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT n1:Pool AND NOT n1:Protocol AND NOT n1:System AND NOT n1.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] RETURN \"inflow\" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, coalesce(exchange.exchange_role, exchange.cex_role) AS exchange_role, n1.address AS withdrawal_address, 2 AS hops, r2.amount_usd_sum AS amount_usd_sum, r2.tx_count AS tx_count, r2.first_seen_timestamp AS first_seen_timestamp, r2.last_seen_timestamp AS last_seen_timestamp, [exchange.address, n1.address, a.address] AS addresses, [{address: exchange.address, network: exchange.network, labels: exchange.labels, system_labels: exchange.labels, is_exchange: exchange.is_exchange, risk_score: exchange.risk_score, risk_level: exchange.risk_level}, {address: n1.address, network: n1.network, labels: n1.labels, system_labels: n1.labels, is_exchange: n1.is_exchange, risk_score: n1.risk_score, risk_level: n1.risk_level}, {address: a.address, network: a.network, labels: a.labels, system_labels: a.labels, is_exchange: a.is_exchange, risk_score: a.risk_score, risk_level: a.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp}, {amount_usd_sum: r2.amount_usd_sum, tx_count: r2.tx_count, first_seen_timestamp: r2.first_seen_timestamp, last_seen_timestamp: r2.last_seen_timestamp}] AS edge_props ORDER BY hops ASC LIMIT 200"
+   "query": "USE topology MATCH (p:Address)-[r:REMOVED_LIQUIDITY {asset: \"0x00000000000000000000000000000000c0a95e01\"}]->(a:Address) RETURN p.address AS pool, count(DISTINCT a) AS removers, sum(r.usd) AS removed_usd, count(r.usd) AS priced, sum(r.event_count) AS events ORDER BY removed_usd DESC LIMIT 500"
   },
   {
-   "builder": "exchangeInflowQueries",
+   "builder": "tokenProvidersQuery",
    "params": {
-    "address": "corpus\"quote"
+    "address": "0x00000000000000000000000000000000c0a95e01",
+    "side": "added"
    },
    "scope": "topology",
-   "query": "USE topology MATCH (exchange:Address)-[r1:FLOWED_TO]->(n1:Address)-[r2:FLOWED_TO]->(n2:Address)-[r3:FLOWED_TO]->(a:Address) WHERE a.address = \"corpus\\\"quote\" AND a.address <> exchange.address AND exchange.is_exchange IS NOT NULL AND n1.is_exchange IS NULL AND n2.is_exchange IS NULL AND NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT n1:Pool AND NOT n1:Protocol AND NOT n1:System AND NOT n1.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT n2:Pool AND NOT n2:Protocol AND NOT n2:System AND NOT n2.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] RETURN \"inflow\" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, coalesce(exchange.exchange_role, exchange.cex_role) AS exchange_role, n1.address AS withdrawal_address, 3 AS hops, r3.amount_usd_sum AS amount_usd_sum, r3.tx_count AS tx_count, r3.first_seen_timestamp AS first_seen_timestamp, r3.last_seen_timestamp AS last_seen_timestamp, [exchange.address, n1.address, n2.address, a.address] AS addresses, [{address: exchange.address, network: exchange.network, labels: exchange.labels, system_labels: exchange.labels, is_exchange: exchange.is_exchange, risk_score: exchange.risk_score, risk_level: exchange.risk_level}, {address: n1.address, network: n1.network, labels: n1.labels, system_labels: n1.labels, is_exchange: n1.is_exchange, risk_score: n1.risk_score, risk_level: n1.risk_level}, {address: n2.address, network: n2.network, labels: n2.labels, system_labels: n2.labels, is_exchange: n2.is_exchange, risk_score: n2.risk_score, risk_level: n2.risk_level}, {address: a.address, network: a.network, labels: a.labels, system_labels: a.labels, is_exchange: a.is_exchange, risk_score: a.risk_score, risk_level: a.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp}, {amount_usd_sum: r2.amount_usd_sum, tx_count: r2.tx_count, first_seen_timestamp: r2.first_seen_timestamp, last_seen_timestamp: r2.last_seen_timestamp}, {amount_usd_sum: r3.amount_usd_sum, tx_count: r3.tx_count, first_seen_timestamp: r3.first_seen_timestamp, last_seen_timestamp: r3.last_seen_timestamp}] AS edge_props ORDER BY hops ASC LIMIT 200"
+   "query": "USE topology MATCH (a:Address)-[r:ADDED_LIQUIDITY {asset: \"0x00000000000000000000000000000000c0a95e01\"}]->(p:Address) RETURN p.address AS pool, a.address AS address, sum(r.usd) AS tokens_worth_usd, count(r.usd) AS priced, sum(r.event_count) AS events, min(r.first_seen_height) AS first_seen_height, max(r.last_seen_height) AS last_seen_height, labels(a) AS node_labels, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.evidence AS evidence, a.judgements AS judgements, a.risk_level AS risk_level, a.risk_score AS risk_score ORDER BY tokens_worth_usd DESC LIMIT 200"
   },
   {
-   "builder": "exchangeOutflowQueries",
+   "builder": "tokenProvidersQuery",
    "params": {
-    "address": "corpus-address-a"
+    "address": "0x00000000000000000000000000000000c0a95e01",
+    "side": "removed"
    },
    "scope": "topology",
-   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[r1:FLOWED_TO]->(exchange:Address) WHERE a.address <> exchange.address AND exchange.is_exchange IS NOT NULL AND NOT a:Pool RETURN \"outflow\" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, coalesce(exchange.exchange_role, exchange.cex_role) AS exchange_role, a.address AS deposit_address, 1 AS hops, r1.amount_usd_sum AS amount_usd_sum, r1.tx_count AS tx_count, r1.first_seen_timestamp AS first_seen_timestamp, r1.last_seen_timestamp AS last_seen_timestamp, [a.address, exchange.address] AS addresses, [{address: a.address, network: a.network, labels: a.labels, system_labels: a.labels, is_exchange: a.is_exchange, risk_score: a.risk_score, risk_level: a.risk_level}, {address: exchange.address, network: exchange.network, labels: exchange.labels, system_labels: exchange.labels, is_exchange: exchange.is_exchange, risk_score: exchange.risk_score, risk_level: exchange.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp}] AS edge_props ORDER BY hops ASC LIMIT 200"
-  },
-  {
-   "builder": "exchangeOutflowQueries",
-   "params": {
-    "address": "corpus-address-a"
-   },
-   "scope": "topology",
-   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[r1:FLOWED_TO]->(n1:Address)-[r2:FLOWED_TO]->(exchange:Address) WHERE a.address <> exchange.address AND exchange.is_exchange IS NOT NULL AND n1.is_exchange IS NULL AND NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT n1:Pool AND NOT n1:Protocol AND NOT n1:System AND NOT n1.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] RETURN \"outflow\" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, coalesce(exchange.exchange_role, exchange.cex_role) AS exchange_role, n1.address AS deposit_address, 2 AS hops, r2.amount_usd_sum AS amount_usd_sum, r2.tx_count AS tx_count, r2.first_seen_timestamp AS first_seen_timestamp, r2.last_seen_timestamp AS last_seen_timestamp, [a.address, n1.address, exchange.address] AS addresses, [{address: a.address, network: a.network, labels: a.labels, system_labels: a.labels, is_exchange: a.is_exchange, risk_score: a.risk_score, risk_level: a.risk_level}, {address: n1.address, network: n1.network, labels: n1.labels, system_labels: n1.labels, is_exchange: n1.is_exchange, risk_score: n1.risk_score, risk_level: n1.risk_level}, {address: exchange.address, network: exchange.network, labels: exchange.labels, system_labels: exchange.labels, is_exchange: exchange.is_exchange, risk_score: exchange.risk_score, risk_level: exchange.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp}, {amount_usd_sum: r2.amount_usd_sum, tx_count: r2.tx_count, first_seen_timestamp: r2.first_seen_timestamp, last_seen_timestamp: r2.last_seen_timestamp}] AS edge_props ORDER BY hops ASC LIMIT 200"
-  },
-  {
-   "builder": "exchangeOutflowQueries",
-   "params": {
-    "address": "corpus-address-a"
-   },
-   "scope": "topology",
-   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[r1:FLOWED_TO]->(n1:Address)-[r2:FLOWED_TO]->(n2:Address)-[r3:FLOWED_TO]->(exchange:Address) WHERE a.address <> exchange.address AND exchange.is_exchange IS NOT NULL AND n1.is_exchange IS NULL AND n2.is_exchange IS NULL AND NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT n1:Pool AND NOT n1:Protocol AND NOT n1:System AND NOT n1.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT n2:Pool AND NOT n2:Protocol AND NOT n2:System AND NOT n2.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] RETURN \"outflow\" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, coalesce(exchange.exchange_role, exchange.cex_role) AS exchange_role, n2.address AS deposit_address, 3 AS hops, r3.amount_usd_sum AS amount_usd_sum, r3.tx_count AS tx_count, r3.first_seen_timestamp AS first_seen_timestamp, r3.last_seen_timestamp AS last_seen_timestamp, [a.address, n1.address, n2.address, exchange.address] AS addresses, [{address: a.address, network: a.network, labels: a.labels, system_labels: a.labels, is_exchange: a.is_exchange, risk_score: a.risk_score, risk_level: a.risk_level}, {address: n1.address, network: n1.network, labels: n1.labels, system_labels: n1.labels, is_exchange: n1.is_exchange, risk_score: n1.risk_score, risk_level: n1.risk_level}, {address: n2.address, network: n2.network, labels: n2.labels, system_labels: n2.labels, is_exchange: n2.is_exchange, risk_score: n2.risk_score, risk_level: n2.risk_level}, {address: exchange.address, network: exchange.network, labels: exchange.labels, system_labels: exchange.labels, is_exchange: exchange.is_exchange, risk_score: exchange.risk_score, risk_level: exchange.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp}, {amount_usd_sum: r2.amount_usd_sum, tx_count: r2.tx_count, first_seen_timestamp: r2.first_seen_timestamp, last_seen_timestamp: r2.last_seen_timestamp}, {amount_usd_sum: r3.amount_usd_sum, tx_count: r3.tx_count, first_seen_timestamp: r3.first_seen_timestamp, last_seen_timestamp: r3.last_seen_timestamp}] AS edge_props ORDER BY hops ASC LIMIT 200"
-  },
-  {
-   "builder": "exchangeOutflowQueries",
-   "params": {
-    "address": "corpus\"quote"
-   },
-   "scope": "topology",
-   "query": "USE topology MATCH (a:Address {address: \"corpus\\\"quote\"})-[r1:FLOWED_TO]->(exchange:Address) WHERE a.address <> exchange.address AND exchange.is_exchange IS NOT NULL AND NOT a:Pool RETURN \"outflow\" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, coalesce(exchange.exchange_role, exchange.cex_role) AS exchange_role, a.address AS deposit_address, 1 AS hops, r1.amount_usd_sum AS amount_usd_sum, r1.tx_count AS tx_count, r1.first_seen_timestamp AS first_seen_timestamp, r1.last_seen_timestamp AS last_seen_timestamp, [a.address, exchange.address] AS addresses, [{address: a.address, network: a.network, labels: a.labels, system_labels: a.labels, is_exchange: a.is_exchange, risk_score: a.risk_score, risk_level: a.risk_level}, {address: exchange.address, network: exchange.network, labels: exchange.labels, system_labels: exchange.labels, is_exchange: exchange.is_exchange, risk_score: exchange.risk_score, risk_level: exchange.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp}] AS edge_props ORDER BY hops ASC LIMIT 200"
-  },
-  {
-   "builder": "exchangeOutflowQueries",
-   "params": {
-    "address": "corpus\"quote"
-   },
-   "scope": "topology",
-   "query": "USE topology MATCH (a:Address {address: \"corpus\\\"quote\"})-[r1:FLOWED_TO]->(n1:Address)-[r2:FLOWED_TO]->(exchange:Address) WHERE a.address <> exchange.address AND exchange.is_exchange IS NOT NULL AND n1.is_exchange IS NULL AND NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT n1:Pool AND NOT n1:Protocol AND NOT n1:System AND NOT n1.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] RETURN \"outflow\" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, coalesce(exchange.exchange_role, exchange.cex_role) AS exchange_role, n1.address AS deposit_address, 2 AS hops, r2.amount_usd_sum AS amount_usd_sum, r2.tx_count AS tx_count, r2.first_seen_timestamp AS first_seen_timestamp, r2.last_seen_timestamp AS last_seen_timestamp, [a.address, n1.address, exchange.address] AS addresses, [{address: a.address, network: a.network, labels: a.labels, system_labels: a.labels, is_exchange: a.is_exchange, risk_score: a.risk_score, risk_level: a.risk_level}, {address: n1.address, network: n1.network, labels: n1.labels, system_labels: n1.labels, is_exchange: n1.is_exchange, risk_score: n1.risk_score, risk_level: n1.risk_level}, {address: exchange.address, network: exchange.network, labels: exchange.labels, system_labels: exchange.labels, is_exchange: exchange.is_exchange, risk_score: exchange.risk_score, risk_level: exchange.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp}, {amount_usd_sum: r2.amount_usd_sum, tx_count: r2.tx_count, first_seen_timestamp: r2.first_seen_timestamp, last_seen_timestamp: r2.last_seen_timestamp}] AS edge_props ORDER BY hops ASC LIMIT 200"
-  },
-  {
-   "builder": "exchangeOutflowQueries",
-   "params": {
-    "address": "corpus\"quote"
-   },
-   "scope": "topology",
-   "query": "USE topology MATCH (a:Address {address: \"corpus\\\"quote\"})-[r1:FLOWED_TO]->(n1:Address)-[r2:FLOWED_TO]->(n2:Address)-[r3:FLOWED_TO]->(exchange:Address) WHERE a.address <> exchange.address AND exchange.is_exchange IS NOT NULL AND n1.is_exchange IS NULL AND n2.is_exchange IS NULL AND NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT n1:Pool AND NOT n1:Protocol AND NOT n1:System AND NOT n1.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT n2:Pool AND NOT n2:Protocol AND NOT n2:System AND NOT n2.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] RETURN \"outflow\" AS direction, exchange.address AS exchange_address, exchange.labels AS exchange_display_labels, exchange.labels AS exchange_system_labels, coalesce(exchange.exchange_role, exchange.cex_role) AS exchange_role, n2.address AS deposit_address, 3 AS hops, r3.amount_usd_sum AS amount_usd_sum, r3.tx_count AS tx_count, r3.first_seen_timestamp AS first_seen_timestamp, r3.last_seen_timestamp AS last_seen_timestamp, [a.address, n1.address, n2.address, exchange.address] AS addresses, [{address: a.address, network: a.network, labels: a.labels, system_labels: a.labels, is_exchange: a.is_exchange, risk_score: a.risk_score, risk_level: a.risk_level}, {address: n1.address, network: n1.network, labels: n1.labels, system_labels: n1.labels, is_exchange: n1.is_exchange, risk_score: n1.risk_score, risk_level: n1.risk_level}, {address: n2.address, network: n2.network, labels: n2.labels, system_labels: n2.labels, is_exchange: n2.is_exchange, risk_score: n2.risk_score, risk_level: n2.risk_level}, {address: exchange.address, network: exchange.network, labels: exchange.labels, system_labels: exchange.labels, is_exchange: exchange.is_exchange, risk_score: exchange.risk_score, risk_level: exchange.risk_level}] AS path_nodes, [{amount_usd_sum: r1.amount_usd_sum, tx_count: r1.tx_count, first_seen_timestamp: r1.first_seen_timestamp, last_seen_timestamp: r1.last_seen_timestamp}, {amount_usd_sum: r2.amount_usd_sum, tx_count: r2.tx_count, first_seen_timestamp: r2.first_seen_timestamp, last_seen_timestamp: r2.last_seen_timestamp}, {amount_usd_sum: r3.amount_usd_sum, tx_count: r3.tx_count, first_seen_timestamp: r3.first_seen_timestamp, last_seen_timestamp: r3.last_seen_timestamp}] AS edge_props ORDER BY hops ASC LIMIT 200"
-  },
-  {
-   "builder": "inlineAverageFlowQuery",
-   "params": {
-    "address": "corpus-address-a",
-    "limit": 25
-   },
-   "scope": "topology",
-   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[r:FLOWED_TO]->(b:Address) RETURN b.address AS neighbor, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count,        r.amount_usd_sum / toFloat(r.tx_count) AS avg_tx_size_usd ORDER BY r.amount_usd_sum DESC LIMIT 25"
-  },
-  {
-   "builder": "linkedExposureQueries",
-   "params": {
-    "address": "corpus-address-a"
-   },
-   "scope": "topology",
-   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[l:LINKED]-(owned:Address)-[r:FLOWED_TO]-(b:Address) WHERE NOT a:Pool AND NOT a:Protocol AND NOT a:System AND NOT a.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND NOT owned:Pool AND NOT owned:Protocol AND NOT owned:System AND NOT owned.address IN [\"0x0000000000000000000000000000000000000000\", \"0x000000000000000000000000000000000000dead\"] AND owned.address <> b.address AND a.address <> b.address RETURN a.address AS subject_address, b.address AS counterparty_address, b.network AS counterparty_network, \"via_linked\" AS exposure_basis, owned.address AS linked_via_address, l.basis AS link_basis, l.confidence AS link_confidence, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count LIMIT 200"
-  },
-  {
-   "builder": "linkedExposureQueries",
-   "params": {
-    "address": "corpus-address-a"
-   },
-   "scope": "topology",
-   "query": "USE topology MATCH (a:Address {address: \"corpus-address-a\"})-[r:FLOWED_TO]-(b:Address) WHERE a.address <> b.address RETURN a.address AS subject_address, b.address AS counterparty_address, b.network AS counterparty_network, \"direct\" AS exposure_basis, r.amount_usd_sum AS amount_usd_sum, r.tx_count AS tx_count LIMIT 200"
-  },
-  {
-   "builder": "pairAnchorQuery",
-   "params": {
-    "from": "corpus-address-a",
-    "to": "corpus-address-b",
-    "day": "2026-07-11"
-   },
-   "scope": "facts",
-   "query": "USE facts MATCH (a:Address {address: \"corpus-address-a\"})-[t:TRANSFER]->(b:Address {address: \"corpus-address-b\"}) WHERE t.block_date = \"2026-07-11\" RETURN t.tx_id AS tx_id, t.block_timestamp AS block_timestamp LIMIT 1"
+   "query": "USE topology MATCH (p:Address)-[r:REMOVED_LIQUIDITY {asset: \"0x00000000000000000000000000000000c0a95e01\"}]->(a:Address) RETURN p.address AS pool, a.address AS address, sum(r.usd) AS tokens_worth_usd, count(r.usd) AS priced, sum(r.event_count) AS events, min(r.first_seen_height) AS first_seen_height, max(r.last_seen_height) AS last_seen_height, labels(a) AS node_labels, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.evidence AS evidence, a.judgements AS judgements, a.risk_level AS risk_level, a.risk_score AS risk_score ORDER BY tokens_worth_usd DESC LIMIT 200"
   }
  ]
 }

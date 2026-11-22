@@ -38,7 +38,6 @@ const SHIPPED_TEXT = [
   'README.md',
   'src/mcp/proxy.ts',
   'src/workspace/init.ts',
-  'src/investigation/public-tools.ts',
   ...GUIDE_HOMES,
   CYPHER,
   `plugin/${CYPHER}`,

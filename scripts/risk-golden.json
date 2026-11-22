@@ -1,0 +1,480 @@
+{
+  "network": "robinhood",
+  "address": [
+    {
+      "address": "0x0000000000000000000000000000000000000000",
+      "note": "label rows: none; model row: LOW 0.0001",
+      "expect": {
+        "word": "low",
+        "rules_word": "none",
+        "model_word": "low",
+        "set_by": "model"
+      }
+    },
+    {
+      "address": "0x00000000004391bd7c94cc74c97572897eff52f5",
+      "note": "label rows: suspect:FAKE_TOKEN_LP; model row: none",
+      "expect": {
+        "word": "unscored",
+        "rules_word": "none",
+        "model_word": "not_scored",
+        "set_by": "none"
+      }
+    },
+    {
+      "address": "0x000000004e9d59e4f797ed30911015ea4b842267",
+      "note": "label rows: suspect:FAKE_TOKEN; model row: none",
+      "expect": {
+        "word": "unscored",
+        "rules_word": "none",
+        "model_word": "not_scored",
+        "set_by": "none"
+      }
+    },
+    {
+      "address": "0x0000000068eade56c528998ca2cfc9f27d4f569b",
+      "note": "label rows: suspect:FAKE_TOKEN; model row: none",
+      "expect": {
+        "word": "unscored",
+        "rules_word": "none",
+        "model_word": "not_scored",
+        "set_by": "none"
+      }
+    },
+    {
+      "address": "0x00000cc694dd2b3b1ebb15a0b07845becdad3789",
+      "note": "label rows: risk:ADDRESS_POISONING, risk:INBOUND_IMPERSONATION; model row: none",
+      "expect": {
+        "word": "critical",
+        "rules_word": "critical",
+        "model_word": "not_scored",
+        "set_by": "rules"
+      }
+    },
+    {
+      "address": "0x000076b62c6fffa69d7d788b8c2a99434b2f0000",
+      "note": "label rows: risk:INBOUND_IMPERSONATION; model row: HIGH 0.8000",
+      "expect": {
+        "word": "critical",
+        "rules_word": "critical",
+        "model_word": "high",
+        "set_by": "rules"
+      }
+    },
+    {
+      "address": "0x00007c4545d2247df6656e5c0c71da6d4b470000",
+      "note": "label rows: suspect:FAKE_TOKEN_LP; model row: MEDIUM 0.2703",
+      "expect": {
+        "word": "medium",
+        "rules_word": "none",
+        "model_word": "medium",
+        "set_by": "model"
+      }
+    },
+    {
+      "address": "0x0000dc91d2feaa5d40ea06cc2d1aeda36c542c6c",
+      "note": "label rows: risk:ADDRESS_POISONING, risk:INBOUND_IMPERSONATION; model row: none",
+      "expect": {
+        "word": "critical",
+        "rules_word": "critical",
+        "model_word": "not_scored",
+        "set_by": "rules"
+      }
+    },
+    {
+      "address": "0x0000f2e84caf9de37695856eb3917d47ec4073d7",
+      "note": "label rows: risk:ADDRESS_POISONING, risk:INBOUND_IMPERSONATION; model row: none",
+      "expect": {
+        "word": "critical",
+        "rules_word": "critical",
+        "model_word": "not_scored",
+        "set_by": "rules"
+      }
+    },
+    {
+      "address": "0x00071b0026d9ac580ebbc086dc55878a8cd7ea85",
+      "note": "label rows: exchange:binance; model row: none",
+      "expect": {
+        "word": "unscored",
+        "rules_word": "none",
+        "model_word": "not_scored",
+        "set_by": "none"
+      }
+    },
+    {
+      "address": "0x00077705952c90b728c6d7dc450beb4429331111",
+      "note": "label rows: risk:INBOUND_IMPERSONATION; model row: HIGH 0.8000",
+      "expect": {
+        "word": "critical",
+        "rules_word": "critical",
+        "model_word": "high",
+        "set_by": "rules"
+      }
+    },
+    {
+      "address": "0x000cadfc8ccf719f0290219f508c07c7abc3bdf2",
+      "note": "label rows: risk:FAKE_TOKEN_DEPLOYER, suspect:FAKE_TOKEN_LP; model row: none",
+      "expect": {
+        "word": "unscored",
+        "rules_word": "none",
+        "model_word": "not_scored",
+        "set_by": "none"
+      }
+    },
+    {
+      "address": "0x000d5f5fd8648717f94f3af48d6490e175b7720f",
+      "note": "label rows: exchange:binance; model row: none",
+      "expect": {
+        "word": "unscored",
+        "rules_word": "none",
+        "model_word": "not_scored",
+        "set_by": "none"
+      }
+    },
+    {
+      "address": "0x000e319ee525e94d30933d5dfc2cfbed577b3188",
+      "note": "label rows: protection:VICTIM; model row: none",
+      "expect": {
+        "word": "unscored",
+        "rules_word": "none",
+        "model_word": "not_scored",
+        "set_by": "none"
+      }
+    },
+    {
+      "address": "0x0015d3f6f8bed54c4fc8d353e1e0dbaf7c620d4a",
+      "note": "label rows: protection:VICTIM; model row: LOW 0.0001",
+      "expect": {
+        "word": "low",
+        "rules_word": "none",
+        "model_word": "low",
+        "set_by": "model"
+      }
+    },
+    {
+      "address": "0x002916a654f8522937d53e20a57944a16bbd74df",
+      "note": "label rows: risk:FAKE_TOKEN_DEPLOYER; model row: none",
+      "expect": {
+        "word": "unscored",
+        "rules_word": "none",
+        "model_word": "not_scored",
+        "set_by": "none"
+      }
+    },
+    {
+      "address": "0x01917b0c50898a56769e4f49c6fb08d24d543149",
+      "note": "label rows: suspect:FAKE_TOKEN_LP; model row: MEDIUM 0.4530",
+      "expect": {
+        "word": "medium",
+        "rules_word": "none",
+        "model_word": "medium",
+        "set_by": "model"
+      }
+    },
+    {
+      "address": "0x2fc617e933a52713247ce25730f6695920b3befe",
+      "note": "label rows: none; model row: LOW 0.0016",
+      "expect": {
+        "word": "low",
+        "rules_word": "none",
+        "model_word": "low",
+        "set_by": "model"
+      }
+    },
+    {
+      "address": "0x43e4c17b15365596caae8e7d00e42bc8e988c2d4",
+      "note": "label rows: none; model row: LOW 0.0001",
+      "expect": {
+        "word": "low",
+        "rules_word": "none",
+        "model_word": "low",
+        "set_by": "model"
+      }
+    },
+    {
+      "address": "0xd8ab093fd32dee6566e300e62fbb200014f589e6",
+      "note": "label rows: none; model row: none",
+      "expect": {
+        "word": "unscored",
+        "rules_word": "none",
+        "model_word": "not_scored",
+        "set_by": "none"
+      }
+    }
+  ],
+  "pool": [
+    {
+      "address": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+      "note": "family uniswap_v4; 207605 providers in robinhood.facts_dex_liquidity_add_view",
+      "expect": {
+        "asked_as": "pool",
+        "is_manager": true,
+        "providers_min": 1
+      }
+    },
+    {
+      "address": "0x27fba1492d61e8890259b0a4c521cd4d8bd0297e",
+      "note": "family v3; 1 providers in robinhood.facts_dex_liquidity_add_view",
+      "expect": {
+        "asked_as": "pool",
+        "is_manager": false,
+        "providers_min": 1
+      }
+    },
+    {
+      "address": "0x0adeeaea9aff53c9dfad6f0fb6df96c228b25d3e",
+      "note": "family v2; 1 providers in robinhood.facts_dex_liquidity_add_view",
+      "expect": {
+        "asked_as": "pool",
+        "is_manager": false,
+        "providers_min": 1
+      }
+    },
+    {
+      "address": "0x7615926023bb149f36095645c2a81dc367d39750",
+      "note": "family v3; 414 providers in robinhood.facts_dex_liquidity_add_view",
+      "expect": {
+        "asked_as": "pool",
+        "is_manager": false,
+        "providers_min": 1
+      }
+    },
+    {
+      "address": "0x17e5bd3ab5f33fbe2e1dc40d6580be42c86e38ad",
+      "note": "family v3; 30 providers in robinhood.facts_dex_liquidity_add_view",
+      "expect": {
+        "asked_as": "pool",
+        "is_manager": false,
+        "providers_min": 1
+      }
+    },
+    {
+      "address": "0xa063de9fc4b35a4d56d51b88d2f21a817d9463ec",
+      "note": "family v3; 1 providers in robinhood.facts_dex_liquidity_add_view",
+      "expect": {
+        "asked_as": "pool",
+        "is_manager": false,
+        "providers_min": 1
+      }
+    },
+    {
+      "address": "0xba3b06d8ed66015d6e27e38f9bc27c4bcb1fb08f",
+      "note": "family v3; 1 providers in robinhood.facts_dex_liquidity_add_view",
+      "expect": {
+        "asked_as": "pool",
+        "is_manager": false,
+        "providers_min": 1
+      }
+    },
+    {
+      "address": "0xd75790f3a3f639fedb7406df6dabb5bb8605949b",
+      "note": "family v3; liquidity added on 2026-11-18",
+      "expect": {
+        "asked_as": "pool",
+        "is_manager": false,
+        "providers_min": 1
+      }
+    },
+    {
+      "address": "0x2c5e1da832751a260682d7b3816cdf911e257b96",
+      "note": "family v3; liquidity added on 2026-11-18",
+      "expect": {
+        "asked_as": "pool",
+        "is_manager": false,
+        "providers_min": 1
+      }
+    },
+    {
+      "address": "0xbf88d2b2b0922484af03d9b0a786a1d04e9f523b",
+      "note": "family v3; liquidity added on 2026-11-18",
+      "expect": {
+        "asked_as": "pool",
+        "is_manager": false,
+        "providers_min": 1
+      }
+    }
+  ],
+  "token": [
+    {
+      "address": "0x020a36f63d352622a733653eaa9ec20a5baef69a",
+      "note": "creation factory, factory 0x4e59b44847b379578588920ca78fbf26c0b4956c; 3 pool addresses with a named provider in robinhood.facts_dex_liquidity_add_view or facts_dex_liquidity_remove_view",
+      "expect": {
+        "asked_as": "token",
+        "founder": "0x6b890f743b9e89990b6dbd2f4a7a58cc8df5886e",
+        "pools_found": 3
+      }
+    },
+    {
+      "address": "0x000050e18ffa3f8f7ad170eb9cef160eb3ed1111",
+      "note": "creation factory, factory 0x410481547d8b44301c015a055c5b67c12b368331; 10 pool addresses with a named provider in robinhood.facts_dex_liquidity_add_view or facts_dex_liquidity_remove_view",
+      "expect": {
+        "asked_as": "token",
+        "founder": "0xb2899cb0ff832626604e44a44fc2184ff8442020",
+        "pools_found": 10
+      }
+    },
+    {
+      "address": "0x09ba40ef0102b88f0ea22a49376951a71b0f7aad",
+      "note": "creation factory, factory 0xf1542dd2d46394c16372fb00f2c339b53cef2ce5; 1 pool addresses with a named provider in robinhood.facts_dex_liquidity_add_view or facts_dex_liquidity_remove_view",
+      "expect": {
+        "asked_as": "token",
+        "founder": "0x4337003fcd2f56de3977ccb806383e9161628d0e",
+        "pools_found": 1
+      }
+    },
+    {
+      "address": "0x117cc2133c37b721f49de2a7a74833232b3b4c0c",
+      "note": "creation factory, factory 0x4783c67b63de2b358ac5951a7d41f47a38f3c046; 257 pool addresses with a named provider in robinhood.facts_dex_liquidity_add_view or facts_dex_liquidity_remove_view",
+      "expect": {
+        "asked_as": "token",
+        "founder": "0x5516b3451d4d6c9f63353fe7bc9537477ecce000",
+        "pools_found": 257
+      }
+    },
+    {
+      "address": "0x134c4fb13dc3c873d699957a8493e463b56f1e18",
+      "note": "creation factory, factory 0x1b37d3a72082029c44b35b604ea473617580b69a; 2 pool addresses with a named provider in robinhood.facts_dex_liquidity_add_view or facts_dex_liquidity_remove_view",
+      "expect": {
+        "asked_as": "token",
+        "founder": "0x1b04299ed7fc7df2ab3831174eff1a476f4ab676",
+        "pools_found": 2
+      }
+    },
+    {
+      "address": "0x12f190a9f9d7d37a250758b26824b97ce941bf54",
+      "note": "creation factory, factory 0x4783c67b63de2b358ac5951a7d41f47a38f3c046; 75 pool addresses with a named provider in robinhood.facts_dex_liquidity_add_view or facts_dex_liquidity_remove_view",
+      "expect": {
+        "asked_as": "token",
+        "founder": "0x5516b3451d4d6c9f63353fe7bc9537477ecce000",
+        "pools_found": 75
+      }
+    },
+    {
+      "address": "0x01a06c422c6ca4996d98da660c04d68e7963a3ed",
+      "note": "creation factory, factory 0xf1542dd2d46394c16372fb00f2c339b53cef2ce5; 1 pool addresses with a named provider in robinhood.facts_dex_liquidity_add_view or facts_dex_liquidity_remove_view",
+      "expect": {
+        "asked_as": "token",
+        "founder": "0x4337004ec9c1417f1c7a26ebd4b4fbed6acf9e5d",
+        "pools_found": 1
+      }
+    },
+    {
+      "address": "0x5173d45a1191ee33cbb7d8c7e65f21b04ed54802",
+      "note": "creation direct, factory none; 53 pool addresses with a named provider in robinhood.facts_dex_liquidity_add_view or facts_dex_liquidity_remove_view",
+      "expect": {
+        "asked_as": "token",
+        "founder": "0xaaa5d87392652647225b96563e469768f000b9de",
+        "pools_found": 53
+      }
+    },
+    {
+      "address": "0x00000000d61733e7a393a10a5b48c311abe8f1e5",
+      "note": "creation factory, factory 0x4e59b44847b379578588920ca78fbf26c0b4956c; 11 pool addresses with a named provider in robinhood.facts_dex_liquidity_add_view or facts_dex_liquidity_remove_view",
+      "expect": {
+        "asked_as": "token",
+        "founder": "0x54f9b12743a7deec0ea48721683cbebedc6e17bc",
+        "pools_found": 11
+      }
+    },
+    {
+      "address": "0x05f13a62bbec831d4da501889e2c3823ecf0cd8a",
+      "note": "creation factory, factory 0xf1542dd2d46394c16372fb00f2c339b53cef2ce5; 1 pool addresses with a named provider in robinhood.facts_dex_liquidity_add_view or facts_dex_liquidity_remove_view",
+      "expect": {
+        "asked_as": "token",
+        "founder": "0x4337003fcd2f56de3977ccb806383e9161628d0e",
+        "pools_found": 1
+      }
+    },
+    {
+      "address": "0x378a50eac56f45fb74e4ce7f1962dbca33515c14",
+      "note": "creation direct, factory none; 30 pool addresses with a named provider in robinhood.facts_dex_liquidity_add_view or facts_dex_liquidity_remove_view",
+      "expect": {
+        "asked_as": "token",
+        "founder": "0x29c1df08da7bf2bec8b17ce9898684090b27777d",
+        "pools_found": 30
+      }
+    },
+    {
+      "address": "0x05a3d1cd21d0c88145e82600e62e7e496e0f222b",
+      "note": "creation factory, factory 0x4783c67b63de2b358ac5951a7d41f47a38f3c046; 52 pool addresses with a named provider in robinhood.facts_dex_liquidity_add_view or facts_dex_liquidity_remove_view",
+      "expect": {
+        "asked_as": "token",
+        "founder": "0x5516b3451d4d6c9f63353fe7bc9537477ecce000",
+        "pools_found": 52
+      }
+    },
+    {
+      "address": "0x07ebb29a38fbcb41563817e5e19f2cec619c90d2",
+      "note": "creation factory, factory 0x3711cea4feade896c913c68f01eda97cb06d1a42; 22 pool addresses with a named provider in robinhood.facts_dex_liquidity_add_view or facts_dex_liquidity_remove_view",
+      "expect": {
+        "asked_as": "token",
+        "founder": "0xc4330342196c66b17985e45a759b42e146f4f68b",
+        "pools_found": 22
+      }
+    },
+    {
+      "address": "0x5236e683b5cbf2cb2b4425782c11670b6f108a37",
+      "note": "creation direct, factory none; 1 pool addresses with a named provider in robinhood.facts_dex_liquidity_add_view or facts_dex_liquidity_remove_view",
+      "expect": {
+        "asked_as": "token",
+        "founder": "0xfb8dd88504a81d698c88ccf99039f572d75b63a8",
+        "pools_found": 1
+      }
+    },
+    {
+      "address": "0x766bd6598182586beda76414dc5f8deb1530a213",
+      "note": "creation factory, factory 0x43e4c17b15365596caae8e7d00e42bc8e988c2d4; 3 pool addresses with a named provider in robinhood.facts_dex_liquidity_add_view or facts_dex_liquidity_remove_view",
+      "expect": {
+        "asked_as": "token",
+        "founder": "0xd8ab093fd32dee6566e300e62fbb200014f589e6",
+        "pools_found": 3,
+        "factory_name": "Virtuals Protocol"
+      }
+    },
+    {
+      "address": "0x00d828b5e320569ce3c3c9f061e6967e506f0799",
+      "note": "creation factory, factory 0xf1542dd2d46394c16372fb00f2c339b53cef2ce5; 1 pool addresses with a named provider in robinhood.facts_dex_liquidity_add_view or facts_dex_liquidity_remove_view",
+      "expect": {
+        "asked_as": "token",
+        "founder": "0x4337002c5702ce424cb62a56ca038e31e1d4a93d",
+        "pools_found": 1
+      }
+    },
+    {
+      "address": "0x56910d4409f3a0c78c64dd8d0545ff0705389870",
+      "note": "creation direct, factory none; 71 pool addresses with a named provider in robinhood.facts_dex_liquidity_add_view or facts_dex_liquidity_remove_view",
+      "expect": {
+        "asked_as": "token",
+        "founder": "0x89562eb8979db1e85a01e85120bfd6a7c47a39cb",
+        "pools_found": 71
+      }
+    },
+    {
+      "address": "0x100765a16f42636bd84ee1e86bc5107b84bcdba3",
+      "note": "creation factory, factory 0x1b37d3a72082029c44b35b604ea473617580b69a; 10 pool addresses with a named provider in robinhood.facts_dex_liquidity_add_view or facts_dex_liquidity_remove_view",
+      "expect": {
+        "asked_as": "token",
+        "founder": "0xef699ac91d9d157b5f39c8391969f8827974a5a9",
+        "pools_found": 10
+      }
+    },
+    {
+      "address": "0x13a0c78482148e7896105051cef1f07732a7eba3",
+      "note": "creation factory, factory 0x1b37d3a72082029c44b35b604ea473617580b69a; 6 pool addresses with a named provider in robinhood.facts_dex_liquidity_add_view or facts_dex_liquidity_remove_view",
+      "expect": {
+        "asked_as": "token",
+        "founder": "0x262fb2d70cec0bc60a7f93a97dc2b20b3b11af51",
+        "pools_found": 6
+      }
+    },
+    {
+      "address": "0x72be1277e198d0c476869253cb4e62807e14533c",
+      "note": "creation factory, factory 0x3711cea4feade896c913c68f01eda97cb06d1a42; 12 pool addresses with a named provider in robinhood.facts_dex_liquidity_add_view or facts_dex_liquidity_remove_view",
+      "expect": {
+        "asked_as": "token",
+        "founder": "0x047d5cadaeb861bb532eb49360ee1892a9294888",
+        "pools_found": 12
+      }
+    }
+  ]
+}

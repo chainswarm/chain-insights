@@ -381,22 +381,28 @@ screen in a terminal.
 `aml_token_risk` screens one token contract or one pool, built on the address
 answer. It takes the same three arguments. The node's labels decide what was
 asked: a node with `Pool` is a pool (a launchpad pair carries `Token` and
-`Pool`, and `Pool` wins), a node with `Token` is a token, and any other
+`Pool`, and `Pool` wins), and so is a pool manager the exchange registry
+lists; a node with `Token` is a token, and any other
 address is answered with its own word only, to be asked again with
 `aml_address_risk`. At most three `graph_query_batch` calls of at most 20
 reads each, all on `USE topology`:
 
 ```mermaid
 flowchart LR
-    B1["batch 1<br/>the subject: node, senders, receivers,<br/>deployment, adders, removers, assets"] --> B2["batch 2, a token<br/>providers by asset (both directions, first),<br/>founder, factory, gas wallets"]
+    B1["batch 1<br/>the subject: node, senders, receivers,<br/>deployment, adders, removers, assets"] --> B2["batch 2, a token<br/>pools and providers by asset (both directions, first),<br/>founder, factory, gas wallets"]
     B1 --> P2["batch 2, a pool<br/>its tokens and its deployer"]
     B2 --> B3["batch 3<br/>the 10 biggest pools with their own address:<br/>node and deployment"]
 ```
 
 - The founder is the wallet that sent the deployment (`tx_origin`, else the
   deployer). The factory is the contract that deployed it, when the
-  deployment kind is `factory`; its `name` comes from the exchange registry,
-  else `null`. The founder carries the full address answer: its word, its
+  deployment kind is `factory`. Its `name` comes from the exchange registry
+  row of the factory (`named_by: 'registry'`). A token factory with no row of
+  its own, such as the Virtuals token factory, which creates tokens and no
+  pools, is named from the token's `launchpad` identity: the first part of
+  its value (`virtuals:CIA:graduated` gives `virtuals`) is the registry key
+  (`named_by: 'launchpad'`). Otherwise `name` and `named_by` are `null`.
+  The founder carries the full address answer: its word, its
   `exposure` and its `exchange_ends`.
 - `risk.word` is the highest of the token's own word, its founder's word and
   each detailed pool's own word. `raised_by` (`token`, `founder` or `pool`)
@@ -406,32 +412,41 @@ flowchart LR
   accounts that paid the founder), an adder and a remover carry their own
   word and never raise it. A pool manager raises nothing. A pool answer
   carries the pool's own word only.
-- The pools come from two whole-chain reads, one per direction, first in
-  their batch: every `ADDED_LIQUIDITY` link that carries the token as
-  `asset`, one row per pool and provider (200 rows at most), and the same on
-  `REMOVED_LIQUIDITY` from the pool to its receiver. One read gives the
-  pools, their providers and their 5 biggest adders or removers at once.
+- The pools come from four whole-chain reads, first in their batch, two
+  per direction (`ADDED_LIQUIDITY` into the pool, `REMOVED_LIQUIDITY` from
+  the pool to its receiver), each by the token as `asset`:
+  - a grouped read, one row per pool address (500 at most): its distinct
+    providers, this token's USD sum and its events. It gives the exact
+    `pools_found`, and each pool's `providers` and `token_side`;
+  - a rows read, one row per pool and provider (200 at most), the biggest
+    first. It gives the 5 biggest adders or removers of each pool.
   A read that is refused or times out is named in `not_read`; the other
-  reads still answer.
+  reads still answer. When the grouped read does not answer, the pools,
+  providers and sums come from the rows read, as far as it reaches.
 - A pool row is one address. The pools inside one pool manager (the manager
   of a vault exchange in the exchange registry, such as Uniswap v4) are
   answered as one row for the manager, not pool by pool: `is_manager: true`,
   `pools_inside: null`, its providers and this token's side. Its node sums
   are the manager's whole book, so `liquidity` is `null`, and it has no
-  word.
+  word. A manager asked about itself sends no adders or removers read and
+  lists none (`adders: []`, `removers: []`): its parties are answered per
+  token, so ask the token.
 - Every pool row carries `exchange`, the registry name by its manager or
   its factory, else `null`; `providers` (distinct adders of this token);
   and `token_side` (this token added and removed; `removed_usd` is `0` when
-  the removals read answered whole with no row for the pool, and `null`
-  when that read did not answer, came back full, or carried no price). A
-  pool with its own
+  the grouped removals read answered under 500 rows with no row for the
+  pool, and `null` when that read did not answer, came back full, or the
+  pool's removals carry no price). A pool with its own
   address, among the 10 biggest, adds its node: its own word in `risk` and
   both sides of `liquidity`.
-- `pools_found` counts the pool addresses read; the 10 biggest by tokens
-  added are detailed (`detail: true`); `pools_truncated` says when more
-  exist; `providers_truncated` says a providers read came back full, and
-  `not_read` names it as `pool_providers` or `pool_removals` with code
-  `truncated`.
+- `pools_found` counts every pool address of the token, exact up to 500.
+  The 10 biggest by tokens added are detailed (`detail: true`); a pool
+  beyond them keeps its providers and `token_side`. `pools_truncated` says
+  when more pools exist than are detailed; a grouped read full at 500 is
+  named in `not_read` as part `pools` with code `truncated`.
+  `parties_truncated` says a rows read came back full, so the adders and
+  removers of a pool may miss a party; `not_read` names it as part
+  `pool_parties` with code `truncated`.
 - A USD sum with no priced link is `null`, never `0`.
 - `not_read` names every part that did not answer (`pools`,
   `pool_removals`, `founder`, `factory`, `gas_wallets`, a pool's `pool`,
