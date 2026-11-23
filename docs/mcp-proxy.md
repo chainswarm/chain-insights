@@ -365,6 +365,23 @@ flowchart LR
   never changes the address's word. `pattern_partners` counts the partners
   with a pattern fact and no word of `medium` or above. A token contract and
   the zero addresses are left out and counted in `left_out`.
+- `exposed` is present only when the node carries the `exposed` property
+  (JSON text, an array with one block per scam kind, sorted by `scam_kind`).
+  Each block holds `grade` (always `exposed`), `band` (`top`, `high` or
+  `raised`), `scam_kind` and its name, `steps`, `path` (the trail id),
+  `path_address`, `way` (addresses, nearest the address first),
+  `link_payments`, `link_two_way`, `day`, `profile`, `paid_once` and one
+  `text`: "Exposed (high band): in the blast radius of fake-token scams, 2
+  payments away: pays 0xWAY, which paid 0xPATH_ADDRESS on the path" (at 1 step:
+  "paid 0xPATH_ADDRESS on the path"), with "; paid once, may be a victim"
+  when `paid_once` is true. The direction is fixed: the address paid the
+  first of `way`, each paid the next, the last paid `path_address`. The
+  sentence never says money came to the address. The words come from the card dictionary
+  (`exposed`, `exposed_band`, `scam_kind`, `paid_once`, question `exposure`).
+  Exposed is a grade below proof: never evidence against the address, no
+  number, and it adds no reason and never changes `risk.word`. A value that
+  is not valid JSON shows nothing and is logged; an absent property says
+  nothing. `exposed_pass` is never read.
 - `exchange_ends` lists the exchange wallets the address paid or was paid by,
   named through the exchange lookup.
 - The node is read first, alone, in its own call. A hub, a node with more

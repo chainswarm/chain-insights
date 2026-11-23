@@ -34,6 +34,7 @@ import {
   type ExchangeEntry,
   type LoadedExchangeRegistry,
 } from './exchange-registry.js'
+import { exposedOf, type ExposedBlock } from './exposed.js'
 import { exchangeRoleRead } from './graph-schema.js'
 import {
   levelRank,
@@ -81,6 +82,7 @@ export const AML_ADDRESS_RISK_DESCRIPTION =
   'risk.score is the model number from 0 to 1, or null: a label never makes a number. ' +
   'unscored means neither labels nor the model speak about the address: it is not low and not safe. ' +
   'A risky partner is listed beside the word and never changes it. ' +
+  'exposed, when present, is a grade below proof: one block per scam kind the address sits near (band, steps, the way of addresses), never evidence against the address, and it never changes the word. ' +
   'A hub (more than 50,000 links, such as the zero address or a pool manager) has its counterparties not ranked: exposure.hub is true, counterparties_read is 0, and not_read names counterparties; ask about one counterparty, or one token, instead. ' +
   `${ADDRESS_RISK_READING_RULE} ` +
   'Write every address in full, all 42 characters. Pass surroundings: true for the nodes and money links behind the answer, to draw.'
@@ -214,6 +216,11 @@ export interface AmlAddressRiskResult {
   exposure: Exposure | null
   exchange_ends: ExchangeEnd[]
   not_read: NotRead[]
+  /**
+   * Exposed, a grade below proof: one block per scam kind the address sits near.
+   * It sets no risk word. Absent when the node has nothing to show.
+   */
+  exposed?: ExposedBlock[]
   surroundings?: Surroundings
 }
 
@@ -256,7 +263,7 @@ export function addressNodeQuery(address: string, extra: readonly string[] = [])
     `USE topology MATCH (a:Address {address: "${address}"}) ` +
     'RETURN labels(a) AS node_labels, a.card_version AS card_version, a.identity AS identity, a.identity_name AS identity_name, ' +
     'a.identities AS identities, a.address_roles AS address_roles, a.behaviour AS behaviour, a.evidence AS evidence, ' +
-    'a.judgements AS judgements, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, ' +
+    'a.judgements AS judgements, a.exposed AS exposed, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, ' +
     `${exchangeRoleRead('a')} AS exchange_role, a.degree_total AS degree_total, a.degree_out AS degree_out${more} LIMIT 1`
   )
 }
@@ -639,6 +646,8 @@ export function addressRiskFromMembers(
     exchange_ends: exchangeEnds,
     not_read: notRead,
   }
+  const exposed = exposedOf(nodeRow.exposed, dictionary)
+  if (exposed.length > 0) result.exposed = exposed
   if (options.surroundings === true) {
     result.surroundings = surroundingsOf(
       {

@@ -3,6 +3,36 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.93.0] - 2026-11-23 — exposed: how close an address sits to a scam kind
+
+### Added
+
+- `aml_address_risk` reads the node's `exposed` property and, when it is
+  present, answers an `exposed` list beside the labels and trails: one block
+  per scam kind with its `band` (`top`, `high` or `raised`), the payments
+  away (`steps`), the `way` of addresses nearest the address first, the trail
+  (`path`, `path_address`), `link_payments`, `link_two_way`, `day`, `profile`,
+  `paid_once` and one sentence, `text`: "Exposed (high band): in the blast
+  radius of fake-token scams, 2 payments away: pays 0xWAY, which paid
+  0xPATH_ADDRESS on the path". The address paid the first address of the
+  way, each paid the next, the last paid the path address. At
+  `paid_once` the text adds "paid once, may be a victim".
+- The address card dictionary (`registry/address-card.json`) holds the
+  property `exposed` and its words: the grade word `exposed`, the bands
+  (`exposed_band`), the scam kind names (`scam_kind`: fake-token, fake-token-liquidity,
+  inbound-impersonation, poisoning, permission-abuse and phantom-transfer
+  scams) and `paid_once`. The dictionary is generated from the label
+  vocabulary, which now holds an `exposure` block.
+
+### Changed
+
+- Exposed is a grade below proof. It is never evidence against the address,
+  carries no number, adds no reason and never changes `risk.word`. An address
+  with a label of its own is answered by the label first. A value that is not
+  valid JSON shows nothing and is logged; an absent property says nothing.
+- The node read of the risk tools and the `chain-insights-address-risk` skill
+  list `a.exposed AS exposed`.
+
 ## [0.92.0] - 2026-11-22 — a hub's counterparties are not ranked
 
 ### Added

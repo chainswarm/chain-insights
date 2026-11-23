@@ -740,6 +740,7 @@ Every `:Address` node carries one card. `meta_schema` lists each card property w
 | What does one week of counts show, and does it fit the role? | `behaviour`, `behaviour_week`, `role_fit` |
 | What did it do, or what was done to it? Each entry is `word:VALUE`. | `evidence` |
 | Which risky patterns, that accuse nobody? Each entry is `word:VALUE`. | `judgements` |
+| How close does it sit to a scam kind, one grade below proof? JSON text, one block per kind, never evidence against the address. | `exposed` |
 | How high is its risk: the highest level of any live word? | `risk` |
 | Who gave the answers, from which vocabulary version, and when? | `sources`, `card_version`, `card_updated_ms` |
 
