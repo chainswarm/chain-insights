@@ -143,6 +143,17 @@
       "value_form": "word:VALUE"
     },
     {
+      "name": "exposed",
+      "type": "string",
+      "question": "exposure",
+      "means": "How close the address sits to a scam kind, one grade below proof: JSON text, an array with one block per scam kind, sorted by scam_kind (band top, high or raised; scam_kind; steps; path; path_address; way; link_payments; link_two_way; day; profile; paid_once). Absent when there is nothing to show. It is never evidence against the address and sets no risk word.",
+      "values": [
+        "top",
+        "high",
+        "raised"
+      ]
+    },
+    {
       "name": "risk",
       "type": "string",
       "question": "card",
@@ -675,6 +686,87 @@
       "level": "none",
       "value": "FAKE_TOKEN_LP",
       "plain": "Added liquidity to a token that copies the name or symbol of a verified token."
+    },
+    {
+      "word": "exposed",
+      "question": "exposure",
+      "level": "none",
+      "plain": "Exposed: a grade below proof. The address sits in the blast radius of a scam kind, a few payments from an address that is. It is not evidence against the address."
+    },
+    {
+      "word": "exposed_band",
+      "question": "exposure",
+      "level": "none",
+      "value": "top",
+      "plain": "The top band of exposure to a scam kind: the closest the exposed grade reaches."
+    },
+    {
+      "word": "exposed_band",
+      "question": "exposure",
+      "level": "none",
+      "value": "high",
+      "plain": "The high band of exposure to a scam kind."
+    },
+    {
+      "word": "exposed_band",
+      "question": "exposure",
+      "level": "none",
+      "value": "raised",
+      "plain": "The raised band of exposure to a scam kind: the lowest band shown."
+    },
+    {
+      "word": "scam_kind",
+      "question": "exposure",
+      "level": "none",
+      "plain": "a scam kind"
+    },
+    {
+      "word": "scam_kind",
+      "question": "exposure",
+      "level": "none",
+      "value": "evidence:fake-token",
+      "plain": "fake-token scams"
+    },
+    {
+      "word": "scam_kind",
+      "question": "exposure",
+      "level": "none",
+      "value": "evidence:fake-token-liquidity",
+      "plain": "fake-token liquidity scams"
+    },
+    {
+      "word": "scam_kind",
+      "question": "exposure",
+      "level": "none",
+      "value": "evidence:inbound-impersonation",
+      "plain": "impersonation scams"
+    },
+    {
+      "word": "scam_kind",
+      "question": "exposure",
+      "level": "none",
+      "value": "evidence:poisoning",
+      "plain": "address-poisoning scams"
+    },
+    {
+      "word": "scam_kind",
+      "question": "exposure",
+      "level": "none",
+      "value": "evidence:permission-abuse",
+      "plain": "wallet-permission scams"
+    },
+    {
+      "word": "scam_kind",
+      "question": "exposure",
+      "level": "none",
+      "value": "evidence:phantom-transfer",
+      "plain": "phantom-transfer scams"
+    },
+    {
+      "word": "paid_once",
+      "question": "exposure",
+      "level": "none",
+      "plain": "Paid once, may be a victim"
     }
   ]
 }

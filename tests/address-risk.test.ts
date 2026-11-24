@@ -317,6 +317,123 @@ describe('aml_address_risk', () => {
     expect(structured.not_read).toEqual([])
   })
 
+  describe('exposed, a grade below proof', () => {
+    const WAY = [PLAIN, POOL]
+    const block = (fields: Record<string, unknown> = {}) => ({
+      band: 'high',
+      scam_kind: 'evidence:fake-token',
+      steps: 2,
+      path: 'trail-17',
+      path_address: SCAMMER,
+      way: WAY,
+      link_payments: 4,
+      link_two_way: false,
+      day: '2026-11-20',
+      profile: 'blast@v1',
+      paid_once: false,
+      ...fields,
+    })
+    const exposedCall = async (exposed: unknown, row: Record<string, unknown> = {}) => {
+      const [node, ...rest] = fullMembers()
+      void node
+      return call([nodeMember({ ...SUBJECT_ROW, ...row, exposed, exposed_pass: 7 }), ...rest])
+    }
+
+    it('reads the exposed property in the node read', () => {
+      expect(addressRiskQueries(SUBJECT)[0]!.query).toContain('a.exposed AS exposed')
+      expect(addressRiskQueries(SUBJECT)[0]!.query).not.toContain('exposed_pass')
+    })
+
+    it('shows one block per scam kind with the way and the sentence, and no number', async () => {
+      const { structured } = await exposedCall(
+        JSON.stringify([block(), block({ scam_kind: 'evidence:scam', band: 'raised', steps: 1, way: [] })])
+      )
+      expect(structured.exposed).toHaveLength(2)
+      expect(structured.exposed![0]).toMatchObject({
+        grade: 'exposed',
+        band: 'high',
+        scam_kind: 'evidence:fake-token',
+        scam_kind_name: 'fake-token scams',
+        steps: 2,
+        path: 'trail-17',
+        path_address: SCAMMER,
+        way: WAY,
+        paid_once: false,
+        text: `Exposed (high band): in the blast radius of fake-token scams, 2 payments away: pays ${PLAIN}, which paid ${POOL}, which paid ${SCAMMER} on the path`,
+      })
+      // An unnamed scam kind shows its own text; one step is singular and names the path address as paid.
+      expect(structured.exposed![1]!.text).toBe(
+        `Exposed (raised band): in the blast radius of evidence:scam, 1 payment away: paid ${SCAMMER} on the path`
+      )
+      expect(JSON.stringify(structured.exposed)).not.toMatch(/score|exposed_pass|attested|evidence against/)
+    })
+
+    it('names every evidence family a scam kind can be', async () => {
+      const names: Record<string, string> = {
+        'evidence:fake-token': 'fake-token scams',
+        'evidence:fake-token-liquidity': 'fake-token liquidity scams',
+        'evidence:inbound-impersonation': 'impersonation scams',
+        'evidence:poisoning': 'address-poisoning scams',
+        'evidence:permission-abuse': 'wallet-permission scams',
+        'evidence:phantom-transfer': 'phantom-transfer scams',
+      }
+      const { structured } = await exposedCall(
+        JSON.stringify(Object.keys(names).map((scam_kind) => block({ scam_kind })))
+      )
+      expect(structured.exposed!.map((b) => b.scam_kind_name)).toEqual(Object.values(names))
+    })
+
+    it('says paid once, may be a victim, when the writer says so', async () => {
+      const { structured } = await exposedCall(JSON.stringify([block({ paid_once: true })]))
+      expect(structured.exposed![0]!.text).toMatch(/; paid once, may be a victim$/)
+    })
+
+    it('never raises the risk word, and an address with a proof label still answers by the label first', async () => {
+      const plain = await call(fullMembers())
+      const top = await exposedCall(JSON.stringify([block({ band: 'top' })]))
+      expect(top.structured.risk).toEqual(plain.structured.risk)
+      const labelled = await exposedCall(JSON.stringify([block()]), { evidence: ['scam'] })
+      expect(labelled.structured.risk.word).toBe('critical')
+      expect(labelled.structured.risk.reasons.map((r) => r.word)).not.toContain('exposed')
+      expect(Object.keys(labelled.structured).indexOf('risk')).toBeLessThan(
+        Object.keys(labelled.structured).indexOf('exposed')
+      )
+    })
+
+    it('says nothing when the property is absent or empty', async () => {
+      for (const value of [undefined, null, '', '[]']) {
+        const { structured } = await exposedCall(value)
+        expect('exposed' in structured).toBe(false)
+        expect(Object.keys(structured)).toEqual(ANSWER_KEYS)
+      }
+    })
+
+    it('shows nothing and logs on malformed JSON, and never crashes', async () => {
+      const logs: string[] = []
+      const write = process.stderr.write.bind(process.stderr)
+      process.stderr.write = ((line: string) => {
+        logs.push(String(line))
+        return true
+      }) as typeof process.stderr.write
+      try {
+        for (const value of ['{not json', '{"band":"top"}', JSON.stringify([{ band: 'gold', scam_kind: 'x', steps: 1 }]), 42]) {
+          const { result, structured } = await exposedCall(value)
+          expect(result.isError).toBe(false)
+          expect('exposed' in structured).toBe(false)
+        }
+      } finally {
+        process.stderr.write = write
+      }
+      expect(logs.length).toBe(4)
+      expect(logs.every((line) => line.startsWith('[chain-insights] exposed:'))).toBe(true)
+    })
+
+    it('keeps the good blocks when one block is unusable', async () => {
+      const { structured } = await exposedCall(JSON.stringify([block(), { band: 'top' }]))
+      expect(structured.exposed).toHaveLength(1)
+    })
+  })
+
   it('a risky partner never changes the address word', async () => {
     const quiet = [nodeMember({ ...SUBJECT_ROW, evidence: [], judgements: [], risk_level: null, risk_score: null })]
     const alone = await call([...quiet, rowsMember('in', []), rowsMember('out', [])])

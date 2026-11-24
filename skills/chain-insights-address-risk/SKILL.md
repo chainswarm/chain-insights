@@ -24,7 +24,7 @@ The tool's first read, shown so a host without the tool can send the same
 one through `graph_query`:
 
 ```cypher
-USE topology MATCH (a:Address {address: "0x766bd6598182586beda76414dc5f8deb1530a213"}) RETURN labels(a) AS node_labels, a.card_version AS card_version, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.address_roles AS address_roles, a.behaviour AS behaviour, a.evidence AS evidence, a.judgements AS judgements, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, coalesce(a.exchange_role, a.cex_role) AS exchange_role, a.degree_total AS degree_total, a.degree_out AS degree_out LIMIT 1
+USE topology MATCH (a:Address {address: "0x766bd6598182586beda76414dc5f8deb1530a213"}) RETURN labels(a) AS node_labels, a.card_version AS card_version, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.address_roles AS address_roles, a.behaviour AS behaviour, a.evidence AS evidence, a.judgements AS judgements, a.exposed AS exposed, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, coalesce(a.exchange_role, a.cex_role) AS exchange_role, a.degree_total AS degree_total, a.degree_out AS degree_out LIMIT 1
 ```
 
 ## How to read `risk`
@@ -42,6 +42,22 @@ USE topology MATCH (a:Address {address: "0x766bd6598182586beda76414dc5f8deb1530a
   `pattern` is a pattern fact: it accuses nobody and sets no word.
 - A partner in `exposure.with_risk` is listed beside the word and never
   changes it. Receiving money from a risky address is a fact, not guilt.
+
+## Exposed, a grade below proof
+
+When the answer holds `exposed`, the address sits in the blast radius of a
+scam kind: one block per kind, with its `band` (`top`, `high` or `raised`),
+the payments away (`steps`) and the `way` of addresses, nearest the address
+first. Read each block's `text` as written.
+
+- Exposed is a grade below proof. It is never evidence against the address,
+  and it never changes `risk.word`. An address with a label of its own is
+  answered by the label first.
+- A block with `paid_once` true says the address paid once and may be a
+  victim: say so.
+- There is no number. Never make one up from the band.
+- No `exposed` in the answer means there is nothing to show. Say nothing
+  about it.
 
 ## A hub
 
