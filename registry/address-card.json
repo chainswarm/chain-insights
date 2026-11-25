@@ -622,21 +622,21 @@
       "question": "judgement",
       "level": "none",
       "value": "FAKE_TOKEN",
-      "plain": "Copies the name or symbol of a verified token."
+      "plain": "Its symbol copies the symbol of a verified token, or the name of the chain's own coin."
     },
     {
       "word": "suspect",
       "question": "judgement",
       "level": "none",
       "value": "FAKE_TOKEN_DEPLOYER",
-      "plain": "Deployed a token that copies the name or symbol of a verified token."
+      "plain": "Deployed a token whose symbol copies the symbol of a verified token, or the name of the chain's own coin."
     },
     {
       "word": "suspect",
       "question": "judgement",
       "level": "none",
       "value": "FAKE_TOKEN_LP",
-      "plain": "Added liquidity to a token that copies the name or symbol of a verified token."
+      "plain": "Added liquidity to a token whose symbol copies the symbol of a verified token, or the name of the chain's own coin."
     },
     {
       "word": "suspect",
@@ -650,7 +650,7 @@
       "question": "judgement",
       "level": "none",
       "value": "UNSAFE_DELEGATE",
-      "plain": "Delegates its account to code that lets another party move its funds."
+      "plain": "Code that accounts delegate to, and that lets another party move their funds."
     },
     {
       "word": "suspect",
@@ -671,21 +671,21 @@
       "question": "judgement",
       "level": "none",
       "value": "FAKE_TOKEN",
-      "plain": "Copies the name or symbol of a verified token."
+      "plain": "Its symbol copies the symbol of a verified token, or the name of the chain's own coin."
     },
     {
       "word": "scam",
       "question": "judgement",
       "level": "none",
       "value": "FAKE_TOKEN_DEPLOYER",
-      "plain": "Deployed a token that copies the name or symbol of a verified token."
+      "plain": "Deployed a token whose symbol copies the symbol of a verified token, or the name of the chain's own coin."
     },
     {
       "word": "scam",
       "question": "judgement",
       "level": "none",
       "value": "FAKE_TOKEN_LP",
-      "plain": "Added liquidity to a token that copies the name or symbol of a verified token."
+      "plain": "Added liquidity to a token whose symbol copies the symbol of a verified token, or the name of the chain's own coin."
     },
     {
       "word": "exposed",

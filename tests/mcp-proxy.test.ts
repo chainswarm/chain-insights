@@ -629,8 +629,8 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
       expect(instructions).toContain(list)
     }
     expect(instructions).not.toMatch(/label_risk\b(?!_)/)
-    // No overall risk score is served: the instructions must say so, not teach risk_score.
-    expect(instructions).toContain('No overall risk score is served')
+    // The instructions say what a missing risk_score means and do not teach risk_score as a field.
+    expect(instructions).toContain('A missing risk_score is no verdict, never low risk')
     expect(instructions).not.toContain('risk_score float')
     // Role words and the five role flags, each flag present only when true.
     for (const word of ['Exchange', 'Scam', 'Victim', 'Sanctioned', 'IssuerFrozen']) {

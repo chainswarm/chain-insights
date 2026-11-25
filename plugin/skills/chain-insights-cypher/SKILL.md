@@ -51,7 +51,7 @@ The one case without the tool is at the end, Shell without the tool.
    Read the judgement marks and the claims list beside each, see
    [Judgement marks](#judgement-marks-scams-victims-and-trails). Do not
    volunteer a risk screen when the user asked about flows, a balance or a
-   transaction. No overall risk score is served.
+   transaction. A missing `risk_score` is no verdict, never low risk.
 5. Never write files, reports or notes unless the user asks. Answer in the chat.
 6. After a refusal, fix the query once from `fix` and `example`. A second
    refusal ends it: tell the user plainly what cannot be asked and what can.
@@ -299,7 +299,7 @@ A mark says what the labels layer judged. The claims list beside it says why. Th
 
 | Mark | List | Value: what it means |
 | --- | --- | --- |
-| `:Scam` | `risk_claims` | `FAKE_TOKEN`: a fake-token scam, a token that copies a listed token and was sent to holders of the real token, or used as poisoning bait. `FAKE_TOKEN_DEPLOYER`: the sender of the transaction that created it, even through a factory. `FAKE_TOKEN_LP`: the wallet that seeded its pool and pulled the liquidity after the buyers paid. `INBOUND_IMPERSONATION`: a look-alike address that paid the target to get into its history. `PHANTOM_TRANSFER`, `PHANTOM_TRANSFER_EMITTER`, `PHANTOM_ENTRYPOINT`: a contract that writes fake transfer events, claiming a transfer from a look-alike that never happened. `SWEEPER_DELEGATE`: an EIP-7702 delegate that empties the accounts that delegate to it. `SWEEP_BENEFICIARY`: where it sends the funds. `UNSAFE_DELEGATE`: a delegate any caller can use to empty the account. `APPROVAL_DRAINER`: a spender that moved the tokens of at least three owners with their approval or Permit2 within 72 hours of the grant, and paid nothing back. `APPROVAL_DRAIN_BENEFICIARY`: the receiver of those tokens. |
+| `:Scam` | `risk_claims` | `FAKE_TOKEN`: a fake-token scam, a token that copies a listed token and was sent to holders of the real token, or used as poisoning bait. `FAKE_TOKEN_DEPLOYER`: the sender of the transaction that created it, even through a factory. `FAKE_TOKEN_LP`: the wallet that seeded its pool and pulled the liquidity after the buyers paid. `INBOUND_IMPERSONATION`: a look-alike address that paid the target to get into its history. `PHANTOM_TRANSFER`, `PHANTOM_TRANSFER_EMITTER`, `PHANTOM_ENTRYPOINT`: a contract that writes fake transfer events, claiming a transfer that never happened. `SWEEPER_DELEGATE`: an EIP-7702 delegate that empties the accounts that delegate to it. `SWEEP_BENEFICIARY`: where it sends the funds. `UNSAFE_DELEGATE`: a delegate any caller can use to empty the account. `APPROVAL_DRAINER`: a spender that moved the tokens of at least three owners with their approval or Permit2 within 72 hours of the grant, and paid nothing back. `APPROVAL_DRAIN_BENEFICIARY`: the receiver of those tokens. |
 | `:Poisoned` | `risk_claims` | `ADDRESS_POISONING`: a poisoner, a look-alike address that sent worthless dust so the target copies it from its history. Never `:Scam`. |
 | `:Sanctioned` | `risk_claims` | `SANCTIONED`: on a sanctions list. |
 | `:Victim` | `protection_claims` | `VICTIM`: it lost money to a scam the evidence walk traced. It paid the accused, was swept, or was drained after the attempt. Receiving a fake token or dust never makes a victim. |

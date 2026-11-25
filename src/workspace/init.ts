@@ -234,9 +234,8 @@ The address-grain graph schema:
   a.risk_claims\` for fake tokens) or anchor on the address: the mark is
   the anchor, and a \`WHERE\` with no mark and no address is refused. Say what a claim means in plain words, such as "a fake-token
   scam" or "it lost money to a scam", never the list name or the code.
-- Address nodes carry no risk score today (\`risk_score\` and
-  \`risk_level\` read null on every lane): the judgement is the marks and
-  their claims lists above. They carry base activity rollups:
+- A missing \`risk_score\` is no verdict, never low risk: the judgement is the marks and
+  their claims lists above. Address nodes carry base activity rollups:
   \`degree_in\`/\`degree_out\`/\`degree_total\` (distinct counterparty
   addresses), \`tx_in_count\`/\`tx_out_count\`/\`tx_total_count\`,
   \`total_in_usd\`/\`total_out_usd\`/\`total_volume_usd\`, \`net_flow_usd\`
@@ -269,8 +268,7 @@ The address-grain graph schema:
   Lifetime aggregates are the only serving window.
 - Money flow is \`(:Address)-[:FLOWED_TO]->(:Address)\`. Public AML tools
   accept the raw blockchain address directly — there is no resolution step.
-- There is no served risk score: an absent \`risk_score\` is \`UNSCORED\`,
-  no verdict, never low risk. The verdict is the marks (\`:Scam\`, \`:Victim\`,
+- An absent \`risk_score\` is \`UNSCORED\`, no verdict, never low risk. The verdict is the marks (\`:Scam\`, \`:Victim\`,
   \`:Poisoned\`, \`:OnMoneyTrail\`) with their claims lists.
   Labels and per-label risk live on the address node (\`labels\` array plus
   the three \`label_risk_*\` lists). \`USE facts\` serves bounded individual

@@ -70,21 +70,21 @@ export const JUDGEMENT_CLAIMS: readonly JudgementClaim[] = Object.freeze([
     property: 'risk_claims',
     mark: 'Scam',
     plain:
-      'a contract that writes fake transfer events, claiming a transfer from a look-alike that never happened',
+      'a contract that writes fake transfer events, claiming a transfer that never happened',
   },
   {
     value: 'PHANTOM_TRANSFER_EMITTER',
     property: 'risk_claims',
     mark: 'Scam',
     plain:
-      'a contract that writes fake transfer events, claiming a transfer from a look-alike that never happened',
+      'a contract that writes fake transfer events, claiming a transfer that never happened',
   },
   {
     value: 'PHANTOM_ENTRYPOINT',
     property: 'risk_claims',
     mark: 'Scam',
     plain:
-      'a contract that writes fake transfer events, claiming a transfer from a look-alike that never happened',
+      'a contract that writes fake transfer events, claiming a transfer that never happened',
   },
   {
     value: 'SWEEPER_DELEGATE',
