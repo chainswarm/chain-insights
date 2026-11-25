@@ -536,9 +536,9 @@ What each value means:
 | `FAKE_TOKEN_LP`              | The wallet that seeded a fake token's pool and pulled its liquidity after the buyers paid.                               |
 | `ADDRESS_POISONING`          | A poisoner: a look-alike address that sent worthless dust so the target copies it from its history. `:Poisoned`, never `:Scam`. |
 | `INBOUND_IMPERSONATION`      | A look-alike address that paid the target to get into its history.                                                      |
-| `PHANTOM_TRANSFER`           | A contract that writes fake transfer events, claiming a transfer from a look-alike that never happened.                  |
-| `PHANTOM_TRANSFER_EMITTER`   | A contract that writes fake transfer events, claiming a transfer from a look-alike that never happened.                  |
-| `PHANTOM_ENTRYPOINT`         | A contract that writes fake transfer events, claiming a transfer from a look-alike that never happened.                  |
+| `PHANTOM_TRANSFER`           | A contract that writes fake transfer events, claiming a transfer that never happened.                  |
+| `PHANTOM_TRANSFER_EMITTER`   | A contract that writes fake transfer events, claiming a transfer that never happened.                  |
+| `PHANTOM_ENTRYPOINT`         | A contract that writes fake transfer events, claiming a transfer that never happened.                  |
 | `SWEEPER_DELEGATE`           | An EIP-7702 delegate that empties the accounts that delegate to it.                                                      |
 | `SWEEP_BENEFICIARY`          | Where a sweeper sends the funds.                                                                                         |
 | `UNSAFE_DELEGATE`            | A delegate any caller can use to empty the account.                                                                      |
