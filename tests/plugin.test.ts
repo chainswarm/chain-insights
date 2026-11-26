@@ -90,15 +90,28 @@ describe('Claude plugin (plugin/)', () => {
     expect(plugin.author).toMatchObject({ name: expect.any(String) })
   })
 
-  it('starts the local proxy over stdio from the published package at the package version', () => {
+  // The pin names a version npm already has. It moves to the package version
+  // after that version is published, so between a version bump and its publish
+  // it names an older release, never a newer one.
+  it('starts the local proxy over stdio from a published package no newer than the package version', () => {
     const pkg = readJson('package.json') as { version: string; bin: Record<string, string> }
     expect(pkg.bin['chain-insights-mcp-proxy']).toBe('./bin/mcp-proxy.cjs')
-    expect(readJson('plugin/.mcp.json')).toEqual({
+    const servers = readJson('plugin/.mcp.json') as {
+      mcpServers: { 'chain-insights': { args: string[] } }
+    }
+    const pinArg = servers.mcpServers['chain-insights'].args[1]
+    const pinned = /^--package=chain-insights@(\d+\.\d+\.\d+)$/.exec(pinArg)?.[1]
+    expect(pinned).toBeDefined()
+    const parts = (v: string) => v.split('.').map(Number)
+    const [a, b] = [parts(pinned as string), parts(pkg.version)]
+    const cmp = a[0] - b[0] || a[1] - b[1] || a[2] - b[2]
+    expect(cmp).toBeLessThanOrEqual(0)
+    expect(servers).toEqual({
       mcpServers: {
         'chain-insights': {
           type: 'stdio',
           command: 'npx',
-          args: ['--yes', `--package=chain-insights@${pkg.version}`, 'chain-insights-mcp-proxy'],
+          args: ['--yes', `--package=chain-insights@${pinned}`, 'chain-insights-mcp-proxy'],
         },
       },
     })
