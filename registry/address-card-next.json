@@ -1,0 +1,818 @@
+{
+  "generated_from": "AP1000 docs/domain/label-vocabulary.yaml",
+  "version": "4",
+  "rule": "Read the address card (identity, names, address_roles, behaviour, evidence, judgements, categories, case_judgements, risk), not the labels list.",
+  "properties": [
+    {
+      "name": "identity",
+      "type": "string",
+      "question": "identity",
+      "means": "What the address is: the identity word of the lowest rank.",
+      "values": [
+        "exchange",
+        "payment_processor",
+        "otc_desk",
+        "mixer",
+        "bridge",
+        "launchpad",
+        "dex",
+        "defi",
+        "gambling",
+        "token",
+        "protocol",
+        "foundation",
+        "validator",
+        "implementation",
+        "contract",
+        "hub",
+        "whale",
+        "miner",
+        "neuron",
+        "subnet"
+      ]
+    },
+    {
+      "name": "identity_name",
+      "type": "string",
+      "question": "identity",
+      "means": "The name the winning identity row gives, such as the exchange id. Absent when the value is empty or repeats the word."
+    },
+    {
+      "name": "identities",
+      "type": "list<string>",
+      "question": "identity",
+      "means": "Every identity word of the address, each once, in rank order.",
+      "values": [
+        "exchange",
+        "payment_processor",
+        "otc_desk",
+        "mixer",
+        "bridge",
+        "launchpad",
+        "dex",
+        "defi",
+        "gambling",
+        "token",
+        "protocol",
+        "foundation",
+        "validator",
+        "implementation",
+        "contract",
+        "hub",
+        "whale",
+        "miner",
+        "neuron",
+        "subnet"
+      ]
+    },
+    {
+      "name": "address_roles",
+      "type": "list<string>",
+      "question": "role",
+      "means": "Every role word of the address, each once, sorted.",
+      "values": [
+        "exchange_deposit",
+        "exchange_hot_wallet",
+        "exchange_cold_wallet",
+        "exchange_withdrawal",
+        "router",
+        "bundler",
+        "paymaster",
+        "entrypoint"
+      ]
+    },
+    {
+      "name": "behaviour",
+      "type": "string",
+      "question": "behaviour",
+      "means": "What kind of automated or high-volume account one week of on-chain counts shows. Not a risk.",
+      "values": [
+        "SWAP_BOT_FARM_WALLET",
+        "DEX_TRADER_BOT",
+        "VOLUME_RING_HUB",
+        "WALLET_FARM_CONTROLLER",
+        "FIXED_AMOUNT_DISTRIBUTOR",
+        "MIXER_LOOP_HUB",
+        "PAYOUT_DESK"
+      ]
+    },
+    {
+      "name": "behaviour_week",
+      "type": "string",
+      "question": "behaviour",
+      "means": "The last day of the week the behaviour was read for."
+    },
+    {
+      "name": "role_fit",
+      "type": "string",
+      "question": "role",
+      "means": "Whether the behaviour fits the address's role: fits, silent (no behaviour) or off_pattern. Absent when no role of the address has a fits list.",
+      "values": [
+        "fits",
+        "silent",
+        "off_pattern"
+      ]
+    },
+    {
+      "name": "evidence",
+      "type": "list<string>",
+      "question": "evidence",
+      "means": "What the address did or what was done to it: one entry per live row, word:VALUE, or the word alone when the value is empty or repeats the word. Sorted.",
+      "values": [
+        "issuer_frozen",
+        "victim",
+        "malicious"
+      ],
+      "value_form": "word:VALUE"
+    },
+    {
+      "name": "judgements",
+      "type": "list<string>",
+      "question": "judgement",
+      "means": "Risky patterns that do not convict on their own: one entry per live row, word:VALUE. Sorted. A judgement accuses nobody.",
+      "values": [
+        "suspect"
+      ],
+      "value_form": "word:VALUE"
+    },
+    {
+      "name": "exposed",
+      "type": "string",
+      "question": "exposure",
+      "means": "How close the address sits to a scam kind, one grade below proof: JSON text, an array with one block per scam kind, sorted by scam_kind (band top, high or raised; scam_kind; steps; path; path_address; way; link_payments; link_two_way; day; profile; paid_once). Absent when there is nothing to show. It is never evidence against the address and sets no risk word.",
+      "values": [
+        "top",
+        "high",
+        "raised"
+      ]
+    },
+    {
+      "name": "risk",
+      "type": "string",
+      "question": "card",
+      "means": "The highest level of any live word of the address. Absent when every word is none.",
+      "values": [
+        "critical",
+        "high",
+        "medium",
+        "low"
+      ]
+    },
+    {
+      "name": "names",
+      "type": "list<string>",
+      "question": "name",
+      "means": "The names the address is known by, such as its ENS or Basenames name: the value of each live name row, sorted, each once. A name is no judgement. Absent when it has none."
+    },
+    {
+      "name": "categories",
+      "type": "list<string>",
+      "question": "card",
+      "means": "Every category of the address's live judgements, sorted, each once: malicious, suspect or victim. Malicious is always a positive, a suspect is never confirmed, a victim lost money. A suspect shows only when no malicious row is live. One address can be a victim in one case and malicious in another. Absent when the address has no judgement.",
+      "values": [
+        "malicious",
+        "suspect",
+        "victim"
+      ]
+    },
+    {
+      "name": "case_judgements",
+      "type": "list<string>",
+      "question": "card",
+      "means": "One entry per live judgement with its case, sorted: category|type|role|case. type and role are empty when there is none; for a mule the type is the type of its trail. case is the evidence case of the row, or list:<labeler> for a row of an outside list, which has no case.",
+      "value_form": "category|type|role|case"
+    },
+    {
+      "name": "sources",
+      "type": "list<string>",
+      "question": "card",
+      "means": "Who gave the answers on the card, in this order.",
+      "values": [
+        "registry",
+        "rule",
+        "evidence"
+      ]
+    },
+    {
+      "name": "card_version",
+      "type": "string",
+      "question": "card",
+      "means": "The vocabulary version that resolved the card."
+    },
+    {
+      "name": "card_updated_ms",
+      "type": "integer",
+      "question": "card",
+      "means": "When the labels layer last wrote the card, in epoch milliseconds."
+    }
+  ],
+  "marks": [
+    {
+      "name": "Bridge",
+      "question": "identity",
+      "words": [
+        "bridge"
+      ]
+    },
+    {
+      "name": "ColdWallet",
+      "question": "role",
+      "words": [
+        "exchange_cold_wallet"
+      ]
+    },
+    {
+      "name": "Deposit",
+      "question": "role",
+      "words": [
+        "exchange_deposit"
+      ]
+    },
+    {
+      "name": "Exchange",
+      "question": "identity",
+      "words": [
+        "exchange"
+      ]
+    },
+    {
+      "name": "HotWallet",
+      "question": "role",
+      "words": [
+        "exchange_hot_wallet"
+      ]
+    },
+    {
+      "name": "IssuerFrozen",
+      "question": "evidence",
+      "words": [
+        "issuer_frozen"
+      ]
+    },
+    {
+      "name": "Launchpad",
+      "question": "identity",
+      "words": [
+        "launchpad"
+      ]
+    },
+    {
+      "name": "Malicious",
+      "question": "evidence",
+      "words": [
+        "malicious"
+      ]
+    },
+    {
+      "name": "Mixer",
+      "question": "identity",
+      "words": [
+        "mixer"
+      ]
+    },
+    {
+      "name": "Protocol",
+      "question": "identity",
+      "words": [
+        "bridge",
+        "contract",
+        "defi",
+        "dex",
+        "launchpad",
+        "mixer"
+      ]
+    },
+    {
+      "name": "Service",
+      "question": "identity",
+      "words": [
+        "otc_desk",
+        "payment_processor"
+      ]
+    },
+    {
+      "name": "Token",
+      "question": "identity",
+      "words": [
+        "token"
+      ]
+    },
+    {
+      "name": "Victim",
+      "question": "evidence",
+      "words": [
+        "victim"
+      ]
+    },
+    {
+      "name": "Withdrawal",
+      "question": "role",
+      "words": [
+        "exchange_withdrawal"
+      ]
+    }
+  ],
+  "flags": [
+    {
+      "name": "is_exchange",
+      "question": "identity",
+      "words": [
+        "exchange"
+      ]
+    },
+    {
+      "name": "is_issuer_frozen",
+      "question": "evidence",
+      "words": [
+        "issuer_frozen"
+      ]
+    },
+    {
+      "name": "is_malicious",
+      "question": "evidence",
+      "words": [
+        "malicious"
+      ]
+    },
+    {
+      "name": "is_service",
+      "question": "identity",
+      "words": [
+        "otc_desk",
+        "payment_processor"
+      ]
+    },
+    {
+      "name": "is_victim",
+      "question": "evidence",
+      "words": [
+        "victim"
+      ]
+    }
+  ],
+  "sources": [
+    "registry",
+    "rule",
+    "evidence"
+  ],
+  "words": [
+    {
+      "word": "exchange",
+      "question": "identity",
+      "level": "none",
+      "plain": "A centralised exchange's account. The value is the exchange id."
+    },
+    {
+      "word": "payment_processor",
+      "question": "identity",
+      "level": "none",
+      "plain": "A crypto payment processor's account. The value is the company id."
+    },
+    {
+      "word": "otc_desk",
+      "question": "identity",
+      "level": "none",
+      "plain": "An over-the-counter (OTC) trading desk's account. The value is the desk id."
+    },
+    {
+      "word": "mixer",
+      "question": "identity",
+      "level": "high",
+      "plain": "A mixing service's pool or helper contract from the mixer registry. The value is protocol:pool."
+    },
+    {
+      "word": "bridge",
+      "question": "identity",
+      "level": "none",
+      "plain": "A bridge contract or account. The value is the bridge name."
+    },
+    {
+      "word": "launchpad",
+      "question": "identity",
+      "level": "none",
+      "plain": "A token launchpad's contract, or an agent's bonding pair or token on it."
+    },
+    {
+      "word": "dex",
+      "question": "identity",
+      "level": "none",
+      "plain": "A pool, pair or router contract of an exchange protocol. The value is the contract class."
+    },
+    {
+      "word": "defi",
+      "question": "identity",
+      "level": "none",
+      "plain": "A lending, vault or yield contract. The value is the contract class."
+    },
+    {
+      "word": "gambling",
+      "question": "identity",
+      "level": "none",
+      "plain": "A gambling service's account. The value is the service name."
+    },
+    {
+      "word": "token",
+      "question": "identity",
+      "level": "none",
+      "plain": "A token contract. The value is the registry name or the contract class."
+    },
+    {
+      "word": "protocol",
+      "question": "identity",
+      "level": "none",
+      "plain": "A protocol's own account: treasury, deployer or foundation."
+    },
+    {
+      "word": "foundation",
+      "question": "identity",
+      "level": "none",
+      "plain": "A chain foundation's account."
+    },
+    {
+      "word": "validator",
+      "question": "identity",
+      "level": "none",
+      "plain": "A validator or sequencer."
+    },
+    {
+      "word": "implementation",
+      "question": "identity",
+      "level": "none",
+      "plain": "The smart-account code a wallet runs. The value is the implementation, such as safe."
+    },
+    {
+      "word": "contract",
+      "question": "identity",
+      "level": "none",
+      "plain": "Any other verified contract. The value is the contract class."
+    },
+    {
+      "word": "hub",
+      "question": "identity",
+      "level": "none",
+      "plain": "A fan-out hub with many counterparties."
+    },
+    {
+      "word": "whale",
+      "question": "identity",
+      "level": "none",
+      "plain": "A large holder."
+    },
+    {
+      "word": "miner",
+      "question": "identity",
+      "level": "none",
+      "plain": "A Bittensor miner."
+    },
+    {
+      "word": "neuron",
+      "question": "identity",
+      "level": "none",
+      "plain": "A Bittensor neuron."
+    },
+    {
+      "word": "subnet",
+      "question": "identity",
+      "level": "none",
+      "plain": "A Bittensor subnet."
+    },
+    {
+      "word": "issuer_frozen",
+      "question": "evidence",
+      "level": "high",
+      "standing": "proven",
+      "plain": "A stablecoin issuer froze this wallet on chain."
+    },
+    {
+      "word": "victim",
+      "question": "evidence",
+      "level": "none",
+      "standing": "reported",
+      "plain": "Lost money to a labelled attacker.",
+      "category": "victim"
+    },
+    {
+      "word": "victim",
+      "question": "evidence",
+      "level": "none",
+      "value": "VICTIM",
+      "standing": "proven",
+      "plain": "Lost money to a labelled attacker.",
+      "category": "victim"
+    },
+    {
+      "word": "malicious",
+      "question": "evidence",
+      "level": "critical",
+      "value": "ADDRESS_POISONING",
+      "standing": "proven",
+      "plain": "Sent look-alike transfers to poison address histories.",
+      "category": "malicious",
+      "type": "poisoning",
+      "role": "scammer"
+    },
+    {
+      "word": "malicious",
+      "question": "evidence",
+      "level": "critical",
+      "value": "INBOUND_IMPERSONATION",
+      "standing": "proven",
+      "plain": "Sent transfers that impersonate an address its victims had paid before.",
+      "category": "malicious",
+      "type": "inbound-impersonation",
+      "role": "scammer"
+    },
+    {
+      "word": "malicious",
+      "question": "evidence",
+      "level": "critical",
+      "value": "FAKE_TOKEN",
+      "standing": "proven",
+      "plain": "A fake token sent to many wallets, or used as bait.",
+      "category": "malicious",
+      "type": "fake-token",
+      "role": "fake_token"
+    },
+    {
+      "word": "malicious",
+      "question": "evidence",
+      "level": "critical",
+      "value": "FAKE_TOKEN_DEPLOYER",
+      "standing": "proven",
+      "plain": "Signed the creation of a malicious fake token.",
+      "category": "malicious",
+      "type": "fake-token",
+      "role": "deployer"
+    },
+    {
+      "word": "malicious",
+      "question": "evidence",
+      "level": "critical",
+      "value": "FAKE_TOKEN_MASS_SENDER",
+      "standing": "proven",
+      "plain": "Sent a fake token in bulk to wallets that did not buy it.",
+      "category": "malicious",
+      "type": "fake-token",
+      "role": "scammer"
+    },
+    {
+      "word": "malicious",
+      "question": "evidence",
+      "level": "critical",
+      "value": "FAKE_TOKEN_LP",
+      "standing": "proven",
+      "plain": "Opened a pool for a fake token and took the buyers' money out.",
+      "category": "malicious",
+      "type": "fake-token",
+      "role": "scammer"
+    },
+    {
+      "word": "malicious",
+      "question": "evidence",
+      "level": "critical",
+      "value": "PHANTOM_TRANSFER",
+      "standing": "proven",
+      "plain": "Emitted transfer events for tokens that never moved.",
+      "category": "malicious",
+      "type": "phantom-transfer",
+      "role": "emitter"
+    },
+    {
+      "word": "malicious",
+      "question": "evidence",
+      "level": "critical",
+      "value": "PHANTOM_TRANSFER_EMITTER",
+      "standing": "proven",
+      "plain": "Emitted transfer events for tokens that never moved.",
+      "category": "malicious",
+      "type": "phantom-transfer",
+      "role": "emitter"
+    },
+    {
+      "word": "malicious",
+      "question": "evidence",
+      "level": "critical",
+      "value": "PHANTOM_ENTRYPOINT",
+      "standing": "proven",
+      "plain": "The contract that emitted transfer events for tokens that never moved.",
+      "category": "malicious",
+      "type": "phantom-transfer",
+      "role": "entrypoint"
+    },
+    {
+      "word": "malicious",
+      "question": "evidence",
+      "level": "critical",
+      "value": "SWEEPER_DELEGATE",
+      "standing": "proven",
+      "plain": "Code that accounts delegate to, and that swept their funds away.",
+      "category": "malicious",
+      "type": "permission-abuse",
+      "role": "sweeper_delegate"
+    },
+    {
+      "word": "malicious",
+      "question": "evidence",
+      "level": "critical",
+      "value": "SWEEP_BENEFICIARY",
+      "standing": "proven",
+      "plain": "Received funds swept from accounts by abuse of a wallet permission.",
+      "category": "malicious",
+      "type": "permission-abuse",
+      "role": "sweep_beneficiary"
+    },
+    {
+      "word": "malicious",
+      "question": "evidence",
+      "level": "critical",
+      "value": "APPROVAL_DRAINER",
+      "standing": "proven",
+      "plain": "Used token approvals to drain other wallets.",
+      "category": "malicious",
+      "type": "approval-drainer",
+      "role": "drain_spender"
+    },
+    {
+      "word": "malicious",
+      "question": "evidence",
+      "level": "critical",
+      "value": "LAUNDERED",
+      "standing": "proven",
+      "plain": "Received stolen funds on a money trail and moved them on.",
+      "category": "malicious",
+      "role": "mule"
+    },
+    {
+      "word": "malicious",
+      "question": "evidence",
+      "level": "critical",
+      "value": "MIXED",
+      "standing": "proven",
+      "plain": "Received stolen funds on a money trail and put them into a mixer.",
+      "category": "malicious",
+      "role": "mule"
+    },
+    {
+      "word": "malicious",
+      "question": "evidence",
+      "level": "high",
+      "value": "RECEIVED",
+      "standing": "proven",
+      "plain": "Received stolen funds on a money trail and still holds them.",
+      "category": "malicious",
+      "role": "mule"
+    },
+    {
+      "word": "malicious",
+      "question": "evidence",
+      "level": "critical",
+      "standing": "reported",
+      "plain": "On a legal sanctions list.",
+      "category": "malicious",
+      "type": "sanctioned"
+    },
+    {
+      "word": "suspect",
+      "question": "judgement",
+      "level": "none",
+      "value": "PHANTOM_TRANSFER_EMITTER",
+      "plain": "Emitted transfer events for tokens that never moved."
+    },
+    {
+      "word": "suspect",
+      "question": "judgement",
+      "level": "none",
+      "value": "FAKE_TOKEN",
+      "plain": "Its symbol copies the symbol of a verified token, or the name of the chain's own coin.",
+      "category": "suspect",
+      "type": "fake-token",
+      "role": "fake_token"
+    },
+    {
+      "word": "suspect",
+      "question": "judgement",
+      "level": "none",
+      "value": "FAKE_TOKEN_LP",
+      "plain": "Added liquidity to a token whose symbol copies the symbol of a verified token, or the name of the chain's own coin.",
+      "category": "suspect",
+      "type": "fake-token"
+    },
+    {
+      "word": "suspect",
+      "question": "judgement",
+      "level": "none",
+      "value": "MIXER_WITHDRAWER",
+      "plain": "Withdrew from a mixer.",
+      "category": "suspect",
+      "type": "mixer"
+    },
+    {
+      "word": "suspect",
+      "question": "judgement",
+      "level": "none",
+      "value": "UNSAFE_DELEGATE",
+      "plain": "Code that accounts delegate to, and that lets another party move their funds.",
+      "category": "suspect",
+      "type": "permission-abuse",
+      "role": "unsafe_delegate"
+    },
+    {
+      "word": "suspect",
+      "question": "judgement",
+      "level": "none",
+      "value": "SWEEPER_DELEGATE",
+      "plain": "Code that accounts delegate to, and that moved their funds.",
+      "category": "suspect"
+    },
+    {
+      "word": "suspect",
+      "question": "judgement",
+      "level": "none",
+      "value": "APPROVAL_DRAINER",
+      "plain": "Spent token approvals of other wallets; not yet proven.",
+      "category": "suspect",
+      "type": "approval-drainer"
+    },
+    {
+      "word": "exposed",
+      "question": "exposure",
+      "level": "none",
+      "plain": "Exposed: a grade below proof. The address sits in the blast radius of a scam kind, a few payments from an address that is. It is not evidence against the address."
+    },
+    {
+      "word": "exposed_band",
+      "question": "exposure",
+      "level": "none",
+      "value": "top",
+      "plain": "The top band of exposure to a scam kind: the closest the exposed grade reaches."
+    },
+    {
+      "word": "exposed_band",
+      "question": "exposure",
+      "level": "none",
+      "value": "high",
+      "plain": "The high band of exposure to a scam kind."
+    },
+    {
+      "word": "exposed_band",
+      "question": "exposure",
+      "level": "none",
+      "value": "raised",
+      "plain": "The raised band of exposure to a scam kind: the lowest band shown."
+    },
+    {
+      "word": "scam_kind",
+      "question": "exposure",
+      "level": "none",
+      "plain": "a scam kind"
+    },
+    {
+      "word": "scam_kind",
+      "question": "exposure",
+      "level": "none",
+      "value": "evidence:fake-token",
+      "plain": "fake-token scams"
+    },
+    {
+      "word": "scam_kind",
+      "question": "exposure",
+      "level": "none",
+      "value": "evidence:fake-token-liquidity",
+      "plain": "fake-token liquidity scams"
+    },
+    {
+      "word": "scam_kind",
+      "question": "exposure",
+      "level": "none",
+      "value": "evidence:inbound-impersonation",
+      "plain": "impersonation scams"
+    },
+    {
+      "word": "scam_kind",
+      "question": "exposure",
+      "level": "none",
+      "value": "evidence:poisoning",
+      "plain": "address-poisoning scams"
+    },
+    {
+      "word": "scam_kind",
+      "question": "exposure",
+      "level": "none",
+      "value": "evidence:permission-abuse",
+      "plain": "wallet-permission scams"
+    },
+    {
+      "word": "scam_kind",
+      "question": "exposure",
+      "level": "none",
+      "value": "evidence:phantom-transfer",
+      "plain": "phantom-transfer scams"
+    },
+    {
+      "word": "paid_once",
+      "question": "exposure",
+      "level": "none",
+      "plain": "Paid once, may be a victim"
+    }
+  ]
+}
