@@ -3,6 +3,19 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.93.2] - 2026-11-26 — the graph view is rebuilt
+
+### Changed
+
+- The graph view (`ui://chain-insights/view`) is rebuilt from Chain Insights
+  UI 92b6e76. It reads the graph's `Malicious` mark as well as the marks it reads
+  today. No tool answer changes.
+
+### Added
+
+- A unit test pins the entries of `registry/address-card.json`, so a removed
+  entry, a changed level or a changed question fails before a release.
+
 ## [0.93.1] - 2026-11-26 — `aml_address_risk`: the card's category, type and role
 
 ### Added
