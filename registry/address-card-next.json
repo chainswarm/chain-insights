@@ -725,15 +725,6 @@
       "category": "suspect"
     },
     {
-      "word": "suspect",
-      "question": "judgement",
-      "level": "none",
-      "value": "APPROVAL_DRAINER",
-      "plain": "Spent token approvals of other wallets; not yet proven.",
-      "category": "suspect",
-      "type": "approval-drainer"
-    },
-    {
       "word": "exposed",
       "question": "exposure",
       "level": "none",
