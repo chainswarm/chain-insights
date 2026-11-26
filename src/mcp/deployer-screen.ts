@@ -25,6 +25,7 @@
 
 import { ANSWER_HINT } from './answer-hint.js'
 import { DexRegistryError, normalizeDexNetwork } from './dex-registry.js'
+import { isHeldRoleWord } from './held-role-word.js'
 import type { SwapLinkShape } from './layer-routing.js'
 import { isEpochMs, utcText } from './timestamp-text.js'
 import {
@@ -297,9 +298,17 @@ export function isServedLabel(value: string): boolean {
 const strings = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []
 
-/** labels(n) minus Address, with an unserved label dropped. */
+// The screen does not show the held role word `Malicious` yet: a token,
+// launcher or funder keeps the roles, the crime list and the levels it has
+// from the marks `Scam`, `Sanctioned`, `Victim` and `IssuerFrozen`, and the
+// risk labels beside them.
+export { HELD_ROLE_WORD } from './held-role-word.js'
+
+/** labels(n) minus Address, with an unserved label and the held role word dropped. */
 function rolesOf(value: unknown): string[] {
-  return strings(value).filter((role) => role !== 'Address' && isServedLabel(role))
+  return strings(value).filter(
+    (role) => role !== 'Address' && isServedLabel(role) && !isHeldRoleWord(role)
+  )
 }
 
 // The flag of each judgement mark, and the mark's label word served as its value.
@@ -310,7 +319,10 @@ const FLAG_CRIMES: Array<[CrimeKind, string, string]> = [
   ['issuer_frozen', 'is_issuer_frozen', 'IssuerFrozen'],
 ]
 
-/** The flags that are true, then one risk entry per served risk label with its level. */
+/**
+ * The flags that are true, then one risk entry per served risk label with its
+ * level. The held role word is skipped with its level.
+ */
 function crimeOf(row: Record<string, unknown>, prefix: 'launcher' | 'funder'): Crime[] {
   const crime: Crime[] = []
   for (const [kind, flag, value] of FLAG_CRIMES) {
@@ -320,6 +332,7 @@ function crimeOf(row: Record<string, unknown>, prefix: 'launcher' | 'funder'): C
   const levels = Array.isArray(row[`${prefix}_risk_levels`]) ? (row[`${prefix}_risk_levels`] as unknown[]) : []
   labels.forEach((label, at) => {
     if (typeof label !== 'string' || label.trim() === '' || !isServedLabel(label)) return
+    if (isHeldRoleWord(label)) return
     crime.push({ kind: 'risk', value: label, level: textOrNull(levels[at]) })
   })
   return crime

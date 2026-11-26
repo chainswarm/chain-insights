@@ -3,6 +3,13 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.93.1] - 2026-11-26 — `aml_address_risk`: the card's category, type and role
+
+### Added
+
+- `aml_address_risk` answers three optional fields beside the card:
+  `category`, `type` and `role`. Each is left out when the graph has none.
+
 ## [0.93.0] - 2026-11-23 — exposed: how close an address sits to a scam kind
 
 ### Added

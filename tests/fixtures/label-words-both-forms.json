@@ -1,0 +1,1017 @@
+{
+  "about": "Each case twice: `today` is the address node as staging lane A served it, read only with AP1000 scripts/devops/graph-read.sh at 2026-11-26 05:12 CET (graph-read.sh reads the graph as it stands; block_height is the height of the case's label row). `next` is the same node once the graph also writes the card category, type and role, the mark Malicious (node label, `labels` and `label_risk_labels`) and the flag is_malicious: today's row plus those fields, derived from the label vocabulary cases, never read from a server. Both forms must give the same risk word, reasons, deployer screen, flows role and flows text. A scenario has no address: it is a shape no address shows today, and both of its forms are derived.",
+  "network": "robinhood",
+  "cases": [
+    {
+      "name": "an address-poisoning attacker",
+      "address": "0x0025f4ea78dc7d7293585d47e0f95243e5079e7c",
+      "block_height": 39075107,
+      "today": {
+        "node_labels": [
+          "Address",
+          "Poisoned"
+        ],
+        "card_version": "2",
+        "identity": null,
+        "identity_name": null,
+        "identities": null,
+        "address_roles": null,
+        "behaviour": null,
+        "evidence": [
+          "poisoning:ADDRESS_POISONING"
+        ],
+        "judgements": null,
+        "sources": [
+          "evidence"
+        ],
+        "risk_level": null,
+        "risk_score": null,
+        "is_sanctioned": null,
+        "is_scam": null,
+        "is_victim": null,
+        "label_risk_labels": [
+          "Poisoned"
+        ],
+        "label_risk_levels": [
+          "critical"
+        ],
+        "labels": [
+          "Poisoned"
+        ],
+        "degree_total": 1,
+        "degree_out": 1
+      },
+      "next": {
+        "node_labels": [
+          "Address",
+          "Poisoned",
+          "Malicious"
+        ],
+        "card_version": "2",
+        "identity": null,
+        "identity_name": null,
+        "identities": null,
+        "address_roles": null,
+        "behaviour": null,
+        "evidence": [
+          "poisoning:ADDRESS_POISONING"
+        ],
+        "judgements": null,
+        "sources": [
+          "evidence"
+        ],
+        "risk_level": null,
+        "risk_score": null,
+        "is_sanctioned": null,
+        "is_scam": null,
+        "is_victim": null,
+        "label_risk_labels": [
+          "Malicious",
+          "Poisoned"
+        ],
+        "label_risk_levels": [
+          "critical",
+          "critical"
+        ],
+        "labels": [
+          "Malicious",
+          "Poisoned"
+        ],
+        "degree_total": 1,
+        "degree_out": 1,
+        "category": "malicious",
+        "type": "poisoning",
+        "role": "scammer",
+        "is_malicious": true
+      },
+      "expect": {
+        "risk_word": "critical",
+        "flows_role": "other"
+      }
+    },
+    {
+      "name": "a fake token, risk today",
+      "address": "0x0000009b8f4115cb8371ad8d7b79ae5dd4ba0875",
+      "block_height": 66623050,
+      "today": {
+        "node_labels": [
+          "Address",
+          "Contract",
+          "Token",
+          "Scam"
+        ],
+        "card_version": "2",
+        "identity": "token",
+        "identity_name": "UERC20",
+        "identities": [
+          "token"
+        ],
+        "address_roles": null,
+        "behaviour": null,
+        "evidence": [
+          "scam:FAKE_TOKEN"
+        ],
+        "judgements": null,
+        "sources": [
+          "registry",
+          "evidence"
+        ],
+        "risk_level": null,
+        "risk_score": null,
+        "is_sanctioned": null,
+        "is_scam": true,
+        "is_victim": null,
+        "label_risk_labels": [
+          "Scam",
+          "UERC20"
+        ],
+        "label_risk_levels": [
+          "critical",
+          "low"
+        ],
+        "labels": [
+          "Scam",
+          "UERC20"
+        ],
+        "degree_total": null,
+        "degree_out": null
+      },
+      "next": {
+        "node_labels": [
+          "Address",
+          "Contract",
+          "Token",
+          "Scam",
+          "Malicious"
+        ],
+        "card_version": "2",
+        "identity": "token",
+        "identity_name": "UERC20",
+        "identities": [
+          "token"
+        ],
+        "address_roles": null,
+        "behaviour": null,
+        "evidence": [
+          "scam:FAKE_TOKEN"
+        ],
+        "judgements": null,
+        "sources": [
+          "registry",
+          "evidence"
+        ],
+        "risk_level": null,
+        "risk_score": null,
+        "is_sanctioned": null,
+        "is_scam": true,
+        "is_victim": null,
+        "label_risk_labels": [
+          "Malicious",
+          "Scam",
+          "UERC20"
+        ],
+        "label_risk_levels": [
+          "critical",
+          "critical",
+          "low"
+        ],
+        "labels": [
+          "Malicious",
+          "Scam",
+          "UERC20"
+        ],
+        "degree_total": null,
+        "degree_out": null,
+        "category": "malicious",
+        "type": "fake-token",
+        "role": "fake_token",
+        "is_malicious": true
+      },
+      "expect": {
+        "risk_word": "unscored",
+        "flows_role": "scam"
+      }
+    },
+    {
+      "name": "a fake-token deployer",
+      "address": "0x002916a654f8522937d53e20a57944a16bbd74df",
+      "block_height": 66623050,
+      "today": {
+        "node_labels": [
+          "Address",
+          "Account",
+          "Scam"
+        ],
+        "card_version": "2",
+        "identity": null,
+        "identity_name": null,
+        "identities": null,
+        "address_roles": null,
+        "behaviour": null,
+        "evidence": [
+          "scam:FAKE_TOKEN_DEPLOYER"
+        ],
+        "judgements": null,
+        "sources": [
+          "evidence"
+        ],
+        "risk_level": null,
+        "risk_score": null,
+        "is_sanctioned": null,
+        "is_scam": true,
+        "is_victim": null,
+        "label_risk_labels": [
+          "Scam"
+        ],
+        "label_risk_levels": [
+          "medium"
+        ],
+        "labels": [
+          "Scam"
+        ],
+        "degree_total": 4,
+        "degree_out": 2
+      },
+      "next": {
+        "node_labels": [
+          "Address",
+          "Account",
+          "Scam",
+          "Malicious"
+        ],
+        "card_version": "2",
+        "identity": null,
+        "identity_name": null,
+        "identities": null,
+        "address_roles": null,
+        "behaviour": null,
+        "evidence": [
+          "scam:FAKE_TOKEN_DEPLOYER"
+        ],
+        "judgements": null,
+        "sources": [
+          "evidence"
+        ],
+        "risk_level": null,
+        "risk_score": null,
+        "is_sanctioned": null,
+        "is_scam": true,
+        "is_victim": null,
+        "label_risk_labels": [
+          "Malicious",
+          "Scam"
+        ],
+        "label_risk_levels": [
+          "critical",
+          "medium"
+        ],
+        "labels": [
+          "Malicious",
+          "Scam"
+        ],
+        "degree_total": 4,
+        "degree_out": 2,
+        "category": "malicious",
+        "type": "fake-token",
+        "role": "deployer",
+        "is_malicious": true
+      },
+      "expect": {
+        "risk_word": "unscored",
+        "flows_role": "scam"
+      }
+    },
+    {
+      "name": "a mule that still holds the money",
+      "address": "0x61646a78cefd29caad561f191a1bbd658714f255",
+      "block_height": 66593949,
+      "today": {
+        "node_labels": [
+          "Address",
+          "Account",
+          "OnMoneyTrail"
+        ],
+        "card_version": "2",
+        "identity": null,
+        "identity_name": null,
+        "identities": null,
+        "address_roles": null,
+        "behaviour": null,
+        "evidence": [
+          "traced:RECEIVED"
+        ],
+        "judgements": null,
+        "sources": [
+          "evidence"
+        ],
+        "risk_level": null,
+        "risk_score": null,
+        "is_sanctioned": null,
+        "is_scam": null,
+        "is_victim": null,
+        "label_risk_labels": [
+          "OnMoneyTrail"
+        ],
+        "label_risk_levels": [
+          "high"
+        ],
+        "labels": [
+          "OnMoneyTrail"
+        ],
+        "degree_total": 20,
+        "degree_out": 0
+      },
+      "next": {
+        "node_labels": [
+          "Address",
+          "Account",
+          "OnMoneyTrail",
+          "Malicious"
+        ],
+        "card_version": "2",
+        "identity": null,
+        "identity_name": null,
+        "identities": null,
+        "address_roles": null,
+        "behaviour": null,
+        "evidence": [
+          "traced:RECEIVED"
+        ],
+        "judgements": null,
+        "sources": [
+          "evidence"
+        ],
+        "risk_level": null,
+        "risk_score": null,
+        "is_sanctioned": null,
+        "is_scam": null,
+        "is_victim": null,
+        "label_risk_labels": [
+          "Malicious",
+          "OnMoneyTrail"
+        ],
+        "label_risk_levels": [
+          "high",
+          "high"
+        ],
+        "labels": [
+          "Malicious",
+          "OnMoneyTrail"
+        ],
+        "degree_total": 20,
+        "degree_out": 0,
+        "category": "malicious",
+        "type": "",
+        "role": "mule",
+        "is_malicious": true
+      },
+      "expect": {
+        "risk_word": "high",
+        "flows_role": "other"
+      }
+    },
+    {
+      "name": "a mule that moved the money on",
+      "address": "0x239c0ba21b580b8ca527defa2a4f9ce7b07f3a9b",
+      "block_height": 49457223,
+      "today": {
+        "node_labels": [
+          "Address",
+          "Account",
+          "OnMoneyTrail"
+        ],
+        "card_version": "2",
+        "identity": null,
+        "identity_name": null,
+        "identities": null,
+        "address_roles": null,
+        "behaviour": null,
+        "evidence": [
+          "traced:LAUNDERED"
+        ],
+        "judgements": null,
+        "sources": [
+          "evidence"
+        ],
+        "risk_level": "LOW",
+        "risk_score": 0.00008215464185923338,
+        "is_sanctioned": null,
+        "is_scam": null,
+        "is_victim": null,
+        "label_risk_labels": [
+          "OnMoneyTrail"
+        ],
+        "label_risk_levels": [
+          "critical"
+        ],
+        "labels": [
+          "OnMoneyTrail"
+        ],
+        "degree_total": 6,
+        "degree_out": 3
+      },
+      "next": {
+        "node_labels": [
+          "Address",
+          "Account",
+          "OnMoneyTrail",
+          "Malicious"
+        ],
+        "card_version": "2",
+        "identity": null,
+        "identity_name": null,
+        "identities": null,
+        "address_roles": null,
+        "behaviour": null,
+        "evidence": [
+          "traced:LAUNDERED"
+        ],
+        "judgements": null,
+        "sources": [
+          "evidence"
+        ],
+        "risk_level": "LOW",
+        "risk_score": 0.00008215464185923338,
+        "is_sanctioned": null,
+        "is_scam": null,
+        "is_victim": null,
+        "label_risk_labels": [
+          "Malicious",
+          "OnMoneyTrail"
+        ],
+        "label_risk_levels": [
+          "critical",
+          "critical"
+        ],
+        "labels": [
+          "Malicious",
+          "OnMoneyTrail"
+        ],
+        "degree_total": 6,
+        "degree_out": 3,
+        "category": "malicious",
+        "type": "",
+        "role": "mule",
+        "is_malicious": true
+      },
+      "expect": {
+        "risk_word": "critical",
+        "flows_role": "other"
+      }
+    },
+    {
+      "name": "a sanctioned address",
+      "address": "0x08723392ed15743cc38513c4925f5e6be5c17243",
+      "block_height": 66623050,
+      "today": {
+        "node_labels": [
+          "Address",
+          "Sanctioned"
+        ],
+        "card_version": "2",
+        "identity": null,
+        "identity_name": null,
+        "identities": null,
+        "address_roles": null,
+        "behaviour": null,
+        "evidence": [
+          "sanctioned:Lazarus Group"
+        ],
+        "judgements": null,
+        "sources": [
+          "registry"
+        ],
+        "risk_level": null,
+        "risk_score": null,
+        "is_sanctioned": true,
+        "is_scam": null,
+        "is_victim": null,
+        "label_risk_labels": [
+          "Lazarus Group",
+          "Sanctioned"
+        ],
+        "label_risk_levels": [
+          "critical",
+          "critical"
+        ],
+        "labels": [
+          "Lazarus Group",
+          "Sanctioned"
+        ],
+        "degree_total": null,
+        "degree_out": null
+      },
+      "next": {
+        "node_labels": [
+          "Address",
+          "Sanctioned",
+          "Malicious"
+        ],
+        "card_version": "2",
+        "identity": null,
+        "identity_name": null,
+        "identities": null,
+        "address_roles": null,
+        "behaviour": null,
+        "evidence": [
+          "sanctioned:Lazarus Group"
+        ],
+        "judgements": null,
+        "sources": [
+          "registry"
+        ],
+        "risk_level": null,
+        "risk_score": null,
+        "is_sanctioned": true,
+        "is_scam": null,
+        "is_victim": null,
+        "label_risk_labels": [
+          "Lazarus Group",
+          "Malicious",
+          "Sanctioned"
+        ],
+        "label_risk_levels": [
+          "critical",
+          "critical",
+          "critical"
+        ],
+        "labels": [
+          "Lazarus Group",
+          "Malicious",
+          "Sanctioned"
+        ],
+        "degree_total": null,
+        "degree_out": null,
+        "category": "malicious",
+        "type": "sanctioned",
+        "role": "",
+        "is_malicious": true
+      },
+      "expect": {
+        "risk_word": "critical",
+        "flows_role": "sanctioned"
+      }
+    },
+    {
+      "name": "a walk-proven victim",
+      "address": "0x004a3ea2d66b2a71dee620de6498dc1adabfdf4f",
+      "block_height": 61423539,
+      "today": {
+        "node_labels": [
+          "Address",
+          "Account",
+          "Victim"
+        ],
+        "card_version": "2",
+        "identity": null,
+        "identity_name": null,
+        "identities": null,
+        "address_roles": null,
+        "behaviour": null,
+        "evidence": [
+          "victim"
+        ],
+        "judgements": null,
+        "sources": [
+          "evidence"
+        ],
+        "risk_level": null,
+        "risk_score": null,
+        "is_sanctioned": null,
+        "is_scam": null,
+        "is_victim": true,
+        "label_risk_labels": [
+          "Victim"
+        ],
+        "label_risk_levels": [
+          "none"
+        ],
+        "labels": [
+          "Victim"
+        ],
+        "degree_total": 28,
+        "degree_out": 1
+      },
+      "next": {
+        "node_labels": [
+          "Address",
+          "Account",
+          "Victim"
+        ],
+        "card_version": "2",
+        "identity": null,
+        "identity_name": null,
+        "identities": null,
+        "address_roles": null,
+        "behaviour": null,
+        "evidence": [
+          "victim"
+        ],
+        "judgements": null,
+        "sources": [
+          "evidence"
+        ],
+        "risk_level": null,
+        "risk_score": null,
+        "is_sanctioned": null,
+        "is_scam": null,
+        "is_victim": true,
+        "label_risk_labels": [
+          "Victim"
+        ],
+        "label_risk_levels": [
+          "none"
+        ],
+        "labels": [
+          "Victim"
+        ],
+        "degree_total": 28,
+        "degree_out": 1,
+        "category": "victim",
+        "type": "",
+        "role": ""
+      },
+      "expect": {
+        "risk_word": "unscored",
+        "flows_role": "victim"
+      }
+    },
+    {
+      "name": "a victim that is also malicious",
+      "address": "0xec6f2d05c0f2e7081cf827460e91a17feb702458",
+      "block_height": 66623050,
+      "today": {
+        "node_labels": [
+          "Address",
+          "Account",
+          "Scam",
+          "Victim"
+        ],
+        "card_version": "2",
+        "identity": null,
+        "identity_name": null,
+        "identities": null,
+        "address_roles": null,
+        "behaviour": null,
+        "evidence": [
+          "scam:FAKE_TOKEN_DEPLOYER",
+          "victim"
+        ],
+        "judgements": null,
+        "sources": [
+          "evidence"
+        ],
+        "risk_level": "LOW",
+        "risk_score": 0.0002486510784365237,
+        "is_sanctioned": null,
+        "is_scam": true,
+        "is_victim": true,
+        "label_risk_labels": [
+          "Scam",
+          "Victim"
+        ],
+        "label_risk_levels": [
+          "medium",
+          "none"
+        ],
+        "labels": [
+          "Scam",
+          "Victim"
+        ],
+        "degree_total": 116,
+        "degree_out": 15
+      },
+      "next": {
+        "node_labels": [
+          "Address",
+          "Account",
+          "Scam",
+          "Victim",
+          "Malicious"
+        ],
+        "card_version": "2",
+        "identity": null,
+        "identity_name": null,
+        "identities": null,
+        "address_roles": null,
+        "behaviour": null,
+        "evidence": [
+          "scam:FAKE_TOKEN_DEPLOYER",
+          "victim"
+        ],
+        "judgements": null,
+        "sources": [
+          "evidence"
+        ],
+        "risk_level": "LOW",
+        "risk_score": 0.0002486510784365237,
+        "is_sanctioned": null,
+        "is_scam": true,
+        "is_victim": true,
+        "label_risk_labels": [
+          "Malicious",
+          "Scam",
+          "Victim"
+        ],
+        "label_risk_levels": [
+          "critical",
+          "medium",
+          "none"
+        ],
+        "labels": [
+          "Malicious",
+          "Scam",
+          "Victim"
+        ],
+        "degree_total": 116,
+        "degree_out": 15,
+        "category": "malicious",
+        "type": "fake-token",
+        "role": "deployer",
+        "is_malicious": true
+      },
+      "expect": {
+        "risk_word": "low",
+        "flows_role": "scam"
+      }
+    },
+    {
+      "name": "a copied token, only created",
+      "address": "0x000000004e9d59e4f797ed30911015ea4b842267",
+      "block_height": 66623050,
+      "today": {
+        "node_labels": [
+          "Address",
+          "Contract",
+          "Token"
+        ],
+        "card_version": "2",
+        "identity": null,
+        "identity_name": null,
+        "identities": null,
+        "address_roles": null,
+        "behaviour": null,
+        "evidence": null,
+        "judgements": [
+          "suspect:FAKE_TOKEN"
+        ],
+        "sources": [
+          "evidence"
+        ],
+        "risk_level": null,
+        "risk_score": null,
+        "is_sanctioned": null,
+        "is_scam": null,
+        "is_victim": null,
+        "label_risk_labels": [],
+        "label_risk_levels": [],
+        "labels": [],
+        "degree_total": null,
+        "degree_out": null
+      },
+      "next": {
+        "node_labels": [
+          "Address",
+          "Contract",
+          "Token"
+        ],
+        "card_version": "2",
+        "identity": null,
+        "identity_name": null,
+        "identities": null,
+        "address_roles": null,
+        "behaviour": null,
+        "evidence": null,
+        "judgements": [
+          "suspect:FAKE_TOKEN"
+        ],
+        "sources": [
+          "evidence"
+        ],
+        "risk_level": null,
+        "risk_score": null,
+        "is_sanctioned": null,
+        "is_scam": null,
+        "is_victim": null,
+        "label_risk_labels": [],
+        "label_risk_levels": [],
+        "labels": [],
+        "degree_total": null,
+        "degree_out": null,
+        "category": "suspect",
+        "type": "fake-token",
+        "role": "fake_token"
+      },
+      "expect": {
+        "risk_word": "unscored",
+        "flows_role": "other"
+      }
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "evidence outranks a low model score",
+      "today": {
+        "node_labels": [
+          "Address",
+          "Poisoned"
+        ],
+        "evidence": [
+          "poisoning:ADDRESS_POISONING"
+        ],
+        "judgements": [],
+        "is_sanctioned": false,
+        "is_scam": false,
+        "is_victim": false,
+        "label_risk_labels": [
+          "Poisoned"
+        ],
+        "label_risk_levels": [
+          "critical"
+        ],
+        "risk_level": "LOW",
+        "labels": [
+          "Poisoned"
+        ]
+      },
+      "next": {
+        "node_labels": [
+          "Address",
+          "Malicious",
+          "Poisoned"
+        ],
+        "evidence": [
+          "poisoning:ADDRESS_POISONING"
+        ],
+        "judgements": [],
+        "is_sanctioned": false,
+        "is_scam": false,
+        "is_victim": false,
+        "is_malicious": true,
+        "label_risk_labels": [
+          "Malicious",
+          "Poisoned"
+        ],
+        "label_risk_levels": [
+          "critical",
+          "critical"
+        ],
+        "category": "malicious",
+        "type": "poisoning",
+        "role": "scammer",
+        "risk_level": "LOW",
+        "labels": [
+          "Malicious",
+          "Poisoned"
+        ]
+      },
+      "expect": {
+        "risk_word": "critical",
+        "rules_word": "critical",
+        "set_by": "rules",
+        "model_word": "low",
+        "flows_role": "other"
+      }
+    },
+    {
+      "name": "a pattern fact beside a money trail",
+      "today": {
+        "node_labels": [
+          "Address",
+          "OnMoneyTrail"
+        ],
+        "evidence": [
+          "traced:LAUNDERED"
+        ],
+        "judgements": [
+          "suspect:MIXER_WITHDRAWER"
+        ],
+        "is_sanctioned": false,
+        "is_scam": false,
+        "is_victim": false,
+        "label_risk_labels": [
+          "OnMoneyTrail"
+        ],
+        "label_risk_levels": [
+          "critical"
+        ],
+        "risk_level": null,
+        "labels": [
+          "OnMoneyTrail"
+        ]
+      },
+      "next": {
+        "node_labels": [
+          "Address",
+          "Malicious",
+          "OnMoneyTrail"
+        ],
+        "evidence": [
+          "traced:LAUNDERED"
+        ],
+        "judgements": [
+          "suspect:MIXER_WITHDRAWER"
+        ],
+        "is_sanctioned": false,
+        "is_scam": false,
+        "is_victim": false,
+        "is_malicious": true,
+        "label_risk_labels": [
+          "Malicious",
+          "OnMoneyTrail"
+        ],
+        "label_risk_levels": [
+          "critical",
+          "critical"
+        ],
+        "category": "malicious",
+        "type": "",
+        "role": "mule",
+        "risk_level": null,
+        "labels": [
+          "Malicious",
+          "OnMoneyTrail"
+        ]
+      },
+      "expect": {
+        "risk_word": "critical",
+        "rules_word": "critical",
+        "set_by": "rules",
+        "model_word": "not_scored",
+        "flows_role": "other",
+        "reasons": [
+          [
+            "traced",
+            "LAUNDERED"
+          ],
+          [
+            "pattern",
+            "MIXER_WITHDRAWER"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "an unsafe delegate in the old spelling",
+      "today": {
+        "node_labels": [
+          "Address",
+          "Scam"
+        ],
+        "evidence": [
+          "scam:UNSAFE_DELEGATE"
+        ],
+        "judgements": [],
+        "is_sanctioned": false,
+        "is_scam": true,
+        "is_victim": false,
+        "label_risk_labels": [
+          "Scam"
+        ],
+        "label_risk_levels": [
+          "critical"
+        ],
+        "risk_level": null,
+        "labels": [
+          "Scam"
+        ]
+      },
+      "next": {
+        "node_labels": [
+          "Address",
+          "Malicious",
+          "Scam"
+        ],
+        "evidence": [
+          "scam:UNSAFE_DELEGATE"
+        ],
+        "judgements": [],
+        "is_sanctioned": false,
+        "is_scam": true,
+        "is_victim": false,
+        "is_malicious": true,
+        "label_risk_labels": [
+          "Malicious",
+          "Scam"
+        ],
+        "label_risk_levels": [
+          "critical",
+          "critical"
+        ],
+        "category": "malicious",
+        "risk_level": null,
+        "labels": [
+          "Malicious",
+          "Scam"
+        ]
+      },
+      "expect": {
+        "risk_word": "critical",
+        "rules_word": "critical",
+        "set_by": "rules",
+        "model_word": "not_scored",
+        "flows_role": "scam"
+      }
+    }
+  ]
+}

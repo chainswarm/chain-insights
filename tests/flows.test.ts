@@ -1165,6 +1165,8 @@ describe('flows.v1 page budget and summary', () => {
     [{ is_victim: true, labels: ['SelfTrader'] }, 'victim'],
     [{ pool: false, labels: ['SelfTrader'] }, 'self_trader'],
     [{ is_exchange: null, pool: false, labels: ['Victim'] }, 'other'],
+    [{ is_malicious: true, labels: ['Malicious', 'OnMoneyTrail'] }, 'other'],
+    [{ is_malicious: true, is_sanctioned: true, labels: ['Malicious', 'Sanctioned'] }, 'sanctioned'],
   ])('names the role of %o as %s', (row, want) => {
     expect(flowsRole(row)).toBe(want)
   })

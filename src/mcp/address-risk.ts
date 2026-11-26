@@ -5,7 +5,8 @@
  * on USE topology, all anchored on the address:
  *
  *   node  the address: its node labels and its card (identity, roles,
- *         behaviour, evidence, judgements, sources, card_version), the risk
+ *         behaviour, evidence, judgements, category, type, role, sources,
+ *         card_version), the risk
  *         model's `risk_level` and `risk_score`, and its exchange role;
  *   in    its senders: the newest FLOWED_TO links into it worth 1 USD or more,
  *         with each sender's own card words (identities included) and model
@@ -41,6 +42,7 @@ import {
   modelReasonOf,
   modelScoreOf,
   modelWordOf,
+  JUDGEMENT_WORD_SHOWN,
   reasonOf,
   riskOf,
   riskWordRank,
@@ -210,6 +212,15 @@ export interface AmlAddressRiskResult {
   identity: { word: string; name: string | null } | null
   roles: string[]
   behaviour: string | null
+  /**
+   * The card's category, absent when the graph has none. `suspect` is shown
+   * as `pattern`. It sets no risk word.
+   */
+  category?: string
+  /** The card's type, for example `poisoning`; absent when the graph has none. It sets no risk word. */
+  type?: string
+  /** The card's role, for example `scammer`; absent when the graph has none. It sets no risk word. */
+  role?: string
   risk: AddressRisk
   model: ModelScore
   /** Null when the address is not found. */
@@ -263,7 +274,8 @@ export function addressNodeQuery(address: string, extra: readonly string[] = [])
     `USE topology MATCH (a:Address {address: "${address}"}) ` +
     'RETURN labels(a) AS node_labels, a.card_version AS card_version, a.identity AS identity, a.identity_name AS identity_name, ' +
     'a.identities AS identities, a.address_roles AS address_roles, a.behaviour AS behaviour, a.evidence AS evidence, ' +
-    'a.judgements AS judgements, a.exposed AS exposed, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, ' +
+    'a.judgements AS judgements, a.category AS category, a.type AS type, a.role AS role, ' +
+    'a.exposed AS exposed, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, ' +
     `${exchangeRoleRead('a')} AS exchange_role, a.degree_total AS degree_total, a.degree_out AS degree_out${more} LIMIT 1`
   )
 }
@@ -328,6 +340,29 @@ const rowsOf = memberRows
 
 function notReadOf(part: NotReadPart, id: string, member: Member | undefined): NotRead {
   return { part, ...memberRefusal(id, member) }
+}
+
+/** The category of the card as the answer shows it: `suspect` reads as `pattern` (agent name). */
+export function categoryShown(category: string): string {
+  return category.toLowerCase() === 'suspect' ? JUDGEMENT_WORD_SHOWN : category
+}
+
+/**
+ * The card's category, type and role of a node row, each left out when the
+ * node has none. They are shown only: the risk word never reads them
+ * (agent name).
+ */
+export function cardClassOf(
+  row: Record<string, unknown>
+): Pick<AmlAddressRiskResult, 'category' | 'type' | 'role'> {
+  const category = textOrNull(row.category)
+  const type = textOrNull(row.type)
+  const role = textOrNull(row.role)
+  return {
+    ...(category !== null ? { category: categoryShown(category) } : {}),
+    ...(type !== null ? { type } : {}),
+    ...(role !== null ? { role } : {}),
+  }
 }
 
 /** The kind of an address from its node labels: Pool wins over Token over Contract over Account. */
@@ -625,6 +660,7 @@ export function addressRiskFromMembers(
     identity: identityWord ? { word: identityWord, name: identityName } : null,
     roles: strings(nodeRow.address_roles),
     behaviour: textOrNull(nodeRow.behaviour),
+    ...cardClassOf(nodeRow),
     risk: { ...risk, card_version: textOrNull(nodeRow.card_version) },
     model: { level: risk.model_word, score: risk.score, scored: risk.model_word !== 'not_scored' },
     exposure: {

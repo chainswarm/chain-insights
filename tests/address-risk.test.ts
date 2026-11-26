@@ -628,3 +628,61 @@ describe('aml_address_risk', () => {
     }
   })
 })
+
+describe('aml_address_risk: the card category, type and role', () => {
+  const build = (row: Record<string, unknown>) => {
+    const built = addressRiskFromMembers(
+      'robinhood',
+      SUBJECT,
+      new Map([
+        ['node', nodeMember(row)],
+        ['in', rowsMember('in', [])],
+        ['out', rowsMember('out', [])],
+      ]),
+      card.document.words,
+      []
+    )
+    if ('failure' in built) throw new Error(built.failure)
+    return built.result
+  }
+  const plainRow = { ...SUBJECT_ROW, evidence: [], judgements: [], risk_level: null, risk_score: null }
+
+  it('a poisoner on a graph that writes them: shown as stored, and the word is still critical', () => {
+    const result = build({
+      ...plainRow,
+      evidence: ['poisoning:ADDRESS_POISONING'],
+      category: 'malicious',
+      type: 'poisoning',
+      role: 'scammer',
+    })
+    expect(result).toMatchObject({ category: 'malicious', type: 'poisoning', role: 'scammer' })
+    expect(result.risk.word).toBe('critical')
+  })
+
+  it('a suspect-only address is shown as pattern, and its entry raises no word', () => {
+    const row = { ...plainRow, judgements: ['suspect:MIXER_WITHDRAWER'] }
+    const result = build({ ...row, category: 'suspect', type: 'mixer' })
+    expect(result.category).toBe('pattern')
+    expect(result.type).toBe('mixer')
+    expect(result).not.toHaveProperty('role')
+    expect(result.risk.word).toBe('unscored')
+    expect(result.risk.rules_word).toBe('none')
+    expect(result.risk).toEqual(build(row).risk)
+  })
+
+  it('a node with none of them answers without the three fields, and nothing else moves', () => {
+    const today = build(SUBJECT_ROW)
+    expect(today).not.toHaveProperty('category')
+    expect(today).not.toHaveProperty('type')
+    expect(today).not.toHaveProperty('role')
+    const empty = build({ ...SUBJECT_ROW, category: null, type: '', role: '  ' })
+    expect(empty).toEqual(today)
+    const { category: _c, type: _t, role: _r, ...rest } = build({
+      ...SUBJECT_ROW,
+      category: 'victim',
+      type: 'poisoning',
+      role: 'scammer',
+    })
+    expect(rest).toEqual(today)
+  })
+})

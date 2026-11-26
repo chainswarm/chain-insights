@@ -274,6 +274,51 @@ describe('aml_deployer_screen answers from the recorded graph', () => {
       return harness(batchAnswer(r, [])).screen({ network: 'robinhood', address: addressOf('token_bridge_funder') })
     }
   })
+
+  it('a sanctioned launcher that also carries the role word Malicious gives the same crime list and roles', async () => {
+    const plain = rowsOf('token_bridge_funder')
+    plain[0]!.launcher_roles = ['Address', 'Account', 'Sanctioned']
+    plain[0]!.launcher_is_sanctioned = true
+    plain[0]!.launcher_risk_labels = ['Sanctioned']
+    plain[0]!.launcher_risk_levels = ['critical']
+    const marked = structuredClone(plain)
+    marked[0]!.launcher_roles = ['Address', 'Account', 'Sanctioned', 'Malicious']
+    marked[0]!.launcher_is_malicious = true
+    marked[0]!.launcher_risk_labels = ['Sanctioned', 'Malicious']
+    marked[0]!.launcher_risk_levels = ['critical', 'critical']
+    marked[0]!.funder_roles = [...(plain[0]!.funder_roles as string[]), 'Malicious']
+    marked[0]!.funder_risk_labels = [...(plain[0]!.funder_risk_labels as string[]), 'Malicious']
+    marked[0]!.funder_risk_levels = [...(plain[0]!.funder_risk_levels as string[]), 'critical']
+    const before = (await screen(plain)).structured
+    const after = await screen(marked)
+    expect(after.structured).toEqual(before)
+    expect(after.structured.launcher!.crime).toEqual([
+      { kind: 'sanctioned', value: 'Sanctioned', level: null },
+      { kind: 'risk', value: 'Sanctioned', level: 'critical' },
+    ])
+    expect(after.result.content[0]!.text).not.toContain('Malicious')
+
+    async function screen(r: Row[]) {
+      return harness(batchAnswer(r, [])).screen({ network: 'robinhood', address: addressOf('token_bridge_funder') })
+    }
+  })
+
+  it('a fake token that also carries the role word Malicious keeps its own roles and the same screen', async () => {
+    const plain = rowsOf('token_bridge_funder')
+    plain[0]!.token_roles = ['Address', 'Token', 'Scam']
+    const marked = structuredClone(plain)
+    marked[0]!.token_roles = ['Address', 'Token', 'Scam', 'Malicious']
+    const before = await screen(plain)
+    const after = await screen(marked)
+    expect(before.structured.token!.roles).toEqual(['Token', 'Scam'])
+    expect(after.structured.token!.roles).toEqual(before.structured.token!.roles)
+    expect(after.structured).toEqual(before.structured)
+    expect(after.result.content[0]!.text).toBe(before.result.content[0]!.text)
+
+    async function screen(r: Row[]) {
+      return harness(batchAnswer(r, [])).screen({ network: 'robinhood', address: addressOf('token_bridge_funder') })
+    }
+  })
 })
 
 describe('aml_deployer_screen when a read fails', () => {
