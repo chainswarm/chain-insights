@@ -137,7 +137,7 @@ The graph's layers are grouped into six families, and a family is as fresh as it
 | dex              | `dex_swaps`, `dex_liquidity`, `dex_pools`      | `SWAPPED`, `ADDED_LIQUIDITY`, `REMOVED_LIQUIDITY`             | `behind_dex`            |
 | interactions     | `approvals`, `bridged`, `contracts`, `authorization` | `APPROVED`, `BRIDGED`, `DEPLOYED_CONTRACT`, `SIGNED_AUTHORIZATION` | `behind_interactions`   |
 | smart_accounts   | `sponsored`, `bundled`, `signers`, `owners`    | `SPONSORED`, `BUNDLED`, `SIGNED_FOR`, `LINKED`                | `behind_smart_accounts` |
-| annotations      | `labels`, `ml`, `inferred`, `kinds`, `assets`, `cex_sweeps` | `SWEPT`                                              | `annotations_fresh`     |
+| annotations      | `labels`, `ml`, `inferred`, `kinds`, `assets`, `cex_sweeps`, `blast_radius` | `SWEPT`                                              | `annotations_fresh`     |
 | transfers        | `transfers_by_asset`                           | `TRANSFERRED`                                                 | `behind_transfers`      |
 
 `transfers` is its own family: a `FLOWED_TO` search never waits for it, and a `TRANSFERRED` search never waits for `money`.
