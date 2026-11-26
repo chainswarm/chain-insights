@@ -39,7 +39,9 @@ import { flat, read } from './support/schema-text.js'
 // data-pipeline-graph-routed-to-swaps-from-money) add the layer `routed` and its
 // link `ROUTED_TO` to money after every recording. A layer added later may sit
 // in the middle of a family (`routed` between `flows` and `operated_by`), so
-// the table minus the added layers must equal the recorded reply.
+// the table minus the added layers must equal the recorded reply. The evidence
+// blast radius (change evidence-blast-radius) adds the layer `blast_radius` to
+// annotations after every recording, with no link type of its own.
 //
 // The copy is byte for byte the one of data-pipeline-graph
 // internal/graphrag/families/families.json. A test run here cannot read that
@@ -53,13 +55,13 @@ type Recording = { file: string; count: number; added: Record<string, string[]> 
 const ADDED_BY_GRAPH_MIGRATIONS_AND_MARKS: Record<string, string[]> = {
   money: ['routed'],
   dex: ['dex_pools'],
-  annotations: ['assets', 'cex_sweeps'],
+  annotations: ['assets', 'cex_sweeps', 'blast_radius'],
 }
 const ADDED_BY_CEX_SWEEPS: Record<string, string[]> = {
   money: ['routed'],
-  annotations: ['cex_sweeps'],
+  annotations: ['cex_sweeps', 'blast_radius'],
 }
-const FAMILIES_JSON_SHA256 = '2f0c1be3ca4b0f7c9dbf45a98af627ebfaf5f84c4dcb8d7e2cfa0be30f48691a'
+const FAMILIES_JSON_SHA256 = 'a257f7ce8f4852a4c7e18df531e34c0217841cd4cb79465549edffacd444f558'
 const recordings: Recording[] = [
   {
     file: 'tests/fixtures/network-capabilities-robinhood-families.json',
