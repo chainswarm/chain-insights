@@ -39,6 +39,7 @@
  * endpoint and costs nothing.
  */
 
+import { withoutHeldRoleWord } from './held-role-word.js'
 import type { SwapLinkShape } from './layer-routing.js'
 
 export const FLOWS_SCHEMA = 'chain-insights.flows.v1'
@@ -401,8 +402,10 @@ function flowsInt(value: unknown): number {
 }
 
 function flowsNodeOf(row: Row): FlowNode {
+  // The held role word leaves the list, so the labels, the details line and
+  // the role text read as they do on a graph with today's marks only.
   const labels = Array.isArray(row.labels)
-    ? row.labels.filter((label): label is string => typeof label === 'string')
+    ? withoutHeldRoleWord(row.labels.filter((label): label is string => typeof label === 'string'))
     : []
   return {
     address: typeof row.address === 'string' ? row.address : '',

@@ -23,6 +23,7 @@
 
 import { ANSWER_HINT } from './answer-hint.js'
 import { recipeFor, TRAIL_SKILLS, type RecipeStep, poolsByFactoryQuery } from './dex-recipes.js'
+import { withoutHeldRoleWord } from './held-role-word.js'
 import { LEVEL_RULE, type SwapLinkShape } from './layer-routing.js'
 import {
   DexRegistryError,
@@ -271,7 +272,8 @@ function readPools(members: Map<string, Member>, shape: SwapLinkShape): PoolRow[
       const address = typeof row.to_address === 'string' ? row.to_address : null
       const rank = numberOrNull(shape === 'levels' ? row.swapped_usd : row.total_volume_usd)
       if (!address || rank === null || byAddress.has(address)) continue
-      const labels = stringList(row.to_labels)
+      // The held role word leaves the pool's labels.
+      const labels = withoutHeldRoleWord(stringList(row.to_labels))
       byAddress.set(address, {
         rank,
         row:

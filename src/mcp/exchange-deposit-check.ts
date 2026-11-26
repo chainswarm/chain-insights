@@ -43,6 +43,7 @@ import {
 } from './exchange-registry.js'
 import { EXCHANGE_OPENING_RULE } from './exchange-tool.js'
 import { EXCHANGE_ROLES, exchangeRoleRead } from './graph-schema.js'
+import { withoutHeldRoleWord } from './held-role-word.js'
 import { isEpochMs, utcText } from './timestamp-text.js'
 import { membersOf, refusalOf, type GraphAnswer, type Member } from './token-lookup.js'
 
@@ -446,7 +447,8 @@ export function depositCheckFromMembers(
   if (!answered(swept)) return { failure: memberFailure('swept', swept) }
 
   const nodeRow = rowsOf(node)[0]
-  const labels = strings(nodeRow?.labels)
+  // The held role word leaves the labels the answer shows.
+  const labels = withoutHeldRoleWord(strings(nodeRow?.labels))
   const sweeps: Sweep[] = []
   let exchange: ExchangeEntry | null = null
   for (const row of rowsOf(swept)) {
