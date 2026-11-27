@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { execFileSync } from 'node:child_process'
-import { cpSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -70,38 +78,45 @@ describe('the npm tag picks the default endpoint', () => {
   })
 })
 
-// The publish workflow stamps the tag after the build and packs with
-// --ignore-scripts. This packs a copy of the built package the same way and
-// runs the CLI from it, so a pack that loses the file, or a bundle that looks
-// for it in the wrong place, fails here.
+// The publish workflow stamps the tag after the build and packs. This packs a
+// copy of the built package and runs the CLI from it, so a pack that loses the
+// file, or a bundle that looks for it in the wrong place, fails here. npm 10
+// runs `prepare` on pack even with --ignore-scripts, and the real prepare
+// empties dist/; the copy's prepare stands in for that by deleting
+// dist/channel.json, and the pack runs scripts on every npm version.
 describe('the packed package carries its channel', () => {
   const root = process.cwd()
 
   // Needs the build in dist/, as the other CLI tests do (ci/t1.sh builds first).
-  it('a next tarball holds dist/channel.json and its CLI reads staging', () => {
+  it('a next tarball holds channel.json through a prepare build, and its CLI reads staging', () => {
     const work = mkdtempSync(join(tmpdir(), 'ci-pack-'))
     try {
       const pkg = join(work, 'pkg')
-      cpSync(join(root, 'package.json'), join(pkg, 'package.json'))
+      const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
+        scripts: Record<string, string>
+      }
+      manifest.scripts = {
+        prepare: `node -e "require('fs').rmSync('dist/channel.json',{force:true})"`,
+      }
+      mkdirSync(pkg)
+      writeFileSync(join(pkg, 'package.json'), JSON.stringify(manifest, null, 2))
       cpSync(join(root, 'bin'), join(pkg, 'bin'), { recursive: true })
       cpSync(join(root, 'dist'), join(pkg, 'dist'), { recursive: true })
-      rmSync(join(pkg, 'dist', 'channel.json'), { force: true })
-      execFileSync(
-        'node',
-        [join(root, 'scripts', 'stamp-release-channel.mjs'), 'next', join(pkg, 'dist')],
-        { encoding: 'utf8' }
-      )
+      execFileSync('node', [join(root, 'scripts', 'stamp-release-channel.mjs'), 'next', pkg], {
+        encoding: 'utf8',
+      })
 
       const packed = JSON.parse(
-        execFileSync('npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', work], {
+        execFileSync('npm', ['pack', '--json', '--pack-destination', work], {
           cwd: pkg,
           encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'pipe'],
         })
       ) as Array<{ filename: string; files: Array<{ path: string }> }>
-      expect(packed[0]!.files.map((f) => f.path)).toContain('dist/channel.json')
+      expect(packed[0]!.files.map((f) => f.path)).toContain('channel.json')
       const tarball = join(work, packed[0]!.filename)
       expect(
-        execFileSync('tar', ['-xOf', tarball, 'package/dist/channel.json'], { encoding: 'utf8' })
+        execFileSync('tar', ['-xOf', tarball, 'package/channel.json'], { encoding: 'utf8' })
       ).toBe('{"channel":"next"}\n')
 
       const unpacked = join(work, 'unpacked')

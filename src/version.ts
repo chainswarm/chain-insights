@@ -7,14 +7,16 @@ export const PACKAGE_INFO = JSON.parse(
 export const PACKAGE_VERSION = PACKAGE_INFO.version
 
 /**
- * The npm dist-tag this build was published under, read from
- * `dist/channel.json`. The publish workflow writes that file after the build
- * and before `npm pack`, so the channel is a fact of the package, never a
- * guess at run time. A source checkout or a local build has no file and
+ * The npm dist-tag this build was published under, read from `channel.json`
+ * at the package root, beside package.json. The publish workflow writes that
+ * file after the build and before `npm pack`, so the channel is a fact of the
+ * package, never a guess at run time. It sits outside dist/ because npm 10
+ * runs the `prepare` build on `npm pack` even with --ignore-scripts, and that
+ * build empties dist/. A source checkout or a local build has no file and
  * reads `undefined`, which means production.
  */
 export function readReleaseChannel(
-  file: URL = new URL('../dist/channel.json', import.meta.url)
+  file: URL = new URL('../channel.json', import.meta.url)
 ): string | undefined {
   let raw: string
   try {

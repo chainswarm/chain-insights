@@ -47,6 +47,7 @@
   },
   "files": [
     "bin",
+    "channel.json",
     "dist",
     "skills",
     "!skills/rbmk-*",
