@@ -205,43 +205,44 @@ The address-grain graph schema:
   as a single collapsed node. \`LINKED\` is served on the topology graph
   only.
 - Other Address properties: \`labels\` (array of role words, never a
-  claim code) and the role flags \`is_exchange\`, \`is_scam\`,
-  \`is_victim\`, \`is_sanctioned\` and \`is_issuer_frozen\`. Each flag
+  claim code) and the role flags \`is_exchange\`, \`is_malicious\`,
+  \`is_victim\` and \`is_issuer_frozen\`. Each flag
   is present only when true and absent otherwise, never \`false\`: \`:Exchange\` and
-  \`is_exchange\` follow the \`exchange\` label, \`:Scam\` and
-  \`is_scam\` the \`risk\` label, \`:Victim\` and \`is_victim\` the
-  \`protection\` label, \`:Sanctioned\` and \`is_sanctioned\` the
-  \`sanctioned\` label, \`:IssuerFrozen\` and \`is_issuer_frozen\` the
+  \`is_exchange\` follow the \`exchange\` label, \`:Malicious\` and
+  \`is_malicious\` a malicious case, \`:Victim\` and \`is_victim\` a victim
+  case, \`:IssuerFrozen\` and \`is_issuer_frozen\` the
   \`issuer_frozen\` label: an issuer froze this wallet; the token in
   \`labels\` says which. Per-label risk lives on the address node as three
   parallel lists, \`label_risk_labels\`, \`label_risk_levels\` and
   \`label_risk_updated_timestamps\`: entry i of each list is one current
   label row.
 - Why a judgement mark is there sits in a sorted claims list on the node,
-  written by the labels layer: \`risk_claims\` beside \`:Scam\`,
-  \`:Poisoned\` and \`:Sanctioned\`, \`protection_claims\` beside
-  \`:Victim\` and \`:Targeted\`, \`traced_claims\` beside
-  \`:OnMoneyTrail\`, and \`suspect_labels\`, with no mark, for a warning
-  or a record that accuses nobody: the address used a mixer pool, or it is
-  a token that copies a listed token's name. \`FAKE_TOKEN\` on \`:Scam\`
-  is a fake token with a proven act (sent to holders of the real token, or
-  used as poisoning bait); \`FAKE_TOKEN\` in \`suspect_labels\` is a
-  copied name that accuses nobody, never called a scam. A fake-token list
-  asks both and keeps them apart. The values (\`FAKE_TOKEN\`, \`ADDRESS_POISONING\`,
-  \`APPROVAL_DRAINER\`, \`VICTIM\`, \`LAUNDERED\` and the rest) and
-  their meaning are in the \`chain-insights-cypher\` skill, section
-  Judgement marks. Ask by mark (\`MATCH (a:Scam) WHERE "FAKE_TOKEN" IN
-  a.risk_claims\` for fake tokens) or anchor on the address: the mark is
-  the anchor, and a \`WHERE\` with no mark and no address is refused. Say what a claim means in plain words, such as "a fake-token
+  written by the labels layer: \`malicious_claims\` beside \`:Malicious\`,
+  \`victim_claims\` beside \`:Victim\`, and \`suspect_labels\`, with no
+  mark, for a warning or a record that accuses nobody: the address took
+  money out of a mixer pool, or it is a token that copies a listed token's
+  name. Every judged address also carries \`categories\` (malicious,
+  suspect, victim) and \`case_judgements\`, one \`category|type|role|case\`
+  entry per case. A sanctions listing is a malicious case whose entry starts
+  \`malicious|sanctioned|\`, and its \`malicious_claims\` holds the name of
+  the listed entity. A mule (role \`mule\`) received the accused's money
+  along the walk and carries no claim, only its case. \`FAKE_TOKEN\` on
+  \`:Malicious\` is a fake token with a proven act (sent to holders of the
+  real token, or used as poisoning bait); \`FAKE_TOKEN\` in
+  \`suspect_labels\` is a copied name that accuses nobody, never called a
+  scam. A fake-token list asks both and keeps them apart. The values
+  (\`FAKE_TOKEN\`, \`ADDRESS_POISONING\`, \`APPROVAL_DRAINER\`,
+  \`VICTIM\` and the rest) and their meaning are in the
+  \`chain-insights-cypher\` skill, section Judgement marks. Ask by mark
+  (\`MATCH (a:Malicious) WHERE "FAKE_TOKEN" IN a.malicious_claims\` for
+  fake tokens) or anchor on the address: the mark is the anchor, and a
+  \`WHERE\` with no mark and no address is refused. Say what a claim means in plain words, such as "a fake-token
   scam" or "it lost money to a scam", never the list name or the code.
-- A card of \`card_version\` 4 or above holds the next words: \`:Malicious\`
-  and \`is_malicious\` stand in place of \`:Scam\`, \`:Poisoned\`,
-  \`:Sanctioned\`, \`is_scam\` and \`is_sanctioned\`, with the lists
-  \`categories\` (malicious, suspect, victim) and \`case_judgements\`
-  (\`category|type|role|case\`; the type \`sanctioned\` is a sanctions
-  listing), and \`malicious_claims\`, \`victim_claims\` and
-  \`suspect_labels\` beside them. On such a card ask by \`:Malicious\`
-  (\`MATCH (a:Malicious) WHERE "FAKE_TOKEN" IN a.malicious_claims\`).
+- An older card (\`card_version\` below 4) wrote \`:Scam\` (\`is_scam\`),
+  \`:Poisoned\` and \`:Sanctioned\` (\`is_sanctioned\`) with
+  \`risk_claims\`, \`:Targeted\` with \`protection_claims\` and
+  \`:OnMoneyTrail\` with \`traced_claims\`. The served graph holds none of
+  them: never ask by them.
 - A missing \`risk_score\` is no verdict, never low risk: the judgement is the marks and
   their claims lists above. Address nodes carry base activity rollups:
   \`degree_in\`/\`degree_out\`/\`degree_total\` (distinct counterparty
@@ -276,8 +277,8 @@ The address-grain graph schema:
   Lifetime aggregates are the only serving window.
 - Money flow is \`(:Address)-[:FLOWED_TO]->(:Address)\`. Public AML tools
   accept the raw blockchain address directly — there is no resolution step.
-- An absent \`risk_score\` is \`UNSCORED\`, no verdict, never low risk. The verdict is the marks (\`:Scam\`, \`:Victim\`,
-  \`:Poisoned\`, \`:OnMoneyTrail\`) with their claims lists.
+- An absent \`risk_score\` is \`UNSCORED\`, no verdict, never low risk. The verdict is the marks (\`:Malicious\`, \`:Victim\`)
+  with their claims lists and \`case_judgements\`.
   Labels and per-label risk live on the address node (\`labels\` array plus
   the three \`label_risk_*\` lists). \`USE facts\` serves bounded individual
   transfer rows, and one contract by its address:

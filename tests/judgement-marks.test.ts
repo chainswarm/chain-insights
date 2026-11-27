@@ -8,6 +8,9 @@ import {
   GRAPH_QUERY_JUDGEMENT_MARKS_SENTENCE,
   JUDGEMENT_ANSWER_EXAMPLES,
   JUDGEMENT_CLAIMS,
+  OLDER_CARD_LISTS,
+  OLDER_CARD_MARKS,
+  SANCTIONED_CASE_PREFIX,
 } from '../src/mcp/judgement-marks.js'
 import { servedGraphHints } from './support/schema-text.js'
 
@@ -22,8 +25,17 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const read = (path: string): string => readFileSync(join(repoRoot, path), 'utf8')
 const CODE =
   /\b[A-Z]{2,}(?:_[A-Z]+)+\b|\b(?:VICTIM|SANCTIONED|LAUNDERED|RECEIVED|FUNDER|MIXED)\b|_claims|suspect_labels/
-const MARKS = [':Scam', ':Victim', ':Poisoned', ':Targeted', ':OnMoneyTrail', ':Sanctioned']
-const LISTS = ['risk_claims', 'protection_claims', 'traced_claims', 'suspect_labels']
+// The marks and lists a card of card_version 4 carries: what the served graph holds.
+const MARKS = [':Malicious', ':Victim']
+const LISTS = ['malicious_claims', 'victim_claims', 'suspect_labels', 'categories', 'case_judgements']
+
+// A read that asks by a mark or a list the served graph no longer holds comes
+// back empty. A text may name them in its older-card note, never in a query.
+const OLDER_QUERY = new RegExp(
+  `\\(\\w*:(?:${OLDER_CARD_MARKS.map((m) => m.slice(1)).join('|')})\\b|\\.(?:${OLDER_CARD_LISTS.join('|')})\\b`
+)
+const firstIndex = (text: string, names: readonly string[]): number =>
+  Math.min(...names.map((name) => text.indexOf(name)).filter((at) => at >= 0))
 
 describe('the judgement marks and their claims', () => {
   const skill = read('skills/chain-insights-cypher/SKILL.md')
@@ -35,6 +47,21 @@ describe('the judgement marks and their claims', () => {
     expect(description).toContain(GRAPH_QUERY_JUDGEMENT_MARKS_SENTENCE)
     for (const claim of JUDGEMENT_CLAIMS) expect(description, claim.value).toContain(claim.value)
     for (const name of [...MARKS, ...LISTS]) expect(description, name).toContain(name)
+    expect(description).toContain(SANCTIONED_CASE_PREFIX)
+  })
+
+  it('lead every text with the served marks and ask no query by an older mark', () => {
+    const texts: Array<[string, string]> = [
+      ['the graph_query description', KNOWN_PUBLIC_TOOL_DESCRIPTIONS['graph_query'] ?? ''],
+      ['the served hints', servedGraphHints()],
+      ['the skill section', section],
+    ]
+    for (const [name, text] of texts) {
+      expect(text, name).not.toMatch(OLDER_QUERY)
+      // An older mark is a fallback note: the served mark comes first.
+      expect(text.indexOf(':Malicious'), name).toBeGreaterThan(-1)
+      expect(text.indexOf(':Malicious'), name).toBeLessThan(firstIndex(text, OLDER_CARD_MARKS))
+    }
   })
 
   it('are taught by the skill section, the served hints and the guides, every value', () => {

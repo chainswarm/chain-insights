@@ -966,7 +966,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (a:Scam) WHERE \"FAKE_TOKEN\" IN a.risk_claims RETURN a.address AS address, a.risk_claims AS risk_claims LIMIT 25, or anchor on the address",
+   "query": "USE topology MATCH (a:Malicious) WHERE \"FAKE_TOKEN\" IN a.malicious_claims RETURN a.address AS address, a.malicious_claims AS malicious_claims LIMIT 25, or for sanctioned addresses MATCH (a:Malicious) WHERE any(j IN a.case_judgements WHERE j STARTS WITH \"malicious|sanctioned|\") RETURN a.address AS address, a.malicious_claims AS malicious_claims LIMIT 25, or anchor on the address",
    "source": "src/mcp/proxy.ts graph hints"
   },
   {
@@ -974,7 +974,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (a:Token) WHERE \"FAKE_TOKEN\" IN a.suspect_labels RETURN a.address AS address, a.suspect_labels AS suspect_labels LIMIT 25",
+   "query": "USE topology MATCH (a:Malicious) WHERE any(j IN a.case_judgements WHERE j STARTS WITH \"malicious|sanctioned|\") RETURN a.address AS address, a.malicious_claims AS malicious_claims LIMIT 25, or anchor on the address",
    "source": "src/mcp/proxy.ts graph hints"
   },
   {
@@ -982,7 +982,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (a:Malicious) WHERE \"FAKE_TOKEN\" IN a.malicious_claims RETURN a.address AS address, a.malicious_claims AS malicious_claims LIMIT 25",
+   "query": "USE topology MATCH (a:Token) WHERE \"FAKE_TOKEN\" IN a.suspect_labels RETURN a.address AS address, a.suspect_labels AS suspect_labels LIMIT 25",
    "source": "src/mcp/proxy.ts graph hints"
   },
   {

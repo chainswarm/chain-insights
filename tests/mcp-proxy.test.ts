@@ -633,30 +633,34 @@ describe('MCP proxy (MCP-02, MCP-03)', () => {
     expect(instructions).toContain('A missing risk_score is no verdict, never low risk')
     expect(instructions).not.toContain('risk_score float')
     // Role words and the five role flags, each flag present only when true.
-    for (const word of ['Exchange', 'Scam', 'Victim', 'Sanctioned', 'IssuerFrozen']) {
+    for (const word of ['Exchange', 'Malicious', 'Victim', 'IssuerFrozen']) {
       expect(instructions).toMatch(new RegExp(`\\b${word}\\b`))
     }
     for (const pair of [
       ':Exchange and is_exchange follow the exchange label',
-      ':Scam and is_scam the risk label',
-      ':Victim and is_victim the protection label',
-      ':Sanctioned and is_sanctioned the sanctioned label',
+      ':Malicious and is_malicious a malicious case',
+      ':Victim and is_victim a victim case',
       ':IssuerFrozen and is_issuer_frozen the issuer_frozen label: an issuer froze this wallet; the token in labels says which',
     ]) {
       expect(instructions).toContain(pair)
     }
     expect(instructions).toContain('present only when true and absent otherwise, never false')
-    expect(instructions).not.toMatch(/is_(exchange|scam|victim|sanctioned|issuer_frozen)\s*=\s*false/)
+    expect(instructions).not.toMatch(/is_(exchange|malicious|scam|victim|sanctioned|issuer_frozen)\s*=\s*false/)
     // Labels are role words. The claim codes live in the claims lists beside
     // the marks, and the instructions teach them so a risk question is answered.
     expect(instructions).toContain('role words, never a claim code')
-    for (const name of ['risk_claims', 'protection_claims', 'traced_claims', 'suspect_labels']) {
+    for (const name of ['malicious_claims', 'victim_claims', 'suspect_labels', 'categories', 'case_judgements']) {
       expect(instructions).toContain(name)
     }
-    for (const mark of [':Poisoned', ':Targeted', ':OnMoneyTrail']) {
-      expect(instructions).toContain(mark)
+    // The served card leads; the older marks come after it, as a fallback, and
+    // no read the instructions show asks by one.
+    expect(instructions.indexOf(':Malicious')).toBeGreaterThan(-1)
+    for (const older of [':Scam', ':Poisoned', ':Sanctioned', ':Targeted', ':OnMoneyTrail']) {
+      expect(instructions.indexOf(older), older).toBeGreaterThan(instructions.indexOf(':Malicious'))
     }
-    for (const code of ['FAKE_TOKEN', 'ADDRESS_POISONING', 'APPROVAL_DRAINER', 'VICTIM', 'LAUNDERED', 'MIXER_DEPOSITOR']) {
+    expect(instructions).not.toMatch(/\(\w*:(Scam|Poisoned|Sanctioned|Targeted|OnMoneyTrail)\b|\.(risk|protection|traced)_claims\b/)
+    expect(instructions).toContain('WHERE j STARTS WITH "malicious|sanctioned|"')
+    for (const code of ['FAKE_TOKEN', 'FAKE_TOKEN_MASS_SENDER', 'ADDRESS_POISONING', 'APPROVAL_DRAINER', 'VICTIM', 'MIXER_WITHDRAWER']) {
       expect(instructions).toMatch(new RegExp(`\\b${code}\\b`))
     }
     expect(instructions).toContain('never the list name or the code')
