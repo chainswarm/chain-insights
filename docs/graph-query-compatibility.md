@@ -424,9 +424,9 @@ rejected shapes against a live Chain Insights Graph endpoint.
 
 ## Role labels and flags (topology graph)
 
-The graph labels an address with role words: `Exchange`, `Scam`, `Victim`,
-`Sanctioned` and `IssuerFrozen`. Each role is also a node label, so it is queryable on
-`topology`. `:Exchange` is a node label now.
+The graph labels an address with role words: `Exchange`, `Malicious`,
+`Victim` and `IssuerFrozen`. Each role is also a node label, so it is
+queryable on `topology`.
 
 | Form                                                | Result                           |
 | --------------------------------------------------- | -------------------------------- |
@@ -434,8 +434,8 @@ The graph labels an address with role words: `Exchange`, `Scam`, `Victim`,
 | `MATCH (n:Address:Exchange)` — colon-stacked labels | ✅ (native Cypher)               |
 | `RETURN labels(n)`                                  | project known properties instead |
 
-The five role flags are `is_exchange`, `is_scam`, `is_victim`,
-`is_sanctioned` and `is_issuer_frozen`. `:IssuerFrozen` means an issuer froze
+The four role flags are `is_exchange`, `is_malicious`, `is_victim` and
+`is_issuer_frozen`. `:IssuerFrozen` means an issuer froze
 this wallet; the token in `labels` says which. Each is absent unless true: an address carries the flag only
 while it has a live label of that role. A flag is never `false`, so test it
 with `IS NOT NULL` or `IS NULL`, not `= false`. A withdrawn label removes its
@@ -464,24 +464,28 @@ behaviour kind describes automation or volume, it is not a risk signal by
 itself. The values are in
 [Graph tools](graph-tools.md#behaviour-kinds-and-operator-groups).
 
-The labels layer adds three judgement marks with no flag: `:Poisoned` (a
-look-alike address that sent worthless dust), `:Targeted` (a poisoning target
-not yet proven to have lost money) and `:OnMoneyTrail` (on the trail the
-evidence walk followed from an accused address). Beside the marks, sorted
-lists say why: `risk_claims` on `:Scam`, `:Poisoned` and `:Sanctioned`,
-`protection_claims` on `:Victim` and `:Targeted`, `traced_claims` on
-`:OnMoneyTrail`, and `suspect_labels` for a warning or a record that accuses
-nobody: an address that used a mixer pool, or a token that copies a listed
-token's name (`FAKE_TOKEN` there is a copied name, never a scam).
+The labels layer writes why a judgement mark is there in sorted lists beside
+it: `malicious_claims` on `:Malicious`, `victim_claims` on `:Victim`, and
+`suspect_labels` for a warning or a record that accuses nobody: an address
+that took money out of a mixer pool, or a token that copies a listed token's
+name (`FAKE_TOKEN` there is a copied name, never a scam). Every judged address
+also carries `categories` (`malicious`, `suspect`, `victim`) and
+`case_judgements`, one `category|type|role|case` entry per case: the type
+`sanctioned` is a sanctions listing, the role `mule` is an address on the
+trail of the accused's money. A card of `card_version` below 4 carried the
+older marks `:Scam`, `:Poisoned`, `:Sanctioned`, `:Targeted` and
+`:OnMoneyTrail` with `risk_claims`, `protection_claims` and `traced_claims`;
+the graph served today holds none of them.
 The values and their meaning are in
 [Graph tools](graph-tools.md#judgement-marks-and-their-claims).
 
 | Form                                                          | Result                                   |
 | ------------------------------------------------------------- | ---------------------------------------- |
-| `MATCH (a:Scam) WHERE "FAKE_TOKEN" IN a.risk_claims RETURN a.address, a.risk_claims LIMIT 25` | ✅ the mark is the anchor |
+| `MATCH (a:Malicious) WHERE "FAKE_TOKEN" IN a.malicious_claims RETURN a.address, a.malicious_claims LIMIT 25` | ✅ the mark is the anchor |
+| `MATCH (a:Malicious) WHERE any(j IN a.case_judgements WHERE j STARTS WITH "malicious\|sanctioned\|") RETURN a.address, a.malicious_claims LIMIT 25` | ✅ the mark is the anchor |
 | `MATCH (a:Token) WHERE "FAKE_TOKEN" IN a.suspect_labels RETURN a.address, a.suspect_labels LIMIT 25` | ✅ the mark is the anchor |
-| `MATCH (a:Address {address: "0x1111111111111111111111111111111111111111"}) RETURN a.protection_claims LIMIT 1` | ✅ anchored on one address                |
-| `MATCH (a:Address) WHERE "FAKE_TOKEN" IN a.risk_claims`         | refused: no mark and no address          |
+| `MATCH (a:Address {address: "0x1111111111111111111111111111111111111111"}) RETURN a.case_judgements, a.victim_claims LIMIT 1` | ✅ anchored on one address                |
+| `MATCH (a:Address) WHERE "FAKE_TOKEN" IN a.malicious_claims`    | refused: no mark and no address          |
 | `MATCH (a:Address {address: "0x1111111111111111111111111111111111111111"}) RETURN a.behaviour_kind, a.behaviour_group LIMIT 1` | ✅ anchored on one address |
 | `MATCH (a:Address) WHERE a.behaviour_kind = "DEX_TRADER_BOT"` | refused: no mark and no address          |
 

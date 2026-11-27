@@ -5,6 +5,26 @@ All notable changes to Chain Insights are recorded here.
 
 ## [Unreleased]
 
+## [0.93.8] - 2026-11-27 — the skills and docs teach the marks the graph serves
+
+### Fixed
+
+- The `chain-insights-cypher` skill, the `chain-insights-virtuals` skill,
+  `docs/graph-tools.md` and `docs/graph-query-compatibility.md` teach the
+  marks of a card of `card_version` 4: `:Malicious` with `malicious_claims`,
+  `:Victim` with `victim_claims`, the flags `is_malicious` and `is_victim`,
+  and the lists `categories` and `case_judgements`. They taught `:Scam`,
+  `:Poisoned`, `:Sanctioned`, `:Targeted`, `:OnMoneyTrail`, `is_scam`,
+  `is_sanctioned`, `risk_claims`, `protection_claims` and `traced_claims`,
+  which the served graph no longer holds, so a recipe such as
+  `MATCH (a:Scam) WHERE "FAKE_TOKEN" IN a.risk_claims` came back empty.
+  - New recipes: sanctioned addresses by a `case_judgements` entry of type
+    `sanctioned`, poisoners by `ADDRESS_POISONING` on `:Malicious`, and the
+    new value `FAKE_TOKEN_MASS_SENDER`.
+  - The older marks stay described in one note per page, since the risk
+    screens and the flows view still read an older card.
+- The plugin evals ask for the new marks and the new column names.
+
 ## [0.93.7] - 2026-11-27 — the deployer screen keeps the sanctioned entity's name
 
 ### Fixed

@@ -6,8 +6,8 @@ execution:
   prompt: |
     You are an AML analyst assistant using Chain Insights. The graph already answered. Write the reply to the user from this row; load the chain-insights-cypher skill first and call no graph tool.
     User asked: "Is 0x6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e6b8d0f2a39 on robinhood a bot? Which bot farm does it belong to?"
-    Row 1 from USE topology (address, node_labels, labels, behaviour_kind, behaviour_group, risk_claims):
-    0x6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e6b8d0f2a39, ["Address","Account"], [], null, null, null
+    Row 1 from USE topology (address, node_labels, labels, behaviour_kind, behaviour_group, malicious_claims, case_judgements):
+    0x6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e6b8d0f2a39, ["Address","Account"], [], null, null, null, null
   max_turns: 4
   allowed_tools: [Skill]
 runs: 3
@@ -29,7 +29,7 @@ graders:
   - type: regex
     name: no-column-names
     target: last_message
-    pattern: 'behaviour_kind|behaviour_group|node_labels|risk_claims'
+    pattern: 'behaviour_kind|behaviour_group|node_labels|malicious_claims|case_judgements'
     match: not_contains
   - type: regex
     name: full-addresses

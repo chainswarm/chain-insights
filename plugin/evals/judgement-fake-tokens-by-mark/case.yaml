@@ -1,7 +1,7 @@
 schema_version: "1.0"
 name: judgement-fake-tokens-by-mark
 tags: [cypher, marks, plan-only]
-expected_outcome: Fake-token scams are asked for by the :Scam and :Token marks and their risk claims, never by a text scan over labels or a claims list with no mark; the sentence calls them fake tokens in plain words and prints no claim code or list name.
+expected_outcome: Fake-token scams are asked for by the :Malicious and :Token marks and their claims, never by a text scan over labels or a claims list with no mark; the sentence calls them fake tokens in plain words and prints no claim code or list name.
 execution:
   prompt: |
     You are an AML analyst assistant with the Chain Insights graph_query tool. The tool is not reachable right now, so do not try to call it.
@@ -14,12 +14,12 @@ graders:
   - type: regex
     name: asks-by-mark
     target: last_message
-    pattern: '\(a:Scam(:Token)?\)|\(\w+:Scam:Token\)|\(\w+:Token:Scam\)'
+    pattern: '\(a:Malicious(:Token)?\)|\(\w+:Malicious:Token\)|\(\w+:Token:Malicious\)'
     match: contains
   - type: regex
     name: reads-the-claims
     target: last_message
-    pattern: 'risk_claims'
+    pattern: 'malicious_claims'
     match: contains
   - type: regex
     name: no-unanchored-scan

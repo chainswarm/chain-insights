@@ -7,7 +7,7 @@ execution:
     I traced buyers of a fresh Virtuals agent on Robinhood Chain in Chain
     Insights. The pool's only receiver is
     0x65050a9b7e5075a2ba5ced7b1b64ee66262c40dc and it carries the labels
-    Scam, Targeted and Victim. Did a scammer buy this agent?
+    Malicious and Victim. Did a scammer buy this agent?
 
     Answer in a few lines. Call no graph tool.
   max_turns: 10

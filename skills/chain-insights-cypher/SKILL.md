@@ -218,7 +218,7 @@ Marks say what an address is. They sit beside the kind and are never an anchor:
 
 - `:Launchpad` is a Virtuals launchpad contract: an agent token or its starting pool. Its `labels` name the agent and its stage, `virtuals:<NAME>:bonding` or `virtuals:<NAME>:graduated`.
 - `:Mixer` is a mixer contract from the mixer registry: a pool, the router or the relayer of a Tornado-style mixer (Hearsay on robinhood). Its `labels` carry the word `Mixer` and `label_risk_levels` carries `high`.
-- `:IssuerFrozen` means an issuer froze this wallet; the token in `labels` says which. A token issuer (USDG or PAXG on robinhood) called its freeze on the address, and the freeze still holds: an unfreeze removes the mark. Its `labels` carry the word `IssuerFrozen` and the token's symbol, such as `USDG`, its flag is `is_issuer_frozen`, and `label_risk_levels` carries `high`. It stands beside `:Sanctioned`, the sanctions-list mark with the flag `is_sanctioned`. A frozen wallet is never `:Scam` for the freeze alone: say the issuer froze it, never that it is a scam.
+- `:IssuerFrozen` means an issuer froze this wallet; the token in `labels` says which. A token issuer (USDG or PAXG on robinhood) called its freeze on the address, and the freeze still holds: an unfreeze removes the mark. Its `labels` carry the word `IssuerFrozen` and the token's symbol, such as `USDG`, its flag is `is_issuer_frozen`, and `label_risk_levels` carries `high`. A frozen wallet that is also on a sanctions list carries `:Malicious` beside it, with a `case_judgements` entry of type `sanctioned`. The freeze alone never makes an address `:Malicious`: say the issuer froze it, never that it is a scam.
 - `:Protocol` is a protocol's own contract: a pool, a router, a position manager, a stock token's proxy. It is never given for a token name alone.
 - `:SmartAccount` is a contract wallet, beside `:Account` or `:Contract`.
 - `:SelfTrader` is a contract that swaps with itself: it pays the pool and gets the bought side back, such as an arbitrage bot, a vault or a treasury. In the answer call it a **self-trading contract**, never a trader, a wallet or a user. A smart account is never `:SelfTrader`. Its `labels` carry the word `SelfTrader`. Its callers are its operator keys: trace its ETH payouts to them. Find these contracts by mark, `MATCH (a:SelfTrader)`. Its own swaps sit on its self link, anchored on the full 42-character address: `ROUTED_TO` on a lane with the levels, `SWAPPED` on the graph of before:
@@ -234,7 +234,7 @@ Marks say what an address is. They sit beside the kind and are never an anchor:
   MATCH (a:Address {address: "0xc33acc93942105c57602e59e8e448c20ba718a85"})-[w:SWAPPED]->(a)
   RETURN w.swap_count AS swap_count, w.sold_usd AS sold_usd, w.bought_usd AS bought_usd, w.pools AS pools LIMIT 1
   ```
-- `:Scam` (`is_scam`), `:Poisoned`, `:Victim` (`is_victim`), `:Targeted` and `:OnMoneyTrail` are judgement marks from the labels layer. Why the mark is there sits in a sorted list on the node: `risk_claims` beside `:Scam`, `:Poisoned` and `:Sanctioned`, `protection_claims` beside `:Victim` and `:Targeted`, `traced_claims` beside `:OnMoneyTrail`. `suspect_labels` holds a warning or a record that accuses nobody: the address used a mixer pool, or it is a token that copies a listed token's name. It has no mark of its own. See [Judgement marks](#judgement-marks-scams-victims-and-trails).
+- `:Malicious` (`is_malicious`) and `:Victim` (`is_victim`) are judgement marks from the labels layer. Why the mark is there sits in a sorted list on the node: `malicious_claims` beside `:Malicious`, `victim_claims` beside `:Victim`. Every judged address also carries `categories` (`malicious`, `suspect`, `victim`) and `case_judgements`, one `category|type|role|case` entry per case. `suspect_labels` holds a warning or a record that accuses nobody: the address took money out of a mixer pool, or it is a token that copies a listed token's name. It has no mark of its own. See [Judgement marks](#judgement-marks-scams-victims-and-trails).
 - `behaviour_kind` and `behaviour_group` are no marks: two properties on a busy account, how it behaves and its operator group. See [Behaviour kinds](#behaviour-kinds-busy-accounts-and-their-operator-groups).
 - A basket is a Robinhood stock-basket token: one token that holds several stock tokens in near-equal USD weights. One factory, `0xe78b036bd6da158cd61a3dac3f67e18f62ecddfd`, creates every basket, and one router, `0xb672a5d825f82dea8574711d1da696fcc48d2ae0`, mints and redeems them. A basket is `:Protocol` and `:Token`, and its `labels` carry the word `Basket`. The factory is `:Protocol` and its `labels` carry `BasketFactory`. The router has no mark of its own beyond `:Contract`. See [Baskets](#baskets-is-this-a-basket-and-what-does-it-trade).
 
@@ -299,24 +299,30 @@ A mark says what the labels layer judged. The claims list beside it says why. Th
 
 | Mark | List | Value: what it means |
 | --- | --- | --- |
-| `:Scam` | `risk_claims` | `FAKE_TOKEN`: a fake-token scam, a token that copies a listed token and was sent to holders of the real token, or used as poisoning bait. `FAKE_TOKEN_DEPLOYER`: the sender of the transaction that created it, even through a factory. `FAKE_TOKEN_LP`: the wallet that seeded its pool and pulled the liquidity after the buyers paid. `INBOUND_IMPERSONATION`: a look-alike address that paid the target to get into its history. `PHANTOM_TRANSFER`, `PHANTOM_TRANSFER_EMITTER`, `PHANTOM_ENTRYPOINT`: a contract that writes fake transfer events, claiming a transfer that never happened. `SWEEPER_DELEGATE`: an EIP-7702 delegate that empties the accounts that delegate to it. `SWEEP_BENEFICIARY`: where it sends the funds. `UNSAFE_DELEGATE`: a delegate any caller can use to empty the account. `APPROVAL_DRAINER`: a spender that moved the tokens of at least three owners with their approval or Permit2 within 72 hours of the grant, and paid nothing back. `APPROVAL_DRAIN_BENEFICIARY`: the receiver of those tokens. |
-| `:Poisoned` | `risk_claims` | `ADDRESS_POISONING`: a poisoner, a look-alike address that sent worthless dust so the target copies it from its history. Never `:Scam`. |
-| `:Sanctioned` | `risk_claims` | `SANCTIONED`: on a sanctions list. |
-| `:Victim` | `protection_claims` | `VICTIM`: it lost money to a scam the evidence walk traced. It paid the accused, was swept, or was drained after the attempt. Receiving a fake token or dust never makes a victim. |
-| `:Targeted` | `protection_claims` | `ADDRESS_POISONING_TARGET`, an older value a lane may still hold: a poisoning target the walk has not proven lost money. Never call it a victim. |
-| `:OnMoneyTrail` | `traced_claims` | The trail the evidence walk followed from an accused address. `LAUNDERED`: it received the accused's money along the walk and moved it on. `RECEIVED`: it received that money and still holds it (it becomes `LAUNDERED` when it forwards it). `FUNDER`: it funded the accused address. `MIXED`: it received that money and paid it into a mixer pool, where the walk ends. |
-| none | `suspect_labels` | `FAKE_TOKEN`: a copied name, a token that copies the name of a listed token. A record that accuses nobody: no `:Scam`, no `is_scam`. `MIXER_DEPOSITOR`, `MIXER_WITHDRAWER`: it put money into, or took money out of, a mixer pool. A warning, not a theft. |
+| `:Malicious` | `malicious_claims` | `FAKE_TOKEN`: a fake-token scam, a token that copies a listed token and was sent to holders of the real token, or used as poisoning bait. `FAKE_TOKEN_DEPLOYER`: the sender of the transaction that created it, even through a factory. `FAKE_TOKEN_LP`: the wallet that seeded its pool and pulled the liquidity after the buyers paid. `FAKE_TOKEN_MASS_SENDER`: the signer of the transactions that sent a fake token to many wallets. `ADDRESS_POISONING`: a poisoner, a look-alike address that sent worthless dust so the target copies it from its history. `INBOUND_IMPERSONATION`: a look-alike address that paid the target to get into its history. `PHANTOM_TRANSFER`, `PHANTOM_TRANSFER_EMITTER`, `PHANTOM_ENTRYPOINT`: a contract that writes fake transfer events, claiming a transfer that never happened. `SWEEPER_DELEGATE`: an EIP-7702 delegate that empties the accounts that delegate to it. `SWEEP_BENEFICIARY`: where it sends the funds. `APPROVAL_DRAINER`: a spender that moved the tokens of at least three owners with their approval or Permit2 within 72 hours of the grant, and paid nothing back. On a sanctioned address the list holds the name of the listed entity, such as `GARANTEX EUROPE OU GARANTEX EUROPE OÜ`, not a code. |
+| `:Victim` | `victim_claims` | `VICTIM`: it lost money to a scam the evidence walk traced. It paid the accused, was swept, or was drained after the attempt. Receiving a fake token or dust never makes a victim. |
+| none | `suspect_labels` | `FAKE_TOKEN`: a copied name, a token that copies the name of a listed token. A record that accuses nobody: no `:Malicious`, no `is_malicious`. `FAKE_TOKEN_LP`: it opened a pool for such a token, and no buyer is proven to have lost money there. `MIXER_WITHDRAWER`: it took money out of a mixer pool. A warning, not a theft. |
 
-`FAKE_TOKEN` means two things, by the list it sits in. On `:Scam`, in `risk_claims`, it is a fake token with a proven act: it was sent to holders of the real token, or used as poisoning bait. In `suspect_labels` it is a copied name: it accuses nobody, and it is never called a scam. Say "a token that copies the name of a listed token", never "a fake-token scam", for that one.
+`case_judgements` says which kind of case each one is, as `category|type|role|case`. The type of a malicious case is `fake-token`, `poisoning`, `inbound-impersonation`, `phantom-transfer`, `permission-abuse`, `approval-drainer` or `sanctioned`. The role says what the address did in it: `scammer`, `deployer`, `fake_token`, `emitter`, `sweeper_delegate`, `sweep_beneficiary`, `drain_spender`, or `mule`. A mule received the accused's money along the walk: it holds it, moved it on, or paid it into a mixer pool. It carries no claim, only its case. A sanctions listing is a malicious case of type `sanctioned`: say "on a sanctions list" and name the entity from `malicious_claims`. A suspect case (`suspect|...`) accuses nobody.
+
+`FAKE_TOKEN` means two things, by the list it sits in. On `:Malicious`, in `malicious_claims`, it is a fake token with a proven act: it was sent to holders of the real token, or used as poisoning bait. In `suspect_labels` it is a copied name: it accuses nobody, and it is never called a scam. Say "a token that copies the name of a listed token", never "a fake-token scam", for that one.
 
 Ask by mark, or anchor on the full address. Never scan a claims list with no mark and no address: it reads every address and times out. A lane that has not written the lists yet returns null for them: name the mark, and say the graph gives no reason yet.
 
-List fake-token scams: the `:Scam` mark is the anchor, and a `WHERE` on its own list picks the value. Approval drainers, sweepers and fake transfer events are the same read with `"APPROVAL_DRAINER"`, `"SWEEPER_DELEGATE"` or `"PHANTOM_TRANSFER"` in place of `"FAKE_TOKEN"`. For poisoners ask `:Poisoned` with `"ADDRESS_POISONING"`, for victims `:Victim` with `"VICTIM"`. When 25 rows come back, say there may be more.
+List fake-token scams: the `:Malicious` mark is the anchor, and a `WHERE` on its own list picks the value. Poisoners, approval drainers, sweepers and fake transfer events are the same read with `"ADDRESS_POISONING"`, `"APPROVAL_DRAINER"`, `"SWEEPER_DELEGATE"` or `"PHANTOM_TRANSFER"` in place of `"FAKE_TOKEN"`. For victims ask `:Victim` with `"VICTIM"` in `victim_claims`. When 25 rows come back, say there may be more.
 
 ```cypher
 USE topology
-MATCH (a:Scam) WHERE "FAKE_TOKEN" IN a.risk_claims
-RETURN a.address AS address, a.risk_claims AS risk_claims, a.labels AS labels LIMIT 25
+MATCH (a:Malicious) WHERE "FAKE_TOKEN" IN a.malicious_claims
+RETURN a.address AS address, a.malicious_claims AS malicious_claims, a.case_judgements AS case_judgements, a.labels AS labels LIMIT 25
+```
+
+Sanctioned addresses: the same mark, and a `WHERE` on its case judgements:
+
+```cypher
+USE topology
+MATCH (a:Malicious) WHERE any(j IN a.case_judgements WHERE j STARTS WITH "malicious|sanctioned|")
+RETURN a.address AS address, a.malicious_claims AS malicious_claims, a.labels AS labels LIMIT 25
 ```
 
 A fake-token list asks both lists and keeps them apart. After the scams, ask the copied names, anchored on the `:Token` mark, and list them under their own heading as records, not scams:
@@ -332,25 +338,27 @@ Is this address a victim, and of what? Read its marks and lists first, anchored 
 ```cypher
 USE topology
 MATCH (a:Address {address: "0x1111111111111111111111111111111111111111"})
-RETURN a.address AS address, labels(a) AS node_labels, a.risk_claims AS risk_claims, a.protection_claims AS protection_claims, a.traced_claims AS traced_claims, a.suspect_labels AS suspect_labels LIMIT 1
+RETURN a.address AS address, labels(a) AS node_labels, a.categories AS categories, a.case_judgements AS case_judgements, a.malicious_claims AS malicious_claims, a.victim_claims AS victim_claims, a.suspect_labels AS suspect_labels LIMIT 1
 ```
 
-The graph holds no link from an accused address to its victims, so answer per address. For "of what", read where the victim paid a `:Scam` address, and name each by its claims:
+The graph holds no link from an accused address to its victims, so answer per address. One address can be a victim in one case and malicious in another: say each with its case. For "of what", read where the victim paid a `:Malicious` address, and name each by its claims:
 
 ```cypher
 USE topology
-MATCH (v:Address {address: "0x1111111111111111111111111111111111111111"})-[f:FLOWED_TO]->(s:Scam) WHERE NOT v:Pool
-RETURN v.address AS from_address, s.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, v.labels AS from_labels, s.labels AS to_labels, v.is_exchange AS from_is_exchange, s.is_exchange AS to_is_exchange, s.risk_claims AS to_risk_claims ORDER BY f.last_seen_timestamp DESC LIMIT 25
+MATCH (v:Address {address: "0x1111111111111111111111111111111111111111"})-[f:FLOWED_TO]->(s:Malicious) WHERE NOT v:Pool
+RETURN v.address AS from_address, s.address AS to_address, f.amount_usd_sum AS amount_usd_sum, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp, v.labels AS from_labels, s.labels AS to_labels, v.is_exchange AS from_is_exchange, s.is_exchange AS to_is_exchange, s.malicious_claims AS to_malicious_claims, s.case_judgements AS to_case_judgements ORDER BY f.last_seen_timestamp DESC LIMIT 25
 ```
 
-Who did this drainer empty? Anchor on the drainer. Its victims are the `:Victim` owners who approved it, with `VICTIM` in their `protection_claims`. Each row is one address the walk proved lost money, and its approval of the drainer: say both, never that the graph links the two as thief and victim. `APPROVED` holds no Permit2 grants, so a Permit2 drainer's victims are not on it: find them, and a sweeper's or a beneficiary's, as the `:Victim` senders on `FLOWED_TO` into the address, anchored on it the same way.
+Who did this drainer empty? Anchor on the drainer. Its victims are the `:Victim` owners who approved it, with `VICTIM` in their `victim_claims`. Each row is one address the walk proved lost money, and its approval of the drainer: say both, never that the graph links the two as thief and victim. `APPROVED` holds no Permit2 grants, so a Permit2 drainer's victims are not on it: find them, and a sweeper's or a beneficiary's, as the `:Victim` senders on `FLOWED_TO` into the address, anchored on it the same way.
 
 ```cypher
 USE topology
 MATCH (v:Victim)-[p:APPROVED]->(d:Address {address: "0x1111111111111111111111111111111111111111"})
-WHERE "VICTIM" IN v.protection_claims
+WHERE "VICTIM" IN v.victim_claims
 RETURN v.address AS victim_address, p.granted_tokens AS granted_tokens, p.last_height AS last_height LIMIT 25
 ```
+
+An older card (`card_version` below 4) carries older marks. The graph served today holds none of them, so never ask by them. The risk screens and the flows view of Chain Insights read both cards. On an older card `:Scam` (`is_scam`), `:Poisoned` and `:Sanctioned` (`is_sanctioned`) carry `risk_claims`, with the codes above plus `SANCTIONED`, `UNSAFE_DELEGATE` (a delegate any caller can use to empty the account) and `APPROVAL_DRAIN_BENEFICIARY` (the receiver of a drainer's takings). `:Victim` and `:Targeted` carry `protection_claims`: `VICTIM`, and `ADDRESS_POISONING_TARGET`, a poisoning target the walk has not proven lost money. Never call it a victim. `:OnMoneyTrail` carries `traced_claims`: `LAUNDERED` (moved the accused's money on), `RECEIVED` (still holds it), `FUNDER` (funded the accused) and `MIXED` (paid it into a mixer pool). `suspect_labels` there may also hold `MIXER_DEPOSITOR`: it put money into a mixer pool, a warning and not a theft.
 
 ### Behaviour kinds: busy accounts and their operator groups
 
@@ -374,8 +382,8 @@ Say the kind in its plain words, never the constant alone:
 
 How to answer:
 
-- A trader bot is no scammer. A user who asks "is this bot a scam" gets the kind in plain words, the sentence above, and the judgement marks of the address: a scam is a `:Scam` mark with its `risk_claims`, never a behaviour kind.
-- `MIXER_LOOP_HUB` is a pattern of payments around a mixer, not proof of laundering. Say what the account does, and name a laundering trail only when `:OnMoneyTrail` says so.
+- A trader bot is no scammer. A user who asks "is this bot a scam" gets the kind in plain words, the sentence above, and the judgement marks of the address: a scam is a `:Malicious` mark with its `malicious_claims` and `case_judgements`, never a behaviour kind.
+- `MIXER_LOOP_HUB` is a pattern of payments around a mixer, not proof of laundering. Say what the account does, and name a laundering trail only when a `case_judgements` entry with the role `mule` says so.
 - A kind is no mark and no word in `labels`. A judgement mark on the same address is read and said on its own.
 - When the first payer of a group is an exchange wallet (`is_exchange`), a `:Pool` or a `:Protocol` contract, the group is the accounts it funded first, not one operator: say that, and send no members read.
 
@@ -384,7 +392,7 @@ What kind is this address, and in which group? One read, anchored on the address
 ```cypher
 USE topology
 MATCH (a:Address {address: "0x1111111111111111111111111111111111111111"})
-RETURN a.address AS address, labels(a) AS node_labels, a.labels AS labels, a.behaviour_kind AS behaviour_kind, a.behaviour_group AS behaviour_group, a.risk_claims AS risk_claims LIMIT 1
+RETURN a.address AS address, labels(a) AS node_labels, a.labels AS labels, a.behaviour_kind AS behaviour_kind, a.behaviour_group AS behaviour_group, a.malicious_claims AS malicious_claims, a.case_judgements AS case_judgements LIMIT 1
 ```
 
 Its group mates, or the members of a group someone names: the first payer is the address after the colon in `behaviour_group`. Read the payer first, anchored on it:
@@ -411,12 +419,12 @@ When 25 rows come back, say there may be more members. Never write `MATCH (a:Add
 bridges and the `LINKED` overlay. The server checks these before it runs:
 
 - Anchor every pattern on a full address: `{address: "<address>"}` in the node, or `WHERE a.address = "<address>"`. A list of at most 25 addresses is an anchor. An address in `RETURN`, in an `OR` or in a `$parameter` is no anchor.
-- A label match on a mark, such as `MATCH (a:Scam)` or `MATCH (a:Mixer)`, is an anchor: the server reads it from the label index. A `WHERE` on that node's own properties is allowed. What is refused is a `WHERE` with no label and no address, such as `MATCH (a:Address) WHERE "exchange" IN a.labels`.
+- A label match on a mark, such as `MATCH (a:Malicious)` or `MATCH (a:Mixer)`, is an anchor: the server reads it from the label index. A `WHERE` on that node's own properties is allowed. What is refused is a `WHERE` with no label and no address, such as `MATCH (a:Address) WHERE "exchange" IN a.labels`.
 - The one read with no anchor is a probe on `:Address`: one node or one hop, no `WHERE`, no `ORDER BY`, no aggregate, and a small `LIMIT`. Its rows are arbitrary: never call them recent, top or biggest.
 - A sort, an aggregate, `DISTINCT`, `collect()` or a filter on a link property needs an anchor on every pattern.
 - End every read with a literal `LIMIT`: at most 5,000 rows, 100 for a probe. A path has at most 5 hops and a query at most 8. The live numbers are in `topology_admission` (`cia network robinhood --json`).
 - Paths use bounded quantifiers such as `-[:FLOWED_TO]-{1,5}`. A `*` range, the legacy path functions, `PROFILE`, writes and `CALL` are refused.
-- Role flags `is_exchange`, `is_scam`, `is_victim`, `is_sanctioned` and `is_issuer_frozen` are absent unless true: use `IS NULL` or `IS NOT NULL`, never `= false`.
+- Role flags `is_exchange`, `is_malicious`, `is_victim` and `is_issuer_frozen` are absent unless true: use `IS NULL` or `IS NOT NULL`, never `= false`.
 - A kind label sits beside `:Address`: `WHERE a:Contract` or `WHERE a:Account` tests it, as `:Pool` is tested. It is no anchor.
 - A `FLOWED_TO` read written without an arrow, `-[f:FLOWED_TO]-`, matches both directions and tells you nothing about which end sent. Return `startNode(f).address AS from_address, endNode(f).address AS to_address`, or send two directed reads, before you call either address the sender: one answer named the receiver as the sender and had to take it back.
 
