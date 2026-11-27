@@ -66,7 +66,8 @@ USE topology MATCH (a:Address)-[r:ADDED_LIQUIDITY {asset: "0x766bd6598182586beda
 
 ## A hub
 
-A token or a pool with more than 50,000 links is a hub: `exposure.hub` is
+A token or a pool with more than 50,000 money links is a hub, and so are the
+zero address and the dead address, whatever their link count: `exposure.hub` is
 `true` and its own counterparties are not ranked (`not_read` names
 `counterparties`). Its founder, factory and pools are still answered. To see
 who traded with it, ask about one counterparty.

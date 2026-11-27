@@ -61,8 +61,9 @@ first. Read each block's `text` as written.
 
 ## A hub
 
-An address with more than 50,000 links, such as the zero address or a pool
-manager, is a hub: `exposure.hub` is `true`, its counterparties are not
+The zero address and the dead address are hubs, whatever their link count.
+So is an address with more than 50,000 money links, such as a pool manager.
+For a hub, `exposure.hub` is `true`, its counterparties are not
 ranked, and `not_read` names `counterparties` with code `hub`. Its word still
 comes from its card and the model. Say that its counterparties were not
 ranked, and ask about one counterparty, or one token, instead.

@@ -12,7 +12,7 @@ import {
   addressRiskFromMembers,
   addressRiskQueries,
   handleAmlAddressRisk,
-  hubDegreeOf,
+  hubOf,
   type AddressRiskDependencies,
   type AmlAddressRiskResult,
 } from '../src/mcp/address-risk.js'
@@ -210,7 +210,43 @@ describe('aml_address_risk', () => {
       expect(sent, String(degree)).toHaveLength(2)
       expect(structured.exposure).toMatchObject({ hub: false, counterparties_read: 4 })
     }
-    expect(hubDegreeOf({ degree_total: '60000' })).toBe(60000)
+    expect(hubOf(SUBJECT, { degree_total: '60000' })).toEqual({ cause: 'degree', degree: 60000 })
+  })
+
+  // On the staging graph the zero address carries degree_total 13,619 (its money links), under the
+  // bound, while its links of every kind number about 26.6 million: its partner reads time out.
+  it('the zero address and the dead address are hubs by identity, whatever their link count', async () => {
+    for (const [address, degree] of [
+      [ZERO, 13_619],
+      [DEAD, undefined],
+      [DEAD.toUpperCase().replace('0X', '0x'), 0],
+    ] as const) {
+      const sent: Batch[] = []
+      const result = await handleAmlAddressRisk(
+        { network: 'robinhood', address },
+        deps([nodeMember({ ...SUBJECT_ROW, degree_total: degree }), ...fullMembers().slice(1)], sent)
+      )
+      const structured = result.structuredContent as unknown as AmlAddressRiskResult
+      expect(result.isError, address).toBe(false)
+      expect(sent.map((batch) => batch.queries.map((query) => query.id)), address).toEqual([['node']])
+      expect(structured.exposure, address).toMatchObject({
+        hub: true,
+        degree_total: degree ?? null,
+        counterparties_read: 0,
+        with_risk: [],
+      })
+      expect(structured.not_read, address).toEqual([
+        {
+          part: 'counterparties',
+          code: 'hub',
+          reason:
+            'This is a zero address: tokens are minted from it and burned to it, so it is linked to nearly every holder. ' +
+            'Its counterparties are not ranked: ask about one counterparty, or one token.',
+        },
+      ])
+    }
+    expect(hubOf(ZERO, undefined)).toEqual({ cause: 'zero_address', degree: null })
+    expect(hubOf(SUBJECT, { degree_total: 13_619 })).toBeNull()
   })
 
   it('a partner call that fails whole names both partner reads as not read; the word still stands', async () => {

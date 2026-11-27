@@ -7,8 +7,8 @@
  *
  *   1  the subject's node alone (card, model, token facts, pool sums, link
  *      count): not found, or a wallet, ends here;
- *   2  its money senders and receivers (never for a hub, more than HUB_DEGREE
- *      links), its deployment, and its pool parts and assets;
+ *   2  its money senders and receivers (never for a hub: a zero address, or
+ *      more than HUB_DEGREE links), its deployment, and its pool parts and assets;
  *   3  a token: its pools and providers (four whole-chain reads by asset,
  *      first in the batch), its founder (the full address answer), its
  *      factory and the founder's gas wallets. A pool: its tokens and its
@@ -31,7 +31,7 @@ import type { AddressCardWord, LoadedAddressCard } from './address-card.js'
 import {
   ADDRESS_INPUT,
   SURROUNDINGS_NODE_LIMIT,
-  hubDegreeOf,
+  hubOf,
   addressNodeQuery,
   addressPartnerQuery,
   addressRiskFromMembers,
@@ -109,7 +109,7 @@ export const AML_TOKEN_RISK_DESCRIPTION =
   'A part listed in not_read was not read: it is never "none found". ' +
   `${TOKEN_RISK_READING_RULE} ` +
   'USD figures are tokens worth at day prices; null is unpriced, never 0. Write every address in full, all 42 characters. ' +
-  'A hub (more than 50,000 links, such as the zero address or a pool manager) has its counterparties not ranked: exposure.hub is true and not_read names counterparties; ask about one counterparty, or one token, instead. ' +
+  'A hub (the zero address or the dead address, whatever its link count, or an address with more than 50,000 money links, such as a pool manager) has its counterparties not ranked: exposure.hub is true and not_read names counterparties; ask about one counterparty, or one token, instead. ' +
   'Pass surroundings: true for the nodes and links behind the answer, to draw.'
 
 export const AML_TOKEN_RISK_ANNOTATIONS = {
@@ -490,7 +490,7 @@ export async function handleAmlTokenRisk(
 
   // Call 2, for a token or a pool: its money partners (never for a hub), its deployment and its pool parts.
   if (askedAs !== 'address') {
-    const hub = hubDegreeOf(nodeRow) !== null
+    const hub = hubOf(address, nodeRow) !== null
     const rest: Batch = [
       ...(hub
         ? []
