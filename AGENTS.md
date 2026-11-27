@@ -13,6 +13,16 @@ risk screening and fund-flow tracing.
 - Do not include private repository names, local workspace paths, internal
   planning catalogs, private deployment details, or organization-only workflow
   names in tracked files.
+- The same holds for every commit message, pull request, issue and comment:
+  anyone can read them. Describe the user-visible change. Never name private
+  repositories or their pull requests and branches, internal planning or
+  decisions, people's handles, host names, cluster namespaces, environment
+  letters or local paths.
+- End a commit with the `Co-Authored-By` trailer only, and a pull request
+  with the "Generated with Claude Code" line only. Never add a session link.
+- A pre-tool check on the maintainers' workstation refuses a commit, pull
+  request or issue text that breaks this rule and names the words. Rewrite
+  them; do not work around it. Older commits on `main` are not rewritten.
 - The first release returns investigation results through the CLI and MCP
   surfaces. Local workspace initialization, serving, and visualization are
   not public commands.
