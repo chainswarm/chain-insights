@@ -371,8 +371,9 @@ flowchart LR
   An entry is looked up by its word and value alone, whatever card list it
   came from: `scam:FAKE_TOKEN_LP` is the pattern fact the dictionary says it
   is, and `scam` with any other value is the scam word. A reason whose
-  dictionary question is `judgement` reads `pattern`, with its value, and sets
-  no level. An identity of `identities` other than the top one adds a reason
+  dictionary question is `judgement` sets no level. On a card the next
+  dictionary reads it shows its own word, `suspect`, with its value; on an
+  older card it reads `pattern`. An identity of `identities` other than the top one adds a reason
   only when it carries a level. A word the model set adds one
   reason with standing `predicted`. A card word the dictionary does not hold
   is listed in `unknown_words` and sets nothing. `card_version` is the
@@ -382,14 +383,14 @@ flowchart LR
   is `high`), and `suspect` and `victim` set no level.
 - `category`, `type` and `role` show the card's strongest category from
   `categories` (malicious, then suspect, then victim; `suspect` reads
-  `pattern`) with the type and role of its first case judgement. They set no
+  `pattern` only on an older card) with the type and role of its first case judgement. They set no
   word.
 - The word is computed from the entries and the served card dictionary, so a
   dictionary merged on `main` changes every answer within the hour.
 - `exposure` lists the partners that carry a word of `medium` or above, each
   with its own word and reasons, computed by the same rule. A risky partner
   never changes the address's word. `pattern_partners` counts the partners
-  with a pattern fact and no word of `medium` or above. A token contract and
+  with a judgement (`suspect`, or `pattern` on an older card) and no word of `medium` or above. A token contract and
   the zero addresses are left out and counted in `left_out`.
 - `exposed` is present only when the node carries the `exposed` property
   (JSON text, an array with one block per scam kind, sorted by `scam_kind`).
