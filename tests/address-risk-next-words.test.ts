@@ -174,7 +174,7 @@ describe('aml_address_risk: a card on the next words', () => {
     })
   })
 
-  it('a fake-token deployer is critical from the label rules, above the model medium; its suspect pattern sets nothing', () => {
+  it('a fake-token deployer is critical from the label rules, above the model medium; its suspect entry sets nothing', () => {
     const result = answer(DEPLOYER)
     expect(result.risk).toMatchObject({
       word: 'critical',
@@ -185,12 +185,12 @@ describe('aml_address_risk: a card on the next words', () => {
     })
     expect(result.risk.reasons.map((reason) => [reason.word, reason.value, reason.level])).toEqual([
       ['malicious', 'FAKE_TOKEN_DEPLOYER', 'critical'],
-      ['pattern', 'FAKE_TOKEN_LP', 'none'],
+      ['suspect', 'FAKE_TOKEN_LP', 'none'],
     ])
     expect(result).toMatchObject({ category: 'malicious', type: 'fake-token', role: 'deployer' })
   })
 
-  it('a suspect fake token sets no word: it is shown as a pattern', () => {
+  it('a suspect fake token sets no word: it is shown as suspect, never as a pattern', () => {
     const result = answer(COPIED_TOKEN)
     expect(result.risk).toMatchObject({
       word: 'unscored',
@@ -200,13 +200,14 @@ describe('aml_address_risk: a card on the next words', () => {
     })
     expect(result.risk.reasons).toEqual([
       expect.objectContaining({
-        word: 'pattern',
+        word: 'suspect',
         value: 'FAKE_TOKEN',
         question: 'judgement',
         level: 'none',
       }),
     ])
-    expect(result).toMatchObject({ category: 'pattern', type: 'fake-token', role: 'fake_token' })
+    expect(result).toMatchObject({ category: 'suspect', type: 'fake-token', role: 'fake_token' })
+    expect(JSON.stringify(result)).not.toContain('"pattern"')
   })
 
   it('a victim sets no word: the model speaks alone', () => {

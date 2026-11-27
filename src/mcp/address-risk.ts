@@ -48,6 +48,7 @@ import {
   modelReasonOf,
   modelScoreOf,
   modelWordOf,
+  readsNextWords,
   JUDGEMENT_WORD_SHOWN,
   reasonOf,
   riskOf,
@@ -182,7 +183,7 @@ export interface Exposure {
   /** True when a direction had more partners than PARTNER_LIMIT. */
   truncated: boolean
   with_risk: RiskyPartner[]
-  /** Kept partners with at least one pattern fact and no word of medium or above. */
+  /** Kept partners with at least one judgement (suspect, or pattern on a frozen card) and no word of medium or above. */
   pattern_partners: number
 }
 
@@ -229,7 +230,8 @@ export interface AmlAddressRiskResult {
   behaviour: string | null
   /**
    * The strongest of the card's categories (malicious, then suspect, then
-   * victim), absent when the card has none. `suspect` is shown as `pattern`.
+   * victim), absent when the card has none. `suspect` is shown as `pattern`
+   * on a card the frozen dictionary reads.
    */
   category?: string
   /** The type of that category's first case judgement, for example `poisoning`; absent when it has none. */
@@ -388,9 +390,13 @@ function notReadOf(part: NotReadPart, id: string, member: Member | undefined): N
   return { part, ...memberRefusal(id, member) }
 }
 
-/** The category of the card as the answer shows it: `suspect` reads as `pattern` (agent name). */
-export function categoryShown(category: string): string {
-  return category.toLowerCase() === 'suspect' ? JUDGEMENT_WORD_SHOWN : category
+/**
+ * The category of the card as the answer shows it. Read with the next
+ * dictionary it is the card's own word; read with the frozen one, `suspect`
+ * reads as `pattern`, as a frozen judgement does.
+ */
+export function categoryShown(category: string, nextWords = false): string {
+  return !nextWords && category.toLowerCase() === 'suspect' ? JUDGEMENT_WORD_SHOWN : category
 }
 
 /**
@@ -399,7 +405,8 @@ export function categoryShown(category: string): string {
  * `categories` and `case_judgements`.
  */
 export function cardClassOf(
-  row: Record<string, unknown>
+  row: Record<string, unknown>,
+  nextWords = false
 ): Pick<AmlAddressRiskResult, 'category' | 'type' | 'role'> {
   const categories = strings(row.categories).map((category) => category.toLowerCase())
   const judgements = strings(row.case_judgements)
@@ -410,7 +417,7 @@ export function cardClassOf(
   if (category === null) return {}
   const first = judgements.find((judgement) => judgement.category === category)
   return {
-    category: categoryShown(category),
+    category: categoryShown(category, nextWords),
     ...(first?.type ? { type: first.type } : {}),
     ...(first?.role ? { role: first.role } : {}),
   }
@@ -438,6 +445,7 @@ export function rowRisk(
   dictionaryWords: CardWords
 ): Omit<AddressRisk, 'card_version'> {
   const dictionary = wordsFor(row, dictionaryWords)
+  const readNext = readsNextWords(row, dictionaryWords)
   const nextWords = holdsNextWords(
     row,
     isCardDictionaries(dictionaryWords) ? dictionaryWords.nextVersion : undefined
@@ -447,7 +455,7 @@ export function rowRisk(
   // The categories an entry already gave a reason for: a case judgement of one adds nothing.
   const covered = new Set<string>()
   const take = (entry: string, keep: (reason: Reason) => boolean = () => true) => {
-    const reason = reasonOf(entry, dictionary)
+    const reason = reasonOf(entry, dictionary, readNext)
     if (reason) {
       const item = cardWordOf(entry, dictionary)
       const category = item ? categoryOfWord(item) : null
@@ -480,7 +488,7 @@ export function rowRisk(
   }))
   for (const judgement of [...cases, ...bare]) {
     if (judgement.category === '' || covered.has(judgement.category)) continue
-    const reason = caseJudgementReasonOf(judgement, dictionary)
+    const reason = caseJudgementReasonOf(judgement, dictionary, readNext)
     if (reason) {
       covered.add(judgement.category)
       reasons.push(reason)
@@ -745,7 +753,7 @@ export function addressRiskFromMembers(
     identity: identityWord ? { word: identityWord, name: identityName } : null,
     roles: strings(nodeRow.address_roles),
     behaviour: textOrNull(nodeRow.behaviour),
-    ...cardClassOf(nodeRow),
+    ...cardClassOf(nodeRow, readsNextWords(nodeRow, dictionary)),
     risk: { ...risk, card_version: textOrNull(nodeRow.card_version) },
     model: { level: risk.model_word, score: risk.score, scored: risk.model_word !== 'not_scored' },
     exposure: {

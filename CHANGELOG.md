@@ -5,6 +5,13 @@ All notable changes to Chain Insights are recorded here.
 
 ## [Unreleased]
 
+### Fixed
+
+- `aml_address_risk`, `aml_token_risk` and the pool answers show a suspect
+  as `suspect` on a card of `card_version` 4 or above, in its reasons and in
+  `category`. They showed it as `pattern`, which a reader takes as neutral.
+  It still sets no level. An older card reads `pattern`, as before.
+
 ### Changed
 
 - Chain Insights needs Node.js 22.12 or newer (`package.json` engines; it

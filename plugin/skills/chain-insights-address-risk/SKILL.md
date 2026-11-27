@@ -39,7 +39,8 @@ USE topology MATCH (a:Address {address: "0x766bd6598182586beda76414dc5f8deb1530a
 - `unscored` means neither the labels nor the model speak about the
   address. It is not `low`, and it is not safe.
 - Each reason carries its fixed `plain` sentence. A reason with the word
-  `pattern` is a pattern fact: it accuses nobody and sets no word.
+  `suspect` sets no word, yet the address is not fully safe: say so. On an
+  older card the same reason reads `pattern`.
 - A partner in `exposure.with_risk` is listed beside the word and never
   changes it. Receiving money from a risky address is a fact, not guilt.
 

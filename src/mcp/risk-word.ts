@@ -45,9 +45,12 @@ export type SetBy = 'rules' | 'model' | 'both' | 'none'
 export const RULES_QUESTIONS = ['evidence', 'identity', 'judgement'] as const
 
 /**
- * A word whose dictionary item answers the question `judgement` reaches a
- * reader as `pattern`, with its value: a judgement shows a pattern and accuses
- * nobody. That holds for `suspect:FAKE_TOKEN` and for `scam:FAKE_TOKEN` alike.
+ * On a card of the frozen words, a word whose dictionary item answers the
+ * question `judgement` reaches a reader as `pattern`, with its value: a
+ * judgement shows a pattern and accuses nobody. That holds for
+ * `suspect:FAKE_TOKEN` and for `scam:FAKE_TOKEN` alike. On a card of the next
+ * words a judgement shows its own word, `suspect`: a reader takes a suspect as
+ * not fully safe, and it still sets no level.
  */
 export const JUDGEMENT_WORD_SHOWN = 'pattern'
 
@@ -116,16 +119,19 @@ export function cardWordOf(
 /**
  * The reason of one card entry, or null for a word the dictionary does not
  * hold. Its question, level, standing and plain sentence are the dictionary
- * item's; the value is the entry's own, as the card wrote it.
+ * item's; the value is the entry's own, as the card wrote it. `nextWords` is
+ * true when the next dictionary reads the card: a judgement then shows its own
+ * word, `suspect`.
  */
 export function reasonOf(
   entry: string,
-  dictionaryWords: readonly AddressCardWord[]
+  dictionaryWords: readonly AddressCardWord[],
+  nextWords = false
 ): Reason | null {
   const item = cardWordOf(entry, dictionaryWords)
   if (!item || !isLevel(item.level)) return null
   const { word, value } = splitCardEntry(entry)
-  const shown = item.question === 'judgement' ? JUDGEMENT_WORD_SHOWN : word.toLowerCase()
+  const shown = item.question === 'judgement' && !nextWords ? JUDGEMENT_WORD_SHOWN : word.toLowerCase()
   return {
     word: shown,
     ...(value !== null ? { value } : {}),
@@ -184,14 +190,18 @@ export function holdsNextWords(
   return nonEmptyList(row.categories) || nonEmptyList(row.case_judgements)
 }
 
+/** True when the next dictionary reads this card row: it is loaded and the card holds the next words. */
+export function readsNextWords(row: Record<string, unknown> | undefined, words: CardWords): boolean {
+  return isCardDictionaries(words) && words.next !== null && holdsNextWords(row, words.nextVersion)
+}
+
 /** The dictionary that reads one card row. */
 export function wordsFor(
   row: Record<string, unknown> | undefined,
   words: CardWords
 ): readonly AddressCardWord[] {
   if (!isCardDictionaries(words)) return words
-  if (words.next && holdsNextWords(row, words.nextVersion)) return words.next
-  return words.frozen
+  return readsNextWords(row, words) && words.next ? words.next : words.frozen
 }
 
 // ─── case_judgements ──────────────────────────────────────────────────────────
@@ -263,15 +273,20 @@ export function caseJudgementWordOf(
   return highest(items)
 }
 
-/** The reason of one case judgement, or null when the dictionary does not hold its category. */
+/**
+ * The reason of one case judgement, or null when the dictionary does not hold
+ * its category. A judgement shows its own word when the next dictionary reads
+ * the card (`nextWords`), `pattern` otherwise.
+ */
 export function caseJudgementReasonOf(
   judgement: CaseJudgement,
-  dictionaryWords: readonly AddressCardWord[]
+  dictionaryWords: readonly AddressCardWord[],
+  nextWords = false
 ): Reason | null {
   const item = caseJudgementWordOf(judgement, dictionaryWords)
   if (!item || !isLevel(item.level)) return null
   return {
-    word: item.question === 'judgement' ? JUDGEMENT_WORD_SHOWN : judgement.category,
+    word: item.question === 'judgement' && !nextWords ? JUDGEMENT_WORD_SHOWN : judgement.category,
     ...(judgement.type !== null ? { value: judgement.type } : {}),
     question: item.question,
     ...(item.standing ? { standing: item.standing } : {}),
