@@ -97,8 +97,10 @@ export async function saveConfig(updates: Partial<InvestigatorConfig>): Promise<
   }
   const p = configPath()
   await mkdir(path.dirname(p), { recursive: true })
-  await writeFile(p, JSON.stringify(storedForm(next), null, 2) + '\n', { mode: 0o600 })
-  _cached = applyRuntimeEnvOverrides(next)
+  const stored = storedForm(next)
+  await writeFile(p, JSON.stringify(stored, null, 2) + '\n', { mode: 0o600 })
+  // Read back as a load would, so the cache and the file agree.
+  _cached = applyRuntimeEnvOverrides(parseStoredConfig(stored))
 }
 
 /**

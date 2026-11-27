@@ -62,6 +62,27 @@ describe('Config system (FOUND-05)', () => {
     expect(config.serverPort).toBe(5000)
   })
 
+  it('saveConfig never writes the default endpoint, and keeps a real choice', async () => {
+    const configPath = join(fakeHome, '.chain-insights', 'config.json')
+    // A file from an older release, with the production endpoint it always wrote.
+    await writeFile(
+      configPath,
+      JSON.stringify({ graphMcpEndpoint: 'https://mcp.chain-insights.ai/', version: '1' })
+    )
+    const { loadConfig, saveConfig, resetConfigCache } = await import('../src/config/index.js')
+    await resetConfigCache()
+    await saveConfig({ serverPort: 5001 })
+    expect(JSON.parse(await readFile(configPath, 'utf8')).graphMcpEndpoint).toBeUndefined()
+    expect((await loadConfig()).graphMcpEndpoint).toBe('https://mcp.chain-insights.ai/')
+
+    await saveConfig({ graphMcpEndpoint: 'https://mcp-staging.chain-insights.ai/' })
+    expect(JSON.parse(await readFile(configPath, 'utf8')).graphMcpEndpoint).toBe(
+      'https://mcp-staging.chain-insights.ai/'
+    )
+    await resetConfigCache()
+    expect((await loadConfig()).graphMcpEndpoint).toBe('https://mcp-staging.chain-insights.ai/')
+  })
+
   it('saveConfig writes file with 0o600 permissions', async () => {
     const { saveConfig, resetConfigCache } = await import('../src/config/index.js')
     await resetConfigCache()
