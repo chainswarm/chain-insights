@@ -4,8 +4,9 @@
  *
  * - The graph of before (a lane whose money family lists no ROUTED_TO, a shape
  *   read that fails, or no shape at all): every read is the one of 0.82.0,
- *   byte for byte. tests/fixtures/expand-funder-reads-0.82.0.json was written
- *   from main before the change; the recorded flows scene answers as recorded.
+ *   byte for byte, plus the card mark columns of 0.93.6.
+ *   tests/fixtures/expand-funder-reads-0.82.0.json was written from main
+ *   before the change; the recorded flows scene answers as recorded.
  * - A lane with the levels: a node side reads FLOWED_TO and ROUTED_TO together,
  *   newest first, and a route is one edge with link_kind ROUTED_TO; the funder
  *   is the earliest money from another address on FLOWED_TO or ROUTED_TO, and
@@ -52,8 +53,9 @@ const BOTH = '0x3333333333333333333333333333333333333333'
 const FRIEND = '0x4444444444444444444444444444444444444444'
 
 const NODE =
-  'b.address AS address, b.labels AS labels, b.is_exchange AS is_exchange, b.is_sanctioned AS is_sanctioned, ' +
-  'b.is_scam AS is_scam, b.is_victim AS is_victim, b:Pool AS pool, b.total_in_usd AS total_in_usd, ' +
+  'b.address AS address, b.labels AS labels, b.is_exchange AS is_exchange, b.card_version AS card_version, ' +
+  'b.is_sanctioned AS is_sanctioned, b.is_scam AS is_scam, b.is_victim AS is_victim, b.is_malicious AS is_malicious, ' +
+  'b.categories AS categories, b.case_judgements AS case_judgements, b:Pool AS pool, b.total_in_usd AS total_in_usd, ' +
   'b.total_out_usd AS total_out_usd, b.degree_in AS degree_in, b.degree_out AS degree_out'
 const LEVELS_SIDE =
   `${NODE}, f.amount_usd_sum AS usd, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen, ` +

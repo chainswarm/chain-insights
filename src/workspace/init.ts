@@ -234,6 +234,14 @@ The address-grain graph schema:
   a.risk_claims\` for fake tokens) or anchor on the address: the mark is
   the anchor, and a \`WHERE\` with no mark and no address is refused. Say what a claim means in plain words, such as "a fake-token
   scam" or "it lost money to a scam", never the list name or the code.
+- A card of \`card_version\` 4 or above holds the next words: \`:Malicious\`
+  and \`is_malicious\` stand in place of \`:Scam\`, \`:Poisoned\`,
+  \`:Sanctioned\`, \`is_scam\` and \`is_sanctioned\`, with the lists
+  \`categories\` (malicious, suspect, victim) and \`case_judgements\`
+  (\`category|type|role|case\`; the type \`sanctioned\` is a sanctions
+  listing), and \`malicious_claims\`, \`victim_claims\` and
+  \`suspect_labels\` beside them. On such a card ask by \`:Malicious\`
+  (\`MATCH (a:Malicious) WHERE "FAKE_TOKEN" IN a.malicious_claims\`).
 - A missing \`risk_score\` is no verdict, never low risk: the judgement is the marks and
   their claims lists above. Address nodes carry base activity rollups:
   \`degree_in\`/\`degree_out\`/\`degree_total\` (distinct counterparty

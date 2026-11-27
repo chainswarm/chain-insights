@@ -928,6 +928,7 @@ describe('graph_expand, details form', () => {
       is_exchange: false,
       is_sanctioned: false,
       is_scam: true,
+      is_malicious: false,
       is_victim: false,
       pool: false,
       first_activity_timestamp: 1781822282000,
