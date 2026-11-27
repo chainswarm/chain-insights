@@ -23,7 +23,7 @@ cloud cannot start it.
 
 - **The local Chain Insights proxy**: `chain-insights-mcp-proxy` from the
   `chain-insights` npm package, started over stdio with `npx`. It needs
-  Node.js 22 or newer. It serves the Chain Insights tools and views on your
+  Node.js 22.12 or newer. It serves the Chain Insights tools and views on your
   computer and reads the Chain Insights Graph for the data.
 - **`chain-insights-cypher`**: the graph query dialect, the rules every
   `graph_query` must follow, one query for each kind of graph search, and how

@@ -74,7 +74,7 @@ git diff --check
 - Public workflow network support is one network: robinhood. The wallet
   pays on Base mainnet as the payment chain only — not a graph-support
   claim.
-- Node 22 or newer is required (`package.json` engines). CI installs with
+- Node 22.12 or newer is required (`package.json` engines). CI installs with
   `npm ci --ignore-scripts`.
 
 ### Data And Findings Invariants

@@ -24,7 +24,7 @@ Distributes Chain Insights as a public npm package for global installation (`npm
 
 ## Invariants
 
-- Node.js >=22.0.0 required (engines field enforces via npm)
+- Node.js >=22.12.0 required (engines field enforces via npm)
 - Files field limits published scope (bin, dist, skills, docs/*.md) - excludes src/ and tests/
 - Bin commands: `chain-insights`, `cia` (CLI), `chain-insights-mcp-proxy` (stdio proxy)
 - Version bumps require CHANGELOG.md update (release:check validates this)

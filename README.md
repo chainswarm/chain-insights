@@ -67,7 +67,7 @@ In Claude Code the plugin also ships a Stop hook that checks every answer
 against the Chain Insights answer rules (full addresses, tokens are not
 dollars) and sends the model back once when one is broken.
 
-The plugin needs Node.js 22 or newer. Add this repository as a plugin
+The plugin needs Node.js 22.12 or newer. Add this repository as a plugin
 marketplace, then install the `chain-insights` plugin from it. Setup for
 Claude Desktop without the plugin, and the plugin's own layout, are in
 [plugin/README.md](plugin/README.md).
@@ -260,7 +260,7 @@ seconds. Replace it with `cia wallet create --replace`.
 
 - **Linux** is the reference platform; shell snippets use bash (macOS works
   the same; on Windows use WSL).
-- **Node.js 22 or newer** (`package.json` engines) and npm.
+- **Node.js 22.12 or newer** (`package.json` engines) and npm.
 
 `.env.example` documents the supported overrides:
 

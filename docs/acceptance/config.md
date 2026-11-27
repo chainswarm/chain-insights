@@ -5,7 +5,7 @@
 ### Given
 
 - Fresh Chain Insights installation with no existing ~/.chain-insights/config.json
-- Node.js >=22.0.0 installed
+- Node.js >=22.12.0 installed
 - npm package installed globally or locally
 
 ### Run

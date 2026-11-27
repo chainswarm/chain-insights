@@ -3,6 +3,15 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [Unreleased]
+
+### Changed
+
+- Chain Insights needs Node.js 22.12 or newer (`package.json` engines; it
+  was 22.0). The command-line parser `commander` moves from 14 to 15, which
+  needs Node.js 22.12. The `cia` commands, options and help read as before;
+  an error for an extra argument now names that argument.
+
 ## [0.93.5] - 2026-11-27 — the risk tools read the new words `malicious`, `suspect` and `victim`
 
 ### Fixed

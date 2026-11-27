@@ -29,7 +29,7 @@ risk screening and fund-flow tracing.
 
 ## Development
 
-- Runtime: Node.js 22 or newer, TypeScript, npm.
+- Runtime: Node.js 22.12 or newer, TypeScript, npm.
 - CLI entry points: `bin/cli.js` and `bin/mcp-proxy.cjs`.
 - Source lives under `src/`; tests live under `tests/`; built output lives
   under `dist/`.
