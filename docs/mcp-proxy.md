@@ -27,7 +27,7 @@ The default follows the npm tag of the package: `chain-insights@latest`
 reads production, `https://mcp.chain-insights.ai/`, and `chain-insights@next`
 reads staging, `https://mcp-staging.chain-insights.ai/` (host root, no `/mcp`
 path). The publish workflow writes the tag into the package as
-`dist/channel.json`; a build with no such file reads production. The proxy
+`channel.json` at its root; a build with no such file reads production. The proxy
 prints the endpoint, its lane and the tag on stderr when it starts. A fresh install
 can use `cia networks` without endpoint setup. MCP client JSON does not carry
 the endpoint; use Chain Insights config for the default or an override.

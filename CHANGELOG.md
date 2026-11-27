@@ -12,9 +12,11 @@ All notable changes to Chain Insights are recorded here.
   `https://mcp-staging.chain-insights.ai/`. `chain-insights@latest`, any
   other tag, and a build from source read the production endpoint
   `https://mcp.chain-insights.ai/`. Until now every build read production.
-- The publish workflow writes the tag into the package as
-  `dist/channel.json` (`scripts/stamp-release-channel.mjs`), after the tests
-  and before `npm pack --ignore-scripts`, and checks the packed file.
+- The publish workflow writes the tag into the package as `channel.json`
+  at its root (`scripts/stamp-release-channel.mjs`), after the tests and
+  before `npm pack`, and checks the packed file. The file is not in `dist/`:
+  npm 10 runs the `prepare` build on `npm pack` even with `--ignore-scripts`,
+  and that build empties `dist/`.
 - `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT` (and the legacy `GRAPH_MCP_ENDPOINT`)
   and a saved `graphMcpEndpoint` still win over the default.
 - A saved production endpoint reads as the default of the build. Older
@@ -28,8 +30,6 @@ All notable changes to Chain Insights are recorded here.
   `Graph endpoint: https://mcp-staging.chain-insights.ai/ (staging, npm tag next)`.
   They add a note when an endpoint you set is not the one read. The MCP
   proxy prints the same line on stderr when it starts.
-
-This release also carries 0.93.3, which was not published on its own.
 
 ## [0.93.3] - 2026-11-27 — the zero address is a hub, whatever its link count
 

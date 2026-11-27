@@ -54,7 +54,7 @@ export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=https://mcp.chain-insights.ai/
 The runtime default follows the npm tag: `https://mcp.chain-insights.ai/`
 (production) for `latest` and a build with no tag, and
 `https://mcp-staging.chain-insights.ai/` (staging) for `next`. The tag is
-stamped into the package as `dist/channel.json` at publish. Local loopback
+stamped into the package as `channel.json`, at its root, at publish. Local loopback
 `http://127.0.0.1:8012/mcp` remains available through explicit configuration.
 
 Supported config keys:
