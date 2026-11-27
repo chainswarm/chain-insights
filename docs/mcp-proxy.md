@@ -23,8 +23,12 @@ The proxy reads the same local Chain Insights config as the CLI.
 ## Chain Insights Graph Endpoint Configuration
 
 The endpoint lives in Chain Insights config, not in the MCP client registration.
-The npm package defaults to public production:
-`https://mcp.chain-insights.ai/` (host root, no `/mcp` path). A fresh install
+The default follows the npm tag of the package: `chain-insights@latest`
+reads production, `https://mcp.chain-insights.ai/`, and `chain-insights@next`
+reads staging, `https://mcp-staging.chain-insights.ai/` (host root, no `/mcp`
+path). The publish workflow writes the tag into the package as
+`dist/channel.json`; a build with no such file reads production. The proxy
+prints the endpoint, its lane and the tag on stderr when it starts. A fresh install
 can use `cia networks` without endpoint setup. MCP client JSON does not carry
 the endpoint; use Chain Insights config for the default or an override.
 
@@ -40,6 +44,11 @@ Set public production:
 cia config set graphMcpEndpoint https://mcp.chain-insights.ai/
 ```
 
+A saved production endpoint reads as the default of the build, because older
+releases saved it into every settings file, so a `next` build still reads
+staging. Use `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT` to read production from a
+`next` build. The default is never saved into the settings file.
+
 Use a one-shot environment override:
 
 ```bash
@@ -51,7 +60,8 @@ Configuration precedence:
 1. `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT`
 2. `GRAPH_MCP_ENDPOINT` legacy alias
 3. saved `graphMcpEndpoint`
-4. hosted production default `https://mcp.chain-insights.ai/`
+4. the default of the npm tag: `https://mcp.chain-insights.ai/` for
+   `latest`, `https://mcp-staging.chain-insights.ai/` for `next`
 
 Validation rules:
 

@@ -3,6 +3,34 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.93.4] - 2026-11-27 — `chain-insights@next` reads the staging endpoint
+
+### Changed
+
+- The default Chain Insights Graph endpoint follows the npm tag of the
+  package. `chain-insights@next` is the beta and reads the staging endpoint
+  `https://mcp-staging.chain-insights.ai/`. `chain-insights@latest`, any
+  other tag, and a build from source read the production endpoint
+  `https://mcp.chain-insights.ai/`. Until now every build read production.
+- The publish workflow writes the tag into the package as
+  `dist/channel.json` (`scripts/stamp-release-channel.mjs`), after the tests
+  and before `npm pack --ignore-scripts`, and checks the packed file.
+- `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT` (and the legacy `GRAPH_MCP_ENDPOINT`)
+  and a saved `graphMcpEndpoint` still win over the default.
+- A saved production endpoint reads as the default of the build. Older
+  releases wrote it into every settings file (the installer, and every
+  `cia config set`), so it was never a choice. To read production from a
+  `next` build, set `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT`.
+- The default endpoint is no longer written into `~/.chain-insights/config.json`
+  by the installer, `cia config set` or `cia config reset`.
+- `cia status`, `cia config reset`, `cia access-key` and `cia debug` print
+  the endpoint with its lane and npm tag, for example
+  `Graph endpoint: https://mcp-staging.chain-insights.ai/ (staging, npm tag next)`.
+  They add a note when an endpoint you set is not the one read. The MCP
+  proxy prints the same line on stderr when it starts.
+
+This release also carries 0.93.3, which was not published on its own.
+
 ## [0.93.3] - 2026-11-27 — the zero address is a hub, whatever its link count
 
 ### Fixed

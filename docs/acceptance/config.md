@@ -13,15 +13,16 @@
 ```bash
 # Test default config load (no file exists)
 cia config get graphMcpEndpoint
-# Expected: Returns default "https://mcp.chain-insights.ai/"
+# Expected: Returns "https://mcp.chain-insights.ai/" from chain-insights@latest,
+# "https://mcp-staging.chain-insights.ai/" from chain-insights@next
 
 # Test config write
-cia config set graphMcpEndpoint https://mcp.chain-insights.ai/
+cia config set graphMcpEndpoint http://127.0.0.1:8012/mcp
 # Expected: Writes ~/.chain-insights/config.json with graphMcpEndpoint field
 
 # Test config read
 cia config get graphMcpEndpoint
-# Expected: Returns "https://mcp.chain-insights.ai/"
+# Expected: Returns "http://127.0.0.1:8012/mcp"
 
 # Test env override
 export CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT=http://127.0.0.1:9999/mcp

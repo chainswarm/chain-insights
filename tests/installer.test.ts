@@ -129,12 +129,12 @@ describe('Installer (FOUND-01)', () => {
   })
 
   for (const flag of ['--claude', '--codex', '--hermes']) {
-    it(`${flag} fresh setup defaults Chain Insights Graph to production`, () => {
+    it(`${flag} fresh setup writes no endpoint, so the build's own default applies`, () => {
       execSync(`HOME=${fakeHome} node bin/install.cjs ${flag}`, { stdio: 'pipe' })
       const configPath = join(fakeHome, '.chain-insights', 'config.json')
       const raw = readFileSync(configPath, 'utf8')
-      const parsed = JSON.parse(raw) as { graphMcpEndpoint: string }
-      expect(parsed.graphMcpEndpoint).toBe('https://mcp.chain-insights.ai/')
+      const parsed = JSON.parse(raw) as { graphMcpEndpoint?: string }
+      expect(parsed.graphMcpEndpoint).toBeUndefined()
     })
   }
 

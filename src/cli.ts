@@ -9,6 +9,13 @@ import { registerSubscriptionCommands } from './subscription/cli.js'
 
 // Resolve bin/install.cjs relative to this file's location in dist/
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+async function printGraphEndpoint(requested?: string): Promise<void> {
+  const { loadConfig } = await import('./config/index.js')
+  const { graphMcpEndpointLines } = await import('./config/mcp-endpoint.js')
+  const config = await loadConfig()
+  for (const line of graphMcpEndpointLines(config.graphMcpEndpoint, requested)) console.log(line)
+}
 const installerPath = path.resolve(__dirname, '..', 'bin', 'install.cjs')
 
 const program = new Command()
@@ -362,7 +369,7 @@ program
         : `${config.graphMcpMode} mode`
     console.log('Config: ', config.dataDir)
     console.log('Chain Insights Graph:', graphMcpStatus)
-    console.log('Graph endpoint:', config.graphMcpEndpoint)
+    await printGraphEndpoint()
   })
 
 program
@@ -419,7 +426,7 @@ program
             ...(opts.endpoint ? { graphMcpEndpoint: opts.endpoint } : {}),
           })
           console.log('Chain Insights Graph debug mode enabled')
-          if (opts.endpoint) console.log(`Graph endpoint: ${opts.endpoint}`)
+          await printGraphEndpoint(opts.endpoint)
           console.log('Payments: disabled for Chain Insights Graph calls')
         } catch (err) {
           console.error((err as Error).message)
@@ -450,7 +457,7 @@ program
           const { loadConfig } = await import('./config/index.js')
           const config = await loadConfig()
           console.log(`Chain Insights Graph mode: ${config.graphMcpMode}`)
-          console.log(`Graph endpoint: ${config.graphMcpEndpoint}`)
+          await printGraphEndpoint()
           console.log(
             `Debug token:    ${config.graphMcpAuthToken?.trim() ? 'configured' : 'not configured'}`
           )
@@ -481,7 +488,7 @@ program
             ...(opts.endpoint ? { graphMcpEndpoint: opts.endpoint } : {}),
           })
           console.log('Chain Insights Graph test access key configured')
-          if (opts.endpoint) console.log(`Graph endpoint: ${opts.endpoint}`)
+          await printGraphEndpoint(opts.endpoint)
           console.log('Payments: disabled when the server accepts this key')
         } catch (err) {
           console.error((err as Error).message)
@@ -511,7 +518,7 @@ program
         try {
           const { loadConfig } = await import('./config/index.js')
           const config = await loadConfig()
-          console.log(`Graph endpoint: ${config.graphMcpEndpoint}`)
+          await printGraphEndpoint()
           console.log(
             `Access key:     ${config.graphMcpAuthToken?.trim() ? 'configured' : 'not configured'}`
           )
@@ -592,7 +599,7 @@ program
   .addCommand(
     createCliCommand('reset')
       .description(
-        'Put every setting back to its default (production endpoint, paid mode, no test key); the wallet stays'
+        'Put every setting back to its default (the endpoint of this build, paid mode, no test key); the wallet stays'
       )
       .action(async () => {
         try {
@@ -601,7 +608,7 @@ program
           const config = await loadConfig()
           if (backupPath) console.log(`Previous settings saved to ${backupPath}`)
           console.log('Settings reset to defaults.')
-          console.log(`Graph endpoint: ${config.graphMcpEndpoint}`)
+          await printGraphEndpoint()
           console.log(`Mode:           ${config.graphMcpMode}`)
           console.log('Test access:     off')
           console.log('Wallet:          unchanged (~/.chain-insights/wallet.json)')
@@ -645,6 +652,7 @@ program
         await saveConfig({ [key]: coerced } as Parameters<typeof saveConfig>[0])
         const displayed = key.toLowerCase().includes('token') ? '[redacted]' : coerced
         console.log(`Set ${key} = ${displayed}`)
+        if (key === 'graphMcpEndpoint') await printGraphEndpoint(value)
       })
   )
 
