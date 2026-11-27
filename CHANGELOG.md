@@ -24,6 +24,14 @@ All notable changes to Chain Insights are recorded here.
   - The older marks stay described in one note per page, since the risk
     screens and the flows view still read an older card.
 - The plugin evals ask for the new marks and the new column names.
+- The `graph_query` description, the server instructions and the workspace
+  runtime notes lead with the same marks: `:Malicious` with
+  `malicious_claims`, `:Victim` with `victim_claims`, `categories`,
+  `case_judgements`, and a sanctions listing as a `case_judgements` entry
+  that starts `malicious|sanctioned|`. Their example reads ask by
+  `:Malicious`. A host that loads no skill, such as Claude Desktop chat, was
+  still shown `MATCH (a:Scam) WHERE "FAKE_TOKEN" IN a.risk_claims` first.
+  The older marks are named once, in a short note at the end.
 
 ## [0.93.7] - 2026-11-27 — the deployer screen keeps the sanctioned entity's name
 

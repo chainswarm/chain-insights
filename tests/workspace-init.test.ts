@@ -42,14 +42,12 @@ describe('workspace initialization', () => {
         'label_risk_levels',
         'label_risk_updated_timestamps',
         'is_exchange',
-        'is_scam',
+        'is_malicious',
         'is_victim',
-        'is_sanctioned',
         'is_issuer_frozen',
         ':Exchange',
-        ':Scam',
+        ':Malicious',
         ':Victim',
-        ':Sanctioned',
         ':IssuerFrozen',
         'UNSCORED',
       ]) {
@@ -61,9 +59,15 @@ describe('workspace initialization', () => {
       expect(runtimeSkill).not.toMatch(/`label_risk`/)
       // The claims lists beside the judgement marks are named, so a risk
       // question is answered; the answer it shows is plain words, no code.
-      for (const name of ['risk_claims', 'protection_claims', 'traced_claims', 'suspect_labels', ':Poisoned', ':Targeted', ':OnMoneyTrail', 'FAKE_TOKEN', 'VICTIM']) {
+      for (const name of ['malicious_claims', 'victim_claims', 'suspect_labels', 'categories', 'case_judgements', 'malicious|sanctioned|', 'FAKE_TOKEN', 'VICTIM']) {
         expect(runtimeSkill, `missing ${name}`).toContain(name)
       }
+      // The notes ask by the marks the served graph holds; an older mark is
+      // only named after them, in the fallback note, never in a read.
+      for (const older of [':Scam', ':Poisoned', ':Sanctioned', ':Targeted', ':OnMoneyTrail']) {
+        expect(runtimeSkill.indexOf(older), older).toBeGreaterThan(runtimeSkill.indexOf(':Malicious'))
+      }
+      expect(runtimeSkill).not.toMatch(/\(\w*:(Scam|Poisoned|Sanctioned|Targeted|OnMoneyTrail)\b|\.(risk|protection|traced)_claims\b/)
       const flatSkill = runtimeSkill.replace(/\s+/g, ' ')
       const examples = /in plain words, such as (.+?), never the list name or the code/.exec(flatSkill)?.[1] ?? ''
       expect(examples).toContain('"a fake-token scam"')
