@@ -683,13 +683,12 @@ describe('aml_address_risk: the card category, type and role', () => {
   }
   const plainRow = { ...SUBJECT_ROW, evidence: [], judgements: [], risk_level: null, risk_score: null }
 
-  it('a poisoner on a graph that writes them: shown as stored, and the word is still critical', () => {
+  it('a poisoner on a graph that writes them: read from categories and case_judgements, and the word is still critical', () => {
     const result = build({
       ...plainRow,
       evidence: ['poisoning:ADDRESS_POISONING'],
-      category: 'malicious',
-      type: 'poisoning',
-      role: 'scammer',
+      categories: ['malicious'],
+      case_judgements: ['malicious|poisoning|scammer|'],
     })
     expect(result).toMatchObject({ category: 'malicious', type: 'poisoning', role: 'scammer' })
     expect(result.risk.word).toBe('critical')
@@ -697,7 +696,7 @@ describe('aml_address_risk: the card category, type and role', () => {
 
   it('a suspect-only address is shown as pattern, and its entry raises no word', () => {
     const row = { ...plainRow, judgements: ['suspect:MIXER_WITHDRAWER'] }
-    const result = build({ ...row, category: 'suspect', type: 'mixer' })
+    const result = build({ ...row, categories: ['suspect'], case_judgements: ['suspect|mixer||'] })
     expect(result.category).toBe('pattern')
     expect(result.type).toBe('mixer')
     expect(result).not.toHaveProperty('role')
@@ -706,18 +705,28 @@ describe('aml_address_risk: the card category, type and role', () => {
     expect(result.risk).toEqual(build(row).risk)
   })
 
-  it('a node with none of them answers without the three fields, and nothing else moves', () => {
+  it('malicious wins over suspect and victim, whatever the order of categories', () => {
+    const result = build({
+      ...plainRow,
+      categories: ['suspect', 'victim', 'malicious'],
+      case_judgements: ['suspect|fake-token||', 'malicious|fake-token|deployer|', 'victim|||case:1'],
+    })
+    expect(result).toMatchObject({ category: 'malicious', type: 'fake-token', role: 'deployer' })
+  })
+
+  it('a node with none of them answers without the three fields; the retired category, type and role are never read', () => {
     const today = build(SUBJECT_ROW)
     expect(today).not.toHaveProperty('category')
     expect(today).not.toHaveProperty('type')
     expect(today).not.toHaveProperty('role')
-    const empty = build({ ...SUBJECT_ROW, category: null, type: '', role: '  ' })
+    const empty = build({ ...SUBJECT_ROW, categories: [], case_judgements: null })
     expect(empty).toEqual(today)
+    const retired = build({ ...SUBJECT_ROW, category: 'victim', type: 'poisoning', role: 'scammer' })
+    expect(retired).toEqual(today)
     const { category: _c, type: _t, role: _r, ...rest } = build({
       ...SUBJECT_ROW,
-      category: 'victim',
-      type: 'poisoning',
-      role: 'scammer',
+      categories: ['victim'],
+      case_judgements: ['victim|||'],
     })
     expect(rest).toEqual(today)
   })

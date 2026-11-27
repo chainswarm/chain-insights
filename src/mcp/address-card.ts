@@ -28,11 +28,22 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chainInsightsHome } from './cache-location.js'
 import { loadPublicFile, type LoadedPublicFile, type PublicFileOptions } from './public-file.js'
+import { NEXT_CARD_VERSION, type CardDictionaries } from './risk-word.js'
 
 export const ADDRESS_CARD_URL_ENV = 'CHAIN_INSIGHTS_ADDRESS_CARD_URL'
 export const ADDRESS_CARD_PUBLIC_URL =
   'https://raw.githubusercontent.com/chainswarm/chain-insights/main/registry/address-card.json'
 export const ADDRESS_CARD_FILE = 'registry/address-card.json'
+
+/**
+ * The next words' dictionary (malicious, suspect, victim; categories and
+ * case_judgements on the card), read the same way under its own name. A card
+ * whose card_version is 4 (NEXT_CARD_VERSION) or above is read by it.
+ */
+export const ADDRESS_CARD_NEXT_URL_ENV = 'CHAIN_INSIGHTS_ADDRESS_CARD_NEXT_URL'
+export const ADDRESS_CARD_NEXT_PUBLIC_URL =
+  'https://raw.githubusercontent.com/chainswarm/chain-insights/main/registry/address-card-next.json'
+export const ADDRESS_CARD_NEXT_FILE = 'registry/address-card-next.json'
 
 /**
  * The `rule` of registry/address-card.json, word for word. It is the one text
@@ -182,20 +193,35 @@ export function addressCardVersion(document: AddressCardDocument): number {
   return Number.isFinite(version) ? version : 0
 }
 
+/** The two dictionaries a card is read with: frozen and next. */
+type CardEdition = 'frozen' | 'next'
+
+const EDITION = {
+  frozen: { env: ADDRESS_CARD_URL_ENV, url: ADDRESS_CARD_PUBLIC_URL, file: ADDRESS_CARD_FILE },
+  next: {
+    env: ADDRESS_CARD_NEXT_URL_ENV,
+    url: ADDRESS_CARD_NEXT_PUBLIC_URL,
+    file: ADDRESS_CARD_NEXT_FILE,
+  },
+} as const
+
 /** The URL of the served copy: the public file on main, or the override. */
-export function addressCardUrl(env: NodeJS.ProcessEnv = process.env): string {
-  return env[ADDRESS_CARD_URL_ENV]?.trim() || ADDRESS_CARD_PUBLIC_URL
+export function addressCardUrl(
+  env: NodeJS.ProcessEnv = process.env,
+  edition: CardEdition = 'frozen'
+): string {
+  return env[EDITION[edition].env]?.trim() || EDITION[edition].url
 }
 
-export function addressCardCachePath(): string {
-  return path.join(chainInsightsHome(), 'cache', 'address-card.json')
+export function addressCardCachePath(edition: CardEdition = 'frozen'): string {
+  return path.join(chainInsightsHome(), 'cache', path.basename(EDITION[edition].file))
 }
 
-/** registry/address-card.json of the installed package: next to dist/, or the repository root when run from source. */
-export function packagedAddressCardPath(): string {
+/** The dictionary file of the installed package: next to dist/, or the repository root when run from source. */
+export function packagedAddressCardPath(edition: CardEdition = 'frozen'): string {
   const candidates = [
-    fileURLToPath(new URL('../registry/address-card.json', import.meta.url)),
-    fileURLToPath(new URL('../../registry/address-card.json', import.meta.url)),
+    fileURLToPath(new URL(`../${EDITION[edition].file}`, import.meta.url)),
+    fileURLToPath(new URL(`../../${EDITION[edition].file}`, import.meta.url)),
   ]
   return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0]!
 }
@@ -204,6 +230,10 @@ export function packagedAddressCardPath(): string {
 export function readPackagedAddressCard(
   file: string = packagedAddressCardPath()
 ): AddressCardDocument | null {
+  const name =
+    path.basename(file) === path.basename(ADDRESS_CARD_NEXT_FILE)
+      ? ADDRESS_CARD_NEXT_FILE
+      : ADDRESS_CARD_FILE
   let parsed: unknown
   try {
     parsed = JSON.parse(readFileSync(file, 'utf8'))
@@ -211,7 +241,7 @@ export function readPackagedAddressCard(
     return null
   }
   const fault = addressCardFault(parsed)
-  if (fault) throw new Error(`the packaged ${ADDRESS_CARD_FILE} is malformed: ${fault}`)
+  if (fault) throw new Error(`the packaged ${name} is malformed: ${fault}`)
   return parsed as AddressCardDocument
 }
 
@@ -222,25 +252,69 @@ export interface LoadAddressCardOptions extends PublicFileOptions {
   packagedFile?: string
 }
 
-const defaultLog = (line: string): void => {
-  process.stderr.write(`[chain-insights] address-card: ${line}\n`)
-}
+const logOf =
+  (edition: CardEdition) =>
+  (line: string): void => {
+    process.stderr.write(
+      `[chain-insights] address-card${edition === 'next' ? '-next' : ''}: ${line}\n`
+    )
+  }
 
-/** The card dictionary: the fresh cache, else the public file, else the stale cache, else the packaged copy. Null when there is none. */
-export async function loadAddressCard(
-  options: LoadAddressCardOptions = {}
+function loadEdition(
+  edition: CardEdition,
+  options: LoadAddressCardOptions
 ): Promise<LoadedAddressCard | null> {
   return loadPublicFile<AddressCardDocument>(
     {
-      url: addressCardUrl(options.env),
-      cachePath: addressCardCachePath(),
+      url: addressCardUrl(options.env, edition),
+      cachePath: addressCardCachePath(edition),
       fault: addressCardFault,
-      packaged: readPackagedAddressCard(options.packagedFile),
+      packaged: readPackagedAddressCard(options.packagedFile ?? packagedAddressCardPath(edition)),
       version: addressCardVersion,
-      log: options.log ?? defaultLog,
+      log: options.log ?? logOf(edition),
     },
     options
   )
+}
+
+/** The card dictionary: the fresh cache, else the public file, else the stale cache, else the packaged copy. Null when there is none. */
+export function loadAddressCard(
+  options: LoadAddressCardOptions = {}
+): Promise<LoadedAddressCard | null> {
+  return loadEdition('frozen', options)
+}
+
+/** The next words' dictionary (registry/address-card-next.json), loaded the same way under its own cache name. */
+export function loadAddressCardNext(
+  options: LoadAddressCardOptions = {}
+): Promise<LoadedAddressCard | null> {
+  return loadEdition('next', options)
+}
+
+/**
+ * The two dictionaries a risk tool reads cards with. The frozen one must load,
+ * or the call throws. The next one is null when it does not load: a card on
+ * the next words then lists them under unknown_words.
+ */
+export async function cardDictionariesOf(
+  loadFrozen: () => Promise<LoadedAddressCard | null>,
+  loadNext?: () => Promise<LoadedAddressCard | null>
+): Promise<CardDictionaries> {
+  const frozen = await loadFrozen()
+  if (!frozen) throw new Error('no copy of the address card dictionary is available')
+  let next: LoadedAddressCard | null = null
+  try {
+    next = (await loadNext?.()) ?? null
+  } catch {
+    next = null
+  }
+  // The first version of the next words, not the file's own version: a card
+  // resolved at 4 still holds the next words when the file moves on to 5.
+  return {
+    frozen: frozen.document.words,
+    next: next ? next.document.words : null,
+    nextVersion: NEXT_CARD_VERSION,
+  }
 }
 
 // ─── The answer of meta_schema ────────────────────────────────────────────────

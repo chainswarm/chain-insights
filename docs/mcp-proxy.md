@@ -133,6 +133,14 @@ fetch fails. A malformed file is refused with one line in the proxy log and
 the packaged copy answers. `CHAIN_INSIGHTS_ADDRESS_CARD_URL` points the
 proxy at another copy. The card is not part of the 24-hour schema cache.
 
+The next words (`malicious`, `suspect`, `victim`, with `categories` and
+`case_judgements` on the card) have their own dictionary,
+[`registry/address-card-next.json`](../registry/address-card-next.json), read
+the same way and cached as `~/.chain-insights/cache/address-card-next.json`.
+`CHAIN_INSIGHTS_ADDRESS_CARD_NEXT_URL` points the proxy at another copy. The
+risk tools read a card of `card_version` 4 or above with it, and every older
+card with `registry/address-card.json`.
+
 `meta_dex_lookup` turns the name of a decentralized exchange, a launchpad or a
 vault into its addresses. It takes `network` (required), `name` (optional:
 with no name it lists every covered exchange) and `pools` (default `true`).
@@ -341,7 +349,7 @@ direction to know whether more than 25 exist).
 
 ```mermaid
 flowchart LR
-    C["card entries<br/>identity, evidence, judgements"] -->|"card dictionary<br/>registry/address-card.json words"| R["rules_word"]
+    C["card entries<br/>identity, evidence, judgements,<br/>case_judgements"] -->|"card dictionary<br/>card_version 4+: address-card-next.json<br/>older: address-card.json"| R["rules_word"]
     M["risk model<br/>risk_level, risk_score"] --> W["model_word"]
     R --> H["risk.word = the higher"]
     W --> H
@@ -349,8 +357,9 @@ flowchart LR
 
 - `risk.word` is `critical`, `high`, `medium`, `low` or `unscored`. It is the
   higher of `rules_word` (the highest level among the card's identity
-  words, every one of `identities` counted, and its evidence and judgement
-  entries, or `none`) and `model_word` (`high`, `medium`,
+  words, every one of `identities` counted, its evidence and judgement
+  entries, and, on a card of the next words, each case judgement of a
+  category no entry gave a reason for, or `none`) and `model_word` (`high`, `medium`,
   `low` or `not_scored`). Only a label gives `critical`. A label word is never
   lowered by the model. `unscored` means neither speaks: it is not `low`, and
   not safe.
@@ -367,7 +376,14 @@ flowchart LR
   only when it carries a level. A word the model set adds one
   reason with standing `predicted`. A card word the dictionary does not hold
   is listed in `unknown_words` and sets nothing. `card_version` is the
-  dictionary version the graph resolved the card with.
+  dictionary version the graph resolved the card with, and it picks the
+  dictionary: 4 or above reads `registry/address-card-next.json`, so
+  `malicious` is `critical` (a mule that still holds the money, `RECEIVED`,
+  is `high`), and `suspect` and `victim` set no level.
+- `category`, `type` and `role` show the card's strongest category from
+  `categories` (malicious, then suspect, then victim; `suspect` reads
+  `pattern`) with the type and role of its first case judgement. They set no
+  word.
 - The word is computed from the entries and the served card dictionary, so a
   dictionary merged on `main` changes every answer within the hour.
 - `exposure` lists the partners that carry a word of `medium` or above, each

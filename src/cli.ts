@@ -224,7 +224,7 @@ async function runRiskToolCli(
   tool: 'aml_address_risk' | 'aml_token_risk',
   args: { network: unknown; address: unknown; surroundings?: unknown }
 ): Promise<{ text: string; isError: boolean }> {
-  const { loadAddressCard } = await import('./mcp/address-card.js')
+  const { loadAddressCard, loadAddressCardNext } = await import('./mcp/address-card.js')
   const { loadExchangeRegistry } = await import('./mcp/exchange-registry.js')
   type Answer = { content?: unknown[]; structuredContent?: unknown; isError?: boolean }
   const session = lazyGraphSession(`chain-insights-cli-${tool.replace(/_/g, '-')}`)
@@ -235,6 +235,7 @@ async function runRiskToolCli(
   }
   const shared = {
     loadAddressCard: () => loadAddressCard(),
+    loadAddressCardNext: () => loadAddressCardNext(),
     loadExchangeRegistry: (network: string) => loadExchangeRegistry(network),
     graphQueryBatch: async (batchArgs: { network: string; queries: Array<{ id: string; query: string }> }) =>
       (await (await session.client()).callTool({ name: 'graph_query_batch', arguments: batchArgs })) as Answer,

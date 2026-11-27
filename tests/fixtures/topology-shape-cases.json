@@ -6,7 +6,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (a:Address {address: \"0x00000000000000000000000000000000c0a95e01\"}) RETURN labels(a) AS node_labels, a.card_version AS card_version, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.address_roles AS address_roles, a.behaviour AS behaviour, a.evidence AS evidence, a.judgements AS judgements, a.category AS category, a.type AS type, a.role AS role, a.exposed AS exposed, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, coalesce(a.exchange_role, a.cex_role) AS exchange_role, a.degree_total AS degree_total, a.degree_out AS degree_out, a.liquidity_added_usd AS liquidity_added_usd, a.liquidity_removed_usd AS liquidity_removed_usd, a.liquidity_net_usd AS liquidity_net_usd, a.provider_count AS provider_count LIMIT 1",
+   "query": "USE topology MATCH (a:Address {address: \"0x00000000000000000000000000000000c0a95e01\"}) RETURN labels(a) AS node_labels, a.card_version AS card_version, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.address_roles AS address_roles, a.behaviour AS behaviour, a.evidence AS evidence, a.judgements AS judgements, a.categories AS categories, a.case_judgements AS case_judgements, a.is_malicious AS is_malicious, a.exposed AS exposed, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, coalesce(a.exchange_role, a.cex_role) AS exchange_role, a.degree_total AS degree_total, a.degree_out AS degree_out, a.liquidity_added_usd AS liquidity_added_usd, a.liquidity_removed_usd AS liquidity_removed_usd, a.liquidity_net_usd AS liquidity_net_usd, a.provider_count AS provider_count LIMIT 1",
    "source": "builder:addressNodeQuery"
   },
   {
@@ -14,7 +14,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (a:Address {address: \"0x00000000000000000000000000000000c0a95e01\"}) RETURN labels(a) AS node_labels, a.card_version AS card_version, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.address_roles AS address_roles, a.behaviour AS behaviour, a.evidence AS evidence, a.judgements AS judgements, a.category AS category, a.type AS type, a.role AS role, a.exposed AS exposed, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, coalesce(a.exchange_role, a.cex_role) AS exchange_role, a.degree_total AS degree_total, a.degree_out AS degree_out LIMIT 1",
+   "query": "USE topology MATCH (a:Address {address: \"0x00000000000000000000000000000000c0a95e01\"}) RETURN labels(a) AS node_labels, a.card_version AS card_version, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.address_roles AS address_roles, a.behaviour AS behaviour, a.evidence AS evidence, a.judgements AS judgements, a.categories AS categories, a.case_judgements AS case_judgements, a.is_malicious AS is_malicious, a.exposed AS exposed, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, coalesce(a.exchange_role, a.cex_role) AS exchange_role, a.degree_total AS degree_total, a.degree_out AS degree_out LIMIT 1",
    "source": "builder:addressNodeQuery"
   },
   {
@@ -22,7 +22,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (b:Address)-[f:FLOWED_TO]->(a:Address {address: \"0x00000000000000000000000000000000c0a95e01\"}) WHERE f.amount_usd_sum >= 1 RETURN b.address AS address, labels(b) AS node_labels, b.identity AS identity, b.identity_name AS identity_name, b.identities AS identities, b.evidence AS evidence, b.judgements AS judgements, b.risk_level AS risk_level, coalesce(b.exchange_role, b.cex_role) AS exchange_role, f.amount_usd_sum AS tokens_worth_usd, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp ORDER BY f.last_seen_timestamp DESC LIMIT 26",
+   "query": "USE topology MATCH (b:Address)-[f:FLOWED_TO]->(a:Address {address: \"0x00000000000000000000000000000000c0a95e01\"}) WHERE f.amount_usd_sum >= 1 RETURN b.address AS address, labels(b) AS node_labels, b.identity AS identity, b.identity_name AS identity_name, b.identities AS identities, b.card_version AS card_version, b.evidence AS evidence, b.judgements AS judgements, b.categories AS categories, b.case_judgements AS case_judgements, b.risk_level AS risk_level, coalesce(b.exchange_role, b.cex_role) AS exchange_role, f.amount_usd_sum AS tokens_worth_usd, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp ORDER BY f.last_seen_timestamp DESC LIMIT 26",
    "source": "builder:addressPartnerQuery"
   },
   {
@@ -30,7 +30,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (a:Address {address: \"0x00000000000000000000000000000000c0a95e01\"})-[f:FLOWED_TO]->(b:Address) WHERE f.amount_usd_sum >= 1 RETURN b.address AS address, labels(b) AS node_labels, b.identity AS identity, b.identity_name AS identity_name, b.identities AS identities, b.evidence AS evidence, b.judgements AS judgements, b.risk_level AS risk_level, coalesce(b.exchange_role, b.cex_role) AS exchange_role, f.amount_usd_sum AS tokens_worth_usd, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp ORDER BY f.last_seen_timestamp DESC LIMIT 26",
+   "query": "USE topology MATCH (a:Address {address: \"0x00000000000000000000000000000000c0a95e01\"})-[f:FLOWED_TO]->(b:Address) WHERE f.amount_usd_sum >= 1 RETURN b.address AS address, labels(b) AS node_labels, b.identity AS identity, b.identity_name AS identity_name, b.identities AS identities, b.card_version AS card_version, b.evidence AS evidence, b.judgements AS judgements, b.categories AS categories, b.case_judgements AS case_judgements, b.risk_level AS risk_level, coalesce(b.exchange_role, b.cex_role) AS exchange_role, f.amount_usd_sum AS tokens_worth_usd, f.tx_count AS tx_count, f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp ORDER BY f.last_seen_timestamp DESC LIMIT 26",
    "source": "builder:addressPartnerQuery"
   },
   {
@@ -270,7 +270,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (s:Account)-[f:FLOWED_TO]->(a:Address {address: \"0x00000000000000000000000000000000c0a95e01\"}) RETURN s.address AS address, f.amount_usd_sum AS tokens_worth_usd, f.first_seen_timestamp AS first_seen_timestamp, labels(s) AS node_labels, s.identity AS identity, s.identity_name AS identity_name, s.identities AS identities, s.evidence AS evidence, s.judgements AS judgements, s.risk_level AS risk_level, s.risk_score AS risk_score ORDER BY f.first_seen_timestamp ASC LIMIT 3",
+   "query": "USE topology MATCH (s:Account)-[f:FLOWED_TO]->(a:Address {address: \"0x00000000000000000000000000000000c0a95e01\"}) RETURN s.address AS address, f.amount_usd_sum AS tokens_worth_usd, f.first_seen_timestamp AS first_seen_timestamp, labels(s) AS node_labels, s.identity AS identity, s.identity_name AS identity_name, s.identities AS identities, s.card_version AS card_version, s.evidence AS evidence, s.judgements AS judgements, s.categories AS categories, s.case_judgements AS case_judgements, s.risk_level AS risk_level, s.risk_score AS risk_score ORDER BY f.first_seen_timestamp ASC LIMIT 3",
    "source": "builder:gasWalletsQuery"
   },
   {
@@ -286,7 +286,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (a:Address)-[r:ADDED_LIQUIDITY]->(p:Address {address: \"0x00000000000000000000000000000000c0a95e01\"}) RETURN a.address AS address, sum(r.usd) AS tokens_worth_usd, count(r.usd) AS priced, sum(r.event_count) AS events, min(r.first_seen_height) AS first_seen_height, max(r.last_seen_height) AS last_seen_height, labels(a) AS node_labels, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.evidence AS evidence, a.judgements AS judgements, a.risk_level AS risk_level, a.risk_score AS risk_score ORDER BY tokens_worth_usd DESC LIMIT 5",
+   "query": "USE topology MATCH (a:Address)-[r:ADDED_LIQUIDITY]->(p:Address {address: \"0x00000000000000000000000000000000c0a95e01\"}) RETURN a.address AS address, sum(r.usd) AS tokens_worth_usd, count(r.usd) AS priced, sum(r.event_count) AS events, min(r.first_seen_height) AS first_seen_height, max(r.last_seen_height) AS last_seen_height, labels(a) AS node_labels, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.card_version AS card_version, a.evidence AS evidence, a.judgements AS judgements, a.categories AS categories, a.case_judgements AS case_judgements, a.risk_level AS risk_level, a.risk_score AS risk_score ORDER BY tokens_worth_usd DESC LIMIT 5",
    "source": "builder:poolPartiesQuery"
   },
   {
@@ -294,7 +294,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (p:Address {address: \"0x00000000000000000000000000000000c0a95e01\"})-[r:REMOVED_LIQUIDITY]->(a:Address) RETURN a.address AS address, sum(r.usd) AS tokens_worth_usd, count(r.usd) AS priced, sum(r.event_count) AS events, min(r.first_seen_height) AS first_seen_height, max(r.last_seen_height) AS last_seen_height, labels(a) AS node_labels, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.evidence AS evidence, a.judgements AS judgements, a.risk_level AS risk_level, a.risk_score AS risk_score ORDER BY tokens_worth_usd DESC LIMIT 5",
+   "query": "USE topology MATCH (p:Address {address: \"0x00000000000000000000000000000000c0a95e01\"})-[r:REMOVED_LIQUIDITY]->(a:Address) RETURN a.address AS address, sum(r.usd) AS tokens_worth_usd, count(r.usd) AS priced, sum(r.event_count) AS events, min(r.first_seen_height) AS first_seen_height, max(r.last_seen_height) AS last_seen_height, labels(a) AS node_labels, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.card_version AS card_version, a.evidence AS evidence, a.judgements AS judgements, a.categories AS categories, a.case_judgements AS case_judgements, a.risk_level AS risk_level, a.risk_score AS risk_score ORDER BY tokens_worth_usd DESC LIMIT 5",
    "source": "builder:poolPartiesQuery"
   },
   {
@@ -318,7 +318,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (a:Address)-[r:ADDED_LIQUIDITY {asset: \"0x00000000000000000000000000000000c0a95e01\"}]->(p:Address) RETURN p.address AS pool, a.address AS address, sum(r.usd) AS tokens_worth_usd, count(r.usd) AS priced, sum(r.event_count) AS events, min(r.first_seen_height) AS first_seen_height, max(r.last_seen_height) AS last_seen_height, labels(a) AS node_labels, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.evidence AS evidence, a.judgements AS judgements, a.risk_level AS risk_level, a.risk_score AS risk_score ORDER BY tokens_worth_usd DESC LIMIT 200",
+   "query": "USE topology MATCH (a:Address)-[r:ADDED_LIQUIDITY {asset: \"0x00000000000000000000000000000000c0a95e01\"}]->(p:Address) RETURN p.address AS pool, a.address AS address, sum(r.usd) AS tokens_worth_usd, count(r.usd) AS priced, sum(r.event_count) AS events, min(r.first_seen_height) AS first_seen_height, max(r.last_seen_height) AS last_seen_height, labels(a) AS node_labels, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.card_version AS card_version, a.evidence AS evidence, a.judgements AS judgements, a.categories AS categories, a.case_judgements AS case_judgements, a.risk_level AS risk_level, a.risk_score AS risk_score ORDER BY tokens_worth_usd DESC LIMIT 200",
    "source": "builder:tokenProvidersQuery"
   },
   {
@@ -326,7 +326,7 @@
    "expect": "admit",
    "rule": null,
    "code": null,
-   "query": "USE topology MATCH (p:Address)-[r:REMOVED_LIQUIDITY {asset: \"0x00000000000000000000000000000000c0a95e01\"}]->(a:Address) RETURN p.address AS pool, a.address AS address, sum(r.usd) AS tokens_worth_usd, count(r.usd) AS priced, sum(r.event_count) AS events, min(r.first_seen_height) AS first_seen_height, max(r.last_seen_height) AS last_seen_height, labels(a) AS node_labels, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.evidence AS evidence, a.judgements AS judgements, a.risk_level AS risk_level, a.risk_score AS risk_score ORDER BY tokens_worth_usd DESC LIMIT 200",
+   "query": "USE topology MATCH (p:Address)-[r:REMOVED_LIQUIDITY {asset: \"0x00000000000000000000000000000000c0a95e01\"}]->(a:Address) RETURN p.address AS pool, a.address AS address, sum(r.usd) AS tokens_worth_usd, count(r.usd) AS priced, sum(r.event_count) AS events, min(r.first_seen_height) AS first_seen_height, max(r.last_seen_height) AS last_seen_height, labels(a) AS node_labels, a.identity AS identity, a.identity_name AS identity_name, a.identities AS identities, a.card_version AS card_version, a.evidence AS evidence, a.judgements AS judgements, a.categories AS categories, a.case_judgements AS case_judgements, a.risk_level AS risk_level, a.risk_score AS risk_score ORDER BY tokens_worth_usd DESC LIMIT 200",
    "source": "builder:tokenProvidersQuery"
   },
   {

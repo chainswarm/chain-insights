@@ -79,10 +79,13 @@
         ],
         "degree_total": 1,
         "degree_out": 1,
-        "category": "malicious",
-        "type": "poisoning",
-        "role": "scammer",
-        "is_malicious": true
+        "is_malicious": true,
+        "categories": [
+          "malicious"
+        ],
+        "case_judgements": [
+          "malicious|poisoning|scammer|"
+        ]
       },
       "expect": {
         "risk_word": "critical",
@@ -182,10 +185,13 @@
         ],
         "degree_total": null,
         "degree_out": null,
-        "category": "malicious",
-        "type": "fake-token",
-        "role": "fake_token",
-        "is_malicious": true
+        "is_malicious": true,
+        "categories": [
+          "malicious"
+        ],
+        "case_judgements": [
+          "malicious|fake-token|fake_token|"
+        ]
       },
       "expect": {
         "risk_word": "unscored",
@@ -271,10 +277,13 @@
         ],
         "degree_total": 4,
         "degree_out": 2,
-        "category": "malicious",
-        "type": "fake-token",
-        "role": "deployer",
-        "is_malicious": true
+        "is_malicious": true,
+        "categories": [
+          "malicious"
+        ],
+        "case_judgements": [
+          "malicious|fake-token|deployer|"
+        ]
       },
       "expect": {
         "risk_word": "unscored",
@@ -360,10 +369,13 @@
         ],
         "degree_total": 20,
         "degree_out": 0,
-        "category": "malicious",
-        "type": "",
-        "role": "mule",
-        "is_malicious": true
+        "is_malicious": true,
+        "categories": [
+          "malicious"
+        ],
+        "case_judgements": [
+          "malicious||mule|"
+        ]
       },
       "expect": {
         "risk_word": "high",
@@ -394,7 +406,7 @@
           "evidence"
         ],
         "risk_level": "LOW",
-        "risk_score": 0.00008215464185923338,
+        "risk_score": 8.215464185923338e-05,
         "is_sanctioned": null,
         "is_scam": null,
         "is_victim": null,
@@ -431,7 +443,7 @@
           "evidence"
         ],
         "risk_level": "LOW",
-        "risk_score": 0.00008215464185923338,
+        "risk_score": 8.215464185923338e-05,
         "is_sanctioned": null,
         "is_scam": null,
         "is_victim": null,
@@ -449,10 +461,13 @@
         ],
         "degree_total": 6,
         "degree_out": 3,
-        "category": "malicious",
-        "type": "",
-        "role": "mule",
-        "is_malicious": true
+        "is_malicious": true,
+        "categories": [
+          "malicious"
+        ],
+        "case_judgements": [
+          "malicious||mule|"
+        ]
       },
       "expect": {
         "risk_word": "critical",
@@ -542,10 +557,13 @@
         ],
         "degree_total": null,
         "degree_out": null,
-        "category": "malicious",
-        "type": "sanctioned",
-        "role": "",
-        "is_malicious": true
+        "is_malicious": true,
+        "categories": [
+          "malicious"
+        ],
+        "case_judgements": [
+          "malicious|sanctioned||"
+        ]
       },
       "expect": {
         "risk_word": "critical",
@@ -627,9 +645,12 @@
         ],
         "degree_total": 28,
         "degree_out": 1,
-        "category": "victim",
-        "type": "",
-        "role": ""
+        "categories": [
+          "victim"
+        ],
+        "case_judgements": [
+          "victim|||"
+        ]
       },
       "expect": {
         "risk_word": "unscored",
@@ -725,10 +746,13 @@
         ],
         "degree_total": 116,
         "degree_out": 15,
-        "category": "malicious",
-        "type": "fake-token",
-        "role": "deployer",
-        "is_malicious": true
+        "is_malicious": true,
+        "categories": [
+          "malicious"
+        ],
+        "case_judgements": [
+          "malicious|fake-token|deployer|"
+        ]
       },
       "expect": {
         "risk_word": "low",
@@ -798,9 +822,12 @@
         "labels": [],
         "degree_total": null,
         "degree_out": null,
-        "category": "suspect",
-        "type": "fake-token",
-        "role": "fake_token"
+        "categories": [
+          "suspect"
+        ],
+        "case_judgements": [
+          "suspect|fake-token|fake_token|"
+        ]
       },
       "expect": {
         "risk_word": "unscored",
@@ -832,7 +859,8 @@
         "risk_level": "LOW",
         "labels": [
           "Poisoned"
-        ]
+        ],
+        "card_version": "2"
       },
       "next": {
         "node_labels": [
@@ -856,14 +884,18 @@
           "critical",
           "critical"
         ],
-        "category": "malicious",
-        "type": "poisoning",
-        "role": "scammer",
         "risk_level": "LOW",
         "labels": [
           "Malicious",
           "Poisoned"
-        ]
+        ],
+        "categories": [
+          "malicious"
+        ],
+        "case_judgements": [
+          "malicious|poisoning|scammer|"
+        ],
+        "card_version": "2"
       },
       "expect": {
         "risk_word": "critical",
@@ -898,7 +930,8 @@
         "risk_level": null,
         "labels": [
           "OnMoneyTrail"
-        ]
+        ],
+        "card_version": "2"
       },
       "next": {
         "node_labels": [
@@ -924,14 +957,18 @@
           "critical",
           "critical"
         ],
-        "category": "malicious",
-        "type": "",
-        "role": "mule",
         "risk_level": null,
         "labels": [
           "Malicious",
           "OnMoneyTrail"
-        ]
+        ],
+        "categories": [
+          "malicious"
+        ],
+        "case_judgements": [
+          "malicious||mule|"
+        ],
+        "card_version": "2"
       },
       "expect": {
         "risk_word": "critical",
@@ -974,7 +1011,8 @@
         "risk_level": null,
         "labels": [
           "Scam"
-        ]
+        ],
+        "card_version": "2"
       },
       "next": {
         "node_labels": [
@@ -998,12 +1036,18 @@
           "critical",
           "critical"
         ],
-        "category": "malicious",
         "risk_level": null,
         "labels": [
           "Malicious",
           "Scam"
-        ]
+        ],
+        "categories": [
+          "malicious"
+        ],
+        "case_judgements": [
+          "malicious|||"
+        ],
+        "card_version": "2"
       },
       "expect": {
         "risk_word": "critical",

@@ -21,7 +21,13 @@
 import type { AddressCardLevel, AddressCardWord } from './address-card.js'
 
 /** The levels, lowest first: critical > high > medium > low > none. */
-export const RISK_LEVELS = ['none', 'low', 'medium', 'high', 'critical'] as const satisfies readonly AddressCardLevel[]
+export const RISK_LEVELS = [
+  'none',
+  'low',
+  'medium',
+  'high',
+  'critical',
+] as const satisfies readonly AddressCardLevel[]
 export type RiskLevel = (typeof RISK_LEVELS)[number]
 
 /** The words an answer's risk may carry. */
@@ -128,6 +134,156 @@ export function reasonOf(
     level: item.level,
     plain: item.plain,
   }
+}
+
+// ─── Which dictionary reads a card ────────────────────────────────────────────
+
+/**
+ * The two card dictionaries: the frozen words (registry/address-card.json) and
+ * the next words (registry/address-card-next.json: malicious, suspect, victim,
+ * with categories and case_judgements on the card). A card resolved with the
+ * next words is read by the next dictionary, every other card by the frozen
+ * one. `next` is null when no copy of the next dictionary loaded.
+ */
+export interface CardDictionaries {
+  frozen: readonly AddressCardWord[]
+  next: readonly AddressCardWord[] | null
+  /** The first card_version of the next words: a card of this version or above holds them. */
+  nextVersion: number
+}
+
+/** A plain word list (one dictionary for every card) or the two dictionaries. */
+export type CardWords = readonly AddressCardWord[] | CardDictionaries
+
+/** The first card_version resolved with the next words (label vocabulary v4). */
+export const NEXT_CARD_VERSION = 4
+
+export function isCardDictionaries(words: CardWords): words is CardDictionaries {
+  return !Array.isArray(words)
+}
+
+const nonEmptyList = (value: unknown): boolean =>
+  Array.isArray(value) && value.some((entry) => typeof entry === 'string' && entry.trim() !== '')
+
+/**
+ * True when the card holds the next words. The card_version decides when the
+ * card carries one: 4 (the first version of the next words) or above. A card
+ * with no version holds them when it carries a field only the next words
+ * write: categories or case_judgements.
+ */
+export function holdsNextWords(
+  row: Record<string, unknown> | undefined,
+  nextVersion: number = NEXT_CARD_VERSION
+): boolean {
+  if (!row) return false
+  const raw = typeof row.card_version === 'string' ? row.card_version.trim() : row.card_version
+  if (raw !== null && raw !== undefined && raw !== '') {
+    const version = Number(raw)
+    if (Number.isFinite(version)) return version >= nextVersion
+  }
+  return nonEmptyList(row.categories) || nonEmptyList(row.case_judgements)
+}
+
+/** The dictionary that reads one card row. */
+export function wordsFor(
+  row: Record<string, unknown> | undefined,
+  words: CardWords
+): readonly AddressCardWord[] {
+  if (!isCardDictionaries(words)) return words
+  if (words.next && holdsNextWords(row, words.nextVersion)) return words.next
+  return words.frozen
+}
+
+// ─── case_judgements ──────────────────────────────────────────────────────────
+
+/** The categories of the next words, the strongest first: malicious wins over suspect, suspect over victim. */
+export const CARD_CATEGORIES = ['malicious', 'suspect', 'victim'] as const
+
+/** One case_judgements entry, `category|type|role|case`, each part trimmed; empty parts are null. */
+export interface CaseJudgement {
+  category: string
+  type: string | null
+  role: string | null
+  case: string | null
+}
+
+export function splitCaseJudgement(entry: string): CaseJudgement | null {
+  const [category = '', type = '', role = '', ...rest] = entry.split('|').map((part) => part.trim())
+  if (category === '') return null
+  const caseText = rest.join('|').trim()
+  return {
+    category: category.toLowerCase(),
+    type: type === '' ? null : type,
+    role: role === '' ? null : role,
+    case: caseText === '' ? null : caseText,
+  }
+}
+
+type NextWord = AddressCardWord & { category?: string; type?: string; role?: string }
+
+/** The item of the highest level; the first one on a tie. */
+function highest<T extends AddressCardWord>(items: readonly T[]): T {
+  return items.reduce((best, item) =>
+    isLevel(item.level) && isLevel(best.level) && levelRank(item.level) > levelRank(best.level)
+      ? item
+      : best
+  )
+}
+
+/**
+ * The dictionary item of one case judgement: an item of the category's word
+ * whose type and role both match, else one with no type and the same role (a
+ * mule), else one of the same type, else one of the same role, else the
+ * category's item with no value. Among equal matches the
+ * highest level wins. Null when the dictionary holds no item of the category.
+ */
+export function caseJudgementWordOf(
+  judgement: CaseJudgement,
+  dictionaryWords: readonly AddressCardWord[]
+): AddressCardWord | null {
+  const items = (dictionaryWords as readonly NextWord[]).filter(
+    (item) => item.word.toLowerCase() === judgement.category && item.question !== 'identity'
+  )
+  if (items.length === 0) return null
+  const same = (a: string | undefined, b: string | null) =>
+    a !== undefined && b !== null && a.toLowerCase() === b.toLowerCase()
+  const tiers: Array<(item: NextWord) => boolean> = [
+    (item) => same(item.type, judgement.type) && same(item.role, judgement.role),
+    // A mule's type is the type of its trail: its items name the role and no type.
+    (item) => item.type === undefined && same(item.role, judgement.role),
+    (item) => same(item.type, judgement.type),
+    (item) => same(item.role, judgement.role),
+    (item) => item.value === undefined,
+  ]
+  for (const tier of tiers) {
+    const found = items.filter(tier)
+    if (found.length === 0) continue
+    return highest(found)
+  }
+  return highest(items)
+}
+
+/** The reason of one case judgement, or null when the dictionary does not hold its category. */
+export function caseJudgementReasonOf(
+  judgement: CaseJudgement,
+  dictionaryWords: readonly AddressCardWord[]
+): Reason | null {
+  const item = caseJudgementWordOf(judgement, dictionaryWords)
+  if (!item || !isLevel(item.level)) return null
+  return {
+    word: item.question === 'judgement' ? JUDGEMENT_WORD_SHOWN : judgement.category,
+    ...(judgement.type !== null ? { value: judgement.type } : {}),
+    question: item.question,
+    ...(item.standing ? { standing: item.standing } : {}),
+    level: item.level,
+    plain: item.plain,
+  }
+}
+
+/** The category a dictionary item gives, when it names one. */
+export function categoryOfWord(item: AddressCardWord): string | null {
+  const category = (item as NextWord).category
+  return typeof category === 'string' && category.trim() !== '' ? category.toLowerCase() : null
 }
 
 /** The highest level among the reasons of the rules questions; none when no reason carries one. */
