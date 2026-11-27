@@ -334,8 +334,9 @@ const FLAG_CRIMES: Array<[CrimeKind, string, string]> = [
  * The crime of a card of the next words: a sanctions listing as `sanctioned`,
  * each other malicious case once as `malicious` with its type (or role), a
  * malicious card with no case as `malicious` alone, the victim category as
- * `victim`, and an issuer freeze. The risk-label lists are the frozen words'
- * and are not read: the case judgements say the same with their own word.
+ * `victim`, and an issuer freeze. Then each risk label that names more than a
+ * mark word, such as the sanctioned entity (`Lazarus Group`), with its level:
+ * the case judgements carry no entity name.
  */
 function nextWordsCrimeOf(
   row: Record<string, unknown>,
@@ -358,6 +359,26 @@ function nextWordsCrimeOf(
   if (row[`${prefix}_is_issuer_frozen`] === true) {
     push({ kind: 'issuer_frozen', value: 'IssuerFrozen', level: null })
   }
+  for (const entry of riskLabelCrimes(row, prefix)) {
+    if (!MARK_WORDS.has(entry.value.trim().toLowerCase())) push(entry)
+  }
+  return crime
+}
+
+// The mark and category words a card of the next words already says through
+// its case judgements; a risk label of only that word adds nothing.
+const MARK_WORDS = new Set(['malicious', 'suspect', 'victim', 'sanctioned', 'scam', 'poisoned'])
+
+/** One risk entry per served risk label with its level; the held role word is skipped. */
+function riskLabelCrimes(row: Record<string, unknown>, prefix: 'launcher' | 'funder'): Crime[] {
+  const labels = Array.isArray(row[`${prefix}_risk_labels`]) ? (row[`${prefix}_risk_labels`] as unknown[]) : []
+  const levels = Array.isArray(row[`${prefix}_risk_levels`]) ? (row[`${prefix}_risk_levels`] as unknown[]) : []
+  const crime: Crime[] = []
+  labels.forEach((label, at) => {
+    if (typeof label !== 'string' || label.trim() === '' || !isServedLabel(label)) return
+    if (isHeldRoleWord(label)) return
+    crime.push({ kind: 'risk', value: label, level: textOrNull(levels[at]) })
+  })
   return crime
 }
 
@@ -373,13 +394,7 @@ function crimeOf(row: Record<string, unknown>, prefix: 'launcher' | 'funder'): C
   for (const [kind, flag, value] of FLAG_CRIMES) {
     if (row[`${prefix}_${flag}`] === true) crime.push({ kind, value, level: null })
   }
-  const labels = Array.isArray(row[`${prefix}_risk_labels`]) ? (row[`${prefix}_risk_labels`] as unknown[]) : []
-  const levels = Array.isArray(row[`${prefix}_risk_levels`]) ? (row[`${prefix}_risk_levels`] as unknown[]) : []
-  labels.forEach((label, at) => {
-    if (typeof label !== 'string' || label.trim() === '' || !isServedLabel(label)) return
-    if (isHeldRoleWord(label)) return
-    crime.push({ kind: 'risk', value: label, level: textOrNull(levels[at]) })
-  })
+  crime.push(...riskLabelCrimes(row, prefix))
   return crime
 }
 

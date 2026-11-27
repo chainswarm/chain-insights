@@ -236,7 +236,9 @@ flowchart LR
    from `is_malicious`, `categories` and `case_judgements`: a case of type
    `sanctioned` is `sanctioned`, every other malicious case is `malicious`
    with its type (such as `fake-token`) or its role, the category `victim` is
-   `victim`, and a suspect adds nothing. `first_funder.kind` is the
+   `victim`, and a suspect adds nothing; then each risk label that names
+   more than a mark word, such as the sanctioned entity, with its level.
+   `first_funder.kind` is the
    first of `scam` (on a card of `card_version` 4: a malicious case other than
    a sanctions listing), `mixer`, `exchange`, `bridge`, `bundler`, `launchpad` (a
    pool or a protocol), `contract` (a contract with no other role) that its
