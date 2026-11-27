@@ -3,6 +3,36 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.93.5] - 2026-11-27 — the risk tools read the new words `malicious`, `suspect` and `victim`
+
+### Fixed
+
+- `aml_address_risk` and `aml_token_risk` read a card resolved with the new
+  label words. Until now they read every card with
+  `registry/address-card.json`, which does not hold the new words, so a card
+  of `card_version` 4 listed `malicious` under `unknown_words` and its word
+  came from the risk model alone, or was `unscored`. An address on the OFAC
+  sanctions list answered `unscored`; an impersonator and a fake-token
+  deployer answered `high` and `medium` from the model instead of `critical`.
+- A card of `card_version` 4 or above is read with
+  `registry/address-card-next.json`; every older card with
+  `registry/address-card.json`, as before. `malicious` is `critical`, except
+  a mule that still holds the money (`malicious:RECEIVED`), which is `high`.
+  `suspect` and `victim` set no level.
+- The next dictionary is read like the first: from `main` over
+  `raw.githubusercontent.com`, cached one hour in
+  `~/.chain-insights/cache/address-card-next.json`, the packaged copy when the
+  fetch fails. `CHAIN_INSIGHTS_ADDRESS_CARD_NEXT_URL` points at another copy.
+- The risk tools read `categories` and `case_judgements`. A case judgement
+  gives its level when no evidence or judgement entry of the same category
+  did. `category`, `type` and `role` in the answer come from them: the
+  strongest category (malicious, then suspect, then victim) and the type and
+  role of its first case judgement. The retired card fields `category`,
+  `type` and `role` are no longer read.
+- The partner reads of `aml_address_risk` and the party reads of
+  `aml_token_risk` read each node's `card_version`, so every partner and
+  party is read with its own dictionary.
+
 ## [0.93.4] - 2026-11-27 — `chain-insights@next` reads the staging endpoint
 
 ### Changed

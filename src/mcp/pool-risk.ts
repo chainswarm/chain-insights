@@ -34,7 +34,7 @@
  * which carries a price stays null, never 0.
  */
 
-import type { AddressCardWord } from './address-card.js'
+import type { CardWords } from './risk-word.js'
 import {
   assertReadAddress,
   kindOf,
@@ -67,7 +67,8 @@ export const POOL_NODE_COLUMNS = [
 function partyColumns(v: string): string {
   return (
     `labels(${v}) AS node_labels, ${v}.identity AS identity, ${v}.identity_name AS identity_name, ` +
-    `${v}.identities AS identities, ${v}.evidence AS evidence, ${v}.judgements AS judgements, ` +
+    `${v}.identities AS identities, ${v}.card_version AS card_version, ${v}.evidence AS evidence, ${v}.judgements AS judgements, ` +
+    `${v}.categories AS categories, ${v}.case_judgements AS case_judgements, ` +
     `${v}.risk_level AS risk_level, ${v}.risk_score AS risk_score`
   )
 }
@@ -199,7 +200,7 @@ export function partyOf(
   role: PartyRole,
   address: string,
   row: Record<string, unknown> | undefined,
-  dictionary: readonly AddressCardWord[],
+  dictionary: CardWords,
   extra: Partial<
     Pick<
       Party,
@@ -226,7 +227,7 @@ export function partyOf(
 export function poolPartiesOf(
   role: 'adder' | 'remover',
   rows: Array<Record<string, unknown>>,
-  dictionary: readonly AddressCardWord[]
+  dictionary: CardWords
 ): Party[] {
   const parties: Party[] = []
   for (const row of rows.slice(0, POOL_PARTY_LIMIT)) {
@@ -422,7 +423,7 @@ export function poolFactsOf(input: {
   node: Record<string, unknown> | null
   adders: Party[]
   removers: Party[]
-  dictionary: readonly AddressCardWord[]
+  dictionary: CardWords
 }): PoolFacts {
   const { node } = input
   const own = !input.isManager && node !== null

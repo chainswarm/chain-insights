@@ -108,7 +108,7 @@ import {
   type ExchangeDepositCheckDependencies,
 } from './exchange-deposit-check.js'
 import { loadExchangeRegistry } from './exchange-registry.js'
-import { loadAddressCard } from './address-card.js'
+import { loadAddressCard, loadAddressCardNext } from './address-card.js'
 import {
   AML_ADDRESS_RISK_ANNOTATIONS,
   AML_ADDRESS_RISK_DESCRIPTION,
@@ -1306,6 +1306,13 @@ export async function createProxy(): Promise<void> {
         void logger.info('address_card.fault', { line })
       },
     })
+  // The next words' dictionary: a card resolved with them (card_version 4 and above) is read by it.
+  const loadCardNext = () =>
+    loadAddressCardNext({
+      log: (line) => {
+        void logger.info('address_card_next.fault', { line })
+      },
+    })
   const schemaDependencies: GraphSchemaDependencies = {
     endpoint: graphMcpEndpoint,
     withClient: async (fn) => {
@@ -1523,6 +1530,7 @@ export async function createProxy(): Promise<void> {
   // on the address, billed as any read. Facts and measures, no verdict.
   const addressRiskDependencies: AddressRiskDependencies = {
     loadAddressCard: loadCard,
+    loadAddressCardNext: loadCardNext,
     loadExchangeRegistry: loadExchanges,
     graphQueryBatch: tokenDependencies.graphQueryBatch,
     unavailable: tokenDependencies.unavailable,

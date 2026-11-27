@@ -5,8 +5,8 @@
  * on USE topology, all anchored on the address:
  *
  *   node  the address: its node labels and its card (identity, roles,
- *         behaviour, evidence, judgements, category, type, role, sources,
- *         card_version), the risk
+ *         behaviour, evidence, judgements, categories, case_judgements,
+ *         sources, card_version), the risk
  *         model's `risk_level` and `risk_score`, and its exchange role;
  *   in    its senders: the newest FLOWED_TO links into it worth 1 USD or more,
  *         with each sender's own card words (identities included) and model
@@ -15,7 +15,9 @@
  *
  * The risk word is the higher of what the labels prove (rules) and what the
  * risk model predicts (model), computed by src/mcp/risk-word.ts from the card
- * entries and the card dictionary. The partners' words are computed by the
+ * entries and the card dictionary: the next words
+ * (registry/address-card-next.json) for a card resolved with them, the frozen
+ * words (registry/address-card.json) for every other card. The partners' words are computed by the
  * same rule from their own rows, and never change the address's word.
  *
  * The tool states, the host judges: the answer holds facts and measures, no
@@ -27,7 +29,7 @@
  * a prefix each, and builds each answer with the same code.
  */
 
-import type { AddressCardWord, LoadedAddressCard } from './address-card.js'
+import { cardDictionariesOf, type LoadedAddressCard } from './address-card.js'
 import { DexRegistryError, normalizeDexNetwork } from './dex-registry.js'
 import {
   exchangeOfLabels,
@@ -38,6 +40,10 @@ import {
 import { exposedOf, type ExposedBlock } from './exposed.js'
 import { exchangeRoleRead } from './graph-schema.js'
 import {
+  CARD_CATEGORIES,
+  cardWordOf,
+  caseJudgementReasonOf,
+  categoryOfWord,
   levelRank,
   modelReasonOf,
   modelScoreOf,
@@ -48,6 +54,12 @@ import {
   riskWordRank,
   rulesWordOf,
   splitCardEntry,
+  splitCaseJudgement,
+  holdsNextWords,
+  isCardDictionaries,
+  wordsFor,
+  type CardDictionaries,
+  type CardWords,
   type ModelWord,
   type Reason,
   type RiskWord,
@@ -216,13 +228,13 @@ export interface AmlAddressRiskResult {
   roles: string[]
   behaviour: string | null
   /**
-   * The card's category, absent when the graph has none. `suspect` is shown
-   * as `pattern`. It sets no risk word.
+   * The strongest of the card's categories (malicious, then suspect, then
+   * victim), absent when the card has none. `suspect` is shown as `pattern`.
    */
   category?: string
-  /** The card's type, for example `poisoning`; absent when the graph has none. It sets no risk word. */
+  /** The type of that category's first case judgement, for example `poisoning`; absent when it has none. */
   type?: string
-  /** The card's role, for example `scammer`; absent when the graph has none. It sets no risk word. */
+  /** The role of that category's first case judgement, for example `scammer`; absent when it has none. */
   role?: string
   risk: AddressRisk
   model: ModelScore
@@ -241,6 +253,8 @@ export interface AmlAddressRiskResult {
 export interface AddressRiskDependencies {
   /** The card dictionary: the fresh cache, the public file, or the packaged copy. */
   loadAddressCard: () => Promise<LoadedAddressCard | null>
+  /** The next words' dictionary (registry/address-card-next.json), the same way. Without it a card on the next words reads its words as unknown. */
+  loadAddressCardNext?: () => Promise<LoadedAddressCard | null>
   loadExchangeRegistry: (network: string) => Promise<LoadedExchangeRegistry>
   graphQueryBatch: (args: {
     network: string
@@ -277,7 +291,7 @@ export function addressNodeQuery(address: string, extra: readonly string[] = [])
     `USE topology MATCH (a:Address {address: "${address}"}) ` +
     'RETURN labels(a) AS node_labels, a.card_version AS card_version, a.identity AS identity, a.identity_name AS identity_name, ' +
     'a.identities AS identities, a.address_roles AS address_roles, a.behaviour AS behaviour, a.evidence AS evidence, ' +
-    'a.judgements AS judgements, a.category AS category, a.type AS type, a.role AS role, ' +
+    'a.judgements AS judgements, a.categories AS categories, a.case_judgements AS case_judgements, a.is_malicious AS is_malicious, ' +
     'a.exposed AS exposed, a.sources AS sources, a.risk_level AS risk_level, a.risk_score AS risk_score, ' +
     `${exchangeRoleRead('a')} AS exchange_role, a.degree_total AS degree_total, a.degree_out AS degree_out${more} LIMIT 1`
   )
@@ -345,8 +359,9 @@ export function addressPartnerQuery(address: string, direction: 'in' | 'out'): s
   return (
     `USE topology MATCH ${match} WHERE f.amount_usd_sum >= ${EXPOSURE_FLOOR_USD} ` +
     'RETURN b.address AS address, labels(b) AS node_labels, b.identity AS identity, b.identity_name AS identity_name, ' +
-    'b.identities AS identities, ' +
-    'b.evidence AS evidence, b.judgements AS judgements, b.risk_level AS risk_level, ' +
+    'b.identities AS identities, b.card_version AS card_version, ' +
+    'b.evidence AS evidence, b.judgements AS judgements, b.categories AS categories, b.case_judgements AS case_judgements, ' +
+    'b.risk_level AS risk_level, ' +
     `${exchangeRoleRead('b')} AS exchange_role, ` +
     'f.amount_usd_sum AS tokens_worth_usd, f.tx_count AS tx_count, ' +
     'f.first_seen_timestamp AS first_seen_timestamp, f.last_seen_timestamp AS last_seen_timestamp ' +
@@ -379,20 +394,25 @@ export function categoryShown(category: string): string {
 }
 
 /**
- * The card's category, type and role of a node row, each left out when the
- * node has none. They are shown only: the risk word never reads them
- * (agent name).
+ * The card's strongest category of a node row, with the type and role of its
+ * first case judgement, each left out when the card has none. Read from
+ * `categories` and `case_judgements`.
  */
 export function cardClassOf(
   row: Record<string, unknown>
 ): Pick<AmlAddressRiskResult, 'category' | 'type' | 'role'> {
-  const category = textOrNull(row.category)
-  const type = textOrNull(row.type)
-  const role = textOrNull(row.role)
+  const categories = strings(row.categories).map((category) => category.toLowerCase())
+  const judgements = strings(row.case_judgements)
+    .map(splitCaseJudgement)
+    .filter((judgement) => judgement !== null)
+  const category =
+    CARD_CATEGORIES.find((known) => categories.includes(known)) ?? categories[0] ?? null
+  if (category === null) return {}
+  const first = judgements.find((judgement) => judgement.category === category)
   return {
-    ...(category !== null ? { category: categoryShown(category) } : {}),
-    ...(type !== null ? { type } : {}),
-    ...(role !== null ? { role } : {}),
+    category: categoryShown(category),
+    ...(first?.type ? { type: first.type } : {}),
+    ...(first?.role ? { role: first.role } : {}),
   }
 }
 
@@ -407,18 +427,31 @@ export function kindOf(nodeLabels: readonly string[]): AddressKind {
 
 /**
  * The reasons and the word of one row: the top identity, every other identity
- * word that carries a level, the entries of evidence and judgements, and the
- * model level. Each entry is read by the dictionary, whatever list it came from.
+ * word that carries a level, the entries of evidence and judgements, each case
+ * judgement and category no entry gave a reason for, and the model level. The
+ * dictionary is the one the card was resolved with (wordsFor): the next words
+ * for a card on them, the frozen words otherwise. Each entry is read by it,
+ * whatever list it came from.
  */
 export function rowRisk(
   row: Record<string, unknown> | undefined,
-  dictionary: readonly AddressCardWord[]
+  dictionaryWords: CardWords
 ): Omit<AddressRisk, 'card_version'> {
+  const dictionary = wordsFor(row, dictionaryWords)
+  const nextWords = holdsNextWords(
+    row,
+    isCardDictionaries(dictionaryWords) ? dictionaryWords.nextVersion : undefined
+  )
   const reasons: Reason[] = []
   const unknown: string[] = []
+  // The categories an entry already gave a reason for: a case judgement of one adds nothing.
+  const covered = new Set<string>()
   const take = (entry: string, keep: (reason: Reason) => boolean = () => true) => {
     const reason = reasonOf(entry, dictionary)
     if (reason) {
+      const item = cardWordOf(entry, dictionary)
+      const category = item ? categoryOfWord(item) : null
+      if (category) covered.add(category)
       if (keep(reason)) reasons.push(reason)
     } else {
       const { word } = splitCardEntry(entry)
@@ -434,6 +467,27 @@ export function rowRisk(
   }
   for (const entry of strings(row?.evidence)) take(entry)
   for (const entry of strings(row?.judgements)) take(entry)
+  // On a card of the next words: a case judgement, then a bare category, of a
+  // category no entry spoke for. An older card has neither field.
+  const cases = (nextWords ? strings(row?.case_judgements) : [])
+    .map(splitCaseJudgement)
+    .filter((judgement) => judgement !== null)
+  const bare = (nextWords ? strings(row?.categories) : []).map((category) => ({
+    category: category.trim().toLowerCase(),
+    type: null,
+    role: null,
+    case: null,
+  }))
+  for (const judgement of [...cases, ...bare]) {
+    if (judgement.category === '' || covered.has(judgement.category)) continue
+    const reason = caseJudgementReasonOf(judgement, dictionary)
+    if (reason) {
+      covered.add(judgement.category)
+      reasons.push(reason)
+    } else if (!unknown.includes(judgement.category)) {
+      unknown.push(judgement.category)
+    }
+  }
   const modelWord = modelWordOf(row?.risk_level)
   const risk = riskOf({
     rulesWord: rulesWordOf(reasons),
@@ -481,7 +535,7 @@ function exchangeOfPartner(
 function partnersOf(
   member: Member | undefined,
   direction: PartnerDirection,
-  dictionary: readonly AddressCardWord[],
+  dictionary: CardWords,
   exchangeRows: ExchangeEntry[]
 ): { partners: Partner[]; leftOut: number; truncated: boolean } {
   const rows = rowsOf(member)
@@ -570,7 +624,7 @@ export function addressRiskFromMembers(
   network: string,
   address: string,
   members: Map<string, Member>,
-  dictionary: readonly AddressCardWord[],
+  dictionary: CardWords,
   exchangeRows: ExchangeEntry[],
   prefix = '',
   options: {
@@ -713,7 +767,7 @@ export function addressRiskFromMembers(
     exchange_ends: exchangeEnds,
     not_read: notRead,
   }
-  const exposed = exposedOf(nodeRow.exposed, dictionary)
+  const exposed = exposedOf(nodeRow.exposed, wordsFor(nodeRow, dictionary))
   if (exposed.length > 0) result.exposed = exposed
   if (options.surroundings === true) {
     result.surroundings = surroundingsOf(
@@ -778,11 +832,9 @@ export async function handleAmlAddressRisk(
     )
   }
 
-  let dictionary: readonly AddressCardWord[]
+  let dictionary: CardDictionaries
   try {
-    const card = await deps.loadAddressCard()
-    if (!card) throw new Error('no copy of the address card dictionary is available')
-    dictionary = card.document.words
+    dictionary = await cardDictionariesOf(deps.loadAddressCard, deps.loadAddressCardNext)
   } catch (err) {
     return errorResult(
       `No address risk read was sent: the address card dictionary did not load (${(err as Error).message}). ` +

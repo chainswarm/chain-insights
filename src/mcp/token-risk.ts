@@ -27,7 +27,8 @@
  * prose is each reason's fixed plain sentence from the card dictionary.
  */
 
-import type { AddressCardWord, LoadedAddressCard } from './address-card.js'
+import { cardDictionariesOf, type LoadedAddressCard } from './address-card.js'
+import type { CardWords } from './risk-word.js'
 import {
   ADDRESS_INPUT,
   SURROUNDINGS_NODE_LIMIT,
@@ -259,6 +260,8 @@ export interface AmlTokenRiskResult {
 
 export interface TokenRiskDependencies {
   loadAddressCard: () => Promise<LoadedAddressCard | null>
+  /** The next words' dictionary (registry/address-card-next.json). Without it a card on the next words reads its words as unknown. */
+  loadAddressCardNext?: () => Promise<LoadedAddressCard | null>
   loadExchangeRegistry: (network: string) => Promise<LoadedExchangeRegistry>
   /** The exchange registry: it names a factory. */
   loadDexRegistry: (network: string) => Promise<LoadedRegistry>
@@ -432,11 +435,9 @@ export async function handleAmlTokenRisk(
     )
   }
 
-  let dictionary: readonly AddressCardWord[]
+  let dictionary: CardWords
   try {
-    const card = await deps.loadAddressCard()
-    if (!card) throw new Error('no copy of the address card dictionary is available')
-    dictionary = card.document.words
+    dictionary = await cardDictionariesOf(deps.loadAddressCard, deps.loadAddressCardNext)
   } catch (err) {
     return errorResult(
       `No token risk read was sent: the address card dictionary did not load (${(err as Error).message}). ` +
@@ -618,7 +619,7 @@ interface Step {
   deps: TokenRiskDependencies
   network: string
   address: string
-  dictionary: readonly AddressCardWord[]
+  dictionary: CardWords
   dexRows: DexEntry[]
   deployment: Deployment | null
   notRead: TokenNotRead[]

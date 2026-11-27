@@ -12,8 +12,10 @@ import { repoRoot } from './dex-registry.js'
 
 // One answer, two graph forms. Each case holds an address node twice: as the
 // graph serves it now (`today`), and as it serves it once the graph also writes
-// the card category, type and role, the mark Malicious, the flag is_malicious
-// and the role word Malicious beside the same card entries (`next`). The risk
+// the card categories and case_judgements, the mark Malicious, the flag
+// is_malicious and the role word Malicious beside the same card entries of the
+// frozen words (`next`). A card resolved with the next words themselves
+// (card_version 4) is held by tests/address-risk-next-words.test.ts. The risk
 // word, the reasons, the deployer screen and the flows role must not move. No
 // server is reached: the rows are in tests/fixtures/label-words-both-forms.json.
 
@@ -146,6 +148,13 @@ function withoutCardClass(result: AmlAddressRiskResult): AmlAddressRiskResult {
   return rest
 }
 
+/** The category, type and role of a form's first case judgement; empty strings when it has none. */
+function caseOf(form: Form): [string, string, string] {
+  const first = (form.case_judgements as string[] | undefined)?.[0] ?? ''
+  const [category = '', type = '', role = ''] = first.split('|')
+  return [category, type, role]
+}
+
 const shownCategory = (category: unknown): string | undefined =>
   typeof category === 'string' && category !== ''
     ? category === 'suspect'
@@ -163,9 +172,10 @@ function assertBothForms(address: string, row: { today: Form; next: Form; expect
   expect(today).not.toHaveProperty('role')
   // The next graph: every other field equals today's answer.
   expect(withoutCardClass(next)).toEqual(today)
-  expect(next.category).toBe(shownCategory(row.next.category))
-  expect(next.type).toBe(row.next.type === '' ? undefined : row.next.type)
-  expect(next.role).toBe(row.next.role === '' ? undefined : row.next.role)
+  const [category, type, role] = caseOf(row.next)
+  expect(next.category).toBe(shownCategory(category))
+  expect(next.type).toBe(type === '' ? undefined : type)
+  expect(next.role).toBe(role === '' ? undefined : role)
 
   expect(today.risk.word).toBe(row.expect.risk_word)
   if (row.expect.rules_word) expect(today.risk.rules_word).toBe(row.expect.rules_word)
@@ -221,7 +231,10 @@ describe('label words: both graph forms give one answer', () => {
   }
 
   it('a copied token name alone sets no word and gives the reason of its own card entry', () => {
-    const row = fixture.cases.find((c) => c.next.category === 'suspect' && c.next.role === 'fake_token')!
+    const row = fixture.cases.find((c) => {
+      const [category, , role] = caseOf(c.next)
+      return category === 'suspect' && role === 'fake_token'
+    })!
     const next = addressRisk(row.address, row.next)
     const entry = dictionary.find((item) => item.word === 'suspect' && item.value === 'FAKE_TOKEN')!
     expect(next.category).toBe('pattern')
