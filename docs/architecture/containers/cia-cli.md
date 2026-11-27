@@ -20,7 +20,7 @@ Provides the primary user-facing interface for Chain Insights investigations. Ex
 
 ## Invariants
 
-- Config resolution follows precedence: CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT env var -> saved graphMcpEndpoint -> hosted production default https://mcp.chain-insights.ai/
+- Config resolution follows precedence: CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT env var -> saved graphMcpEndpoint -> the npm tag's default (next: https://mcp-staging.chain-insights.ai/, latest: https://mcp.chain-insights.ai/)
 - Remote HTTP URLs must use https://; localhost/loopback may use http://
 - Exit codes: 0 for success, 1 for errors (config validation, MCP connection failure, wallet issues)
 - File permissions: config.json 0o600 and wallet.json 0o600

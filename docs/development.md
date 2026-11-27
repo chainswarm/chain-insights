@@ -129,7 +129,11 @@ Precedence for the Chain Insights Graph endpoint:
 1. `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT` environment variable.
 2. Legacy `GRAPH_MCP_ENDPOINT` environment variable.
 3. Saved `graphMcpEndpoint` config value.
-4. Default `https://mcp.chain-insights.ai/`.
+4. The default of the npm tag (`dist/channel.json`, written by
+   `scripts/stamp-release-channel.mjs` in the publish workflow):
+   `https://mcp-staging.chain-insights.ai/` for `next`,
+   `https://mcp.chain-insights.ai/` for `latest` and for a build with no
+   file. A saved production endpoint reads as that default.
 
 Validation (`validateMcpEndpoint` in `src/config/mcp-endpoint.ts`):
 

@@ -89,17 +89,32 @@ jobs:
           echo "name=$name" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
+      - name: Stamp the release channel
+        # After the tests: they run the built CLI and expect the production
+        # default. The package then carries dist/channel.json, and a build
+        # from the tag next reads the staging endpoint (src/version.ts).
+        env:
+          DIST_TAG: ${{ inputs.dist_tag }}
+        run: node scripts/stamp-release-channel.mjs "$DIST_TAG"
+
       - name: Pack and verify contents
+        env:
+          DIST_TAG: ${{ inputs.dist_tag }}
         run: |
           set -euo pipefail
-          # `npm pack` runs the `prepare` lifecycle script (tsdown build); that
-          # child process's stdout is not silenced by --silent and is
-          # interleaved with npm's own printed tarball filename. The tarball
-          # filename is always npm's final line of output, so take the last
-          # line rather than the whole capture (same fix as verify.yml, #138).
-          file="$(npm pack --silent | tail -n1)"
+          # --ignore-scripts: the build above is the one that ships. A pack
+          # that ran `prepare` would rebuild dist/ from empty (tsdown
+          # clean: true) and drop dist/channel.json.
+          file="$(npm pack --ignore-scripts --silent | tail -n1)"
           tar -tf "$file"
           mv "$file" package.tgz
+          stamped="$(tar -xOf package.tgz package/dist/channel.json)"
+          expected="$(node -e 'console.log(JSON.stringify({ channel: process.argv[1] }))' "$DIST_TAG")"
+          if [ "$stamped" != "$expected" ]; then
+            echo "::error::package/dist/channel.json is '$stamped', expected '$expected'."
+            exit 1
+          fi
+          echo "channel: $stamped"
 
       - name: Guard against republish
         run: |
@@ -122,7 +137,7 @@ jobs:
             echo "- package: ${{ steps.pkg.outputs.name }}"
             echo "- version: ${{ steps.pkg.outputs.version }}"
             echo "- source_ref: ${{ github.ref }}"
-            echo "- dist_tag: ${{ inputs.dist_tag }}"
+            echo "- dist_tag: ${{ inputs.dist_tag }} (stamped in dist/channel.json; next reads the staging endpoint)"
             echo "- dry_run: ${{ inputs.dry_run }}"
           } >> "$GITHUB_STEP_SUMMARY"
 

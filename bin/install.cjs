@@ -153,8 +153,10 @@ if (!fs.existsSync(dataDir)) {
 // ─── 3. Write default config.json if absent ───────────────────────────────
 
 if (!fs.existsSync(configPath)) {
+  // No graphMcpEndpoint: the CLI picks the endpoint of the build it runs (the
+  // staging endpoint for the npm tag next, production otherwise). A written
+  // endpoint would pin one build's default into every later one.
   const defaultConfig = {
-    graphMcpEndpoint: 'https://mcp.chain-insights.ai/',
     walletAddress: '',
     graphMcpMode: 'paid',
     serverPort: 4321,

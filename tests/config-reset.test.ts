@@ -45,7 +45,8 @@ describe('cia config reset', () => {
     expect(run.stdout).toContain('https://mcp.chain-insights.ai/')
 
     const now = JSON.parse(readFileSync(configFile(), 'utf8'))
-    expect(now.graphMcpEndpoint).toBe('https://mcp.chain-insights.ai/')
+    // The default endpoint is never written: the build's own default applies.
+    expect(now.graphMcpEndpoint).toBeUndefined()
     expect(now.graphMcpMode).toBe('paid')
     expect(now.graphMcpAuthToken).toBeUndefined()
     expect(now.walletAddress).toBe(old.walletAddress)
@@ -61,9 +62,8 @@ describe('cia config reset', () => {
     const run = cia(home, 'config', 'reset')
     expect(run.status).toBe(0)
     expect(run.stdout).not.toContain('.bak')
-    expect(JSON.parse(readFileSync(configFile(), 'utf8')).graphMcpEndpoint).toBe(
-      'https://mcp.chain-insights.ai/'
-    )
+    expect(run.stdout).toContain('https://mcp.chain-insights.ai/ (production, npm tag latest)')
+    expect(JSON.parse(readFileSync(configFile(), 'utf8')).graphMcpEndpoint).toBeUndefined()
   })
 
   it('replaces a settings file that is not valid JSON, keeping it as the backup', () => {

@@ -49,7 +49,7 @@ flowchart LR
 - Environment variable CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT overrides saved graphMcpEndpoint (not vice versa)
 - Invalid JSON or schema validation throws human-readable error with config file path
 - Empty config.json (ENOENT) returns DEFAULT_CONFIG, does not throw
-- Saved config is always complete (merge-on-update, never partial)
+- Saved config is merged on update; the default endpoint is never saved, so the npm tag's default applies (next: staging, latest: production)
 - File writes use mode 0o600 (owner read/write only)
 - Cache is invalidated by resetConfigCache() (used after external config changes)
 

@@ -9,7 +9,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import type { ContentBlock, GetPromptResult } from '@modelcontextprotocol/sdk/types.js'
 import * as z from 'zod'
 import type { InvestigatorConfig } from '../config/schema.js'
-import { PACKAGE_VERSION } from '../version.js'
+import { PACKAGE_VERSION, RELEASE_CHANNEL } from '../version.js'
 import type { McpTool } from './schema-cache.js'
 import { rateLimitedResult, withRateLimitRetry } from './rate-limit.js'
 import { withBusyMemberRetry, withBusyRetry, type BatchResult } from './batch-busy-retry.js'
@@ -1027,9 +1027,14 @@ export async function createProxy(): Promise<void> {
     proxy_mode: proxyMode,
     graph_mcp_mode: config.graphMcpMode,
     graph_mcp_endpoint: resolveGraphMcpEndpoint(config),
+    release_channel: RELEASE_CHANNEL ?? 'latest',
     log_path: logger.filePath,
   })
   const graphMcpEndpoint = resolveGraphMcpEndpoint(config)
+  const { graphMcpEndpointLines } = await import('../config/mcp-endpoint.js')
+  process.stderr.write(
+    `[chain-insights] ${PACKAGE_VERSION} ${graphMcpEndpointLines(graphMcpEndpoint)[0]}\n`
+  )
 
   // Inside Claude Desktop the Claude Code copy cannot draw the views. When
   // Claude Desktop's own drawing copy is configured, this copy lists no tools

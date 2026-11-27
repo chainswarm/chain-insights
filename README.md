@@ -126,8 +126,10 @@ Never touches:
 Upstream:
 
 - **Chain Insights Graph MCP endpoint** — all graph queries and AML
-  primitives. Configured via `graphMcpEndpoint`; defaults to the public
-  production endpoint `https://mcp.chain-insights.ai/`.
+  primitives. Configured via `graphMcpEndpoint`. The default follows the npm
+  tag you installed: `chain-insights@latest` reads the production endpoint
+  `https://mcp.chain-insights.ai/`, and `chain-insights@next` reads the
+  staging endpoint `https://mcp-staging.chain-insights.ai/`.
 - **Base mainnet RPC** — wallet balance and payment only
   (`BASE_RPC_URL` override). Not a graph-support claim.
 - **Robinhood Chain RPC** — the $CIA subscription top-up and buy only
@@ -339,17 +341,28 @@ For local development, override the default explicitly:
 cia config set graphMcpEndpoint http://127.0.0.1:8012/mcp
 ```
 
-The public production Graph is already the default. Use the host root. Do not
-add `/mcp`.
+The default follows the npm tag of the package:
+
+| Installed with          | Default endpoint                                   |
+| ----------------------- | -------------------------------------------------- |
+| `chain-insights@latest` | `https://mcp.chain-insights.ai/` (production)      |
+| `chain-insights@next`   | `https://mcp-staging.chain-insights.ai/` (staging) |
+
+`next` is the beta, so it reads the staging endpoint. `cia status` prints the
+endpoint, its lane and the npm tag. Use the host root. Do not add `/mcp`.
 
 ```bash
 cia config set graphMcpEndpoint https://mcp.chain-insights.ai/
 ```
 
+A saved production endpoint reads as the default of the build, because older
+releases saved it into every settings file. To read production from a `next`
+build, set `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT` instead.
+
 To undo every local override at once, after an upgrade or a test setup:
 
 ```bash
-cia config reset   # production endpoint, paid mode, no test key; wallet kept; old file in config.json.bak
+cia config reset   # the build's default endpoint, paid mode, no test key; wallet kept; old file in config.json.bak
 ```
 
 Optional one-shot override from the environment:
@@ -363,7 +376,8 @@ Configuration precedence:
 1. `CHAIN_INSIGHTS_GRAPH_MCP_ENDPOINT` env var (`GRAPH_MCP_ENDPOINT`
    legacy alias also supported).
 2. `cia config set graphMcpEndpoint ...` saved value.
-3. Public production default `https://mcp.chain-insights.ai/`.
+3. The default of the npm tag: `https://mcp.chain-insights.ai/` for `latest`,
+   `https://mcp-staging.chain-insights.ai/` for `next`.
 
 Validation rules:
 
