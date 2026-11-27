@@ -39,6 +39,7 @@
  * endpoint and costs nothing.
  */
 
+import { cardMarkColumns, cardMarksOf } from './card-marks.js'
 import { withoutHeldRoleWord } from './held-role-word.js'
 import type { SwapLinkShape } from './layer-routing.js'
 
@@ -267,7 +268,10 @@ export type AddressView = FlowNode & {
   network: string
   is_exchange: boolean
   is_sanctioned: boolean
+  /** The frozen words' scam mark; false on a card of the next words (card_version 4), which says is_malicious. */
   is_scam: boolean
+  /** The next words' malicious mark; false on a card of the frozen words. */
+  is_malicious: boolean
   is_victim: boolean
   pool: boolean
   first_activity_timestamp: number | null
@@ -277,14 +281,16 @@ export type AddressView = FlowNode & {
 /** chain-insights.address.v1 from the one row of a details read. */
 export function buildAddressView(network: string, address: string, row: Row): AddressView {
   const node = flowsNodeOf({ ...row, address })
+  const marks = cardMarksOf(row)
   return {
     schema: ADDRESS_SCHEMA,
     network,
     ...node,
     is_exchange: row.is_exchange === true,
-    is_sanctioned: row.is_sanctioned === true,
-    is_scam: row.is_scam === true,
-    is_victim: row.is_victim === true,
+    is_sanctioned: marks.sanctioned,
+    is_scam: marks.scam,
+    is_malicious: marks.malicious,
+    is_victim: marks.victim,
     pool: row.pool === true,
     first_activity_timestamp: flowsNumberOrNull(row.first_activity_timestamp),
     last_activity_timestamp: flowsNumberOrNull(row.last_activity_timestamp),
@@ -303,7 +309,9 @@ export function addressSummary(view: AddressView): string {
 
 const NODE_FIELDS =
   'b.address AS address, b.labels AS labels, b.is_exchange AS is_exchange, ' +
-  'b.is_sanctioned AS is_sanctioned, b.is_scam AS is_scam, b.is_victim AS is_victim, b:Pool AS pool, ' +
+  // Both cards' marks: the flags of the frozen words and the categories and
+  // case judgements of the next words (src/mcp/card-marks.ts).
+  `${cardMarkColumns('b')}, b:Pool AS pool, ` +
   'b.total_in_usd AS total_in_usd, b.total_out_usd AS total_out_usd, b.degree_in AS degree_in, b.degree_out AS degree_out'
 const PARTY_FIELDS =
   NODE_FIELDS +
@@ -377,12 +385,19 @@ export function flowsReadsFor(
   ]
 }
 
-/** The role word of an address, first match wins. */
+/**
+ * The role word of an address, first match wins. A card of the next words
+ * (card_version 4) says `malicious` where a frozen card said `scam`, and is
+ * `sanctioned` when one of its malicious case judgements is a sanctions
+ * listing. A suspect accuses nobody and sets no role.
+ */
 export function flowsRole(row: Row): string {
   if (row.is_exchange === true) return 'exchange'
-  if (row.is_sanctioned === true) return 'sanctioned'
-  if (row.is_scam === true) return 'scam'
-  if (row.is_victim === true) return 'victim'
+  const marks = cardMarksOf(row)
+  if (marks.sanctioned) return 'sanctioned'
+  if (marks.scam) return 'scam'
+  if (marks.malicious) return 'malicious'
+  if (marks.victim) return 'victim'
   if (row.pool === true) return 'pool'
   if (Array.isArray(row.labels) && row.labels.includes('SelfTrader')) return 'self_trader'
   return 'other'

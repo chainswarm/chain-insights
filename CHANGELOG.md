@@ -5,8 +5,31 @@ All notable changes to Chain Insights are recorded here.
 
 ## [Unreleased]
 
+## [0.93.6] - 2026-11-27 — the flows tools and the deployer screen read the new words
+
 ### Fixed
 
+- The flows tools (`graph_expand`: a node click and the details form) and
+  `aml_deployer_screen` read a card of `card_version` 4 or above. Such a
+  card carries no `is_scam` and no `is_sanctioned`: it says `is_malicious`,
+  `categories` and `case_judgements`. Both tools read only the old flags, so
+  an address on the OFAC sanctions list showed as a plain `other` wallet in
+  the flows tools, and a sanctioned launcher showed no sanctions mark in the
+  deployer screen.
+  - Flows: the role is `sanctioned` when a malicious case is of type
+    `sanctioned`, `malicious` for every other malicious card, and `victim`
+    for the category `victim`. A suspect sets no role. The details answer
+    adds `is_malicious`.
+  - Deployer screen: `crime` lists `sanctioned`, `malicious` with the case
+    type (such as `fake-token`) and `victim`. A funder with a malicious case
+    other than a sanctions listing is of kind `scam`. The risk-label lists
+    are not read on such a card.
+  - A card of an older version keeps its flags and reads as before:
+    `is_malicious` alone on it sets no role.
+- The `graph_query` description and the workspace runtime notes name the
+  marks of a card of `card_version` 4: `:Malicious`, `is_malicious`,
+  `categories`, `case_judgements` and `malicious_claims`, in place of
+  `:Scam`, `:Sanctioned`, `is_scam`, `is_sanctioned` and `risk_claims`.
 - `aml_address_risk`, `aml_token_risk` and the pool answers show a suspect
   as `suspect` on a card of `card_version` 4 or above, in its reasons and in
   `category`. They showed it as `pattern`, which a reader takes as neutral.

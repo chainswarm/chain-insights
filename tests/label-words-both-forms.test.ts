@@ -14,10 +14,13 @@ import { repoRoot } from './dex-registry.js'
 // graph serves it now (`today`), and as it serves it once the graph also writes
 // the card categories and case_judgements, the mark Malicious, the flag
 // is_malicious and the role word Malicious beside the same card entries of the
-// frozen words (`next`). A card resolved with the next words themselves
-// (card_version 4) is held by tests/address-risk-next-words.test.ts. The risk
-// word, the reasons, the deployer screen and the flows role must not move. No
-// server is reached: the rows are in tests/fixtures/label-words-both-forms.json.
+// frozen words (`next`). Both forms are cards of the frozen words
+// (card_version 2), so each reader keeps the frozen flags. A card resolved with
+// the next words themselves (card_version 4) is held by
+// tests/address-risk-next-words.test.ts and tests/card-marks-next-words.test.ts.
+// The risk word, the reasons, the deployer screen and the flows role must not
+// move. No server is reached: the rows are in
+// tests/fixtures/label-words-both-forms.json.
 
 type Form = Record<string, unknown>
 type Expect = {
@@ -60,6 +63,10 @@ function addressRisk(address: string, form: Form): AmlAddressRiskResult {
 function screenRow(address: string, form: Form): Record<string, unknown> {
   const side = (prefix: 'launcher' | 'funder') => ({
     [`${prefix}_roles`]: form.node_labels,
+    [`${prefix}_card_version`]: form.card_version,
+    [`${prefix}_is_malicious`]: form.is_malicious,
+    [`${prefix}_categories`]: form.categories,
+    [`${prefix}_case_judgements`]: form.case_judgements,
     [`${prefix}_is_sanctioned`]: form.is_sanctioned,
     [`${prefix}_is_scam`]: form.is_scam,
     [`${prefix}_is_victim`]: form.is_victim,
@@ -79,8 +86,12 @@ function screen(address: string, form: Form): AmlDeployerScreenResult {
   return built.result
 }
 
-/** The flows row of a partner: the flags and the node's `labels` list. */
+/** The flows row of a partner: the card's marks of both forms and the node's `labels` list. */
 const flowsRow = (form: Form) => ({
+  card_version: form.card_version,
+  is_malicious: form.is_malicious,
+  categories: form.categories,
+  case_judgements: form.case_judgements,
   is_exchange: false,
   is_sanctioned: form.is_sanctioned,
   is_scam: form.is_scam,
@@ -244,9 +255,10 @@ describe('label words: both graph forms give one answer', () => {
     ])
   })
 
-  it('a funder that carries only the new mark and flag is a plain wallet, as before', () => {
+  it('a funder whose card is of the frozen words keeps its flags: is_malicious alone leaves it a plain wallet', () => {
     const plain: Form = {
       node_labels: ['Address', 'Account'],
+      card_version: '2',
       is_sanctioned: false,
       is_scam: false,
       is_victim: false,
@@ -258,6 +270,8 @@ describe('label words: both graph forms give one answer', () => {
       node_labels: ['Address', 'Account', 'Malicious', 'OnMoneyTrail'],
       labels: ['Malicious', 'OnMoneyTrail'],
       is_malicious: true,
+      categories: ['malicious'],
+      case_judgements: ['malicious||mule|'],
       label_risk_labels: ['Malicious'],
       label_risk_levels: ['critical'],
     }
@@ -268,5 +282,24 @@ describe('label words: both graph forms give one answer', () => {
     expect(after.crime).toEqual(before.crime)
     expect(after.roles).toEqual(['Account', 'OnMoneyTrail'])
     expect(flowsRole(flowsRow(marked))).toBe('other')
+  })
+
+  it('a funder whose card is of the next words (card_version 4) is read by is_malicious and its case judgements', () => {
+    // The staging card of 0x01917b0c50898a56769e4f49c6fb08d24d543149, 2026-11-27.
+    const marked: Form = {
+      node_labels: ['Address', 'Account', 'Malicious'],
+      labels: ['Malicious'],
+      card_version: '4',
+      is_malicious: true,
+      categories: ['malicious'],
+      case_judgements: ['malicious|fake-token|deployer|', 'suspect|fake-token||'],
+      label_risk_labels: ['Malicious'],
+      label_risk_levels: ['critical'],
+    }
+    const funder = screen(FUNDED, marked).first_funder!
+    expect(funder.kind).toBe('scam')
+    expect(funder.crime).toEqual([{ kind: 'malicious', value: 'fake-token', level: null }])
+    expect(funder.roles).toEqual(['Account'])
+    expect(flowsRole(flowsRow(marked))).toBe('malicious')
   })
 })

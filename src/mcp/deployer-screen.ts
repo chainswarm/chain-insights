@@ -24,6 +24,14 @@
  */
 
 import { ANSWER_HINT } from './answer-hint.js'
+import {
+  SANCTIONED_CASE_TYPE,
+  cardFieldsOf,
+  cardMarkColumns,
+  cardMarksOf,
+  hasMaliciousAct,
+  type CardMarks,
+} from './card-marks.js'
 import { DexRegistryError, normalizeDexNetwork } from './dex-registry.js'
 import { isHeldRoleWord } from './held-role-word.js'
 import type { SwapLinkShape } from './layer-routing.js'
@@ -44,7 +52,7 @@ export const AML_DEPLOYER_SCREEN_DESCRIPTION =
   'For a token contract it returns the creation transaction and the launcher (the wallet that sent it); ' +
   'for a wallet, that wallet as the launcher. Then the launcher\'s first funder of all time and what kind of ' +
   'wallet that funder is (wallet, contract, bridge, bundler, launchpad, exchange, mixer, scam), how many addresses the ' +
-  'funder ever paid, the sanctions, scam, victim and risk labels on each, and the first inbound bridge deposit. ' +
+  'funder ever paid, the sanctions, scam (malicious on a card of the next words), victim and risk labels on each, and the first inbound bridge deposit. ' +
   'The caller decides. A fresh launcher funded by a wallet that paid few addresses is the pattern to look at; ' +
   'a funder that paid thousands is shared infrastructure. A launcher that is a bundler hides the real sender: ' +
   'launcher_resolved is then false. On a lane whose money family lists ROUTED_TO the first funder may have paid ' +
@@ -60,7 +68,12 @@ export const AML_DEPLOYER_SCREEN_ARGS = ['network', 'address'] as const
 /** What the two reads cannot see yet, named in every answer. */
 export const NOT_COVERED = ['exploit_labels', 'ml_labels', 'bridge_sender', 'ethereum_history'] as const
 
-export type CrimeKind = 'sanctioned' | 'scam' | 'victim' | 'issuer_frozen' | 'risk'
+/**
+ * `scam` and `risk` come from a card of the frozen words, `malicious` from a
+ * card of the next words (card_version 4), whose value is the case type, such
+ * as `fake-token`, or the role when the case names no type.
+ */
+export type CrimeKind = 'sanctioned' | 'scam' | 'malicious' | 'victim' | 'issuer_frozen' | 'risk'
 export interface Crime {
   kind: CrimeKind
   value: string
@@ -175,9 +188,9 @@ const PARTY_COLUMNS = [
   'l.first_activity_timestamp AS launcher_first_activity',
   'l.degree_in AS launcher_degree_in',
   'l.degree_out AS launcher_degree_out',
-  'l.is_sanctioned AS launcher_is_sanctioned',
-  'l.is_scam AS launcher_is_scam',
-  'l.is_victim AS launcher_is_victim',
+  // Both cards' marks (src/mcp/card-marks.ts): the flags of the frozen words,
+  // and is_malicious, categories and case_judgements of the next words.
+  cardMarkColumns('l', 'launcher_'),
   'l.is_issuer_frozen AS launcher_is_issuer_frozen',
   'l.label_risk_labels AS launcher_risk_labels',
   'l.label_risk_levels AS launcher_risk_levels',
@@ -185,9 +198,7 @@ const PARTY_COLUMNS = [
   'labels(f) AS funder_roles',
   'f.degree_out AS funder_degree_out',
   'f.first_activity_timestamp AS funder_first_activity',
-  'f.is_sanctioned AS funder_is_sanctioned',
-  'f.is_scam AS funder_is_scam',
-  'f.is_victim AS funder_is_victim',
+  cardMarkColumns('f', 'funder_'),
   'f.is_issuer_frozen AS funder_is_issuer_frozen',
   'f.label_risk_labels AS funder_risk_labels',
   'f.label_risk_levels AS funder_risk_levels',
@@ -320,10 +331,44 @@ const FLAG_CRIMES: Array<[CrimeKind, string, string]> = [
 ]
 
 /**
+ * The crime of a card of the next words: a sanctions listing as `sanctioned`,
+ * each other malicious case once as `malicious` with its type (or role), a
+ * malicious card with no case as `malicious` alone, the victim category as
+ * `victim`, and an issuer freeze. The risk-label lists are the frozen words'
+ * and are not read: the case judgements say the same with their own word.
+ */
+function nextWordsCrimeOf(
+  row: Record<string, unknown>,
+  prefix: 'launcher' | 'funder',
+  marks: CardMarks
+): Crime[] {
+  const crime: Crime[] = []
+  const push = (entry: Crime) => {
+    if (!crime.some((seen) => seen.kind === entry.kind && seen.value === entry.value)) crime.push(entry)
+  }
+  if (marks.sanctioned) push({ kind: 'sanctioned', value: 'Sanctioned', level: null })
+  for (const judgement of marks.malicious_cases) {
+    if (judgement.type?.toLowerCase() === SANCTIONED_CASE_TYPE) continue
+    push({ kind: 'malicious', value: judgement.type ?? judgement.role ?? 'Malicious', level: null })
+  }
+  if (marks.malicious && marks.malicious_cases.length === 0) {
+    push({ kind: 'malicious', value: 'Malicious', level: null })
+  }
+  if (marks.victim) push({ kind: 'victim', value: 'Victim', level: null })
+  if (row[`${prefix}_is_issuer_frozen`] === true) {
+    push({ kind: 'issuer_frozen', value: 'IssuerFrozen', level: null })
+  }
+  return crime
+}
+
+/**
  * The flags that are true, then one risk entry per served risk label with its
- * level. The held role word is skipped with its level.
+ * level. The held role word is skipped with its level. A card of the next
+ * words is read by nextWordsCrimeOf.
  */
 function crimeOf(row: Record<string, unknown>, prefix: 'launcher' | 'funder'): Crime[] {
+  const marks = cardMarksOf(cardFieldsOf(row, prefix))
+  if (marks.next_words) return nextWordsCrimeOf(row, prefix, marks)
   const crime: Crime[] = []
   for (const [kind, flag, value] of FLAG_CRIMES) {
     if (row[`${prefix}_${flag}`] === true) crime.push({ kind, value, level: null })
@@ -355,6 +400,16 @@ export function funderKind(roles: readonly string[], isScam = false): FunderKind
   return FUNDER_KIND_RULES.find(([, rule]) => rule(roles, isScam))?.[0] ?? 'wallet'
 }
 
+/**
+ * True when the funder's card accuses it: is_scam on a frozen card, a
+ * malicious act on a card of the next words. A sanctions listing alone keeps
+ * the funder's own kind, as on a frozen card, and shows in its crime list.
+ */
+function funderAccused(row: Record<string, unknown>): boolean {
+  const marks = cardMarksOf(cardFieldsOf(row, 'funder'))
+  return marks.next_words ? hasMaliciousAct(marks) : marks.scam
+}
+
 function partyOf(row: Record<string, unknown>): Party | null {
   const address = addressOrNull(row.launcher)
   if (!address) return null
@@ -378,7 +433,7 @@ function funderOf(row: Record<string, unknown>): Funder | null {
   const fundedAt = numberOrNull(row.funded_at)
   return {
     address,
-    kind: funderKind(roles, row.funder_is_scam === true),
+    kind: funderKind(roles, funderAccused(row)),
     roles,
     crime: crimeOf(row, 'funder'),
     degree_out: numberOrNull(row.funder_degree_out),

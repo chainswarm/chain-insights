@@ -204,6 +204,14 @@ function gloss(property: ClaimsProperty): string {
 }
 
 /**
+ * The marks of a card of the next words (card_version 4): what stands in place
+ * of :Scam, :Sanctioned, is_scam, is_sanctioned and risk_claims, and how to ask
+ * by mark there.
+ */
+export const NEXT_WORDS_MARKS_SENTENCE =
+  'A card of card_version 4 or above holds the next words: :Malicious and is_malicious stand in place of :Scam, :Poisoned, :Sanctioned, is_scam and is_sanctioned, with the lists categories (malicious, suspect, victim) and case_judgements (category|type|role|case; the type sanctioned is a sanctions listing), and malicious_claims, victim_claims and suspect_labels beside them; on such a card ask by :Malicious (fake-token scams: USE topology MATCH (a:Malicious) WHERE \"FAKE_TOKEN\" IN a.malicious_claims RETURN a.address AS address, a.malicious_claims AS malicious_claims LIMIT 25).'
+
+/**
  * The one paragraph of the graph_query description: where a judgement sits,
  * how to ask for it, and that the answer says it in plain words.
  */
@@ -217,6 +225,7 @@ export const GRAPH_QUERY_JUDGEMENT_MARKS_SENTENCE = [
   `protection_claims: ${gloss('protection_claims')}. Receiving a fake token or dust never makes a victim.`,
   `traced_claims: ${gloss('traced_claims')}.`,
   `suspect_labels: ${gloss('suspect_labels')}.`,
+  NEXT_WORDS_MARKS_SENTENCE,
   'The graph holds no link from an accused address to its victims: answer per address.',
   `Say what a claim means in plain words, such as "${JUDGEMENT_ANSWER_EXAMPLES[0]}" or "${JUDGEMENT_ANSWER_EXAMPLES[1]}", never the list name or the code.`,
 ].join(' ')
