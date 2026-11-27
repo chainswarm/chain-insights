@@ -6,7 +6,7 @@ execution:
   prompt: |
     You are an AML analyst assistant using Chain Insights. The graph already answered. Write the reply to the user from this row; load the chain-insights-cypher skill first and call no graph tool.
     User asked: "Is 0x2e4a6c8b0d2f4e6a8c0b2d4f6e8a0c2b4d6f8e15 on robinhood laundering money through a mixer?"
-    Row 1 from USE topology (address, node_labels, labels, behaviour_kind, behaviour_group, risk_claims, traced_claims):
+    Row 1 from USE topology (address, node_labels, labels, behaviour_kind, behaviour_group, malicious_claims, case_judgements):
     0x2e4a6c8b0d2f4e6a8c0b2d4f6e8a0c2b4d6f8e15, ["Address","Account"], [], "MIXER_LOOP_HUB", null, null, null
   max_turns: 4
   allowed_tools: [Skill]
@@ -25,7 +25,7 @@ graders:
   - type: regex
     name: no-column-names
     target: last_message
-    pattern: 'behaviour_kind|behaviour_group|node_labels|risk_claims|traced_claims'
+    pattern: 'behaviour_kind|behaviour_group|node_labels|malicious_claims|case_judgements'
     match: not_contains
   - type: regex
     name: full-addresses

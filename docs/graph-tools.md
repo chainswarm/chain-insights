@@ -493,71 +493,73 @@ into its own `asset_key` itself; a query never needs the key.
 
 ## Role labels and flags
 
-The graph labels an address with role words: `Exchange`, `Scam`, `Victim`,
-`Sanctioned` and `IssuerFrozen`. `:Exchange` is a node label now, and so are
-`:Scam`, `:Victim`, `:Sanctioned` and `:IssuerFrozen`. Each role also has a
-flag on the node.
+The graph labels an address with role words: `Exchange`, `Malicious`,
+`Victim` and `IssuerFrozen`. Each is a node label too, and each has a flag on
+the node.
 
 | Role           | Node label      | Flag               |
 | -------------- | --------------- | ------------------ |
 | `Exchange`     | `:Exchange`     | `is_exchange`      |
-| `Scam`         | `:Scam`         | `is_scam`          |
+| `Malicious`    | `:Malicious`    | `is_malicious`     |
 | `Victim`       | `:Victim`       | `is_victim`        |
-| `Sanctioned`   | `:Sanctioned`   | `is_sanctioned`    |
 | `IssuerFrozen` | `:IssuerFrozen` | `is_issuer_frozen` |
 
+- `:Malicious` covers scammers, poisoners, drainers, the wallets that carry
+  their money on (mules) and sanctioned addresses. `case_judgements` says
+  which kind.
 - `:IssuerFrozen`: an issuer froze this wallet; the token in `labels` says
-  which (`USDG` or `PAXG` on robinhood). An unfreeze removes it. It is never
-  `:Scam` for the freeze alone.
+  which (`USDG` or `PAXG` on robinhood). An unfreeze removes it. The freeze
+  alone never makes an address `:Malicious`. A frozen wallet that is also on
+  a sanctions list carries `:Malicious` beside it.
 
 ### Judgement marks and their claims
 
-Three more marks come from the labels layer: `:Poisoned`, `:Targeted` and
-`:OnMoneyTrail`. They have no flag. Why a judgement mark is there sits in a
-sorted list on the node, beside the mark.
+Why a judgement mark is there sits in a sorted list on the node, beside the
+mark. Every judged address also carries two lists in the same words:
 
-| Mark            | List                | Holds                                             |
-| --------------- | ------------------- | ------------------------------------------------- |
-| `:Scam`         | `risk_claims`       | the live risk values below                        |
-| `:Poisoned`     | `risk_claims`       | `ADDRESS_POISONING`                               |
-| `:Sanctioned`   | `risk_claims`       | `SANCTIONED`                                      |
-| `:Victim`       | `protection_claims` | `VICTIM`                                          |
-| `:Targeted`     | `protection_claims` | `ADDRESS_POISONING_TARGET`, an older value        |
-| `:OnMoneyTrail` | `traced_claims`     | the trail values below                            |
-| none            | `suspect_labels`    | `FAKE_TOKEN`, `MIXER_DEPOSITOR`, `MIXER_WITHDRAWER` |
+- `categories`: `malicious`, `suspect` or `victim`, one per kind of case.
+- `case_judgements`: one entry per case, `category|type|role|case`. The type
+  of a malicious case is `fake-token`, `poisoning`, `inbound-impersonation`,
+  `phantom-transfer`, `permission-abuse`, `approval-drainer` or
+  `sanctioned`. The role is what the address did in it, such as `scammer`,
+  `deployer` or `mule`.
+
+| Mark          | List               | Holds                                                     |
+| ------------- | ------------------ | --------------------------------------------------------- |
+| `:Malicious`  | `malicious_claims` | the malicious values below; the entity name on a sanctioned address |
+| `:Victim`     | `victim_claims`    | `VICTIM`                                                  |
+| none          | `suspect_labels`   | `FAKE_TOKEN`, `FAKE_TOKEN_LP`, `MIXER_WITHDRAWER`         |
 
 What each value means:
 
 | Value                        | Meaning                                                                                                                  |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `FAKE_TOKEN` on `:Scam`, in `risk_claims` | A fake-token scam: a token that copies a listed token and was sent to holders of the real token, or used as poisoning bait. |
-| `FAKE_TOKEN` in `suspect_labels` | A copied name: a token that copies the name of a listed token. A record that accuses nobody: no `:Scam`, no `is_scam`, never called a scam. |
+| `FAKE_TOKEN` on `:Malicious`, in `malicious_claims` | A fake-token scam: a token that copies a listed token and was sent to holders of the real token, or used as poisoning bait. |
+| `FAKE_TOKEN` in `suspect_labels` | A copied name: a token that copies the name of a listed token. A record that accuses nobody: no `:Malicious`, no `is_malicious`, never called a scam. |
 | `FAKE_TOKEN_DEPLOYER`        | The sender of the transaction that created a fake-token scam, even through a factory.                                    |
-| `FAKE_TOKEN_LP`              | The wallet that seeded a fake token's pool and pulled its liquidity after the buyers paid.                               |
-| `ADDRESS_POISONING`          | A poisoner: a look-alike address that sent worthless dust so the target copies it from its history. `:Poisoned`, never `:Scam`. |
+| `FAKE_TOKEN_LP`              | In `malicious_claims`: the wallet that seeded a fake token's pool and pulled its liquidity after the buyers paid. In `suspect_labels`: it opened such a pool, and no buyer is proven to have lost money there. |
+| `FAKE_TOKEN_MASS_SENDER`     | The signer of the transactions that sent a fake token to many wallets.                                                   |
+| `ADDRESS_POISONING`          | A poisoner: a look-alike address that sent worthless dust so the target copies it from its history.                      |
 | `INBOUND_IMPERSONATION`      | A look-alike address that paid the target to get into its history.                                                      |
 | `PHANTOM_TRANSFER`           | A contract that writes fake transfer events, claiming a transfer that never happened.                  |
 | `PHANTOM_TRANSFER_EMITTER`   | A contract that writes fake transfer events, claiming a transfer that never happened.                  |
 | `PHANTOM_ENTRYPOINT`         | A contract that writes fake transfer events, claiming a transfer that never happened.                  |
 | `SWEEPER_DELEGATE`           | An EIP-7702 delegate that empties the accounts that delegate to it.                                                      |
 | `SWEEP_BENEFICIARY`          | Where a sweeper sends the funds.                                                                                         |
-| `UNSAFE_DELEGATE`            | A delegate any caller can use to empty the account.                                                                      |
 | `APPROVAL_DRAINER`           | A spender that moved the tokens of at least three owners with their approval or Permit2 within 72 hours of the grant, and paid nothing back. |
-| `APPROVAL_DRAIN_BENEFICIARY` | The receiver of those tokens.                                                                                            |
-| `SANCTIONED`                 | On a sanctions list.                                                                                                     |
 | `VICTIM`                     | Lost money to a scam the evidence walk traced: it paid the accused, was swept, or was drained after the attempt. Receiving a fake token or dust never makes a victim. |
-| `ADDRESS_POISONING_TARGET`   | A poisoning target the walk has not proven lost money. Not a victim.                                                    |
-| `LAUNDERED`                  | On the trail from an accused address: it received the accused's money along the walk and moved it on.                   |
-| `RECEIVED`                   | On the trail: it received that money and still holds it. It becomes `LAUNDERED` when it forwards it.                     |
-| `FUNDER`                     | It funded the accused address.                                                                                           |
-| `MIXED`                      | On the trail: it received that money and paid it into a mixer pool, where the walk ends.                                 |
-| `MIXER_DEPOSITOR`            | It put money into a mixer pool. A warning, not a theft.                                                                  |
 | `MIXER_WITHDRAWER`           | It took money out of a mixer pool. A warning, not a theft.                                                               |
 
-- Ask by mark, `MATCH (a:Scam) WHERE "FAKE_TOKEN" IN a.risk_claims` for fake
-  tokens, or anchor on one full address.
+A mule, the role `mule` in `case_judgements`, received the accused's money
+along the walk: it holds it, moved it on, or paid it into a mixer pool. It
+carries no claim, only its case.
+
+- Ask by mark, `MATCH (a:Malicious) WHERE "FAKE_TOKEN" IN a.malicious_claims`
+  for fake tokens, `MATCH (a:Malicious) WHERE any(j IN a.case_judgements
+  WHERE j STARTS WITH "malicious|sanctioned|")` for sanctioned addresses, or
+  anchor on one full address.
 - A fake-token list asks both lists and keeps them apart: the scams on
-  `:Scam`, then the copied names, `MATCH (a:Token) WHERE "FAKE_TOKEN" IN
+  `:Malicious`, then the copied names, `MATCH (a:Token) WHERE "FAKE_TOKEN" IN
   a.suspect_labels`. A copied name is a record, never a scam. The mark is the anchor, and a
   `WHERE` on its own properties is allowed. A `WHERE` with no mark and no
   address is refused.
@@ -565,6 +567,34 @@ What each value means:
   address.
 - An answer says what a value means in plain words: "a fake-token scam", never
   the list name or the code.
+
+#### Older cards
+
+A card of `card_version` below 4 carries older marks. The graph served today
+holds none of them, so never ask by them. The tools (`aml_address_risk`,
+`aml_token_risk`, `aml_deployer_screen` and the flows view) still read both
+cards.
+
+| Older mark      | Flag            | List                | Values                                     |
+| --------------- | --------------- | ------------------- | ------------------------------------------ |
+| `:Scam`         | `is_scam`       | `risk_claims`       | the malicious values above, and the two below |
+| `:Poisoned`     | none            | `risk_claims`       | `ADDRESS_POISONING`                        |
+| `:Sanctioned`   | `is_sanctioned` | `risk_claims`       | `SANCTIONED`: on a sanctions list          |
+| `:Victim`       | `is_victim`     | `protection_claims` | `VICTIM`                                   |
+| `:Targeted`     | none            | `protection_claims` | `ADDRESS_POISONING_TARGET`                 |
+| `:OnMoneyTrail` | none            | `traced_claims`     | `LAUNDERED`, `RECEIVED`, `FUNDER`, `MIXED` |
+| none            | none            | `suspect_labels`    | `FAKE_TOKEN`, `MIXER_DEPOSITOR`, `MIXER_WITHDRAWER` |
+
+| Older value                  | Meaning                                                                                       |
+| ---------------------------- | --------------------------------------------------------------------------------------------- |
+| `UNSAFE_DELEGATE`            | A delegate any caller can use to empty the account.                                           |
+| `APPROVAL_DRAIN_BENEFICIARY` | The receiver of an approval drainer's takings.                                                |
+| `ADDRESS_POISONING_TARGET`   | A poisoning target the walk has not proven lost money. Not a victim.                          |
+| `LAUNDERED`                  | It received the accused's money along the walk and moved it on.                               |
+| `RECEIVED`                   | It received that money and still holds it. It becomes `LAUNDERED` when it forwards it.        |
+| `FUNDER`                     | It funded the accused address.                                                                |
+| `MIXED`                      | It received that money and paid it into a mixer pool, where the walk ends.                    |
+| `MIXER_DEPOSITOR`            | It put money into a mixer pool. A warning, not a theft.                                       |
 
 - Each flag is absent unless true. An address carries the flag only while it
   has a live label of that role. A flag is never `false`.

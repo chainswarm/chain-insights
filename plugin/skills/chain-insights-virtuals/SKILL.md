@@ -1,7 +1,7 @@
 ---
 name: chain-insights-virtuals
 door: meta_dex_lookup
-description: Use when investigating Virtuals Protocol agents with Chain Insights - who created an agent or thousands of agents, who is behind a creator wallet, whether a creator earned on its agents, whether an agent was rugged or dumped, whether agents are run by a cartel of linked wallets or snipers, who holds or bought an agent token, whether a buyer or receiver of an agent pool with Scam or Victim labels is really a scammer, why an agent token shows no USD value, what happened after an agent graduated, whether Virtuals contract addresses or queries carry over to another network such as Base, or when a question names Virtuals, an agent token, VIRTUAL, a bonding curve, a launchpad or a creator wallet.
+description: Use when investigating Virtuals Protocol agents with Chain Insights - who created an agent or thousands of agents, who is behind a creator wallet, whether a creator earned on its agents, whether an agent was rugged or dumped, whether agents are run by a cartel of linked wallets or snipers, who holds or bought an agent token, whether a buyer or receiver of an agent pool with Malicious or Victim labels is really a scammer, why an agent token shows no USD value, what happened after an agent graduated, whether Virtuals contract addresses or queries carry over to another network such as Base, or when a question names Virtuals, an agent token, VIRTUAL, a bonding curve, a launchpad or a creator wallet.
 ---
 
 # Chain Insights: Virtuals Protocol investigations
@@ -87,8 +87,8 @@ them as Protocol, so the usual guard lets them through.
 | Unnamed hub contract | `0xca6395246b4382ba70f886526dd9a9de984f6081` |
 | Unnamed hub contract | `0x6d80b81d9fc56a7a839b1af9006eb49151961ce7` |
 
-**A Scam or Victim label on a hub is noise.** The router carries Scam,
-Targeted and Victim labels only because millions of transactions touch
+**A Malicious or Victim label on a hub is noise.** A router can carry
+Malicious and Victim labels only because millions of transactions touch
 it. When a pool's only receiver is the router, the router is not the
 buyer: the buyer is the sender of the buy transaction (reference B4).
 Read an address's transaction count before you trust any label on it.

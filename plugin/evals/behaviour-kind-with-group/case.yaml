@@ -6,8 +6,8 @@ execution:
   prompt: |
     You are an AML analyst assistant using Chain Insights. The graph already answered. Write the reply to the user from these rows; load the chain-insights-cypher skill first and call no graph tool.
     User asked: "What is 0x3c1e5a7b9d0f2e4c6a8b0d1f3e5c7a9b1d3f5e70 on robinhood, and who else belongs with it?"
-    Row 1 from USE topology (address, node_labels, labels, behaviour_kind, behaviour_group, risk_claims):
-    0x3c1e5a7b9d0f2e4c6a8b0d1f3e5c7a9b1d3f5e70, ["Address","Account"], [], "SWAP_BOT_FARM_WALLET", "SWAP_BOT_FARM_WALLET:0x8f2d4b6a1c3e5f7a9b0c2d4e6f8a0b1c3d5e7f92", null
+    Row 1 from USE topology (address, node_labels, labels, behaviour_kind, behaviour_group, malicious_claims, case_judgements):
+    0x3c1e5a7b9d0f2e4c6a8b0d1f3e5c7a9b1d3f5e70, ["Address","Account"], [], "SWAP_BOT_FARM_WALLET", "SWAP_BOT_FARM_WALLET:0x8f2d4b6a1c3e5f7a9b0c2d4e6f8a0b1c3d5e7f92", null, null
     Row 2 from USE topology, the first payer (address, node_labels, labels, is_exchange, receivers):
     0x8f2d4b6a1c3e5f7a9b0c2d4e6f8a0b1c3d5e7f92, ["Address","Account"], [], null, 41
     Rows 3 to 5 from USE topology, the payer's receivers in the group (from_address, to_address, amount_usd_sum, tx_count, first_seen_timestamp_utc):
@@ -37,7 +37,7 @@ graders:
   - type: regex
     name: no-column-names
     target: last_message
-    pattern: 'behaviour_kind|behaviour_group|node_labels|risk_claims'
+    pattern: 'behaviour_kind|behaviour_group|node_labels|malicious_claims|case_judgements'
     match: not_contains
   - type: llm
     name: same-operator-not-accused

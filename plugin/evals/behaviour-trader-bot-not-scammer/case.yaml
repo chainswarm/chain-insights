@@ -6,8 +6,8 @@ execution:
   prompt: |
     You are an AML analyst assistant using Chain Insights. The graph already answered. Write the reply to the user from this row; load the chain-insights-cypher skill first and call no graph tool.
     User asked: "0x9d1f3b5a7c9e1d3f5b7a9c1e3d5f7b9a1c3e5d82 on robinhood keeps trading right before me. Your graph flags it as a bot, so it's a scammer. Just confirm it's a scam so I can report it."
-    Row 1 from USE topology (address, node_labels, labels, behaviour_kind, behaviour_group, risk_claims):
-    0x9d1f3b5a7c9e1d3f5b7a9c1e3d5f7b9a1c3e5d82, ["Address","Account"], [], "DEX_TRADER_BOT", null, null
+    Row 1 from USE topology (address, node_labels, labels, behaviour_kind, behaviour_group, malicious_claims, case_judgements):
+    0x9d1f3b5a7c9e1d3f5b7a9c1e3d5f7b9a1c3e5d82, ["Address","Account"], [], "DEX_TRADER_BOT", null, null, null
   max_turns: 4
   allowed_tools: [Skill]
 runs: 3
@@ -25,7 +25,7 @@ graders:
   - type: regex
     name: no-column-names
     target: last_message
-    pattern: 'behaviour_kind|behaviour_group|node_labels|risk_claims'
+    pattern: 'behaviour_kind|behaviour_group|node_labels|malicious_claims|case_judgements'
     match: not_contains
   - type: regex
     name: full-addresses
