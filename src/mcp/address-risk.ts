@@ -85,7 +85,7 @@ export const AML_ADDRESS_RISK_DESCRIPTION =
   'unscored means neither labels nor the model speak about the address: it is not low and not safe. ' +
   'A risky partner is listed beside the word and never changes it. ' +
   'exposed, when present, is a grade below proof: one block per scam kind the address sits near (band, steps, the way of addresses), never evidence against the address, and it never changes the word. ' +
-  'A hub (more than 50,000 links, such as the zero address or a pool manager) has its counterparties not ranked: exposure.hub is true, counterparties_read is 0, and not_read names counterparties; ask about one counterparty, or one token, instead. ' +
+  'A hub (the zero address or the dead address, whatever its link count, or an address with more than 50,000 money links, such as a pool manager) has its counterparties not ranked: exposure.hub is true, counterparties_read is 0, and not_read names counterparties; ask about one counterparty, or one token, instead. ' +
   `${ADDRESS_RISK_READING_RULE} ` +
   'Write every address in full, all 42 characters. Pass surroundings: true for the nodes and money links behind the answer, to draw.'
 
@@ -102,7 +102,10 @@ export const PARTNER_LIMIT = 25
 export const EXPOSURE_FLOOR_USD = 1
 /** The most nodes the surroundings carry. */
 export const SURROUNDINGS_NODE_LIMIT = 60
-/** The addresses that are never a partner: tokens minted from and burned to them. */
+/**
+ * The addresses that are never a partner: tokens minted from and burned to them.
+ * Each is a hub by identity, whatever its link count: see hubOf.
+ */
 export const ZERO_ADDRESSES = [
   '0x0000000000000000000000000000000000000000',
   '0x000000000000000000000000000000000000dead',
@@ -156,7 +159,7 @@ export interface ExchangeEnd {
 
 export interface Exposure {
   floor_usd: typeof EXPOSURE_FLOOR_USD
-  /** True for a hub (more than HUB_DEGREE links): its counterparties are not ranked, and none is read. */
+  /** True for a hub (a zero address, or more than HUB_DEGREE links): its counterparties are not ranked, and none is read. */
   hub: boolean
   /** The address's link count on its node, when the node carries it. */
   degree_total: number | null
@@ -285,21 +288,49 @@ export function addressNodeQuery(address: string, extra: readonly string[] = [])
  * what costs (9 s for the zero address, 17.6 s for a pool manager, against
  * under 3.5 s for every other case measured): a hub's partner reads are not
  * sent, and its counterparties are not ranked.
+ *
+ * `degree_total` counts money links only. A zero address holds far more links
+ * of other kinds (every mint and burn of every token), so its count can sit
+ * under this bound while its partner reads still time out: a zero address is
+ * a hub by identity (hubOf).
  */
 export const HUB_DEGREE = 50_000
 
-/** The link count of a hub node, or null: a node whose degree is missing is not a hub. */
-export function hubDegreeOf(row: Record<string, unknown> | undefined): number | null {
+/** Why an address is a hub: it is a zero address, or its node carries more than HUB_DEGREE links. */
+export type HubCause = 'zero_address' | 'degree'
+
+export interface Hub {
+  cause: HubCause
+  /** The node's link count, or null when the node carries none. */
+  degree: number | null
+}
+
+/** True for an address of ZERO_ADDRESSES. */
+export function isZeroAddress(address: string): boolean {
+  return (ZERO_ADDRESSES as readonly string[]).includes(address.toLowerCase())
+}
+
+/**
+ * The hub an address is, or null. A zero address is a hub whatever its node
+ * says. Any other address is a hub when its node carries more than HUB_DEGREE
+ * links; a node whose degree is missing is not a hub.
+ */
+export function hubOf(address: string, row: Record<string, unknown> | undefined): Hub | null {
   const degree = numberOrNull(row?.degree_total)
-  return degree !== null && degree > HUB_DEGREE ? degree : null
+  if (isZeroAddress(address)) return { cause: 'zero_address', degree }
+  return degree !== null && degree > HUB_DEGREE ? { cause: 'degree', degree } : null
 }
 
 /** The not-read entry of a hub's counterparties: what to ask instead. */
-export function hubNotRead(degree: number): NotRead {
+export function hubNotRead(hub: Hub): NotRead {
+  const why =
+    hub.cause === 'zero_address'
+      ? 'This is a zero address: tokens are minted from it and burned to it, so it is linked to nearly every holder.'
+      : `This address has ${hub.degree} links.`
   return {
     part: 'counterparties',
     code: 'hub',
-    reason: `This address has ${degree} links. Its counterparties are not ranked: ask about one counterparty, or one token.`,
+    reason: `${why} Its counterparties are not ranked: ask about one counterparty, or one token.`,
   }
 }
 
@@ -460,7 +491,7 @@ function partnersOf(
     const address = addressOrNull(row.address)
     if (!address) continue
     const nodeLabels = strings(row.node_labels)
-    if (isTokenContract(nodeLabels) || (ZERO_ADDRESSES as readonly string[]).includes(address)) {
+    if (isTokenContract(nodeLabels) || isZeroAddress(address)) {
       leftOut += 1
       continue
     }
@@ -617,7 +648,7 @@ export function addressRiskFromMembers(
 
   const notRead: NotRead[] = []
   const degree = numberOrNull(nodeRow.degree_total)
-  const hub = options.hubGuard === true ? hubDegreeOf(nodeRow) : null
+  const hub = options.hubGuard === true ? hubOf(address, nodeRow) : null
   if (hub !== null) notRead.push(hubNotRead(hub))
   const directions: Array<{ id: string; part: NotReadPart; direction: PartnerDirection }> =
     hub !== null
@@ -787,7 +818,7 @@ export async function handleAmlAddressRisk(
   const members = first.members
   const nodeRow = memberRows(members.get('node'))[0]
   // Call 2: the partner reads, unless the address is not found or is a hub.
-  if (nodeRow && hubDegreeOf(nodeRow) === null) {
+  if (nodeRow && hubOf(address, nodeRow) === null) {
     const second = await read(partnerQueries)
     if ('failure' in second) {
       for (const { id } of partnerQueries) members.set(id, { id, ok: false, error: second.failure })

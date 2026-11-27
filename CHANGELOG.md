@@ -3,6 +3,19 @@
 
 All notable changes to Chain Insights are recorded here.
 
+## [0.93.3] - 2026-11-27 — the zero address is a hub, whatever its link count
+
+### Fixed
+
+- `aml_address_risk` and `aml_token_risk` treat the zero address
+  `0x0000000000000000000000000000000000000000` and the dead address
+  `0x000000000000000000000000000000000000dead` as hubs, whatever their
+  `degree_total`. That count holds money links only, so the zero address sat
+  under the 50,000 bound while it holds millions of mint and burn links, and
+  its partner reads timed out. Now its counterparties are not ranked,
+  `exposure.hub` is `true`, and `not_read` names `counterparties` with code
+  `hub` and a reason that says it is a zero address.
+
 ## [0.93.2] - 2026-11-26 — the graph view is rebuilt
 
 ### Changed

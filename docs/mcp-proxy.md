@@ -384,14 +384,19 @@ flowchart LR
   nothing. `exposed_pass` is never read.
 - `exchange_ends` lists the exchange wallets the address paid or was paid by,
   named through the exchange lookup.
-- The node is read first, alone, in its own call. A hub, a node with more
-  than 50,000 links (`degree_total`, such as the zero address or a pool
-  manager), has its counterparties not ranked: the two partner reads are not
-  sent, `exposure.hub` is `true` with its `degree_total`,
-  `counterparties_read` is `0`, and `not_read` names part `counterparties`
-  with code `hub`. Ask about one counterparty, or one token, instead. The
-  word still comes from the card and the model. A node with no
-  `degree_total` is not a hub.
+- The node is read first, alone, in its own call. A hub has its
+  counterparties not ranked: the two partner reads are not sent,
+  `exposure.hub` is `true` with its `degree_total`, `counterparties_read` is
+  `0`, and `not_read` names part `counterparties` with code `hub`. Ask about
+  one counterparty, or one token, instead. The word still comes from the card
+  and the model. Two kinds of address are hubs:
+  - the zero address `0x0000000000000000000000000000000000000000` and the
+    dead address `0x000000000000000000000000000000000000dead`, whatever
+    their `degree_total`. `degree_total` counts money links only, and these
+    two hold millions of mint and burn links besides;
+  - any other address whose node has more than 50,000 links
+    (`degree_total`), such as a pool manager. A node with no `degree_total`
+    is not a hub.
 - `not_read` names a partner read that did not answer, with its code; the
   answer still stands. A failed address read is an error.
 - With `surroundings: true` the answer adds the nodes (at most 60) and the
