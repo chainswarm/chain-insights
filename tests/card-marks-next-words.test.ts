@@ -209,6 +209,7 @@ describe('card marks of a card_version 4 node, as staging serves it', () => {
     const result = screen(STAGING[OFAC]!, STAGING[DEPLOYER]!)
     expect(result.launcher!.crime).toEqual([
       { kind: 'sanctioned', value: 'Sanctioned', level: null },
+      { kind: 'risk', value: 'Lazarus Group', level: 'critical' },
     ])
     expect(result.launcher!.roles).toEqual([])
     expect(result.first_funder!.kind).toBe('scam')
@@ -226,6 +227,7 @@ describe('card marks of a card_version 4 node, as staging serves it', () => {
     expect(result.first_funder!.kind).toBe('wallet')
     expect(result.first_funder!.crime).toEqual([
       { kind: 'sanctioned', value: 'Sanctioned', level: null },
+      { kind: 'risk', value: 'Lazarus Group', level: 'critical' },
     ])
   })
 

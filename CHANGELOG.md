@@ -5,6 +5,18 @@ All notable changes to Chain Insights are recorded here.
 
 ## [Unreleased]
 
+## [0.93.7] - 2026-11-27 — the deployer screen keeps the sanctioned entity's name
+
+### Fixed
+
+- `aml_deployer_screen` names the sanctioned entity again on a card of
+  `card_version` 4 or above. 0.93.6 stopped reading the risk-label lists on
+  such a card, so an OFAC-listed launcher showed `sanctioned` but no longer
+  `Lazarus Group`. The graph still serves those lists on the new card. The
+  screen now adds one `risk` entry per risk label that names more than a
+  mark word (`Malicious`, `Victim`, `Sanctioned` and the like are skipped,
+  since the case judgements already say them), with its level.
+
 ## [0.93.6] - 2026-11-27 — the flows tools and the deployer screen read the new words
 
 ### Fixed
@@ -23,7 +35,7 @@ All notable changes to Chain Insights are recorded here.
   - Deployer screen: `crime` lists `sanctioned`, `malicious` with the case
     type (such as `fake-token`) and `victim`. A funder with a malicious case
     other than a sanctions listing is of kind `scam`. The risk-label lists
-    are not read on such a card.
+    are not read on such a card (0.93.7 reads them again for entity names).
   - A card of an older version keeps its flags and reads as before:
     `is_malicious` alone on it sets no role.
 - The `graph_query` description and the workspace runtime notes name the
